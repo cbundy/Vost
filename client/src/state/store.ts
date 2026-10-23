@@ -97,6 +97,8 @@ export interface AppState {
   toasts: Toast[];
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
+  /** Full browsable symbol list per provider id, once loaded. */
+  symbolCatalog: Record<string, SymbolSuggestion[]>;
   watchlists: wl.WatchlistState;
 
   /* actions */
@@ -145,6 +147,10 @@ export interface AppState {
   applyOptimizeRow(row: OptimizeRow): Promise<void>;
   setLive(v: boolean): void;
   searchSymbols(query: string): Promise<void>;
+  /** Loads the provider's full symbol list once (silent fallback to popular symbols on error). */
+  loadSymbolCatalog(): Promise<void>;
+  /** Adds a suggestion to the active watchlist for the current provider. */
+  addSymbolToWatchlist(s: SymbolSuggestion): void;
   pushToast(kind: Toast['kind'], text: string): void;
   dismissToast(id: string): void;
 }
@@ -291,6 +297,7 @@ export const useStore = create<AppState>()((set, get) => {
     toasts: [],
     symbolQuery: '',
     symbolSuggestions: [],
+    symbolCatalog: {},
     watchlists: wl.emptyState(),
 
     updateWatchlists(fn) {
@@ -599,6 +606,38 @@ export const useStore = create<AppState>()((set, get) => {
       } catch {
         set({ symbolSuggestions: provider.popularSymbols });
       }
+    },
+
+    async loadSymbolCatalog() {
+      const providerId = get().providerId;
+      if (get().symbolCatalog[providerId]) return;
+      const provider = getProvider(providerId);
+      if (!provider.listSymbols) return;
+      let list: SymbolSuggestion[];
+      try {
+        list = await provider.listSymbols();
+        if (list.length === 0) list = provider.popularSymbols;
+      } catch {
+        list = provider.popularSymbols;
+      }
+      set({ symbolCatalog: { ...get().symbolCatalog, [providerId]: list } });
+    },
+
+    addSymbolToWatchlist(sug) {
+      const { watchlists, providerId } = get();
+      const list = watchlists.lists.find((l) => l.id === watchlists.activeListId);
+      if (!list) return;
+      const exists = list.sections.some((sec) =>
+        sec.items.some((it) => it.providerId === providerId && it.symbol === sug.symbol),
+      );
+      if (exists) {
+        get().pushToast('info', `${sug.symbol} is already in ${list.name}.`);
+        return;
+      }
+      get().updateWatchlists((s) =>
+        wl.addItem(s, s.activeListId, { providerId, symbol: sug.symbol, label: sug.label }),
+      );
+      get().pushToast('success', `Added ${sug.symbol} to ${list.name}.`);
     },
 
     pushToast(kind, text) {
