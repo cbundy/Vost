@@ -3,6 +3,7 @@
  * Reconnects with exponential backoff; falls back to data-stream host.
  */
 import type { Candle } from '../types';
+import { formatClose, type MessageSeverity } from './messages';
 import { binanceStreamFallbackUrl, binanceStreamUrl, BINANCE_INTERVALS } from './providers/binance';
 
 export type LiveStatus = 'off' | 'connecting' | 'live' | 'reconnecting' | 'error';
@@ -16,10 +17,13 @@ export function startBinanceLive(opts: {
   timeframe: string;
   onKline: (candle: Candle, isClosed: boolean) => void;
   onStatus: (status: LiveStatus, detail?: string) => void;
+  /** One entry per failure, for the in-app message log. */
+  onLog?: (severity: MessageSeverity, text: string) => void;
 }): LiveHandle {
   const interval = BINANCE_INTERVALS[opts.timeframe];
   if (!interval) {
     opts.onStatus('error', `Live data does not support ${opts.timeframe}`);
+    opts.onLog?.('error', `Live data does not support timeframe ${opts.timeframe} for ${opts.symbol}.`);
     return { stop: () => undefined };
   }
 
@@ -28,15 +32,19 @@ export function startBinanceLive(opts: {
   let attempts = 0;
   let usingFallback = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let currentUrl = '';
 
   const connect = (): void => {
     if (stopped) return;
     opts.onStatus(attempts === 0 ? 'connecting' : 'reconnecting');
     const url = usingFallback ? binanceStreamFallbackUrl(opts.symbol, interval) : binanceStreamUrl(opts.symbol, interval);
+    currentUrl = url;
     try {
       ws = new WebSocket(url);
     } catch (err) {
-      opts.onStatus('error', err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      opts.onStatus('error', msg);
+      opts.onLog?.('error', `Could not open ${url}: ${msg}`);
       return;
     }
 
@@ -69,15 +77,23 @@ export function startBinanceLive(opts: {
     };
 
     ws.onerror = () => {
-      /* onclose handles retries */
+      /* onclose handles retries and logging (browsers expose no error detail) */
     };
 
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       if (stopped) return;
       attempts++;
-      if (attempts >= 3 && !usingFallback) usingFallback = true;
+      opts.onLog?.('warning', `Live connection to ${currentUrl} failed (attempt ${attempts}): ${formatClose(ev)}.`);
+      if (attempts >= 3 && !usingFallback) {
+        usingFallback = true;
+        opts.onLog?.('warning', 'Switching to the fallback stream host data-stream.binance.vision.');
+      }
       if (attempts > 8) {
-        opts.onStatus('error', 'Live connection lost');
+        opts.onStatus('error', 'Live connection lost - see the inbox for details');
+        opts.onLog?.(
+          'error',
+          `Giving up on live data for ${opts.symbol} ${opts.timeframe} after ${attempts} attempts (last: ${currentUrl}). Binance may be blocked in your region or by a firewall.`,
+        );
         return;
       }
       const delay = Math.min(15000, 700 * 2 ** (attempts - 1));
