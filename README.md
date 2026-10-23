@@ -88,6 +88,8 @@ npm run typecheck  # strict TypeScript
 | **Demo (offline)** | Synthetic | No | — | Deterministic random walk — try the whole app with zero network. |
 | **CSV import** | Anything you have | No | — | Fully offline workflow. See below. |
 
+For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
+
 All remote requests go through the app's own tiny proxy (`/api/proxy?url=…`) which only forwards to a **whitelist** of hosts (`server/index.mjs → ALLOWED_HOSTS`). Your browser never talks to third parties directly unless you deploy static-only with `VITE_DIRECT=true`.
 
 > **Bring your own API:** implement the `DataProvider` interface in `client/src/lib/providers/` and register it — the UI picks it up automatically in the provider dropdown. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-data-provider).
@@ -191,7 +193,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 - [ ] Drawing tools (trend lines, fibs, rectangles)
 - [ ] Alerts on price/indicator conditions
 - [ ] Multiple chart layouts & compare mode
-- [ ] More providers (Alpha Vantage, Twelve Data, your broker)
+- [ ] More providers: keyless crypto exchanges (Coinbase, Kraken, Bybit, OKX) then free-key Twelve Data and Alpha Vantage - see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)
 - [ ] Walk-forward & portfolio (multi-asset) backtesting
 - [ ] PWA install for full offline app caching
 - [ ] Indicator/strategy plugin files loaded from disk
