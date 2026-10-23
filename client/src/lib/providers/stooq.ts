@@ -4,7 +4,9 @@
  */
 import Papa from 'papaparse';
 import type { Candle, Timeframe } from '../../types';
-import { fetchText, type DataProvider, type HistoryRequest } from './http';
+import { matchSymbols } from './symbolMatch';
+import { STOOQ_SYMBOLS } from './stooqSymbols';
+import { fetchText, type DataProvider, type HistoryRequest, type SymbolSuggestion } from './http';
 
 const STOOQ_INTERVALS: Partial<Record<Timeframe, string>> = {
   '1d': 'd',
@@ -33,6 +35,15 @@ export const stooqProvider: DataProvider = {
     { symbol: 'usdjpy', label: 'USD / JPY', exchange: 'FX', type: 'forex' },
     { symbol: 'xauusd', label: 'Gold / USD', exchange: 'XAU', type: 'commodity' },
   ],
+
+  async listSymbols(): Promise<SymbolSuggestion[]> {
+    return STOOQ_SYMBOLS;
+  },
+
+  async searchSymbols(query: string): Promise<SymbolSuggestion[]> {
+    if (!query.trim()) return STOOQ_SYMBOLS;
+    return matchSymbols(STOOQ_SYMBOLS, query);
+  },
 
   async fetchHistory(req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]> {
     const i = STOOQ_INTERVALS[req.timeframe];

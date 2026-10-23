@@ -91,6 +91,8 @@ export interface DataProvider {
   defaultTimeframe: Timeframe;
   defaultSymbol: string;
   popularSymbols: SymbolSuggestion[];
+  /** The provider's full tradable list, when it has one (browsable in the symbol search). */
+  listSymbols?(signal?: AbortSignal): Promise<SymbolSuggestion[]>;
   searchSymbols?(query: string, signal?: AbortSignal): Promise<SymbolSuggestion[]>;
   fetchHistory(req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]>;
 }
