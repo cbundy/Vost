@@ -5,6 +5,7 @@
  * Heavy computations run in a dedicated Web Worker; this module only talks to
  * it over a tiny promise-based message protocol.
  */
+import { applyKline } from '../lib/applyKline';
 import { create } from 'zustand';
 import type { Candle, Dataset, Timeframe } from '../types';
 import { uid } from '../types';
@@ -521,16 +522,9 @@ export const useStore = create<AppState>()((set, get) => {
         onLog: (severity, text) => get().pushMessage('Live', severity, text),
         onStatus: (status, detail) => set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' }),
         onKline: (candle, closed) => {
-          const candles = get().candles;
-          if (candles.length === 0) return;
-          const last = candles[candles.length - 1];
-          if (candle.time === last.time) {
-            const next = candles.slice();
-            next[next.length - 1] = candle;
-            set({ candles: next });
-          } else if (candle.time > last.time) {
-            set({ candles: [...candles, candle] });
-          }
+          const prev = get().candles;
+          const next = applyKline(prev, candle);
+          if (next !== prev) set({ candles: next });
           if (closed && get().showTrades && get().btResult) {
             /* keep backtest results untouched; user re-runs manually */
           }
