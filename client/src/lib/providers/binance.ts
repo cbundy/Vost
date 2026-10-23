@@ -4,6 +4,7 @@
  */
 import type { Candle, Timeframe } from '../../types';
 import { fetchJson, sortCandles, type DataProvider, type HistoryRequest, type SymbolSuggestion } from './http';
+import { startBinanceLive } from '../live';
 import { loadJson, saveJson } from '../storage';
 
 const HOSTS = ['https://api.binance.com', 'https://data-api.binance.vision'];
@@ -109,6 +110,7 @@ export const binanceProvider: DataProvider = {
   name: 'Binance',
   description: 'Free public crypto market data — REST klines + live websocket. No key needed.',
   supportsLive: true,
+  startLive: (opts) => startBinanceLive(opts),
   needsProxy: true,
   timeframes: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'],
   defaultTimeframe: '1h',

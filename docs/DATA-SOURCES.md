@@ -16,16 +16,16 @@ How to read it:
 | Binance | Crypto spot | No | Yes (ws) | 1000 | Yes (`*`) | Yes |
 | Yahoo Finance | Stocks, ETFs, indices, FX, crypto | No | No (delayed) | Range based | No | Yes |
 | Stooq | Stocks, indices, FX, crypto | No | No | Whole history (CSV) | Bot check blocks | Yes |
-| Coinbase Exchange | Crypto spot | No | Yes (ws) | 300 | Yes (`*`) | No |
-| Kraken | Crypto spot | No | Yes (ws) | 720 | No | No |
-| Bybit | Crypto spot, derivatives | No | Yes (ws) | 1000 | Echoes origin | No |
-| OKX | Crypto spot, derivatives | No | Yes (ws) | 100 (history) | Echoes origin | No |
+| Coinbase Exchange | Crypto spot | No | Yes (ws, no candle channel) | 300 | Yes (`*`) | Yes (history only) |
+| Kraken | Crypto spot | No | Yes (ws) | 720 | No | Yes |
+| Bybit | Crypto spot, derivatives | No | Yes (ws) | 1000 | Echoes origin | Yes (spot) |
+| OKX | Crypto spot, derivatives | No | Yes (ws) | 100 (history) | Echoes origin | Yes (spot) |
 | Alpha Vantage | Stocks, FX, crypto | Free key | No | Full / compact series | Not checked (needs key) | No |
 | Twelve Data | Stocks, FX, crypto, ETFs | Free key | Websocket (paid tiers, verify) | 5000 | Not checked (needs key) | No |
 | Finnhub | Stocks, FX, crypto | Free key | Yes (ws trades) | Varies | Not checked (needs key) | No |
 | Tiingo | Stocks, ETFs, FX, crypto | Free key | Yes (ws, IEX) | Date range | Not checked (needs key) | No |
 
-Recommended next: the four keyless crypto exchanges (Coinbase, Kraken, Bybit, OKX; tracked in #11), then Twelve Data and Alpha Vantage as the free-key equity and FX sources. Finnhub and Tiingo are lower priority (see their sections).
+Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX sources. Finnhub and Tiingo are lower priority (see their sections).
 
 ## Binance (supported)
 
@@ -69,28 +69,28 @@ Recommended next: the four keyless crypto exchanges (Coinbase, Kraken, Bybit, OK
 - ToS: no API terms published; treat as personal use. [Site](https://stooq.com).
 - Checked 2026-10-23: `stooq.com/q/d/l/?s=aapl.us&i=d` returned HTTP 200 but the body was an HTML page saying "This site requires JavaScript to verify your browser", not CSV. Stooq is blocked from this container; the README already names Yahoo and CSV import as fallbacks.
 
-## Coinbase Exchange (not supported)
+## Coinbase Exchange (supported, history only)
 
 - Assets: crypto spot (`BTC-USD`, USD, EUR, GBP and stablecoin quotes).
 - Symbol listing: `GET https://api.exchange.coinbase.com/products`.
 - Candles: `GET /products/<id>/candles?granularity=<seconds>&start=&end=`.
-- Timeframes: 1m, 5m, 15m, 1h, 6h, 1d only (granularity 60, 300, 900, 3600, 21600, 86400). No 4h; build it from 1h.
+- Timeframes: 1m, 5m, 15m, 1h, 6h, 1d only (granularity 60, 300, 900, 3600, 21600, 86400). No 4h; build it from 1h. Vost offers 1m, 5m, 15m, 1h and 1d (it has no 6h timeframe).
 - History: at most 300 candles per request; paginate by `start`/`end`. Candles are only returned for periods with trades.
 - Rate limits: public endpoints 10 requests per second per IP (burst 15). [Docs](https://docs.cdp.coinbase.com/exchange/docs/rest-rate-limits).
 - CORS / proxy: CORS `*`, so direct calls work. For the proxy add `api.exchange.coinbase.com`.
-- Live: websocket `wss://ws-feed.exchange.coinbase.com`. [Docs](https://docs.cdp.coinbase.com/exchange/docs/websocket-overview).
+- Live: websocket `wss://ws-feed.exchange.coinbase.com`. [Docs](https://docs.cdp.coinbase.com/exchange/docs/websocket-overview). The feed has no candle channel, so Vost does not offer live streaming for Coinbase.
 - Key: none for market data.
 - ToS: market data is for use by the user; redistribution is restricted. [Terms](https://www.coinbase.com/legal/market_data).
 - Docs: [API reference](https://docs.cdp.coinbase.com/exchange/docs/welcome).
 - Checked 2026-10-23: `api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600` returned 200 with 350 rows (newest first, rows `[time, low, high, open, close, volume]`); `/products` returned 200 with 843 products. Note the 350 rows exceed the documented 300 cap; code for 300.
 
-## Kraken (not supported)
+## Kraken (supported)
 
 - Assets: crypto spot (and some fiat pairs); odd names such as `XBT` for BTC and `XXBTZUSD` as result keys.
 - Symbol listing: `GET https://api.kraken.com/0/public/AssetPairs`.
 - Candles: `GET /0/public/OHLC?pair=&interval=<minutes>&since=`.
 - Timeframes: 1, 5, 15, 30, 60, 240, 1440, 10080, 21600 minutes.
-- History: the last 720 candles only, regardless of `since`. Longer history needs the trades endpoint or the downloadable CSV files.
+- History: the last 720 candles only, regardless of `since`. Longer history needs the trades endpoint or the downloadable CSV files. Vost therefore caps Kraken history at 720 bars.
 - Rate limits: public calls share a counter per IP; roughly 1 call per second sustained. [Docs](https://docs.kraken.com/api/docs/guides/spot-rest-ratelimits).
 - CORS / proxy: no CORS headers seen, so use the proxy. Add `api.kraken.com`.
 - Live: websocket v2 `wss://ws.kraken.com/v2`. [Docs](https://docs.kraken.com/api/docs/websocket-v2/ohlc).
@@ -99,7 +99,7 @@ Recommended next: the four keyless crypto exchanges (Coinbase, Kraken, Bybit, OK
 - Docs: [REST API](https://docs.kraken.com/api/).
 - Checked 2026-10-23: `api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=60` returned 200 with 721 candles (720 plus the open one); `/0/public/AssetPairs` returned 200 with 1463 pairs.
 
-## Bybit (not supported)
+## Bybit (supported, spot)
 
 - Assets: crypto spot, linear and inverse derivatives (`category` selects).
 - Symbol listing: `GET https://api.bybit.com/v5/market/instruments-info?category=spot`.
@@ -114,7 +114,7 @@ Recommended next: the four keyless crypto exchanges (Coinbase, Kraken, Bybit, OK
 - Docs: [V5 API](https://bybit-exchange.github.io/docs/v5/intro).
 - Checked 2026-10-23: `api.bybit.com/v5/market/kline?category=spot&symbol=BTCUSDT&interval=60&limit=1000` returned 200, retCode 0, 1000 candles (newest first, strings); `instruments-info?category=spot` returned 200 with 527 instruments.
 
-## OKX (not supported)
+## OKX (supported, spot)
 
 - Assets: crypto spot, swaps, futures, options (`BTC-USDT`).
 - Symbol listing: `GET https://www.okx.com/api/v5/public/instruments?instType=SPOT`.

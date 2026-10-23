@@ -15,7 +15,7 @@ import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
 import { runFullBacktest } from '../lib/backtest/runner';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
-import { startBinanceLive, type LiveHandle, type LiveStatus } from '../lib/live';
+import type { LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce } from '../lib/storage';
 import * as wl from '../lib/watchlist';
@@ -381,7 +381,7 @@ export const useStore = create<AppState>()((set, get) => {
         if (candles.length < 2) throw new Error(`Not enough data returned for ${symbol}.`);
         setCandles(candles, `${provider.name} · ${symbol} · ${tf}`, null);
         const s = get();
-        if (s.live && provider.supportsLive) s.setLive(true); // reconnect for the new symbol/tf
+        if (s.live && provider.startLive) s.setLive(true); // reconnect for the new symbol/tf
         else if (s.live) s.setLive(false);
       } catch (err) {
         set({ loadState: 'error' });
@@ -558,13 +558,13 @@ export const useStore = create<AppState>()((set, get) => {
         stopLive();
         return;
       }
-      if (!provider.supportsLive) {
-        get().pushToast('info', 'Live streaming is only available for Binance data.');
+      if (!provider.startLive) {
+        get().pushToast('info', `Live streaming is not available for ${provider.name} data.`);
         return;
       }
       liveHandle?.stop();
       set({ live: true, liveStatus: 'connecting', liveDetail: '' });
-      liveHandle = startBinanceLive({
+      liveHandle = provider.startLive({
         symbol,
         timeframe,
         onStatus: (status, detail) => set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' }),

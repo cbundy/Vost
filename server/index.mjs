@@ -36,6 +36,10 @@ const ALLOWED_HOSTS = new Set([
   'query2.finance.yahoo.com',
   'stooq.com',
   'stooq.pl',
+  'api.exchange.coinbase.com',
+  'api.kraken.com',
+  'api.bybit.com',
+  'www.okx.com',
 ]);
 
 // A minimal, widely-accepted user-agent. Yahoo's edge rejects both empty UAs

@@ -83,6 +83,10 @@ npm run typecheck  # strict TypeScript
 | Provider | Coverage | Key needed | Live | Notes |
 |---|---|---|---|---|
 | **Binance** | Crypto (1000+ pairs) | No | ✅ | Public REST + websocket. Falls back to `data-api.binance.vision` when the main host is region-blocked. |
+| **Coinbase** | Crypto spot | No | — | Public REST candles (300 per request). The public feed has no candle channel, so no live streaming. |
+| **Kraken** | Crypto spot | No | ✅ | Public REST + websocket v2. History is limited to the latest 720 candles per timeframe. |
+| **Bybit** | Crypto spot | No | ✅ | Public v5 REST (1000 per request) + websocket. |
+| **OKX** | Crypto spot | No | ✅ | Public v5 history candles (100 per request) + websocket. |
 | **Yahoo Finance** | Stocks, ETFs, indices, FX, crypto | No | — | Public chart API (delayed). Intraday history limits apply (1m ≈ 7 days, 1h ≈ 2 years). |
 | **Stooq** | Stocks, indices, FX, crypto | No | — | Daily/weekly/monthly CSV downloads. Some cloud/VPS IPs are challenged by Stooq's bot protection — Yahoo or CSV import are good fallbacks there. |
 | **Demo (offline)** | Synthetic | No | — | Deterministic random walk — try the whole app with zero network. |

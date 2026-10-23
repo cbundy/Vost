@@ -77,14 +77,29 @@ export interface SymbolSuggestion {
   type?: string;
 }
 
+export type LiveStatus = 'off' | 'connecting' | 'live' | 'reconnecting' | 'error';
+
+export interface LiveHandle {
+  stop(): void;
+}
+
+export interface LiveOptions {
+  symbol: string;
+  timeframe: string;
+  onKline: (candle: Candle, isClosed: boolean) => void;
+  onStatus: (status: LiveStatus, detail?: string) => void;
+}
+
 export interface DataProvider {
   id: string;
   name: string;
   description: string;
   /** Works without any network connection. */
   offline?: boolean;
-  /** Supports realtime websocket updates. */
+  /** Supports realtime websocket updates (true exactly when `startLive` is present). */
   supportsLive?: boolean;
+  /** Opens a realtime candle stream; present only when `supportsLive` is true. */
+  startLive?(opts: LiveOptions): LiveHandle;
   /** Needs the Node proxy for CORS (true) — informational only. */
   needsProxy?: boolean;
   timeframes: Timeframe[];

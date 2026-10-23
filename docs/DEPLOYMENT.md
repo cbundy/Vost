@@ -154,9 +154,9 @@ VITE_DIRECT=true npm run build
 # deploy client/dist/ anywhere
 ```
 
-In this mode the browser calls Binance / Yahoo / Stooq directly. Consequences:
+In this mode the browser calls the exchanges / Yahoo / Stooq directly. Consequences:
 
-- **Binance works** (it sends permissive CORS headers).
+- **Binance and Coinbase work** (they send permissive CORS headers). Bybit and OKX echo the request origin, so they are expected to work too; Kraken sends no CORS headers and needs the Node proxy.
 - **Yahoo and Stooq do not send CORS headers** — those providers will fail in the browser (their JSON is still useful via the Node proxy; use Docker/Node for them).
 - **CSV import, the Demo provider and all backtesting are unaffected** — they never touch the network.
 
@@ -193,4 +193,4 @@ Runtime variables are read once at process start; build-time variables are **bak
 
 ## Data provider terms
 
-The bundled providers use only public, keyless endpoints (Binance REST/WS, Yahoo chart API, Stooq CSV downloads). They are intended for **personal research use**; if you run a heavily-trafficked public instance, review each provider's terms of service and rate limits first — or plug in your own licensed data API (see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-data-provider)).
+The bundled providers use only public, keyless endpoints (Binance, Coinbase, Kraken, Bybit and OKX REST/WS, Yahoo chart API, Stooq CSV downloads). They are intended for **personal research use**; if you run a heavily-trafficked public instance, review each provider's terms of service and rate limits first — or plug in your own licensed data API (see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-data-provider)).
