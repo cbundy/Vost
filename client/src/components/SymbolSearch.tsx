@@ -80,6 +80,12 @@ export function SymbolSearch() {
     return out;
   }, [browsing, suggestions, catalog, provider, providerId]);
 
+  /* The list element remounts on open and its content changes with the rows: start from the top. */
+  useEffect(() => {
+    setScrollTop(0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [open, rows]);
+
   const itemIdx = useMemo(() => rows.flatMap((r, i) => (r.kind === 'item' ? [i] : [])), [rows]);
   const picked = itemIdx.length > 0 ? rows[itemIdx[Math.min(activeIdx, itemIdx.length - 1)]] : undefined;
 
