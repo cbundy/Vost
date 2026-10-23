@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@callum/dev-system": "github:cbundy/dev-system#semver:0.x",
-    "@types/node": "^22.15.0",
+    "@types/node": "^24",
     "@types/papaparse": "^5.3.15",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

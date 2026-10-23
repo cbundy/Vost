@@ -60,7 +60,7 @@ docker compose up -d
 
 Open <http://localhost:8787>. Done.
 
-### Local (Node 20.19+)
+### Local (Node 24 recommended, 20.19+ supported)
 
 ```bash
 git clone https://github.com/AuthorShin/Vost.git

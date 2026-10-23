@@ -52,7 +52,7 @@ docker compose up -d --build
 
 ## Plain Node / systemd
 
-Requirements: Node **20.19+** (`node --version`).
+Requirements: Node **24** recommended (`node --version`); Node 20.19+ is the minimum supported.
 
 ```bash
 git clone https://github.com/AuthorShin/Vost.git

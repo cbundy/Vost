@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- build stage: install deps + build the client ----------
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 # Install dependencies first so Docker can cache this layer.
@@ -13,7 +13,7 @@ COPY client ./client
 RUN npm run build
 
 # ---------- runtime stage: zero-dependency server + built assets ----------
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production \
