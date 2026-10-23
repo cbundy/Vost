@@ -16,8 +16,9 @@ import { runFullBacktest } from '../lib/backtest/runner';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import { startBinanceLive, type LiveHandle, type LiveStatus } from '../lib/live';
-import { getProvider, type SymbolSuggestion } from '../lib/providers';
+import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce } from '../lib/storage';
+import * as wl from '../lib/watchlist';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
 export interface Toast {
@@ -96,8 +97,31 @@ export interface AppState {
   toasts: Toast[];
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
+  watchlists: wl.WatchlistState;
 
   /* actions */
+  /** Applies a pure watchlist transform (see lib/watchlist.ts) and persists it. */
+  updateWatchlists(fn: (s: wl.WatchlistState) => wl.WatchlistState): void;
+  createWatchlist(name: string): void;
+  renameWatchlist(listId: string, name: string): void;
+  deleteWatchlist(listId: string): void;
+  duplicateWatchlist(listId: string): void;
+  setActiveWatchlist(listId: string): void;
+  addWatchSection(listId: string, name: string): void;
+  renameWatchSection(listId: string, sectionId: string, name: string): void;
+  removeWatchSection(listId: string, sectionId: string): void;
+  moveWatchSection(listId: string, sectionId: string, toIndex: number): void;
+  addWatchItem(listId: string, item: { providerId: string; symbol: string; label?: string }, sectionId?: string): void;
+  removeWatchItem(listId: string, providerId: string, symbol: string): void;
+  moveWatchItem(listId: string, providerId: string, symbol: string, toSectionId: string, toIndex: number): void;
+  setWatchNote(listId: string, providerId: string, symbol: string, note: string): void;
+  setWatchItemTags(listId: string, providerId: string, symbol: string, tags: string[]): void;
+  createWatchTag(name: string, color: string): void;
+  renameWatchTag(tagId: string, name: string): void;
+  setWatchTagColor(tagId: string, color: string): void;
+  deleteWatchTag(tagId: string): void;
+  /** Imports an exported list; returns an error string or null on success. */
+  importWatchlist(json: string): string | null;
   init(): void;
   setProvider(id: string): void;
   setSymbol(symbol: string, opts?: { load?: boolean }): void;
@@ -214,6 +238,10 @@ export const useStore = create<AppState>()((set, get) => {
     } satisfies Prefs);
   }, 400);
 
+  const persistWatchlists = debounce(() => {
+    wl.saveWatchlists(get().watchlists);
+  }, 400);
+
   const persistDatasets = debounce(() => {
     const datasets = get().datasets;
     const res = saveJson(DATASETS_KEY, datasets);
@@ -263,11 +291,43 @@ export const useStore = create<AppState>()((set, get) => {
     toasts: [],
     symbolQuery: '',
     symbolSuggestions: [],
+    watchlists: wl.emptyState(),
+
+    updateWatchlists(fn) {
+      set({ watchlists: fn(get().watchlists) });
+      persistWatchlists();
+    },
+    createWatchlist: (name) => get().updateWatchlists((s) => wl.createList(s, name)),
+    renameWatchlist: (id, name) => get().updateWatchlists((s) => wl.renameList(s, id, name)),
+    deleteWatchlist: (id) => get().updateWatchlists((s) => wl.deleteList(s, id)),
+    duplicateWatchlist: (id) => get().updateWatchlists((s) => wl.duplicateList(s, id)),
+    setActiveWatchlist: (id) => get().updateWatchlists((s) => wl.setActiveList(s, id)),
+    addWatchSection: (id, name) => get().updateWatchlists((s) => wl.addSection(s, id, name)),
+    renameWatchSection: (id, sec, name) => get().updateWatchlists((s) => wl.renameSection(s, id, sec, name)),
+    removeWatchSection: (id, sec) => get().updateWatchlists((s) => wl.removeSection(s, id, sec)),
+    moveWatchSection: (id, sec, to) => get().updateWatchlists((s) => wl.moveSection(s, id, sec, to)),
+    addWatchItem: (id, item, sec) => get().updateWatchlists((s) => wl.addItem(s, id, item, sec)),
+    removeWatchItem: (id, p, sym) => get().updateWatchlists((s) => wl.removeItem(s, id, p, sym)),
+    moveWatchItem: (id, p, sym, sec, to) => get().updateWatchlists((s) => wl.moveItem(s, id, p, sym, sec, to)),
+    setWatchNote: (id, p, sym, note) => get().updateWatchlists((s) => wl.setNote(s, id, p, sym, note)),
+    setWatchItemTags: (id, p, sym, tags) => get().updateWatchlists((s) => wl.setItemTags(s, id, p, sym, tags)),
+    createWatchTag: (name, color) => get().updateWatchlists((s) => wl.createTag(s, name, color)),
+    renameWatchTag: (id, name) => get().updateWatchlists((s) => wl.renameTag(s, id, name)),
+    setWatchTagColor: (id, color) => get().updateWatchlists((s) => wl.setTagColor(s, id, color)),
+    deleteWatchTag: (id) => get().updateWatchlists((s) => wl.deleteTag(s, id)),
+    importWatchlist(json) {
+      const res = wl.importList(json, get().watchlists);
+      if (typeof res === 'string') return res;
+      set({ watchlists: res });
+      persistWatchlists();
+      return null;
+    },
 
     init() {
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
       set({
+        watchlists: wl.loadWatchlists(providers),
         providerId: prefs.providerId ?? defaultPrefs.providerId,
         symbol: prefs.symbol ?? defaultPrefs.symbol,
         timeframe: prefs.timeframe ?? defaultPrefs.timeframe,
