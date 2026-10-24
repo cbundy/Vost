@@ -3,6 +3,7 @@ import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
 import { getProvider } from '../lib/providers';
 import type { PineInput, PineInputValue } from '../lib/pine/types';
+import { PineEditor } from './PineEditor';
 import { useStore, type PineRunState } from '../state/store';
 
 export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
@@ -261,15 +262,7 @@ function PineEntry({
   const inputs = run?.result?.inputs ?? [];
   return (
     <div className="pine-entry">
-      <textarea
-        className="pine-source"
-        aria-label="Pine source"
-        spellCheck={false}
-        rows={8}
-        value={source}
-        onChange={(ev) => onSource(ev.target.value)}
-        style={{ width: '100%', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, resize: 'vertical' }}
-      />
+      <PineEditor value={source} onChange={onSource} error={error} ariaLabel="Pine source" minHeight={140} />
       {run?.running && <div className="muted-2" style={{ fontSize: 11.5 }}>Running…</div>}
       {error && (
         <div className="pine-error" role="alert" style={{ color: 'var(--neg, #ef4444)', fontSize: 11.5, whiteSpace: 'pre-wrap' }}>
