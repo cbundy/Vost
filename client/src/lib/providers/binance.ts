@@ -4,6 +4,8 @@
  */
 import type { Candle, Timeframe } from '../../types';
 import { fetchJson, sortCandles, type DataProvider, type HistoryRequest, type SymbolSuggestion } from './http';
+import { startBinanceLive } from '../live';
+import { matchSymbols } from './symbolMatch';
 import { loadJson, saveJson } from '../storage';
 
 const HOSTS = ['https://api.binance.com', 'https://data-api.binance.vision'];
@@ -109,24 +111,18 @@ export const binanceProvider: DataProvider = {
   name: 'Binance',
   description: 'Free public crypto market data — REST klines + live websocket. No key needed.',
   supportsLive: true,
+  startLive: (opts) => startBinanceLive(opts),
   needsProxy: true,
   timeframes: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'],
   defaultTimeframe: '1h',
   defaultSymbol: 'BTCUSDT',
   popularSymbols: POPULAR_SYMBOLS,
 
+  listSymbols: loadSymbols,
+
   async searchSymbols(query: string, signal?: AbortSignal): Promise<SymbolSuggestion[]> {
-    const q = query.trim().toUpperCase();
-    if (!q) return POPULAR_SYMBOLS;
-    const all = await loadSymbols(signal);
-    const direct: SymbolSuggestion[] = [];
-    const rest: SymbolSuggestion[] = [];
-    for (const s of all) {
-      if (s.symbol.startsWith(q)) direct.push(s);
-      else if (s.symbol.includes(q) || (s.label ?? '').toUpperCase().includes(q)) rest.push(s);
-      if (direct.length >= 12) break;
-    }
-    return [...direct, ...rest].slice(0, 12);
+    if (!query.trim()) return POPULAR_SYMBOLS;
+    return matchSymbols(await loadSymbols(signal), query);
   },
 
   async fetchHistory(req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]> {

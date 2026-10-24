@@ -112,6 +112,21 @@ const POPULAR_SYMBOLS: SymbolSuggestion[] = [
   { symbol: 'GC=F', label: 'Gold Futures', exchange: 'COMEX', type: 'future' },
 ];
 
+const TYPE_LABELS: Record<string, string> = {
+  EQUITY: 'stock',
+  ETF: 'etf',
+  INDEX: 'index',
+  CURRENCY: 'forex',
+  FUTURE: 'future',
+  CRYPTOCURRENCY: 'crypto',
+  MUTUALFUND: 'fund',
+};
+
+function typeLabel(quoteType: string | undefined): string | undefined {
+  if (!quoteType) return undefined;
+  return TYPE_LABELS[quoteType.toUpperCase()] ?? quoteType.toLowerCase();
+}
+
 export const yahooProvider: DataProvider = {
   id: 'yahoo',
   name: 'Yahoo Finance',
@@ -127,7 +142,7 @@ export const yahooProvider: DataProvider = {
     if (!q) return POPULAR_SYMBOLS;
     try {
       const data = await fetchJson<YahooSearchResponse>(
-        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0&listsCount=0`,
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=50&newsCount=0&listsCount=0`,
         { signal },
       );
       const out: SymbolSuggestion[] = (data.quotes ?? [])
@@ -136,7 +151,7 @@ export const yahooProvider: DataProvider = {
           symbol: x.symbol as string,
           label: x.shortname ?? x.longname ?? undefined,
           exchange: x.exchDisp ?? undefined,
-          type: x.quoteType?.toLowerCase(),
+          type: typeLabel(x.quoteType),
         }));
       return out.length > 0 ? out : POPULAR_SYMBOLS;
     } catch {

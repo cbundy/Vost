@@ -61,6 +61,10 @@ export const myProvider: DataProvider = {
 };
 ```
 
+   For realtime candles also set `supportsLive: true` and implement `startLive(opts)`, which opens a websocket
+   and returns a `{ stop() }` handle (see `lib/liveSocket.ts` for a reconnecting helper). Leave both out if the
+   upstream has no candle stream; `supportsLive` must be true exactly when `startLive` exists.
+
 2. Register it in `client/src/lib/providers/index.ts` (add to the `providers` array).
 3. If the upstream needs a new host, add that hostname to `ALLOWED_HOSTS` in `server/index.mjs`.
 4. Add a unit test for any parsing logic — see `client/src/lib/csv.test.ts` for the pattern.

@@ -17,9 +17,10 @@ import { runFullBacktest } from '../lib/backtest/runner';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } from '../lib/messages';
-import { startBinanceLive, type LiveHandle, type LiveStatus } from '../lib/live';
-import { getProvider, type SymbolSuggestion } from '../lib/providers';
+import type { LiveHandle, LiveStatus } from '../lib/providers/http';
+import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce } from '../lib/storage';
+import * as wl from '../lib/watchlist';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
 export interface Toast {
@@ -104,8 +105,33 @@ export interface AppState {
   messages: InboxMessage[];
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
+  /** Full browsable symbol list per provider id, once loaded. */
+  symbolCatalog: Record<string, SymbolSuggestion[]>;
+  watchlists: wl.WatchlistState;
 
   /* actions */
+  /** Applies a pure watchlist transform (see lib/watchlist.ts) and persists it. */
+  updateWatchlists(fn: (s: wl.WatchlistState) => wl.WatchlistState): void;
+  createWatchlist(name: string): void;
+  renameWatchlist(listId: string, name: string): void;
+  deleteWatchlist(listId: string): void;
+  duplicateWatchlist(listId: string): void;
+  setActiveWatchlist(listId: string): void;
+  addWatchSection(listId: string, name: string): void;
+  renameWatchSection(listId: string, sectionId: string, name: string): void;
+  removeWatchSection(listId: string, sectionId: string): void;
+  moveWatchSection(listId: string, sectionId: string, toIndex: number): void;
+  addWatchItem(listId: string, item: { providerId: string; symbol: string; label?: string }, sectionId?: string): void;
+  removeWatchItem(listId: string, providerId: string, symbol: string): void;
+  moveWatchItem(listId: string, providerId: string, symbol: string, toSectionId: string, toIndex: number): void;
+  setWatchNote(listId: string, providerId: string, symbol: string, note: string): void;
+  setWatchItemTags(listId: string, providerId: string, symbol: string, tags: string[]): void;
+  createWatchTag(name: string, color: string): void;
+  renameWatchTag(tagId: string, name: string): void;
+  setWatchTagColor(tagId: string, color: string): void;
+  deleteWatchTag(tagId: string): void;
+  /** Imports an exported list; returns an error string or null on success. */
+  importWatchlist(json: string): string | null;
   init(): void;
   setProvider(id: string): void;
   setSymbol(symbol: string, opts?: { load?: boolean }): void;
@@ -129,6 +155,10 @@ export interface AppState {
   applyOptimizeRow(row: OptimizeRow): Promise<void>;
   setLive(v: boolean): void;
   searchSymbols(query: string): Promise<void>;
+  /** Loads the provider's full symbol list once (silent fallback to popular symbols on error). */
+  loadSymbolCatalog(): Promise<void>;
+  /** Adds a suggestion to the active watchlist for the current provider. */
+  addSymbolToWatchlist(s: SymbolSuggestion): void;
   pushToast(kind: Toast['kind'], text: string): void;
   dismissToast(id: string): void;
   pushMessage(source: string, severity: MessageSeverity, text: string): void;
@@ -188,7 +218,7 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
         if (req.type === 'run') {
           resolve({ id, type: 'result', result: runFullBacktest(req.candles, req.config) });
         } else {
-          reject(new Error('Optimizer requires Web Worker support.'));
+          reject(new Error(`${req.type === 'pine' ? 'Pine scripts' : 'Optimizer'} require Web Worker support.`));
         }
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));
@@ -223,6 +253,10 @@ export const useStore = create<AppState>()((set, get) => {
       btConfig: s.btConfig,
       showTrades: s.showTrades,
     } satisfies Prefs);
+  }, 400);
+
+  const persistWatchlists = debounce(() => {
+    wl.saveWatchlists(get().watchlists);
   }, 400);
 
   const persistDatasets = debounce(() => {
@@ -275,11 +309,44 @@ export const useStore = create<AppState>()((set, get) => {
     messages: [],
     symbolQuery: '',
     symbolSuggestions: [],
+    symbolCatalog: {},
+    watchlists: wl.emptyState(),
+
+    updateWatchlists(fn) {
+      set({ watchlists: fn(get().watchlists) });
+      persistWatchlists();
+    },
+    createWatchlist: (name) => get().updateWatchlists((s) => wl.createList(s, name)),
+    renameWatchlist: (id, name) => get().updateWatchlists((s) => wl.renameList(s, id, name)),
+    deleteWatchlist: (id) => get().updateWatchlists((s) => wl.deleteList(s, id)),
+    duplicateWatchlist: (id) => get().updateWatchlists((s) => wl.duplicateList(s, id)),
+    setActiveWatchlist: (id) => get().updateWatchlists((s) => wl.setActiveList(s, id)),
+    addWatchSection: (id, name) => get().updateWatchlists((s) => wl.addSection(s, id, name)),
+    renameWatchSection: (id, sec, name) => get().updateWatchlists((s) => wl.renameSection(s, id, sec, name)),
+    removeWatchSection: (id, sec) => get().updateWatchlists((s) => wl.removeSection(s, id, sec)),
+    moveWatchSection: (id, sec, to) => get().updateWatchlists((s) => wl.moveSection(s, id, sec, to)),
+    addWatchItem: (id, item, sec) => get().updateWatchlists((s) => wl.addItem(s, id, item, sec)),
+    removeWatchItem: (id, p, sym) => get().updateWatchlists((s) => wl.removeItem(s, id, p, sym)),
+    moveWatchItem: (id, p, sym, sec, to) => get().updateWatchlists((s) => wl.moveItem(s, id, p, sym, sec, to)),
+    setWatchNote: (id, p, sym, note) => get().updateWatchlists((s) => wl.setNote(s, id, p, sym, note)),
+    setWatchItemTags: (id, p, sym, tags) => get().updateWatchlists((s) => wl.setItemTags(s, id, p, sym, tags)),
+    createWatchTag: (name, color) => get().updateWatchlists((s) => wl.createTag(s, name, color)),
+    renameWatchTag: (id, name) => get().updateWatchlists((s) => wl.renameTag(s, id, name)),
+    setWatchTagColor: (id, color) => get().updateWatchlists((s) => wl.setTagColor(s, id, color)),
+    deleteWatchTag: (id) => get().updateWatchlists((s) => wl.deleteTag(s, id)),
+    importWatchlist(json) {
+      const res = wl.importList(json, get().watchlists);
+      if (typeof res === 'string') return res;
+      set({ watchlists: res });
+      persistWatchlists();
+      return null;
+    },
 
     init() {
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
       set({
+        watchlists: wl.loadWatchlists(providers),
         providerId: prefs.providerId ?? defaultPrefs.providerId,
         symbol: prefs.symbol ?? defaultPrefs.symbol,
         timeframe: prefs.timeframe ?? defaultPrefs.timeframe,
@@ -333,7 +400,7 @@ export const useStore = create<AppState>()((set, get) => {
         if (candles.length < 2) throw new Error(`Not enough data returned for ${symbol}.`);
         setCandles(candles, `${provider.name} · ${symbol} · ${tf}`, null);
         const s = get();
-        if (s.live && provider.supportsLive) s.setLive(true); // reconnect for the new symbol/tf
+        if (s.live && provider.startLive) s.setLive(true); // reconnect for the new symbol/tf
         else if (s.live) s.setLive(false);
       } catch (err) {
         set({ loadState: 'error' });
@@ -510,13 +577,13 @@ export const useStore = create<AppState>()((set, get) => {
         stopLive();
         return;
       }
-      if (!provider.supportsLive) {
-        get().pushToast('info', 'Live streaming is only available for Binance data.');
+      if (!provider.startLive) {
+        get().pushToast('info', `Live streaming is not available for ${provider.name} data.`);
         return;
       }
       liveHandle?.stop();
       set({ live: true, liveStatus: 'connecting', liveDetail: '' });
-      liveHandle = startBinanceLive({
+      liveHandle = provider.startLive({
         symbol,
         timeframe,
         onLog: (severity, text) => get().pushMessage('Live', severity, text),
@@ -545,6 +612,38 @@ export const useStore = create<AppState>()((set, get) => {
       } catch {
         set({ symbolSuggestions: provider.popularSymbols });
       }
+    },
+
+    async loadSymbolCatalog() {
+      const providerId = get().providerId;
+      if (get().symbolCatalog[providerId]) return;
+      const provider = getProvider(providerId);
+      if (!provider.listSymbols) return;
+      let list: SymbolSuggestion[];
+      try {
+        list = await provider.listSymbols();
+        if (list.length === 0) list = provider.popularSymbols;
+      } catch {
+        list = provider.popularSymbols;
+      }
+      set({ symbolCatalog: { ...get().symbolCatalog, [providerId]: list } });
+    },
+
+    addSymbolToWatchlist(sug) {
+      const { watchlists, providerId } = get();
+      const list = watchlists.lists.find((l) => l.id === watchlists.activeListId);
+      if (!list) return;
+      const exists = list.sections.some((sec) =>
+        sec.items.some((it) => it.providerId === providerId && it.symbol === sug.symbol),
+      );
+      if (exists) {
+        get().pushToast('info', `${sug.symbol} is already in ${list.name}.`);
+        return;
+      }
+      get().updateWatchlists((s) =>
+        wl.addItem(s, s.activeListId, { providerId, symbol: sug.symbol, label: sug.label }),
+      );
+      get().pushToast('success', `Added ${sug.symbol} to ${list.name}.`);
     },
 
     pushToast(kind, text) {

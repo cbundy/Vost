@@ -3,7 +3,7 @@
  * clustering. Great for trying charts and backtests with zero network access.
  */
 import type { Candle, Timeframe } from '../../types';
-import type { DataProvider, HistoryRequest } from './http';
+import type { DataProvider, HistoryRequest, SymbolSuggestion } from './http';
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -74,6 +74,12 @@ function round(v: number): number {
   return Math.round(v * 1e6) / 1e6;
 }
 
+const DEMO_SYMBOLS: SymbolSuggestion[] = [
+  { symbol: 'DEMO', label: 'Synthetic uptrend', type: 'demo' },
+  { symbol: 'DEMO-BEAR', label: 'Synthetic downtrend', type: 'demo' },
+  { symbol: 'DEMO-CHOP', label: 'Synthetic range', type: 'demo' },
+];
+
 export const demoProvider: DataProvider = {
   id: 'demo',
   name: 'Demo (offline)',
@@ -82,11 +88,11 @@ export const demoProvider: DataProvider = {
   timeframes: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'],
   defaultTimeframe: '1d',
   defaultSymbol: 'DEMO',
-  popularSymbols: [
-    { symbol: 'DEMO', label: 'Synthetic uptrend', type: 'demo' },
-    { symbol: 'DEMO-BEAR', label: 'Synthetic downtrend', type: 'demo' },
-    { symbol: 'DEMO-CHOP', label: 'Synthetic range', type: 'demo' },
-  ],
+  popularSymbols: DEMO_SYMBOLS,
+
+  async listSymbols(): Promise<SymbolSuggestion[]> {
+    return DEMO_SYMBOLS;
+  },
 
   async fetchHistory(req: HistoryRequest): Promise<Candle[]> {
     const seedMap: Record<string, number> = { DEMO: 1337, 'DEMO-BEAR': 4242, 'DEMO-CHOP': 2024 };

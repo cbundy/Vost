@@ -1,25 +1,16 @@
 /**
  * Live candle updates via public Binance websockets (no key, no account).
+ * Binance's socket logic lives here; the other exchanges use ./liveSocket.ts
+ * through their provider's `startLive`.
  * Reconnects with exponential backoff; falls back to data-stream host.
  */
-import type { Candle } from '../types';
-import { formatClose, type MessageSeverity } from './messages';
+import { formatClose } from './messages';
 import { binanceStreamFallbackUrl, binanceStreamUrl, BINANCE_INTERVALS } from './providers/binance';
+import type { LiveHandle, LiveOptions, LiveStatus } from './providers/http';
 
-export type LiveStatus = 'off' | 'connecting' | 'live' | 'reconnecting' | 'error';
+export type { LiveHandle, LiveOptions, LiveStatus };
 
-export interface LiveHandle {
-  stop(): void;
-}
-
-export function startBinanceLive(opts: {
-  symbol: string;
-  timeframe: string;
-  onKline: (candle: Candle, isClosed: boolean) => void;
-  onStatus: (status: LiveStatus, detail?: string) => void;
-  /** One entry per failure, for the in-app message log. */
-  onLog?: (severity: MessageSeverity, text: string) => void;
-}): LiveHandle {
+export function startBinanceLive(opts: LiveOptions): LiveHandle {
   const interval = BINANCE_INTERVALS[opts.timeframe];
   if (!interval) {
     opts.onStatus('error', `Live data does not support ${opts.timeframe}`);

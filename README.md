@@ -83,10 +83,16 @@ npm run typecheck  # strict TypeScript
 | Provider | Coverage | Key needed | Live | Notes |
 |---|---|---|---|---|
 | **Binance** | Crypto (1000+ pairs) | No | ✅ | Public REST + websocket. Falls back to `data-api.binance.vision` when the main host is region-blocked. |
+| **Coinbase** | Crypto spot | No | — | Public REST candles (300 per request). The public feed has no candle channel, so no live streaming. |
+| **Kraken** | Crypto spot | No | ✅ | Public REST + websocket v2. History is limited to the latest 720 candles per timeframe. |
+| **Bybit** | Crypto spot | No | ✅ | Public v5 REST (1000 per request) + websocket. |
+| **OKX** | Crypto spot | No | ✅ | Public v5 history candles (100 per request) + websocket. |
 | **Yahoo Finance** | Stocks, ETFs, indices, FX, crypto | No | — | Public chart API (delayed). Intraday history limits apply (1m ≈ 7 days, 1h ≈ 2 years). |
 | **Stooq** | Stocks, indices, FX, crypto | No | — | Daily/weekly/monthly CSV downloads. Some cloud/VPS IPs are challenged by Stooq's bot protection — Yahoo or CSV import are good fallbacks there. |
 | **Demo (offline)** | Synthetic | No | — | Deterministic random walk — try the whole app with zero network. |
 | **CSV import** | Anything you have | No | — | Fully offline workflow. See below. |
+
+For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
 All remote requests go through the app's own tiny proxy (`/api/proxy?url=…`) which only forwards to a **whitelist** of hosts (`server/index.mjs → ALLOWED_HOSTS`). Your browser never talks to third parties directly unless you deploy static-only with `VITE_DIRECT=true`.
 
@@ -191,12 +197,16 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 - [ ] Drawing tools (trend lines, fibs, rectangles)
 - [ ] Alerts on price/indicator conditions
 - [ ] Multiple chart layouts & compare mode
-- [ ] More providers (Alpha Vantage, Twelve Data, your broker)
+- [ ] More providers: keyless crypto exchanges (Coinbase, Kraken, Bybit, OKX) then free-key Twelve Data and Alpha Vantage - see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)
 - [ ] Walk-forward & portfolio (multi-asset) backtesting
 - [ ] PWA install for full offline app caching
 - [ ] Indicator/strategy plugin files loaded from disk
 
 PRs are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Pine Script
+
+Vost can run Pine Script indicators and strategies in the background worker, using [PineTS](https://github.com/QuantForgeOrg/PineTS). PineTS is licensed AGPL-3.0-only; Vost itself stays MIT. See [docs/PINE.md](docs/PINE.md).
 
 ## Disclaimer
 
