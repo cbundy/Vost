@@ -149,6 +149,8 @@ export interface AppState {
   /** Imports an exported list; returns an error string or null on success. */
   importWatchlist(json: string): string | null;
   init(): void;
+  /** Run any pending debounced saves (prefs, watchlists, datasets) now. */
+  flushPersist(): void;
   setProvider(id: string): void;
   /** Switches to a watchlist item's provider and symbol and loads the chart once. */
   openWatchItem(providerId: string, symbol: string): void;
@@ -424,6 +426,12 @@ export const useStore = create<AppState>()((set, get) => {
       set({ watchlists: res });
       persistWatchlists();
       return null;
+    },
+
+    flushPersist() {
+      persistPrefs.flush();
+      persistWatchlists.flush();
+      persistDatasets.flush();
     },
 
     init() {
