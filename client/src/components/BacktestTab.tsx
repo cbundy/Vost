@@ -3,6 +3,8 @@ import { CUSTOM_STRATEGY_EXAMPLES, DEFAULT_CUSTOM_CODE } from '../lib/backtest/c
 import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import { getStrategy, strategies } from '../lib/backtest/strategies';
+import { PineEditor } from './PineEditor';
+import { messageToError } from '../lib/pine/language';
 import { useStore } from '../state/store';
 
 export function BacktestTab() {
@@ -165,6 +167,7 @@ export function BacktestTab() {
           <PineCodeEditor
             code={btConfig.pineCode ?? DEFAULT_PINE_CODE}
             onChange={(code) => setBtConfig({ pineCode: code })}
+            error={btError ? messageToError(btError) : null}
           />
         </div>
       )}
@@ -317,11 +320,19 @@ function PineInputField({ input, value, onChange }: { input: PineInput; value: n
   );
 }
 
-function PineCodeEditor({ code, onChange }: { code: string; onChange: (v: string) => void }) {
+function PineCodeEditor({
+  code,
+  onChange,
+  error,
+}: {
+  code: string;
+  onChange: (v: string) => void;
+  error: { message: string; line?: number; column?: number } | null;
+}) {
   return (
     <div>
       <div className="section-title">Pine Script strategy</div>
-      <textarea className="code-editor" spellCheck={false} value={code} onChange={(e) => onChange(e.target.value)} />
+      <PineEditor value={code} onChange={onChange} error={error} ariaLabel="Pine strategy source" />
       <div className="form-row mt-2">
         <span className="hint">Examples:</span>
         {PINE_STRATEGY_EXAMPLES.map((ex) => (

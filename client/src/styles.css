@@ -1281,3 +1281,9 @@ a:hover {
 .wl-menu button { text-align: left; background: transparent; border-color: transparent; }
 .wl-pop { margin-top: 8px; padding: 8px; border: 1px solid var(--border-2); border-radius: 6px; background: var(--panel-2); }
 .wl-pop textarea { width: 100%; margin-bottom: 6px; }
+.pine-editor .cm-editor {
+  width: 100%;
+}
+.pine-editor .cm-scroller {
+  overflow: auto;
+}
