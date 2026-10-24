@@ -116,7 +116,7 @@ Then append it to the `strategies` array. Rules:
 
 Please include:
 
-- Vost version / commit
+- Vost version / commit (the version is in the top bar, in `GET /api/health` and in the server startup log)
 - Browser + OS
 - Steps to reproduce (provider & symbol if data-related — or attach a CSV row sample)
 - Expected vs. actual result, console errors if any

@@ -46,7 +46,8 @@ The included `docker-compose.yml`:
 Updating:
 
 ```bash
-git pull
+git fetch --tags
+git checkout vX.Y.Z   # the release to run, from the Releases page
 docker compose up -d --build
 ```
 
@@ -176,8 +177,8 @@ Runtime variables are read once at process start; build-time variables are **bak
 
 ## Health checks & updates
 
-- `GET /api/health` → `{ ok, version, uptimeSeconds, node, clientsBuilt }`. Use it for Docker health checks, uptime monitors and load-balancer probes.
-- Updating = `git pull && npm ci && npm run build && restart`. Hashed asset filenames change, so clients pick up the new build on next load; no cache-busting dance needed.
+- `GET /api/health` → `{ ok, version, uptimeSeconds, node, clientsBuilt }`. `version` is the running release (the top bar and the startup log show the same number). Use it for Docker health checks, uptime monitors and load-balancer probes.
+- Updating to a release = `git fetch --tags && git checkout vX.Y.Z && npm ci && npm run build && restart`. Hashed asset filenames change, so clients pick up the new build on next load; no cache-busting dance needed.
 - The server never writes to disk at runtime; back it with any read-only filesystem if you like.
 
 ## Troubleshooting

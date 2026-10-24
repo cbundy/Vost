@@ -1,4 +1,4 @@
-import { PROVIDER_GITHUB_URL } from '../lib/constants';
+import { APP_VERSION, PROVIDER_GITHUB_URL } from '../lib/constants';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
@@ -56,6 +56,7 @@ export function TopBar({
           </svg>
         </span>
         <span className="brand-name">Vost</span>
+        <span className="brand-version" title="Vost version">v{APP_VERSION}</span>
         <span className="brand-tag">self-hosted charts &amp; backtesting</span>
       </div>
 

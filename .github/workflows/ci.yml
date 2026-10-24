@@ -49,6 +49,9 @@ jobs:
             sleep 1
           done
           curl -fsS http://localhost:8787/api/health | grep '"ok": true'
+          EXPECTED=$(node -p "require('./package.json').version")
+          ACTUAL=$(curl -fsS http://localhost:8787/api/health | jq -r .version)
+          test "$ACTUAL" = "$EXPECTED" || { echo "health version $ACTUAL != package.json $EXPECTED"; exit 1; }
           curl -fsS http://localhost:8787/ | grep -qi '<!doctype html>'
           kill $SERVER_PID
 
@@ -78,4 +81,7 @@ jobs:
             sleep 1
           done
           curl -fsS http://localhost:8787/api/health | grep '"ok": true'
+          EXPECTED=$(node -p "require('./package.json').version")
+          ACTUAL=$(curl -fsS http://localhost:8787/api/health | jq -r .version)
+          test "$ACTUAL" = "$EXPECTED" || { echo "health version $ACTUAL != package.json $EXPECTED"; exit 1; }
           docker rm -f vost-ci

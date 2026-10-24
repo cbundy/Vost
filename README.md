@@ -7,6 +7,7 @@
 Pull free public market data, import your own CSV files, chart them with [lightweight-charts](https://github.com/tradingview/lightweight-charts), and run **unlimited** backtests with a parameter optimizer — all from a single Node process with **zero runtime dependencies**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
+[![Release](https://img.shields.io/github/v/release/cbundy/Vost)](https://github.com/cbundy/Vost/releases)
 [![CI](https://github.com/cbundy/Vost/actions/workflows/ci.yml/badge.svg)](https://github.com/cbundy/Vost/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-brightgreen.svg)](#quick-start)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -55,16 +56,18 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 ```bash
 git clone https://github.com/cbundy/Vost.git
 cd Vost
+git checkout vX.Y.Z   # a release tag from the Releases page (or: git clone --branch vX.Y.Z ...)
 docker compose up -d
 ```
 
-Open <http://localhost:8787>. Done.
+Open <http://localhost:8787>. Done. The running version is shown in the top bar (next to the logo), in `GET /api/health` and in the server startup log.
 
 ### Local (Node 24 recommended, 20.19+ supported)
 
 ```bash
 git clone https://github.com/cbundy/Vost.git
 cd Vost
+git checkout vX.Y.Z   # a release tag from the Releases page (or: git clone --branch vX.Y.Z ...)
 npm install
 npm run build     # typecheck + bundle the web client
 npm start         # serves http://localhost:8787

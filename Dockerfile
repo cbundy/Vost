@@ -16,6 +16,10 @@ RUN npm run build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/cbundy/Vost" \
+      org.opencontainers.image.title="Vost" \
+      org.opencontainers.image.licenses="MIT"
+
 ENV NODE_ENV=production \
     PORT=8787 \
     HOST=0.0.0.0

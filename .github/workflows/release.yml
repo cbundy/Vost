@@ -1,0 +1,87 @@
+# Publishes a release when package.json's version changes on main (see RELEASING.md).
+# A release created with GITHUB_TOKEN does not trigger other workflows, so any publish step
+# (for example the GHCR image) must run inside this workflow or be called from it with workflow_call.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  checks: read
+  actions: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Decide
+        id: check
+        run: node scripts/release-check.mjs
+
+      - name: Wait for ci on this commit
+        if: steps.check.outputs.release == 'true'
+        run: |
+          RUN_ID=""
+          for i in $(seq 1 30); do
+            RUN_ID=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$RUN_ID" ] && break
+            sleep 10
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "No ci run found for $GITHUB_SHA. Re-run Release by workflow_dispatch once ci has run."
+            exit 1
+          fi
+          gh run watch "$RUN_ID" --exit-status || {
+            echo "ci did not succeed for $GITHUB_SHA (failed or cancelled). Fix it, then re-run Release by workflow_dispatch."
+            exit 1
+          }
+
+      - name: Tag
+        if: steps.check.outputs.release == 'true'
+        run: |
+          TAG="v${{ steps.check.outputs.version }}"
+          if git rev-parse --verify --quiet "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already exists on this commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - name: GitHub release
+        if: steps.check.outputs.release == 'true'
+        run: |
+          TAG="v${{ steps.check.outputs.version }}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file "release-notes/$TAG.md"
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file "release-notes/$TAG.md"
+          fi
+
+      - name: Roll the Next release milestone
+        if: steps.check.outputs.release == 'true'
+        run: node scripts/release-milestones.mjs roll "v${{ steps.check.outputs.version }}"
+
+      - name: Ensure the Next release and Later milestones
+        if: always()
+        run: node scripts/release-milestones.mjs ensure
