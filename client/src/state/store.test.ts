@@ -16,7 +16,7 @@ const track = (s: TestStore) => {
   return s;
 };
 
-afterEach(async () => {
+async function afterEachCleanup() {
   const stores = used.splice(0);
   for (const s of stores) {
     await vi.waitFor(() => {
@@ -27,7 +27,9 @@ afterEach(async () => {
   }
   vi.unstubAllGlobals();
   vi.useRealTimers();
-});
+}
+
+afterEach(afterEachCleanup);
 
 describe('addSymbolToWatchlist', () => {
   beforeEach(() => {
@@ -130,9 +132,6 @@ describe('pine indicators', () => {
       vi.resetModules();
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const fresh = track((await import('./store')).useStore);
-      // A debounced save left pending by an earlier test may fire while the import
-      // awaits and overwrite the prefs; restore the saved snapshot before reading.
-      localStorage.setItem('vost.prefs.v1', raw!);
       fresh.getState().init();
       const pine = fresh.getState().indicators.find((i) => i.id === id)!;
       expect(pine.kind).toBe('pine');
@@ -176,8 +175,3 @@ describe('stale persist isolation', () => {
     expect(localStorage.getItem('vost.prefs.v1')).toBeNull();
   });
 });
-
-async function afterEachCleanup() {
-  for (const s of used.splice(0)) s.getState().flushPersist();
-  vi.unstubAllGlobals();
-}
