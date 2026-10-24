@@ -95,6 +95,9 @@ describe('pine indicators', () => {
   });
 
   it('persists source and inputs; old prefs without pine entries still load', async () => {
+    // Earlier tests' stores leave real 400ms persist debounces pending; let them fire (into this
+    // test's storage stub) before faking timers, or a slow runner lets one overwrite our prefs.
+    await new Promise((r) => setTimeout(r, 500));
     vi.useFakeTimers();
     try {
       const { useStore } = await setup();

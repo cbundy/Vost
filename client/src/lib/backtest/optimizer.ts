@@ -3,7 +3,7 @@
  * ranked by a chosen metric. Runs entirely in the browser (Web Worker).
  */
 import type { Candle } from '../../types';
-import { runFullBacktest } from './runner';
+import { runAnyBacktest, runFullBacktest } from './runner';
 import { getStrategy } from './strategies';
 import type { BacktestConfig, Metrics } from './types';
 
@@ -76,35 +76,74 @@ export function paramValues(s: SweepParam): number[] {
   return out;
 }
 
+function* gridCombos(baseConfig: BacktestConfig, opt: OptimizeConfig): Generator<Record<string, number>> {
+  const valuesB = opt.sweepB ? paramValues(opt.sweepB) : [null];
+  for (const va of paramValues(opt.sweepA)) {
+    for (const vb of valuesB) {
+      const params = { ...baseConfig.params, [opt.sweepA.key]: va };
+      if (vb != null && opt.sweepB) params[opt.sweepB.key] = vb;
+      yield params;
+    }
+  }
+}
+
+function gridSize(opt: OptimizeConfig): number {
+  return paramValues(opt.sweepA).length * (opt.sweepB ? paramValues(opt.sweepB).length : 1);
+}
+
+function toRow(params: Record<string, number>, metrics: Metrics, metric: MetricKey): OptimizeRow {
+  const value = metrics[metric] as number | null;
+  return { params, metrics, value: Number.isFinite(value as number) ? (value as number) : null };
+}
+
 export function runOptimize(
   candles: Candle[],
   baseConfig: BacktestConfig,
   opt: OptimizeConfig,
   onProgress?: (pct: number) => void,
 ): OptimizeOutput {
-  const valuesA = paramValues(opt.sweepA);
-  const valuesB = opt.sweepB ? paramValues(opt.sweepB) : [null];
-  const combos = valuesA.length * valuesB.length;
+  const combos = gridSize(opt);
   const rows: OptimizeRow[] = [];
   let errored = 0;
   let done = 0;
 
-  for (const va of valuesA) {
-    for (const vb of valuesB) {
-      const params = { ...baseConfig.params, [opt.sweepA.key]: va };
-      if (vb != null && opt.sweepB) params[opt.sweepB.key] = vb;
-      try {
-        const result = runFullBacktest(candles, { ...baseConfig, params });
-        const value = result.metrics[opt.metric] as number | null;
-        rows.push({ params, metrics: result.metrics, value: Number.isFinite(value as number) ? (value as number) : null });
-      } catch {
-        errored++;
-      }
-      done++;
-      if (onProgress && (done % 5 === 0 || done === combos)) onProgress(done / combos);
+  for (const params of gridCombos(baseConfig, opt)) {
+    try {
+      rows.push(toRow(params, runFullBacktest(candles, { ...baseConfig, params }).metrics, opt.metric));
+    } catch {
+      errored++;
     }
+    done++;
+    if (onProgress && (done % 5 === 0 || done === combos)) onProgress(done / combos);
   }
+  return finish(rows, opt.metric, combos, errored);
+}
 
+/** Async grid sweep: awaits every combination, so it also covers Pine strategies. */
+export async function runOptimizeAsync(
+  candles: Candle[],
+  baseConfig: BacktestConfig,
+  opt: OptimizeConfig,
+  onProgress?: (pct: number) => void,
+): Promise<OptimizeOutput> {
+  const combos = gridSize(opt);
+  const rows: OptimizeRow[] = [];
+  let errored = 0;
+  let done = 0;
+
+  for (const params of gridCombos(baseConfig, opt)) {
+    try {
+      rows.push(toRow(params, (await runAnyBacktest(candles, { ...baseConfig, params })).metrics, opt.metric));
+    } catch {
+      errored++;
+    }
+    done++;
+    if (onProgress && (done % 5 === 0 || done === combos)) onProgress(done / combos);
+  }
+  return finish(rows, opt.metric, combos, errored);
+}
+
+function finish(rows: OptimizeRow[], metric: MetricKey, combos: number, errored: number): OptimizeOutput {
   rows.sort((a, b) => {
     if (a.value == null && b.value == null) return 0;
     if (a.value == null) return 1;
@@ -112,5 +151,5 @@ export function runOptimize(
     return b.value - a.value;
   });
 
-  return { rows, metric: opt.metric, combos, errored };
+  return { rows, metric, combos, errored };
 }

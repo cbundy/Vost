@@ -5,8 +5,8 @@
  */
 import type { Candle } from '../../types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../backtest/optimizer';
-import { runOptimize } from '../backtest/optimizer';
-import { runFullBacktest } from '../backtest/runner';
+import { runOptimizeAsync } from '../backtest/optimizer';
+import { runAnyBacktest } from '../backtest/runner';
 import type { BacktestConfig, BacktestResult } from '../backtest/types';
 import { runPine } from '../pine/runtime';
 import type { PineInputValue, PineRunOutcome } from '../pine/types';
@@ -46,31 +46,27 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
       );
     return;
   }
-  try {
-    if (msg.type === 'run') {
-      const result = runFullBacktest(msg.candles, msg.config);
-      ctx.postMessage({ id: msg.id, type: 'result', result } satisfies WorkerResponse);
-      return;
-    }
-    if (msg.type === 'optimize') {
-      const out = runOptimize(msg.candles, msg.config, msg.optimize, (pct) => {
-        ctx.postMessage({ id: msg.id, type: 'progress', pct } satisfies WorkerResponse);
-      });
-      ctx.postMessage({
-        id: msg.id,
-        type: 'optimizeResult',
-        rows: out.rows,
-        combos: out.combos,
-        metric: out.metric,
-        errored: out.errored,
-      } satisfies WorkerResponse);
-      return;
-    }
-  } catch (err) {
-    ctx.postMessage({
-      id: msg.id,
-      type: 'error',
-      message: err instanceof Error ? err.message : String(err),
-    } satisfies WorkerResponse);
+  const reply = (m: WorkerResponse) => ctx.postMessage(m);
+  const fail = (err: unknown) =>
+    reply({ id: msg.id, type: 'error', message: err instanceof Error ? err.message : String(err) });
+  if (msg.type === 'run') {
+    runAnyBacktest(msg.candles, msg.config)
+      .then((result) => reply({ id: msg.id, type: 'result', result }))
+      .catch(fail);
+    return;
+  }
+  if (msg.type === 'optimize') {
+    runOptimizeAsync(msg.candles, msg.config, msg.optimize, (pct) => reply({ id: msg.id, type: 'progress', pct }))
+      .then((out) =>
+        reply({
+          id: msg.id,
+          type: 'optimizeResult',
+          rows: out.rows,
+          combos: out.combos,
+          metric: out.metric,
+          errored: out.errored,
+        }),
+      )
+      .catch(fail);
   }
 };

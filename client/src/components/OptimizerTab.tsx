@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { METRIC_LABELS, paramValues, type MetricKey, type OptimizeRow } from '../lib/backtest/optimizer';
 import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtPct } from '../lib/format';
@@ -18,7 +18,27 @@ export function OptimizerTab() {
   const applyOptimizeRow = useStore((s) => s.applyOptimizeRow);
 
   const strategy = getStrategy(btConfig.strategyId);
-  const numericParams = strategy.params.filter((p) => p.type !== 'select');
+  const pineInputs = useStore((s) => s.pineInputs);
+  const numericParams = strategy.pine
+    ? pineInputs
+        .filter((i) => i.type === 'int' || i.type === 'float')
+        .map((i) => ({ key: i.name, label: i.name }))
+    : strategy.params.filter((p) => p.type !== 'select');
+  const refreshPineInputs = useStore((s) => s.refreshPineInputs);
+  useEffect(() => {
+    if (strategy.pine && pineInputs.length === 0) void refreshPineInputs();
+  }, [strategy.pine, pineInputs.length, refreshPineInputs, candles.length > 0]);
+  const firstKey = numericParams[0]?.key;
+  useEffect(() => {
+    if (!strategy.pine || !firstKey || numericParams.some((p) => p.key === optConfig.sweepA.key)) return;
+    const d = pineInputs.find((i) => i.name === firstKey);
+    const base = typeof d?.defval === 'number' ? d.defval : 10;
+    setOptConfig({
+      sweepA: { key: firstKey, from: Math.max(1, Math.round(base * 0.5)), to: Math.max(2, Math.round(base * 1.5)), step: 1 },
+      sweepB: null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strategy.pine, firstKey]);
   const combos = paramValues(optConfig.sweepA).length * (optConfig.sweepB ? paramValues(optConfig.sweepB).length : 1);
 
   return (

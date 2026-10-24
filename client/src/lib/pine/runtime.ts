@@ -11,6 +11,7 @@ import type {
   PinePlot,
   PinePlotKind,
   PineRunOutcome,
+  PineStrategyConfig,
   PineTrade,
 } from './types';
 
@@ -112,6 +113,32 @@ function positionSeries(trades: PineTrade[], n: number): number[] {
   return pos;
 }
 
+function mapStrategyConfig(decl: any, strategy: any): PineStrategyConfig {
+  return {
+    initialCapital: toNum(decl.initial_capital) ?? toNum(strategy?.initial_capital) ?? 0,
+    commissionType: String(decl.commission_type ?? 'percent'),
+    commissionValue: toNum(decl.commission_value) ?? 0,
+    defaultQtyType: String(decl.default_qty_type ?? 'fixed'),
+    defaultQtyValue: toNum(decl.default_qty_value) ?? 1,
+  };
+}
+
+/** Callers (the optimizer, the panel) store bool inputs as 0/1; hand the script real booleans. */
+async function coerceInputs(
+  source: string,
+  inputs: Record<string, PineInputValue>,
+): Promise<Record<string, PineInputValue>> {
+  const keys = Object.keys(inputs);
+  if (keys.length === 0) return inputs;
+  const metas = new Indicator(source, {}).getInputsMeta();
+  const out = { ...inputs };
+  for (const m of metas) {
+    const name = m.title ?? m.name;
+    if (m.type === 'bool' && typeof out[name] === 'number') out[name] = out[name] !== 0;
+  }
+  return out;
+}
+
 /** Run a Pine script over candles (time in seconds). `inputs` override defaults by input title. */
 export async function runPine(
   source: string,
@@ -120,7 +147,7 @@ export async function runPine(
 ): Promise<PineRunOutcome> {
   try {
     if (candles.length === 0) return { ok: false, error: { message: 'No candles to run the script on' } };
-    const indicator = new Indicator(source, inputs);
+    const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();
     const ctx: any = await new PineTS(toPineData(candles), 'VOST', 'D').run(indicator);
 
@@ -154,6 +181,7 @@ export async function runPine(
       plots: mapPlots(ctx.plots ?? {}, candles, overlay),
       trades,
       position: isStrategy ? positionSeries(trades, candles.length) : [],
+      ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
     };
   } catch (err) {
     return { ok: false, error: parseError(err) };
