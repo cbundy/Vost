@@ -150,6 +150,8 @@ export interface AppState {
   importWatchlist(json: string): string | null;
   init(): void;
   setProvider(id: string): void;
+  /** Switches to a watchlist item's provider and symbol and loads the chart once. */
+  openWatchItem(providerId: string, symbol: string): void;
   setSymbol(symbol: string, opts?: { load?: boolean }): void;
   setTimeframe(tf: Timeframe, opts?: { load?: boolean }): void;
   setBars(bars: number): void;
@@ -450,6 +452,13 @@ export const useStore = create<AppState>()((set, get) => {
         symbol: provider.defaultSymbol,
         timeframe: provider.defaultTimeframe,
       });
+      persistPrefs();
+      void get().loadData();
+    },
+
+    openWatchItem(providerId, symbol) {
+      stopLive();
+      set({ providerId, symbol });
       persistPrefs();
       void get().loadData();
     },

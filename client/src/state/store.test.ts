@@ -142,3 +142,20 @@ describe('pine indicators', () => {
     expect(useStore.getState().pineRuns).toEqual({});
   });
 });
+
+describe('openWatchItem', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  it('sets provider and symbol together and loads once', async () => {
+    const { useStore } = await import('./store');
+    const loadData = vi.fn().mockResolvedValue(undefined);
+    useStore.setState({ loadData });
+    useStore.getState().openWatchItem('kraken', 'XBTUSD');
+    expect(useStore.getState().providerId).toBe('kraken');
+    expect(useStore.getState().symbol).toBe('XBTUSD');
+    expect(loadData).toHaveBeenCalledTimes(1);
+  });
+});

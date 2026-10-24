@@ -1,19 +1,17 @@
 import { INDICATOR_META, type IndicatorKind } from '../lib/indicatorCompute';
 import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
-import { getProvider } from '../lib/providers';
 import type { PineInput, PineInputValue } from '../lib/pine/types';
+import { Watchlist } from './Watchlist';
 import { useStore, type PineRunState } from '../state/store';
 
 export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
-  const providerId = useStore((s) => s.providerId);
   const symbol = useStore((s) => s.symbol);
   const candles = useStore((s) => s.candles);
   const dataLabel = useStore((s) => s.dataLabel);
   const datasets = useStore((s) => s.datasets);
   const activeDatasetId = useStore((s) => s.activeDatasetId);
   const indicators = useStore((s) => s.indicators);
-  const setSymbol = useStore((s) => s.setSymbol);
   const saveCurrentDataset = useStore((s) => s.saveCurrentDataset);
   const activateDataset = useStore((s) => s.activateDataset);
   const removeDataset = useStore((s) => s.removeDataset);
@@ -22,7 +20,6 @@ export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
   const updateIndicator = useStore((s) => s.updateIndicator);
   const pineRuns = useStore((s) => s.pineRuns);
 
-  const provider = getProvider(providerId);
   const first = candles[0];
   const last = candles[candles.length - 1];
 
@@ -126,21 +123,7 @@ export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
       </section>
 
       <section className="sidebar-section">
-        <div className="sidebar-title">
-          <span>Watchlist · {provider.name}</span>
-        </div>
-        <div className="chip-list">
-          {provider.popularSymbols.map((s) => (
-            <button
-              key={s.symbol}
-              className={`chip${s.symbol === symbol ? ' active' : ''}`}
-              title={s.label}
-              onClick={() => setSymbol(s.symbol, { load: true })}
-            >
-              {s.symbol}
-            </button>
-          ))}
-        </div>
+        <Watchlist />
       </section>
 
       <section className="sidebar-section" style={{ borderBottom: 'none' }}>
