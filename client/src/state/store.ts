@@ -207,7 +207,7 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
         if (req.type === 'run') {
           resolve({ id, type: 'result', result: runFullBacktest(req.candles, req.config) });
         } else {
-          reject(new Error('Optimizer requires Web Worker support.'));
+          reject(new Error(`${req.type === 'pine' ? 'Pine scripts' : 'Optimizer'} require Web Worker support.`));
         }
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));

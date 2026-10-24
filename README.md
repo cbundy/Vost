@@ -204,6 +204,10 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 
 PRs are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Pine Script
+
+Vost can run Pine Script indicators and strategies in the background worker, using [PineTS](https://github.com/QuantForgeOrg/PineTS). PineTS is licensed AGPL-3.0-only; Vost itself stays MIT. See [docs/PINE.md](docs/PINE.md).
+
 ## Disclaimer
 
 Vost is a tool for research and education. Market data may be delayed, incomplete or inaccurate; backtest results are hypothetical and ignore many real-world effects (liquidity, funding, borrow costs, survivorship bias…). Nothing here is financial advice. Respect the terms of service of any data provider you use.

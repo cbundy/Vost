@@ -1,0 +1,5 @@
+//@version=6
+strategy("Stop and Limit", overlay=true)
+if bar_index % 30 == 0
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Exit", "Long", stop=close * 0.99, limit=close * 1.01)
