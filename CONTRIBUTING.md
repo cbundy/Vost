@@ -20,6 +20,7 @@ Useful scripts:
 | `npm run typecheck` | Strict typecheck of the whole client |
 | `npm run build` | Typecheck + production bundle into `client/dist` |
 | `npm start` | Serve the production build on :8787 |
+| `npm run -s e2e:capture -- <scenario>` | Screenshots/video into `docs/evidence` (see `docs/e2e-visual-verification.md`) |
 
 ## Project layout
 
@@ -109,7 +110,7 @@ Then append it to the `strategies` array. Rules:
 1. Fork, branch (`feat/drawing-tools`, `fix/csv-day-first`).
 2. Conventional commit messages (`feat:`, `fix:`, `docs:`, `refactor:` …) are appreciated.
 3. Make sure `npm run typecheck && npm test && npm run build` pass.
-4. Open a PR describing the change, with a screenshot for UI work.
+4. Open a PR describing the change, with a screenshot for UI work (see `docs/e2e-visual-verification.md`).
 
 ## Reporting bugs
 

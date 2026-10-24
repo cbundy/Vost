@@ -76,6 +76,7 @@ npm start         # serves http://localhost:8787
 npm run dev        # API server (:8787) + Vite dev server (:5173) with HMR
 npm test           # unit + integration tests (vitest)
 npm run typecheck  # strict TypeScript
+npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see docs/e2e-visual-verification.md)
 ```
 
 ## Data sources
