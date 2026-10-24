@@ -5,7 +5,7 @@ Thanks for helping out! This document covers everything you need to get producti
 ## Setup
 
 ```bash
-git clone https://github.com/AuthorShin/Vost.git
+git clone https://github.com/cbundy/Vost.git
 cd Vost
 npm install
 npm run dev      # server on :8787, Vite dev server on :5173 (open this one)
