@@ -9,6 +9,7 @@ import type {
   PineInput,
   PineInputValue,
   PinePlot,
+  PinePlotKind,
   PineRunOutcome,
   PineTrade,
 } from './types';
@@ -43,18 +44,38 @@ function toPineData(candles: Candle[]) {
   });
 }
 
+function plotKind(style: unknown): PinePlotKind {
+  if (style === 'hline') return 'hline';
+  if (style === 'background') return 'bgcolor';
+  if (style === 'shape' || style === 'char') return 'plotshape';
+  return 'plot';
+}
+
 function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolean): PinePlot[] {
   const out: PinePlot[] = [];
   for (const [key, plot] of Object.entries(plots)) {
     if (key.startsWith('__') || !plot || !Array.isArray(plot.data)) continue;
-    const byTime = new Map<number, number | null>();
-    for (const p of plot.data) byTime.set(p.time, toNum(p.value));
     const opts = plot.options ?? {};
+    const kind = plotKind(opts.style);
+    const byTime = new Map<number, { value: number | null; color: string | null }>();
+    for (const p of plot.data) {
+      const value = kind === 'bgcolor' || kind === 'plotshape' ? (p.value === true ? 1 : null) : toNum(p.value);
+      byTime.set(p.time, { value, color: typeof p.options?.color === 'string' ? p.options.color : null });
+    }
     const pineOverlay = typeof opts.overlay === 'boolean' ? opts.overlay : overlay;
+    const color = typeof opts.color === 'string' ? opts.color : COLOR_NA;
+    const colors = candles.map((c) => byTime.get(c.time * 1000)?.color ?? null);
+    const hasVaryingColor = colors.some((c) => c !== null && c !== color);
     out.push({
       name: plot.title ?? key,
-      values: candles.map((c) => byTime.get(c.time * 1000) ?? null),
-      color: typeof opts.color === 'string' ? opts.color : COLOR_NA,
+      kind,
+      values: candles.map((c) => byTime.get(c.time * 1000)?.value ?? null),
+      color,
+      ...(hasVaryingColor && { colors }),
+      ...(kind === 'plotshape' && {
+        shape: typeof opts.shape === 'string' ? opts.shape.replace(/^shape_/, '') : 'circle',
+        location: typeof opts.location === 'string' ? opts.location : 'AboveBar',
+      }),
       style: typeof opts.style === 'string' ? opts.style.replace(/^style_/, '') : 'line',
       pane: pineOverlay ? 'price' : 'separate',
     });

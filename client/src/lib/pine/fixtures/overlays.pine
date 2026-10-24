@@ -1,0 +1,6 @@
+//@version=6
+indicator("Overlays", overlay=true)
+hline(100, "Level", color=color.red)
+bgcolor(close > open ? color.new(color.green, 80) : na, title="Up bar")
+plotshape(close > open and close[1] < open[1], title="Reversal", style=shape.triangleup, location=location.belowbar, color=color.green)
+plot(close, "Dots", color=color.blue, style=plot.style_circles)

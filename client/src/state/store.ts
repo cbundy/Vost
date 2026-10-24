@@ -15,6 +15,7 @@ import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
 import { runFullBacktest } from '../lib/backtest/runner';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
+import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
 import type { LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce } from '../lib/storage';
@@ -25,6 +26,15 @@ export interface Toast {
   id: string;
   kind: 'info' | 'success' | 'error';
   text: string;
+}
+
+/** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
+export interface PineRunState {
+  running: boolean;
+  result?: PineResult;
+  /** The candles `result` was computed on (its values align 1:1 with these). */
+  candles?: Candle[];
+  error?: PineError;
 }
 
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
@@ -64,6 +74,8 @@ export interface AppState {
   bars: number;
   indicators: IndicatorSpec[];
   showTrades: boolean;
+  /** Pine run state by indicator id (not persisted). */
+  pineRuns: Record<string, PineRunState>;
 
   /* market data */
   candles: Candle[];
@@ -137,7 +149,7 @@ export interface AppState {
   removeDataset(id: string): void;
   addIndicator(kind: IndicatorKind): void;
   removeIndicator(id: string): void;
-  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible'>>): void;
+  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
   setShowTrades(v: boolean): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   runBacktest(): Promise<void>;
@@ -206,8 +218,13 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
       try {
         if (req.type === 'run') {
           resolve({ id, type: 'result', result: runFullBacktest(req.candles, req.config) });
+        } else if (req.type === 'pine') {
+          // No Worker (e.g. tests): run on this thread. Loaded lazily to keep PineTS out of the main bundle.
+          void import('../lib/pine/runtime')
+            .then((m) => m.runPine(req.source, req.candles, req.inputs))
+            .then((outcome) => resolve({ id, type: 'pineResult', outcome }), reject);
         } else {
-          reject(new Error(`${req.type === 'pine' ? 'Pine scripts' : 'Optimizer'} require Web Worker support.`));
+          reject(new Error('Optimizer requires Web Worker support.'));
         }
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));
@@ -256,6 +273,60 @@ export const useStore = create<AppState>()((set, get) => {
     }
   }, 600);
 
+  /* ---- Pine runs: one at a time per indicator, results from superseded runs dropped ---- */
+  const pineInflight = new Set<string>();
+  const pineDirty = new Set<string>();
+
+  const setPineRun = (id: string, patch: PineRunState | null) => {
+    const next = { ...get().pineRuns };
+    if (patch) next[id] = patch;
+    else delete next[id];
+    set({ pineRuns: next });
+  };
+
+  const runPineIndicator = async (id: string): Promise<void> => {
+    const spec = get().indicators.find((i) => i.id === id);
+    if (!spec || spec.kind !== 'pine') return;
+    const { candles } = get();
+    if (candles.length === 0) return;
+    pineInflight.add(id);
+    pineDirty.delete(id);
+    const prev = get().pineRuns[id];
+    setPineRun(id, { ...prev, running: true });
+    let outcome: PineRunOutcome;
+    try {
+      const res = await workerCall({ type: 'pine', source: spec.source ?? '', candles, inputs: spec.inputs ?? {} });
+      outcome =
+        res.type === 'pineResult' ? res.outcome : { ok: false, error: { message: 'Unexpected worker reply' } };
+    } catch (err) {
+      outcome = { ok: false, error: { message: err instanceof Error ? err.message : String(err) } };
+    }
+    pineInflight.delete(id);
+    if (!get().indicators.some((i) => i.id === id)) {
+      setPineRun(id, null);
+      return;
+    }
+    if (pineDirty.has(id)) {
+      // Source, inputs or candles changed while this ran: its result is stale.
+      void runPineIndicator(id);
+      return;
+    }
+    if (outcome.ok) setPineRun(id, { running: false, result: outcome, candles });
+    else setPineRun(id, { running: false, error: outcome.error });
+  };
+
+  /** (Re)run one pine indicator, or coalesce into the run already in flight. */
+  const schedulePine = (id: string) => {
+    const spec = get().indicators.find((i) => i.id === id);
+    if (!spec || spec.kind !== 'pine' || !spec.visible) return;
+    if (pineInflight.has(id)) pineDirty.add(id);
+    else void runPineIndicator(id);
+  };
+
+  const schedulePineAll = () => {
+    for (const i of get().indicators) if (i.kind === 'pine') schedulePine(i.id);
+  };
+
   const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
     set({
       candles,
@@ -267,6 +338,7 @@ export const useStore = create<AppState>()((set, get) => {
       btError: null,
       optResult: null,
     });
+    schedulePineAll();
   };
 
   const stopLive = () => {
@@ -277,6 +349,7 @@ export const useStore = create<AppState>()((set, get) => {
 
   return {
     ...defaultPrefs,
+    pineRuns: {},
     candles: [],
     dataKey: '',
     dataLabel: '',
@@ -468,20 +541,30 @@ export const useStore = create<AppState>()((set, get) => {
       const indicators = [...get().indicators, defaultIndicator(kind)];
       set({ indicators });
       persistPrefs();
+      if (kind === 'pine') schedulePine(indicators[indicators.length - 1].id);
     },
 
     removeIndicator(id) {
       set({ indicators: get().indicators.filter((i) => i.id !== id) });
+      setPineRun(id, null);
       persistPrefs();
     },
 
     updateIndicator(id, patch) {
       set({
         indicators: get().indicators.map((i) =>
-          i.id === id ? { ...i, ...patch, params: { ...i.params, ...(patch.params ?? {}) } } : i,
+          i.id === id
+            ? {
+                ...i,
+                ...patch,
+                params: { ...i.params, ...(patch.params ?? {}) },
+                ...(i.kind === 'pine' && { inputs: { ...(i.inputs ?? {}), ...(patch.inputs ?? {}) } }),
+              }
+            : i,
         ),
       });
       persistPrefs();
+      if (patch.source !== undefined || patch.inputs !== undefined || patch.visible === true) schedulePine(id);
     },
 
     setShowTrades(v) {
@@ -583,8 +666,10 @@ export const useStore = create<AppState>()((set, get) => {
             const next = candles.slice();
             next[next.length - 1] = candle;
             set({ candles: next });
+            schedulePineAll();
           } else if (candle.time > last.time) {
             set({ candles: [...candles, candle] });
+            schedulePineAll();
           }
           if (closed && get().showTrades && get().btResult) {
             /* keep backtest results untouched; user re-runs manually */

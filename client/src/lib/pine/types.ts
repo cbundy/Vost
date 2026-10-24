@@ -20,9 +20,18 @@ export interface PineInput {
 
 export type PinePlotPane = 'price' | 'separate';
 
+/** What produced the plot: plot(), hline(), bgcolor() or plotshape()/plotchar(). */
+export type PinePlotKind = 'plot' | 'hline' | 'bgcolor' | 'plotshape';
+
 export interface PinePlot {
   name: string;
-  /** One value per candle (1:1); `null` where the script produced na. */
+  kind: PinePlotKind;
+  /** Per-candle colors where they vary (e.g. bgcolor, conditional colors); same length as values. */
+  colors?: (string | null)[];
+  /** plotshape only: PineTS shape name (e.g. "triangle_up") and location (e.g. "BelowBar"). */
+  shape?: string;
+  location?: string;
+  /** One value per candle (1:1); `null` where the script produced na. For bgcolor and plotshape: 1 where drawn, else null. */
   values: (number | null)[];
   color: string | null;
   style: string;
