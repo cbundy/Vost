@@ -44,11 +44,30 @@ export function storageAvailable(): boolean {
   }
 }
 
-/** Debounce helper used for autosaving preferences. */
+/** Debounce helper used for autosaving preferences. `flush()` runs a pending call now; `cancel()` drops it. */
 export function debounce<A extends unknown[]>(fn: (...args: A) => void, wait = 400) {
   let t: ReturnType<typeof setTimeout> | undefined;
-  return (...args: A) => {
+  let pending: A | undefined;
+  const debounced = (...args: A) => {
     if (t) clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
+    pending = args;
+    t = setTimeout(() => {
+      t = undefined;
+      const a = pending!;
+      pending = undefined;
+      fn(...a);
+    }, wait);
   };
+  debounced.cancel = () => {
+    if (t) clearTimeout(t);
+    t = undefined;
+    pending = undefined;
+  };
+  debounced.flush = () => {
+    if (!t) return;
+    const a = pending!;
+    debounced.cancel();
+    fn(...a);
+  };
+  return debounced;
 }
