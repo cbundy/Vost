@@ -5,7 +5,8 @@
 import type { Candle } from '../../types';
 import { runBacktest } from './engine';
 import { computeMetrics } from './metrics';
-import { buildSignals } from './strategies';
+import { runPineBacktest } from './pine';
+import { buildSignals, getStrategy } from './strategies';
 import type { BacktestConfig, BacktestResult } from './types';
 
 export function runFullBacktest(candles: Candle[], config: BacktestConfig): BacktestResult {
@@ -14,4 +15,10 @@ export function runFullBacktest(candles: Candle[], config: BacktestConfig): Back
   const { trades, equity, exposureBars } = runBacktest(candles, signals, config);
   const metrics = computeMetrics(candles, equity, trades, config.initialCapital, exposureBars);
   return { trades, equity, metrics, config, signals };
+}
+
+/** Async entry: Pine scripts run through the Pine runtime, everything else through the signal engine. */
+export async function runAnyBacktest(candles: Candle[], config: BacktestConfig): Promise<BacktestResult> {
+  if (getStrategy(config.strategyId).pine) return runPineBacktest(candles, config);
+  return runFullBacktest(candles, config);
 }

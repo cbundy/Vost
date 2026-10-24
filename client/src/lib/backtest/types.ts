@@ -15,6 +15,8 @@ export interface BacktestConfig {
   params: Record<string, number>;
   /** Only for the `custom` strategy. */
   customCode?: string;
+  /** Only for the `pine` strategy: Pine Script v6 strategy source. */
+  pineCode?: string;
   initialCapital: number;
   /** Percent of equity committed per trade (1–100). */
   positionSizePct: number;

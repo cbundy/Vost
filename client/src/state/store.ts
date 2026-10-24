@@ -12,7 +12,9 @@ import type { BacktestResult, BacktestConfig } from '../lib/backtest/types';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/optimizer';
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
-import { runFullBacktest } from '../lib/backtest/runner';
+import { runAnyBacktest } from '../lib/backtest/runner';
+import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
+import type { PineInput } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import type { LiveHandle, LiveStatus } from '../lib/providers/http';
@@ -87,6 +89,8 @@ export interface AppState {
   btProgress: number;
   btResult: BacktestResult | null;
   btError: string | null;
+  /** Inputs declared by the Pine script in the Backtest panel (not persisted). */
+  pineInputs: PineInput[];
 
   /* optimizer */
   optConfig: OptimizeConfig;
@@ -141,6 +145,7 @@ export interface AppState {
   setShowTrades(v: boolean): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   runBacktest(): Promise<void>;
+  refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
   setOptConfig(patch: Partial<OptimizeConfig>): void;
   runOptimizer(): Promise<void>;
@@ -205,7 +210,10 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
     return new Promise((resolve, reject) => {
       try {
         if (req.type === 'run') {
-          resolve({ id, type: 'result', result: runFullBacktest(req.candles, req.config) });
+          runAnyBacktest(req.candles, req.config).then(
+            (result) => resolve({ id, type: 'result', result }),
+            (err) => reject(err instanceof Error ? err : new Error(String(err))),
+          );
         } else {
           reject(new Error(`${req.type === 'pine' ? 'Pine scripts' : 'Optimizer'} require Web Worker support.`));
         }
@@ -286,6 +294,7 @@ export const useStore = create<AppState>()((set, get) => {
     live: false,
     liveStatus: 'off',
     liveDetail: '',
+    pineInputs: [],
     btRunning: false,
     btProgress: 0,
     btResult: null,
@@ -516,6 +525,26 @@ export const useStore = create<AppState>()((set, get) => {
         const message = err instanceof Error ? err.message : String(err);
         set({ btRunning: false, btError: message });
         get().pushToast('error', `Backtest failed: ${message}`);
+      }
+    },
+
+    async refreshPineInputs() {
+      const { candles, btConfig } = get();
+      if (btConfig.strategyId !== 'pine' || candles.length === 0) {
+        if (get().pineInputs.length > 0) set({ pineInputs: [] });
+        return;
+      }
+      try {
+        // Input declarations do not depend on the data; a short slice keeps this cheap.
+        const msg = await workerCall({
+          type: 'pine',
+          source: btConfig.pineCode ?? DEFAULT_PINE_CODE,
+          candles: candles.slice(0, 60),
+        });
+        if (msg.type !== 'pineResult') throw new Error('Unexpected worker reply');
+        set({ pineInputs: msg.outcome.ok ? msg.outcome.inputs : [] });
+      } catch {
+        set({ pineInputs: [] });
       }
     },
 

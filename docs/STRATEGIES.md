@@ -115,6 +115,15 @@ return signals;
 - Errors in your code surface as a toast and/or a failed-combination count in the optimizer; `return` an array of the same length as `candles` or a friendly error is thrown.
 - Custom code runs in the worker with a hard requirement: **no DOM, no network**. `fetch`/`document` are not available — compute from `candles` only.
 
+## Pine Script strategies
+
+Pick **Pine Script** in the Backtest panel to backtest a Pine v6 `strategy()` script (runtime and supported subset: [PINE.md](PINE.md)). The script runs in the worker and its trades come from Pine's own order emulation, not from the signal engine; they are converted to the usual trades, a per-bar mark-to-market equity curve and the usual metrics.
+
+- `input.int` / `input.float` / `input.bool` declarations show as parameters (defaults, min/max/step from the script). Numeric ones can be swept in the Optimizer.
+- **Settings precedence**: `initial_capital` and `commission_*` given in `strategy()` win over the panel's Initial capital and Fee fields; when the script omits them the panel values are used. Pine's default capital (1,000,000) and zero commission count as "not given". The values used are shown below the panel after a run.
+- Position size, slippage, shorts and stop loss / take profit are not applied: set them in the script (`default_qty_*`, `strategy.exit`, ...).
+- A trade still open at the last bar is closed at the last close (`end_of_data`). An `indicator()` script is rejected; a syntax error shows the runtime message with its line.
+
 ## How results are computed
 
 - Fills at the **next bar's open**, with slippage applied *against* you (`buy = open × (1 + slip)`, `sell = open × (1 − slip)`).

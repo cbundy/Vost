@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CUSTOM_STRATEGY_EXAMPLES, DEFAULT_CUSTOM_CODE } from '../lib/backtest/custom';
+import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples';
+import type { PineInput } from '../lib/pine/types';
 import { getStrategy, strategies } from '../lib/backtest/strategies';
 import { useStore } from '../state/store';
 
@@ -11,8 +13,19 @@ export function BacktestTab() {
   const setBtConfig = useStore((s) => s.setBtConfig);
   const runBacktest = useStore((s) => s.runBacktest);
   const pushToast = useStore((s) => s.pushToast);
+  const pineInputs = useStore((s) => s.pineInputs);
+  const refreshPineInputs = useStore((s) => s.refreshPineInputs);
+  const btResult = useStore((s) => s.btResult);
 
   const strategy = getStrategy(btConfig.strategyId);
+
+  const isPine = !!strategy.pine;
+
+  useEffect(() => {
+    if (!isPine) return;
+    const t = setTimeout(() => void refreshPineInputs(), 400);
+    return () => clearTimeout(t);
+  }, [isPine, btConfig.pineCode, candles.length > 0, refreshPineInputs]);
 
   const setParam = (key: string, value: number) => {
     setBtConfig({ params: { ...btConfig.params, [key]: value } });
@@ -28,7 +41,7 @@ export function BacktestTab() {
             onChange={(e) => {
               const next = getStrategy(e.target.value);
               const params = Object.fromEntries(next.params.map((p) => [p.key, p.default]));
-              setBtConfig({ strategyId: next.id, params });
+              setBtConfig({ strategyId: next.id, params, ...(next.pine && btConfig.pineCode === undefined && { pineCode: DEFAULT_PINE_CODE }) });
             }}
           >
             {strategies.map((s) => (
@@ -38,6 +51,8 @@ export function BacktestTab() {
             ))}
           </select>
         </label>
+
+        {isPine && pineInputs.filter(isTunable).map((i) => <PineInputField key={i.name} input={i} value={btConfig.params[i.name]} onChange={(v) => setParam(i.name, v)} />)}
 
         {strategy.params.map((p) =>
           p.type === 'select' ? (
@@ -70,7 +85,7 @@ export function BacktestTab() {
         )}
 
         <label className="form-field">
-          <span>Initial capital ($)</span>
+          <span>Initial capital ($){isPine && ' (script wins)'}</span>
           <input
             type="number"
             min={1}
@@ -79,8 +94,8 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Position size (% equity)</span>
-          <input
+          <span>Position size (% equity){isPine && ' (set in script)'}</span>
+          <input disabled={isPine}
             type="number"
             min={1}
             max={100}
@@ -89,7 +104,7 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Fee (bps per side)</span>
+          <span>Fee (bps per side){isPine && ' (script wins)'}</span>
           <input
             type="number"
             min={0}
@@ -98,8 +113,8 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Slippage (bps)</span>
-          <input
+          <span>Slippage (bps){isPine && ' (set in script)'}</span>
+          <input disabled={isPine}
             type="number"
             min={0}
             value={btConfig.slippageBps}
@@ -107,8 +122,8 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Stop loss (%)</span>
-          <input
+          <span>Stop loss (%){isPine && ' (set in script)'}</span>
+          <input disabled={isPine}
             type="number"
             min={0}
             placeholder="off"
@@ -117,8 +132,8 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Take profit (%)</span>
-          <input
+          <span>Take profit (%){isPine && ' (set in script)'}</span>
+          <input disabled={isPine}
             type="number"
             min={0}
             placeholder="off"
@@ -127,8 +142,8 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Shorts</span>
-          <select value={btConfig.allowShort ? 'yes' : 'no'} onChange={(e) => setBtConfig({ allowShort: e.target.value === 'yes' })}>
+          <span>Shorts{isPine && ' (set in script)'}</span>
+          <select disabled={isPine} value={btConfig.allowShort ? 'yes' : 'no'} onChange={(e) => setBtConfig({ allowShort: e.target.value === 'yes' })}>
             <option value="no">Disabled</option>
             <option value="yes">Enabled</option>
           </select>
@@ -142,6 +157,15 @@ export function BacktestTab() {
             onChange={(code) => setBtConfig({ customCode: code })}
           />
           <CustomParamsEditor params={btConfig.params} onChange={(params) => setBtConfig({ params })} />
+        </div>
+      )}
+
+      {isPine && (
+        <div className="mt-3">
+          <PineCodeEditor
+            code={btConfig.pineCode ?? DEFAULT_PINE_CODE}
+            onChange={(code) => setBtConfig({ pineCode: code })}
+          />
         </div>
       )}
 
@@ -166,6 +190,15 @@ export function BacktestTab() {
       {btError && (
         <div className="mt-2" style={{ color: 'var(--red)', fontSize: 12.5 }}>
           {btError}
+        </div>
+      )}
+      {isPine && (
+        <div className="hint mt-2">
+          Pine scripts run in a Web Worker with Pine's own order emulation. Initial capital and commission from the script's{' '}
+          <code>strategy()</code> call win over the fields above; otherwise those fields are used.
+          {btResult && btResult.config.strategyId === 'pine' && (
+            <> Last run used capital ${btResult.config.initialCapital} and a fee of {btResult.config.feeBps} bps per side.</>
+          )}
         </div>
       )}
       {strategy.custom && (
@@ -244,6 +277,59 @@ function CustomParamsEditor({ params, onChange }: { params: Record<string, numbe
         }}
       />
       {error && <div className="hint" style={{ color: 'var(--red)' }}>{error}</div>}
+    </div>
+  );
+}
+
+function isTunable(i: PineInput): boolean {
+  return i.type === 'int' || i.type === 'float' || i.type === 'bool';
+}
+
+function PineInputField({ input, value, onChange }: { input: PineInput; value: number | undefined; onChange: (v: number) => void }) {
+  const def = typeof input.defval === 'number' ? input.defval : input.defval === true ? 1 : 0;
+  const current = value ?? def;
+  if (input.type === 'bool') {
+    return (
+      <label className="form-field">
+        <span>{input.name}</span>
+        <select value={current ? 'yes' : 'no'} onChange={(e) => onChange(e.target.value === 'yes' ? 1 : 0)}>
+          <option value="yes">On</option>
+          <option value="no">Off</option>
+        </select>
+      </label>
+    );
+  }
+  return (
+    <label className="form-field">
+      <span>{input.name}</span>
+      <input
+        type="number"
+        value={current}
+        min={input.minval}
+        max={input.maxval}
+        step={input.step ?? (input.type === 'int' ? 1 : 0.1)}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          if (Number.isFinite(v)) onChange(v);
+        }}
+      />
+    </label>
+  );
+}
+
+function PineCodeEditor({ code, onChange }: { code: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <div className="section-title">Pine Script strategy</div>
+      <textarea className="code-editor" spellCheck={false} value={code} onChange={(e) => onChange(e.target.value)} />
+      <div className="form-row mt-2">
+        <span className="hint">Examples:</span>
+        {PINE_STRATEGY_EXAMPLES.map((ex) => (
+          <button key={ex.name} onClick={() => onChange(ex.code)} title="Load this example">
+            {ex.name}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

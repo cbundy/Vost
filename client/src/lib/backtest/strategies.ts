@@ -47,6 +47,8 @@ export interface StrategyDef {
   description: string;
   params: ParamSpec[];
   custom?: boolean;
+  /** Pine Script strategy: runs through the Pine runtime, params are the script's inputs. */
+  pine?: boolean;
   build(candles: Candle[], params: Record<string, number>): Signal[];
 }
 
@@ -279,6 +281,17 @@ const customStrategy: StrategyDef = {
 
 /* ------------------------------------------------------------------ */
 
+const pineStrategy: StrategyDef = {
+  id: 'pine',
+  name: 'Pine Script',
+  description: 'Run a Pine Script v6 strategy() script. Its input.* declarations become parameters.',
+  params: [],
+  pine: true,
+  build(candles) {
+    return new Array(candles.length).fill(null) as Signal[];
+  },
+};
+
 export const strategies: StrategyDef[] = [
   smaCross,
   emaCross,
@@ -288,6 +301,7 @@ export const strategies: StrategyDef[] = [
   donchian,
   buyHold,
   customStrategy,
+  pineStrategy,
 ];
 
 export function getStrategy(id: string): StrategyDef {

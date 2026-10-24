@@ -18,3 +18,5 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 ## Fixtures
 
 `client/src/lib/pine/fixtures/*.pine` hold example scripts (EMA cross, MACD, RSI, Bollinger Bands, two strategies, and a syntax error). `runtime.test.ts` checks plot values against `client/src/lib/indicators.ts`.
+
+Backtesting a `strategy()` script is described in [STRATEGIES.md](STRATEGIES.md#pine-script-strategies).

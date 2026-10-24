@@ -46,6 +46,15 @@ export interface PineTrade {
   exitId: string | null;
 }
 
+/** Settings from the strategy() declaration (strategies only). Raw values; PineTS fills in Pine's defaults. */
+export interface PineStrategyConfig {
+  initialCapital: number;
+  commissionType: string;
+  commissionValue: number;
+  defaultQtyType: string;
+  defaultQtyValue: number;
+}
+
 export interface PineResult {
   ok: true;
   kind: PineKind;
@@ -56,6 +65,8 @@ export interface PineResult {
   trades: PineTrade[];
   /** Strategies only: signed position size at the close of each candle. */
   position: number[];
+  /** Strategies only. */
+  strategyConfig?: PineStrategyConfig;
 }
 
 export interface PineError {
