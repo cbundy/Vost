@@ -149,6 +149,8 @@ export interface AppState {
   /** Imports an exported list; returns an error string or null on success. */
   importWatchlist(json: string): string | null;
   init(): void;
+  /** Run any pending debounced saves (prefs, watchlists, datasets) now. */
+  flushPersist(): void;
   setProvider(id: string): void;
   setSymbol(symbol: string, opts?: { load?: boolean }): void;
   setTimeframe(tf: Timeframe, opts?: { load?: boolean }): void;
@@ -422,6 +424,12 @@ export const useStore = create<AppState>()((set, get) => {
       set({ watchlists: res });
       persistWatchlists();
       return null;
+    },
+
+    flushPersist() {
+      persistPrefs.flush();
+      persistWatchlists.flush();
+      persistDatasets.flush();
     },
 
     init() {

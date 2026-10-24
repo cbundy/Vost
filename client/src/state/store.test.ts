@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function stubStorage() {
   const store: Record<string, string> = {};
@@ -9,6 +9,28 @@ function stubStorage() {
   });
 }
 
+type TestStore = (typeof import('./store'))['useStore'];
+const used: TestStore[] = [];
+const track = (s: TestStore) => {
+  used.push(s);
+  return s;
+};
+
+async function afterEachCleanup() {
+  const stores = used.splice(0);
+  for (const s of stores) {
+    await vi.waitFor(() => {
+      expect(Object.values(s.getState().pineRuns).some((r) => r.running)).toBe(false);
+    }, { timeout: 20000 });
+    // flush while this test's storage stub is still in place
+    s.getState().flushPersist();
+  }
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+}
+
+afterEach(afterEachCleanup);
+
 describe('addSymbolToWatchlist', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -17,6 +39,7 @@ describe('addSymbolToWatchlist', () => {
 
   it('adds to the active list once; a second call is a no-op', async () => {
     const { useStore } = await import('./store');
+    track(useStore);
     const st = useStore.getState();
     const count = () =>
       useStore.getState().watchlists.lists.find((l) => l.id === useStore.getState().watchlists.activeListId)!.sections
@@ -43,6 +66,7 @@ describe('pine indicators', () => {
     const text = readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8');
     const candles = candlesFromCsvText(text).candles;
     const { useStore } = await import('./store');
+    track(useStore);
     useStore.setState({ candles });
     return { useStore, candles };
   }
@@ -95,9 +119,6 @@ describe('pine indicators', () => {
   });
 
   it('persists source and inputs; old prefs without pine entries still load', async () => {
-    // Earlier tests' stores leave real 400ms persist debounces pending; let them fire (into this
-    // test's storage stub) before faking timers, or a slow runner lets one overwrite our prefs.
-    await new Promise((r) => setTimeout(r, 500));
     vi.useFakeTimers();
     try {
       const { useStore } = await setup();
@@ -110,10 +131,7 @@ describe('pine indicators', () => {
       // Reload: a fresh store reads the same prefs back.
       vi.resetModules();
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
-      const fresh = (await import('./store')).useStore;
-      // A debounced save left pending by an earlier test may fire while the import
-      // awaits and overwrite the prefs; restore the saved snapshot before reading.
-      localStorage.setItem('vost.prefs.v1', raw!);
+      const fresh = track((await import('./store')).useStore);
       fresh.getState().init();
       const pine = fresh.getState().indicators.find((i) => i.id === id)!;
       expect(pine.kind).toBe('pine');
@@ -137,8 +155,23 @@ describe('pine indicators', () => {
     );
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
     const { useStore } = await import('./store');
+    track(useStore);
     useStore.getState().init();
     expect(useStore.getState().indicators.map((i) => i.id)).toEqual(['old1']);
     expect(useStore.getState().pineRuns).toEqual({});
+  });
+});
+
+describe('stale persist isolation', () => {
+  it('a pending save from a previous store cannot write into the next test', async () => {
+    vi.resetModules();
+    stubStorage();
+    const { useStore } = await import('./store');
+    useStore.getState().addIndicator('sma');
+    used.push(useStore);
+    await afterEachCleanup();
+    stubStorage();
+    await new Promise((r) => setTimeout(r, 700));
+    expect(localStorage.getItem('vost.prefs.v1')).toBeNull();
   });
 });
