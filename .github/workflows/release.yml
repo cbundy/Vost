@@ -1,6 +1,6 @@
 # Publishes a release when package.json's version changes on main (see RELEASING.md).
 # A release created with GITHUB_TOKEN does not trigger other workflows, so any publish step
-# (for example the GHCR image) must run inside this workflow or be called from it with workflow_call.
+# (for example a container image) must run inside this workflow or be called from it with workflow_call.
 name: release
 
 on:

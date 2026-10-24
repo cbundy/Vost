@@ -44,5 +44,11 @@ milestones titled exactly `Next release` and `Later` exist (`scripts/release-mil
 contract is defined by `callum-flow-milestone --help`).
 
 A release created with `GITHUB_TOKEN` does not trigger other workflows, so anything that publishes on
-release (for example the GHCR image) must run as a job inside `release.yml` (or through
+release (for example a future container image publish) must run as a job inside `release.yml` (or through
 `workflow_call`), not on `on: release`.
+
+## Docker images
+
+Releases publish no registry image. Users build the Docker image from source at the release tag
+(`git checkout vX.Y.Z`, then `docker compose up -d --build`), as `README.md` and `docs/DEPLOYMENT.md`
+describe. Publishing an image is possible future work, not a release step.
