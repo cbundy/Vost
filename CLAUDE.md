@@ -27,7 +27,7 @@
   If something clearly looks off, even if it is not directly related to what you are doing, try to get it fixed along the way
   (a factory loop agent names it in its answer instead, since its change holds only what the brief asks).
 - For any PR that changes UI, capture a screenshot (and a short video/GIF for animated/interactive changes)
-  using this repo's e2e visual verification tooling (no doc yet: boot the app with `npm run dev` and capture the page in a browser), upload each capture with `callum-flow-evidence-upload pr-<N>/<slug> <file>...`
+  using this repo's e2e visual verification tooling (see `docs/e2e-visual-verification.md`), upload each capture with `callum-flow-evidence-upload pr-<N>/<slug> <file>...`
   and attach the printed URLs to the PR description before the PR is considered ready. Commit an image only when it is a
   durable reference image the repo keeps.
 - Keep PR descriptions brief and concise. They are reviewed by a head of engineering, not an engineer,
@@ -112,11 +112,14 @@ Install first with `npm ci` (the gate commands in `.claude/factory-loop.json` in
 | Test (Vitest, all `client/src/**/*.test.ts`) | `npm test` | step "Test" |
 | Build | `npm run build` | step "Build client" |
 
+Non-gate command (UI evidence; never in a gate or CI; see `docs/e2e-visual-verification.md`):
+`npm run -s e2e:capture -- <scenario>` (scenarios: `chart`, `chart-pan`).
+
 One suite while debugging: `npm test -- client/src/lib/csv.test.ts`. Test output settings
 (dot reporter, silent) live in `vitest.config.ts`.
 
 CI also smoke-tests the server (`npm start`, then `/api/health` and `/`) on Node 20, 22 and 24,
-and builds and smoke-tests the Docker image (job `docker`). There is no e2e suite; run the
+and builds and smoke-tests the Docker image (job `docker`). There is no e2e test suite, only the capture command above; run the
 server smoke test locally only when a change touches `server/` or the build.
 
 ## Implementation sub-agents (manual path)
