@@ -7,7 +7,7 @@
 Pull free public market data, import your own CSV files, chart them with [lightweight-charts](https://github.com/tradingview/lightweight-charts), and run **unlimited** backtests with a parameter optimizer — all from a single Node process with **zero runtime dependencies**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
-[![CI](https://github.com/AuthorShin/Vost/actions/workflows/ci.yml/badge.svg)](https://github.com/AuthorShin/Vost/actions/workflows/ci.yml)
+[![CI](https://github.com/cbundy/Vost/actions/workflows/ci.yml/badge.svg)](https://github.com/cbundy/Vost/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-brightgreen.svg)](#quick-start)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -53,7 +53,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 ### Docker (recommended for self-hosting)
 
 ```bash
-git clone https://github.com/AuthorShin/Vost.git
+git clone https://github.com/cbundy/Vost.git
 cd Vost
 docker compose up -d
 ```
@@ -63,7 +63,7 @@ Open <http://localhost:8787>. Done.
 ### Local (Node 24 recommended, 20.19+ supported)
 
 ```bash
-git clone https://github.com/AuthorShin/Vost.git
+git clone https://github.com/cbundy/Vost.git
 cd Vost
 npm install
 npm run build     # typecheck + bundle the web client

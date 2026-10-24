@@ -55,7 +55,7 @@ docker compose up -d --build
 Requirements: Node **24** recommended (`node --version`); Node 20.19+ is the minimum supported.
 
 ```bash
-git clone https://github.com/AuthorShin/Vost.git
+git clone https://github.com/cbundy/Vost.git
 cd Vost
 npm ci            # or npm install
 npm run build     # typecheck + bundle -> client/dist
