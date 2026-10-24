@@ -4,8 +4,9 @@
 import type { Series } from '../types';
 import { bollinger, ema, macd, rsi, sma, vwap, type MacdResult } from './indicators';
 import type { Candle } from '../types';
+import type { PineInputValue } from './pine/types';
 
-export type IndicatorKind = 'sma' | 'ema' | 'bb' | 'vwap' | 'volume' | 'rsi' | 'macd';
+export type IndicatorKind = 'sma' | 'ema' | 'bb' | 'vwap' | 'volume' | 'rsi' | 'macd' | 'pine';
 
 export interface IndicatorParamSpec {
   key: string;
@@ -92,7 +93,23 @@ export const INDICATOR_META: Record<IndicatorKind, IndicatorMeta> = {
     defaultColor: '#3b82f6',
     description: 'Moving average convergence/divergence',
   },
+  pine: {
+    kind: 'pine',
+    name: 'Pine indicator',
+    pane: 'main',
+    params: [],
+    defaultColor: '#22d3ee',
+    description: 'Run Pine Script source (indicator or strategy) on the chart',
+  },
 };
+
+export const DEFAULT_PINE_SOURCE = `//@version=6
+indicator("EMA cross", overlay=true)
+fast = input.int(9, "Fast")
+slow = input.int(21, "Slow")
+plot(ta.ema(close, fast), "Fast", color.orange)
+plot(ta.ema(close, slow), "Slow", color.blue)
+`;
 
 export interface IndicatorSpec {
   id: string;
@@ -100,6 +117,10 @@ export interface IndicatorSpec {
   params: Record<string, number>;
   color: string;
   visible: boolean;
+  /** kind 'pine' only: the Pine Script source. */
+  source?: string;
+  /** kind 'pine' only: input overrides keyed by input title. */
+  inputs?: Record<string, PineInputValue>;
 }
 
 let indicatorCounter = 0;
@@ -112,6 +133,7 @@ export function defaultIndicator(kind: IndicatorKind): IndicatorSpec {
     params: Object.fromEntries(meta.params.map((p) => [p.key, p.default])),
     color: PALETTE[indicatorCounter % PALETTE.length],
     visible: true,
+    ...(kind === 'pine' && { source: DEFAULT_PINE_SOURCE, inputs: {} }),
   };
 }
 

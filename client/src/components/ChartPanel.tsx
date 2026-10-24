@@ -22,6 +22,7 @@ import { fmtCompact, fmtPct, fmtPrice, fmtTime } from '../lib/format';
 import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
+import { usePineSeries } from './usePineSeries';
 
 type IndEntry = {
   series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
@@ -56,6 +57,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
   const showTrades = useStore((s) => s.showTrades);
   const setShowTrades = useStore((s) => s.setShowTrades);
   const loadState = useStore((s) => s.loadState);
+  const pineRuns = useStore((s) => s.pineRuns);
   const providerId = useStore((s) => s.providerId);
   const setProvider = useStore((s) => s.setProvider);
 
@@ -68,6 +70,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
   const lastDataKeyRef = useRef('');
   const lastIndicatorsRef = useRef<unknown>(null);
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
+  const paneEpochRef = useRef(0);
 
   const precision = useMemo(() => {
     const last = candles[candles.length - 1];
@@ -148,6 +151,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
   useEffect(() => {
     const chart = chartApi;
     if (!chart) return;
+    paneEpochRef.current++; // panes are dropped below: pine series must be rebuilt
 
     for (const { series } of indMapRef.current.values()) {
       try {
@@ -225,6 +229,8 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
       }
     }
   }, [chartApi, indicators]);
+
+  usePineSeries(chartApi, indicators, pineRuns, paneEpochRef);
 
   /* ---------------- push data (full or incremental) ---------------- */
   useEffect(() => {
