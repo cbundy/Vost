@@ -5,6 +5,7 @@
  * Heavy computations run in a dedicated Web Worker; this module only talks to
  * it over a tiny promise-based message protocol.
  */
+import { applyKline } from '../lib/applyKline';
 import { create } from 'zustand';
 import type { Candle, Dataset, Timeframe } from '../types';
 import { uid } from '../types';
@@ -17,6 +18,7 @@ import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
+import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } from '../lib/messages';
 import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
 import type { LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
@@ -28,6 +30,11 @@ export interface Toast {
   id: string;
   kind: 'info' | 'success' | 'error';
   text: string;
+}
+
+function toastSource(text: string): string {
+  if (/backtest|optimiz|parameter/i.test(text)) return 'Backtest';
+  return 'Data';
 }
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
@@ -111,6 +118,7 @@ export interface AppState {
   optResult: { rows: OptimizeRow[]; metric: MetricKey; combos: number; errored: number } | null;
 
   toasts: Toast[];
+  messages: InboxMessage[];
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
   /** Full browsable symbol list per provider id, once loaded. */
@@ -172,6 +180,9 @@ export interface AppState {
   addSymbolToWatchlist(s: SymbolSuggestion): void;
   pushToast(kind: Toast['kind'], text: string): void;
   dismissToast(id: string): void;
+  pushMessage(source: string, severity: MessageSeverity, text: string): void;
+  markMessagesRead(): void;
+  clearMessages(): void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -379,6 +390,7 @@ export const useStore = create<AppState>()((set, get) => {
     optProgress: 0,
     optResult: null,
     toasts: [],
+    messages: [],
     symbolQuery: '',
     symbolSuggestions: [],
     symbolCatalog: {},
@@ -694,18 +706,13 @@ export const useStore = create<AppState>()((set, get) => {
       liveHandle = provider.startLive({
         symbol,
         timeframe,
+        onLog: (severity, text) => get().pushMessage('Live', severity, text),
         onStatus: (status, detail) => set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' }),
         onKline: (candle, closed) => {
-          const candles = get().candles;
-          if (candles.length === 0) return;
-          const last = candles[candles.length - 1];
-          if (candle.time === last.time) {
-            const next = candles.slice();
-            next[next.length - 1] = candle;
+          const prev = get().candles;
+          const next = applyKline(prev, candle);
+          if (next !== prev) {
             set({ candles: next });
-            schedulePineAll();
-          } else if (candle.time > last.time) {
-            set({ candles: [...candles, candle] });
             schedulePineAll();
           }
           if (closed && get().showTrades && get().btResult) {
@@ -765,7 +772,21 @@ export const useStore = create<AppState>()((set, get) => {
     pushToast(kind, text) {
       const id = uid('toast_');
       set({ toasts: [...get().toasts, { id, kind, text }] });
+      if (kind === 'error') get().pushMessage(toastSource(text), 'error', text);
       setTimeout(() => get().dismissToast(id), kind === 'error' ? 9000 : 5000);
+    },
+
+    pushMessage(source, severity, text) {
+      const msg: InboxMessage = { id: uid('msg_'), time: Date.now(), source, severity, text, read: false };
+      set({ messages: appendMessage(get().messages, msg) });
+    },
+
+    markMessagesRead() {
+      set({ messages: markAllRead(get().messages) });
+    },
+
+    clearMessages() {
+      set({ messages: [] });
     },
 
     dismissToast(id) {

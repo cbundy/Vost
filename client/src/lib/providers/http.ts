@@ -88,6 +88,8 @@ export interface LiveOptions {
   timeframe: string;
   onKline: (candle: Candle, isClosed: boolean) => void;
   onStatus: (status: LiveStatus, detail?: string) => void;
+  /** One entry per failure, for the in-app message log. */
+  onLog?: (severity: 'info' | 'success' | 'warning' | 'error', text: string) => void;
 }
 
 export interface DataProvider {

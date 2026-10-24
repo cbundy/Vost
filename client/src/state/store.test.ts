@@ -130,6 +130,9 @@ describe('pine indicators', () => {
       vi.resetModules();
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const fresh = track((await import('./store')).useStore);
+      // A debounced save left pending by an earlier test may fire while the import
+      // awaits and overwrite the prefs; restore the saved snapshot before reading.
+      localStorage.setItem('vost.prefs.v1', raw!);
       fresh.getState().init();
       const pine = fresh.getState().indicators.find((i) => i.id === id)!;
       expect(pine.kind).toBe('pine');

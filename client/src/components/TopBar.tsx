@@ -1,16 +1,26 @@
 import { PROVIDER_GITHUB_URL } from '../lib/constants';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
+import { unreadCount } from '../lib/messages';
 import { useStore } from '../state/store';
 import { SymbolSearch } from './SymbolSearch';
 
 const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
 
-export function TopBar({ onImportCsv, onToggleSidebar }: { onImportCsv: () => void; onToggleSidebar: () => void }) {
+export function TopBar({
+  onImportCsv,
+  onToggleSidebar,
+  onOpenInbox,
+}: {
+  onImportCsv: () => void;
+  onToggleSidebar: () => void;
+  onOpenInbox: () => void;
+}) {
   const providerId = useStore((s) => s.providerId);
   const timeframe = useStore((s) => s.timeframe);
   const bars = useStore((s) => s.bars);
   const loadState = useStore((s) => s.loadState);
+  const unread = useStore((s) => unreadCount(s.messages));
   const live = useStore((s) => s.live);
   const liveStatus = useStore((s) => s.liveStatus);
   const liveDetail = useStore((s) => s.liveDetail);
@@ -95,8 +105,8 @@ export function TopBar({ onImportCsv, onToggleSidebar }: { onImportCsv: () => vo
         <button
           className={live ? 'badge green' : 'badge'}
           style={{ cursor: 'pointer' }}
-          onClick={() => setLive(!live)}
-          title={liveDetail || 'Stream live candles from Binance'}
+          onClick={() => (liveStatus === 'error' ? onOpenInbox() : setLive(!live))}
+          title={liveStatus === 'error' ? `${liveDetail} - click to open the inbox` : liveDetail || 'Stream live candles from Binance'}
         >
           <span className={`live-dot ${liveClass}`} style={{ marginRight: 6 }} />
           {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
@@ -104,6 +114,13 @@ export function TopBar({ onImportCsv, onToggleSidebar }: { onImportCsv: () => vo
       )}
 
       <div className="topbar-right">
+        <button className="ghost icon inbox-btn" onClick={onOpenInbox} title="Inbox (messages and errors)" aria-label="Inbox">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+          </svg>
+          {unread > 0 && <span className="inbox-badge">{unread > 99 ? '99+' : unread}</span>}
+        </button>
         <button onClick={onImportCsv} title="Import OHLCV CSV — works fully offline">
           ⬆ Import CSV
         </button>
