@@ -47,6 +47,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 - Built-in strategies: SMA/EMA crossover, MACD, RSI mean-reversion, Bollinger (breakout & reversion), Donchian breakout, Buy & hold — plus **custom JavaScript strategies**
 - Engine: single position, next-bar-open fills, bps fees & slippage per side, intrabar stops/takes (stop-first conservative assumption, gap-through fills), shorts optional
 - Results: 20+ metrics (CAGR, Sharpe, Sortino, Calmar, max drawdown & duration, profit factor, exposure, expectancy…), equity + underwater chart, full trade log, CSV exports, trade markers drawn on the chart
+- Time range: the backtester and the optimizer run on the From / To range set in the Backtest pane (default: all loaded data)
 - **Optimizer**: grid-search one or two parameters, ranked by any metric, with a clickable heatmap — apply the best combo and re-run in one click
 
 ## Quick start
@@ -141,7 +142,7 @@ Signals are computed per bar from data **up to and including that bar**, then ex
 
 Risk controls: initial capital, position size (% of equity), fees (bps), slippage (bps), stop loss %, take profit %, long/short toggle.
 
-The **Optimizer** runs full backtests over a 1D or 2D parameter grid inside the same Web Worker (progress bar included), ranks results by any metric, and renders a heatmap. Click a cell → parameters applied → backtest re-run.
+The **Optimizer** runs full backtests over a 1D or 2D parameter grid inside the same Web Worker (progress bar included), ranks results by any metric, and renders a heatmap. Click a cell → parameters applied → backtest re-run. The backtester and the optimizer both run on the time range set in the Backtest pane (empty = all loaded data).
 
 Custom strategies are plain JavaScript with indicator helpers, executed in the worker:
 

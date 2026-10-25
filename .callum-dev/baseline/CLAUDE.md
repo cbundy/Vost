@@ -27,8 +27,8 @@
   If something clearly looks off, even if it is not directly related to what you are doing, try to get it fixed along the way
   (a factory loop agent names it in its answer instead, since its change holds only what the brief asks).
 - For any PR that changes UI, capture a screenshot (and a short video/GIF for animated/interactive changes)
-  using this repo's e2e visual verification tooling (<REPLACE: path to your e2e visual verification doc, e.g.
-  `docs/design/e2e-visual-verification.md`>), upload each capture with `callum-flow-evidence-upload pr-<N>/<slug> <file>...`
+  using this repo's e2e visual verification tooling (<REPLACE: path to your repo's capture doc, kept in step with uiCapture in .claude/factory-loop.json, e.g.
+  `docs/e2e-visual-verification.md`, or n/a - no UI for a repo with no UI>), upload each capture with `callum-flow-evidence-upload pr-<N>/<slug> <file>...`
   and attach the printed URLs to the PR description before the PR is considered ready. Commit an image only when it is a
   durable reference image the repo keeps.
 - Keep PR descriptions brief and concise. They are reviewed by a head of engineering, not an engineer,
@@ -84,14 +84,12 @@ Work in this repo takes one of two paths. A rule that names a path applies only 
   its title, body, issue link and evidence from your answer; it runs review, waits on CI and
   merges through its own queue. Follow your agent definition and your prompt. Work only in your
   slot and push only the issue's branch to `origin`. Never lease, return or create a worktree,
-  never run no-mistakes, and never follow the `implement-issue` or `issue-orchestrator` skills or
-  a section of this file marked as the manual path. Never write to GitHub: where a rule here says
+  and never follow a section of this file marked as the manual path. Never write to GitHub: where a rule here says
   to link, describe, attach to, label, merge or raise an issue or a PR, put what it needs in your
   answer and the loop does it.
-- **The manual path**, for a person or an interactive session. Code changes go in a worktree
-  (the mechanism is in "Implementation sub-agents" below). Run every canonical command once
-  before the PR opens: they are the same commands CI and `.claude/factory-loop.json`
-  `gateCommands` run.
+- **The manual path**, for a person or an interactive session. Code changes go in a worktree.
+  Run every canonical command once before the PR opens (they are the same commands CI and
+  `.claude/factory-loop.json` `gateCommands` run), then open a plain PR that links its issue.
 <!-- end synced -->
 
 <!-- repo-owned: edit freely - fill in the sections below for this repo -->
@@ -116,12 +114,4 @@ each gate and when to run e2e locally, so the local command and the CI gate can 
 apart. If you add a new category of tests, extend the single entrypoint here rather than
 adding a bespoke CI step.>
 
-## Implementation sub-agents (manual path)
-
-Any agent making code changes - solo or delegated - works inside a <REPLACE: this repo's
-worktree/isolation mechanism, e.g. a treehouse worktree>, then runs the gate commands
-(`.claude/factory-loop.json` `gateCommands`, the same commands CI runs) before the PR opens.
-
-<REPLACE: note any repo-specific variations to the above (e.g. extra build/boot steps
-before an agent can safely run this repo's app).>
 <!-- end repo-owned -->

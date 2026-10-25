@@ -83,14 +83,12 @@ Work in this repo takes one of two paths. A rule that names a path applies only 
   its title, body, issue link and evidence from your answer; it runs review, waits on CI and
   merges through its own queue. Follow your agent definition and your prompt. Work only in your
   slot and push only the issue's branch to `origin`. Never lease, return or create a worktree,
-  never run no-mistakes, and never follow the `implement-issue` or `issue-orchestrator` skills or
-  a section of this file marked as the manual path. Never write to GitHub: where a rule here says
+  and never follow a section of this file marked as the manual path. Never write to GitHub: where a rule here says
   to link, describe, attach to, label, merge or raise an issue or a PR, put what it needs in your
   answer and the loop does it.
-- **The manual path**, for a person or an interactive session. Code changes go in a worktree
-  (the mechanism is in "Implementation sub-agents" below). Run every canonical command once
-  before the PR opens: they are the same commands CI and `.claude/factory-loop.json`
-  `gateCommands` run.
+- **The manual path**, for a person or an interactive session. Code changes go in a worktree.
+  Run every canonical command once before the PR opens (they are the same commands CI and
+  `.claude/factory-loop.json` `gateCommands` run), then open a plain PR that links its issue.
 <!-- end synced -->
 
 <!-- repo-owned: edit freely - fill in the sections below for this repo -->
@@ -113,7 +111,7 @@ Install first with `npm ci` (the gate commands in `.claude/factory-loop.json` in
 | Build | `npm run build` | step "Build client" |
 
 Non-gate command (UI evidence; never in a gate or CI; see `docs/e2e-visual-verification.md`):
-`npm run -s e2e:capture -- <scenario>` (scenarios: `chart`, `chart-pan`, `chart-reset`, `zone-clock`).
+`npm run -s e2e:capture -- <scenario>` (scenarios: `chart`, `chart-pan`, `chart-reset`, `zone-clock`, `bt-range`).
 
 One suite while debugging: `npm test -- client/src/lib/csv.test.ts`. Test output settings
 (dot reporter, silent) live in `vitest.config.ts`.

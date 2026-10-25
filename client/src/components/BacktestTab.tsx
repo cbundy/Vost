@@ -5,6 +5,9 @@ import type { PineInput } from '../lib/pine/types';
 import { getStrategy, strategies } from '../lib/backtest/strategies';
 import { PineEditor } from './PineEditor';
 import { messageToError } from '../lib/pine/language';
+import { fmtNum, fmtTime } from '../lib/format';
+import { describeTimeRange, timeRangeErrorText } from '../lib/timeRange';
+import { TimeRangePicker } from './TimeRangePicker';
 import { useStore } from '../state/store';
 
 export function BacktestTab() {
@@ -18,10 +21,33 @@ export function BacktestTab() {
   const pineInputs = useStore((s) => s.pineInputs);
   const refreshPineInputs = useStore((s) => s.refreshPineInputs);
   const btResult = useStore((s) => s.btResult);
+  const btRange = useStore((s) => s.btRange);
+  const setBtRange = useStore((s) => s.setBtRange);
+  const timeZone = useStore((s) => s.timeZone);
 
   const strategy = getStrategy(btConfig.strategyId);
 
   const isPine = !!strategy.pine;
+
+  const range = describeTimeRange(candles, btRange);
+  const hasData = candles.length >= 3;
+  const rangeSet = btRange.from != null || btRange.to != null;
+  const inRange = range.slice;
+  const hint = (() => {
+    if (!hasData) return 'Load data first (provider above or CSV import).';
+    const tail = "signals execute at the next bar's open · fees & slippage applied";
+    if (range.error === 'too-few-bars') return `Fewer than 3 bars in range · ${fmtNum(range.total, 0)} bars loaded · ${tail}`;
+    const count = rangeSet ? `${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars` : `${fmtNum(range.total, 0)} bars`;
+    const span =
+      range.count > 0
+        ? ` · ${fmtTime(inRange[0].time, { timeZone })} → ${fmtTime(inRange[inRange.length - 1].time, { timeZone })}`
+        : '';
+    const clips = [
+      range.clippedStart ? 'range starts before the data, using the first bar' : '',
+      range.clippedEnd ? 'range ends after the data, using the last bar' : '',
+    ].filter(Boolean);
+    return `${count}${span}${clips.length ? ` · ${clips.join(' · ')}` : ''} · ${tail}`;
+  })();
 
   useEffect(() => {
     if (!isPine) return;
@@ -172,8 +198,18 @@ export function BacktestTab() {
         </div>
       )}
 
+      <div className="mt-3">
+        <TimeRangePicker
+          value={btRange}
+          onChange={setBtRange}
+          timeZone={timeZone}
+          bounds={hasData ? { first: candles[0].time, last: candles[candles.length - 1].time } : undefined}
+          error={range.error === 'from-after-to' ? timeRangeErrorText('from-after-to') : null}
+        />
+      </div>
+
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={btRunning || candles.length < 3} onClick={() => void runBacktest()}>
+        <button className="primary" disabled={btRunning || !hasData || range.error != null} onClick={() => void runBacktest()}>
           {btRunning ? (
             <>
               <span className="spinner" style={{ marginRight: 8 }} />
@@ -184,9 +220,7 @@ export function BacktestTab() {
           )}
         </button>
         <span className="hint">
-          {candles.length >= 3
-            ? `${candles.length} bars · signals execute at the next bar's open · fees & slippage applied`
-            : 'Load data first (provider above or CSV import).'}
+          {hint}
         </span>
       </div>
 
