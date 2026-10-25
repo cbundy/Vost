@@ -25,6 +25,7 @@ import { getProvider, providers, type SymbolSuggestion } from '../lib/providers'
 import { loadJson, saveJson, debounce } from '../lib/storage';
 import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
+import { describeTimeRange, sanitizeTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
@@ -59,6 +60,7 @@ interface Prefs {
   btConfig: BacktestConfig;
   showTrades: boolean;
   timeZone?: string;
+  btRange?: TimeRange;
 }
 
 const PREFS_KEY = 'prefs.v1';
@@ -109,6 +111,8 @@ export interface AppState {
 
   /* backtest */
   btConfig: BacktestConfig;
+  /** Time window the backtester and optimizer run on (UTC seconds, null = open end). */
+  btRange: TimeRange;
   btRunning: boolean;
   btProgress: number;
   btResult: BacktestResult | null;
@@ -174,6 +178,7 @@ export interface AppState {
   setShowTrades(v: boolean): void;
   setTimeZone(tz: string): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
+  setBtRange(range: TimeRange): void;
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
@@ -288,6 +293,7 @@ export const useStore = create<AppState>()((set, get) => {
       btConfig: s.btConfig,
       showTrades: s.showTrades,
       timeZone: s.timeZone,
+      btRange: s.btRange,
     } satisfies Prefs);
   }, 400);
 
@@ -391,6 +397,7 @@ export const useStore = create<AppState>()((set, get) => {
     liveStatus: 'off',
     liveDetail: '',
     pineInputs: [],
+    btRange: { from: null, to: null },
     btRunning: false,
     btProgress: 0,
     btResult: null,
@@ -455,6 +462,7 @@ export const useStore = create<AppState>()((set, get) => {
         btConfig: { ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) },
         showTrades: prefs.showTrades ?? true,
         timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
+        btRange: sanitizeTimeRange(prefs.btRange),
         datasets: Array.isArray(datasets) ? datasets : [],
         optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
       });
@@ -631,10 +639,20 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
     },
 
+    setBtRange(range) {
+      set({ btRange: sanitizeTimeRange(range) });
+      persistPrefs();
+    },
+
     async runBacktest() {
-      const { candles, btConfig } = get();
-      if (candles.length < 3) {
+      const { candles: all, btConfig, btRange } = get();
+      if (all.length < 3) {
         get().pushToast('error', 'Load some data before running a backtest.');
+        return;
+      }
+      const { slice: candles, error } = describeTimeRange(all, btRange);
+      if (error) {
+        get().pushToast('error', timeRangeErrorText(error));
         return;
       }
       set({ btRunning: true, btProgress: 0, btError: null });
@@ -684,9 +702,14 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     async runOptimizer() {
-      const { candles, btConfig, optConfig } = get();
-      if (candles.length < 3) {
+      const { candles: all, btConfig, optConfig, btRange } = get();
+      if (all.length < 3) {
         get().pushToast('error', 'Load some data before optimizing.');
+        return;
+      }
+      const { slice: candles, error } = describeTimeRange(all, btRange);
+      if (error) {
+        get().pushToast('error', timeRangeErrorText(error));
         return;
       }
       set({ optRunning: true, optProgress: 0, optResult: null });

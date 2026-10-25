@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { METRIC_LABELS, paramValues, type MetricKey, type OptimizeRow } from '../lib/backtest/optimizer';
 import { getStrategy } from '../lib/backtest/strategies';
-import { fmtNum, fmtPct } from '../lib/format';
+import { fmtNum, fmtPct, fmtTime } from '../lib/format';
+import { describeTimeRange } from '../lib/timeRange';
 import { useStore } from '../state/store';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
@@ -13,9 +14,21 @@ export function OptimizerTab() {
   const optProgress = useStore((s) => s.optProgress);
   const optResult = useStore((s) => s.optResult);
   const candles = useStore((s) => s.candles);
+  const btRange = useStore((s) => s.btRange);
+  const timeZone = useStore((s) => s.timeZone);
   const setOptConfig = useStore((s) => s.setOptConfig);
   const runOptimizer = useStore((s) => s.runOptimizer);
   const applyOptimizeRow = useStore((s) => s.applyOptimizeRow);
+
+  const range = describeTimeRange(candles, btRange);
+  const rangeSet = btRange.from != null || btRange.to != null;
+  const rangeText = !rangeSet
+    ? 'Range: full data (set in Backtest)'
+    : range.error === 'from-after-to'
+      ? 'Range: From is later than To (set in Backtest)'
+      : range.error === 'too-few-bars'
+        ? 'Range: fewer than 3 bars (set in Backtest)'
+        : `Range: ${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars · ${fmtTime(range.slice[0].time, { timeZone })} → ${fmtTime(range.slice[range.slice.length - 1].time, { timeZone })} (set in Backtest)`;
 
   const strategy = getStrategy(btConfig.strategyId);
   const pineInputs = useStore((s) => s.pineInputs);
@@ -108,10 +121,11 @@ export function OptimizerTab() {
       </div>
 
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={optRunning || candles.length < 3 || combos === 0} onClick={() => void runOptimizer()}>
+        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0} onClick={() => void runOptimizer()}>
           {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : `Optimize ${combos} combinations`}
         </button>
         {combos > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
+        <span className="hint">{rangeText}</span>
         <span className="hint">{numericParams.length === 0 ? 'This strategy has no numeric parameters to sweep.' : ''}</span>
       </div>
 

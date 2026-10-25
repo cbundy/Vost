@@ -247,3 +247,128 @@ describe('stale persist isolation', () => {
     expect(localStorage.getItem('vost.prefs.v1')).toBeNull();
   });
 });
+
+describe('btRange', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  async function setup() {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const text = readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8');
+    const candles = candlesFromCsvText(text).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.setState({ candles });
+    return { useStore, candles };
+  }
+
+  const freshFromPrefs = async (btRange: unknown) => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, btRange }));
+    vi.resetModules();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const fresh = track((await import('./store')).useStore);
+    fresh.getState().init();
+    return fresh;
+  };
+
+  it('runBacktest only sees in-range bars', async () => {
+    const { useStore, candles } = await setup();
+    const from = candles[20].time;
+    const to = candles[80].time;
+    useStore.getState().setBtRange({ from, to });
+    await useStore.getState().runBacktest();
+    const r = useStore.getState().btResult!;
+    expect(r).not.toBeNull();
+    expect(r.equity[0].time).toBe(from);
+    expect(r.equity[r.equity.length - 1].time).toBe(to);
+    for (const t of r.trades) {
+      expect(t.entryTime).toBeGreaterThanOrEqual(from);
+      expect(t.exitTime).toBeLessThanOrEqual(to);
+    }
+  });
+
+  it('runOptimizer sends only in-range bars to the worker', async () => {
+    const { useStore, candles } = await setup();
+    const sent: { candles: { time: number }[] }[] = [];
+    class FakeWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string; candles: { time: number }[] }) {
+        sent.push(req);
+        queueMicrotask(() =>
+          this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], metric: 'sharpe', combos: 0, errored: 0 } }),
+        );
+      }
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    const from = candles[10].time;
+    const to = candles[40].time;
+    useStore.getState().setBtRange({ from, to });
+    await useStore.getState().runOptimizer();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].candles).toHaveLength(31);
+    expect(sent[0].candles[0].time).toBe(from);
+    expect(sent[0].candles[30].time).toBe(to);
+  });
+
+  it('From later than To starts nothing and pushes an error toast', async () => {
+    const { useStore, candles } = await setup();
+    useStore.getState().setBtRange({ from: candles[50].time, to: candles[10].time });
+    await useStore.getState().runBacktest();
+    await useStore.getState().runOptimizer();
+    const s = useStore.getState();
+    expect(s.btRunning).toBe(false);
+    expect(s.optRunning).toBe(false);
+    expect(s.btResult).toBeNull();
+    expect(s.toasts.some((t) => t.kind === 'error' && t.text.includes('From is later than To'))).toBe(true);
+  });
+
+  it('a range with fewer than 3 bars starts nothing', async () => {
+    const { useStore, candles } = await setup();
+    useStore.getState().setBtRange({ from: candles[5].time, to: candles[6].time });
+    await useStore.getState().runBacktest();
+    expect(useStore.getState().btResult).toBeNull();
+    expect(useStore.getState().toasts.some((t) => t.text.includes('Fewer than 3 bars'))).toBe(true);
+  });
+
+  it('persists setBtRange and a fresh store reads it back', async () => {
+    vi.useFakeTimers();
+    try {
+      const { useStore } = await setup();
+      useStore.getState().setBtRange({ from: 100, to: null });
+      vi.advanceTimersByTime(1000);
+      expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).btRange).toEqual({ from: 100, to: null });
+      const fresh = await freshFromPrefs(JSON.parse(localStorage.getItem('vost.prefs.v1')!).btRange);
+      expect(fresh.getState().btRange).toEqual({ from: 100, to: null });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('old prefs and malformed values fall back to an open range', async () => {
+    for (const stored of [undefined, 'x', { from: 'a' }, { from: 1 }, null]) {
+      const fresh = await freshFromPrefs(stored);
+      expect(fresh.getState().btRange).toEqual({ from: null, to: null });
+    }
+  });
+
+  it('keeps the range across a new data load', async () => {
+    const { useStore, candles } = await setup();
+    useStore.getState().setBtRange({ from: 5, to: 9 });
+    const id = useStore.getState().addDataset({
+      name: 'd1',
+      candles,
+      source: 'csv',
+      description: 'd1',
+      barSeconds: 86400,
+      barLabel: '1d',
+    });
+    useStore.getState().activateDataset(id);
+    expect(useStore.getState().dataLabel).toBeTruthy();
+    expect(useStore.getState().btRange).toEqual({ from: 5, to: 9 });
+  });
+});
