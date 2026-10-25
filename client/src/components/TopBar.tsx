@@ -5,6 +5,7 @@ import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
 import { useStore } from '../state/store';
+import { ChartRangeControl } from './ChartRangeControl';
 import { SymbolSearch } from './SymbolSearch';
 
 const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
@@ -25,6 +26,7 @@ export function TopBar({
   const unread = useStore((s) => unreadCount(s.messages));
   const live = useStore((s) => s.live);
   const candles = useStore((s) => s.candles);
+  const chartRange = useStore((s) => s.chartRange);
   const timeZone = useStore((s) => s.timeZone);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const liveStatus = useStore((s) => s.liveStatus);
@@ -42,7 +44,7 @@ export function TopBar({
     return () => clearInterval(id);
   }, [live]);
 
-  const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live, now, timeZone });
+  const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live: live && !chartRange, now, timeZone });
 
   const provider = getProvider(providerId);
   const timeframes = TIMEFRAMES.filter((tf) => provider.timeframes.includes(tf));
@@ -111,6 +113,8 @@ export function TopBar({
           ))}
         </select>
       </div>
+
+      <ChartRangeControl />
 
       {rangeText && (
         <span className="topbar-range" title={rangeText}>

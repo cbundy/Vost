@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Candle } from '../types';
 import {
+  chartRangeErrorText,
+  cropToChartRange,
   describeTimeRange,
   fromZonedInputValue,
   sanitizeTimeRange,
@@ -88,5 +90,36 @@ describe('sanitizeTimeRange', () => {
     for (const bad of ['x', null, undefined, 5, { from: 'a' }, { from: 1 }, { from: NaN, to: null }]) {
       expect(sanitizeTimeRange(bad)).toEqual({ from: null, to: null });
     }
+  });
+});
+
+describe('cropToChartRange', () => {
+  const full = bars(10); // times 1000..1900
+  it('slices inclusively when both ends hit a bar', () => {
+    const r = cropToChartRange(full, { from: 1200, to: 1500 });
+    expect(r.ok && r.slice.map((c) => c.time)).toEqual([1200, 1300, 1400, 1500]);
+  });
+  it('an open end is the data edge', () => {
+    const a = cropToChartRange(full, { from: null, to: 1100 });
+    expect(a.ok && a.slice.map((c) => c.time)).toEqual([1000, 1100]);
+    const b = cropToChartRange(full, { from: 1800, to: null });
+    expect(b.ok && b.slice.map((c) => c.time)).toEqual([1800, 1900]);
+  });
+  it('is outside when From is before the first bar or To after the last', () => {
+    expect(cropToChartRange(full, { from: 999, to: null })).toEqual({ ok: false, error: 'outside' });
+    expect(cropToChartRange(full, { from: null, to: 1901 })).toEqual({ ok: false, error: 'outside' });
+    expect(cropToChartRange([], { from: 1, to: 2 })).toEqual({ ok: false, error: 'outside' });
+  });
+  it('From later than To', () => {
+    expect(cropToChartRange(full, { from: 1500, to: 1200 })).toEqual({ ok: false, error: 'from-after-to' });
+  });
+  it('a one-bar window is too few bars', () => {
+    expect(cropToChartRange(full, { from: 1200, to: 1200 })).toEqual({ ok: false, error: 'too-few-bars' });
+    expect(cropToChartRange(full, { from: 1210, to: 1290 })).toEqual({ ok: false, error: 'too-few-bars' });
+  });
+  it('has its own error wording', () => {
+    expect(chartRangeErrorText('outside')).toBe('Range is outside the loaded data - load more bars first');
+    expect(chartRangeErrorText('from-after-to')).toBe('From is later than To');
+    expect(chartRangeErrorText('too-few-bars')).toBe('Fewer than 2 bars in the chart range');
   });
 });

@@ -49,6 +49,32 @@ export function timeRangeErrorText(error: TimeRangeError): string {
   return error === 'from-after-to' ? 'From is later than To' : `Fewer than ${MIN_RANGE_BARS} bars in the backtest range`;
 }
 
+/** Fewest bars the chart range may leave on screen. */
+export const CHART_MIN_BARS = 2;
+
+export type ChartRangeError = 'outside' | 'from-after-to' | 'too-few-bars';
+
+export type ChartCrop = { ok: true; slice: Candle[] } | { ok: false; error: ChartRangeError };
+
+/** Crops the full loaded candles to a chart range (both ends inclusive; an open end is the data edge). */
+export function cropToChartRange(full: Candle[], range: TimeRange): ChartCrop {
+  const first = full[0]?.time;
+  const last = full[full.length - 1]?.time;
+  const { from, to } = range;
+  if (first == null || last == null) return { ok: false, error: 'outside' };
+  if ((from != null && from < first) || (to != null && to > last)) return { ok: false, error: 'outside' };
+  if (from != null && to != null && from > to) return { ok: false, error: 'from-after-to' };
+  const slice = sliceByTimeRange(full, range);
+  if (slice.length < CHART_MIN_BARS) return { ok: false, error: 'too-few-bars' };
+  return { ok: true, slice };
+}
+
+export function chartRangeErrorText(error: ChartRangeError): string {
+  if (error === 'outside') return 'Range is outside the loaded data - load more bars first';
+  if (error === 'from-after-to') return 'From is later than To';
+  return `Fewer than ${CHART_MIN_BARS} bars in the chart range`;
+}
+
 /** "YYYY-MM-DDTHH:mm" wall clock of an instant in a zone (datetime-local value). */
 export function toZonedInputValue(sec: number, tz: string): string {
   const parts = new Intl.DateTimeFormat('en-GB', {

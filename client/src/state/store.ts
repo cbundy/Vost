@@ -25,7 +25,7 @@ import { getProvider, providers, type SymbolSuggestion } from '../lib/providers'
 import { loadJson, saveJson, debounce } from '../lib/storage';
 import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
-import { describeTimeRange, sanitizeTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
+import { chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
@@ -97,6 +97,10 @@ export interface AppState {
   candles: Candle[];
   /** Changes whenever the full dataset is replaced (forces a chart rebuild). */
   dataKey: string;
+  /** Chart range window (UTC seconds) applied to the loaded bars; null = none (not persisted). */
+  chartRange: TimeRange | null;
+  /** The full loaded bars while a chart range crops `candles`; null otherwise. */
+  fullCandles: Candle[] | null;
   dataLabel: string;
   activeDatasetId: string | null;
   loadState: LoadState;
@@ -179,6 +183,9 @@ export interface AppState {
   setTimeZone(tz: string): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
+  /** Crops `candles` to a window of the loaded bars; an open range clears. */
+  setChartRange(range: TimeRange): void;
+  clearChartRange(): void;
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
@@ -366,6 +373,8 @@ export const useStore = create<AppState>()((set, get) => {
   const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
     set({
       candles,
+      chartRange: null,
+      fullCandles: null,
       dataKey: uid('data_'),
       dataLabel,
       activeDatasetId,
@@ -389,6 +398,8 @@ export const useStore = create<AppState>()((set, get) => {
     pineRuns: {},
     candles: [],
     dataKey: '',
+    chartRange: null,
+    fullCandles: null,
     dataLabel: '',
     activeDatasetId: null,
     loadState: 'idle',
@@ -528,6 +539,8 @@ export const useStore = create<AppState>()((set, get) => {
       stopLive();
       set({
         candles: [],
+        chartRange: null,
+        fullCandles: null,
         dataKey: uid('data_'),
         dataLabel: '',
         activeDatasetId: null,
@@ -558,7 +571,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     saveCurrentDataset(name) {
-      const { candles, dataLabel, activeDatasetId, providerId } = get();
+      const { candles: shown, fullCandles, dataLabel, activeDatasetId, providerId } = get();
+      const candles = fullCandles ?? shown;
       if (candles.length === 0) {
         get().pushToast('info', 'Nothing to save — load some data first.');
         return;
@@ -642,6 +656,45 @@ export const useStore = create<AppState>()((set, get) => {
     setBtRange(range) {
       set({ btRange: sanitizeTimeRange(range) });
       persistPrefs();
+    },
+
+    setChartRange(range) {
+      const full = get().fullCandles ?? get().candles;
+      const open = range.from == null && range.to == null;
+      if (open) {
+        get().clearChartRange();
+        return;
+      }
+      const crop = cropToChartRange(full, range);
+      if (!crop.ok) {
+        get().pushToast('error', chartRangeErrorText(crop.error));
+        return;
+      }
+      set({
+        candles: crop.slice,
+        fullCandles: full,
+        chartRange: { from: range.from, to: range.to },
+        dataKey: uid('data_'),
+        btResult: null,
+        btError: null,
+        optResult: null,
+      });
+      schedulePineAll();
+    },
+
+    clearChartRange() {
+      const { fullCandles } = get();
+      if (!fullCandles) return;
+      set({
+        candles: fullCandles,
+        fullCandles: null,
+        chartRange: null,
+        dataKey: uid('data_'),
+        btResult: null,
+        btError: null,
+        optResult: null,
+      });
+      schedulePineAll();
     },
 
     async runBacktest() {
@@ -748,6 +801,7 @@ export const useStore = create<AppState>()((set, get) => {
         get().pushToast('info', `Live streaming is not available for ${provider.name} data.`);
         return;
       }
+      get().clearChartRange(); // live bars land at the end of the full data
       liveHandle?.stop();
       set({ live: true, liveStatus: 'connecting', liveDetail: '' });
       liveHandle = provider.startLive({
