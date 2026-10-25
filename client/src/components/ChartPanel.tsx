@@ -29,6 +29,7 @@ type IndEntry = {
   kind: ComputedSeries['kind'];
 };
 
+const RIGHT_OFFSET = 3;
 const UP = '#22c55e';
 const DOWN = '#ef4444';
 
@@ -108,7 +109,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
         borderColor: '#1e2433',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 3,
+        rightOffset: RIGHT_OFFSET,
       },
       localization: { locale: 'en-US' },
     });
@@ -352,12 +353,34 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
 
   const provider = getProvider(providerId);
 
+  // Restore the fresh-load view: auto-scale every pane's price scales, default right offset, fit all data.
+  function resetView() {
+    if (!chartApi) return;
+    const panes = chartApi.panes();
+    for (let i = 0; i < panes.length; i++) {
+      for (const id of i === 0 ? ['right', 'volume'] : ['right']) {
+        try {
+          chartApi.priceScale(id, i).applyOptions({ autoScale: true });
+        } catch {
+          // this pane has no such price scale
+        }
+      }
+    }
+    chartApi.timeScale().applyOptions({ rightOffset: RIGHT_OFFSET });
+    chartApi.timeScale().fitContent();
+  }
+
   return (
     <div className="chart-wrap">
       <div className="chart-legend" ref={legendRef} />
       <div className="chart-container" ref={containerRef} />
       <div className="chart-toolbar">
-        <button className="ghost icon" title="Fit all data" onClick={() => chartApi?.timeScale().fitContent()}>
+        <button
+          className="ghost icon"
+          title="Reset view"
+          disabled={!chartApi || candles.length === 0}
+          onClick={resetView}
+        >
           ⤢
         </button>
         <button
