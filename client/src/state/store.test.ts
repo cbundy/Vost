@@ -416,6 +416,17 @@ describe('chartRange', () => {
     expect(useStore.getState().chartRange).toEqual({ from: candles[20].time, to: candles[80].time });
   });
 
+  it('refuses a chart range while live is on', async () => {
+    const { useStore, candles } = await setup();
+    useStore.setState({ live: true });
+    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    const s = useStore.getState();
+    expect(s.chartRange).toBeNull();
+    expect(s.candles).toHaveLength(candles.length);
+    expect(s.toasts[s.toasts.length - 1].text).toContain('Turn live off');
+    useStore.setState({ live: false });
+  });
+
   it('a second apply slices from the full set', async () => {
     const { useStore, candles } = await setup();
     useStore.getState().setChartRange({ from: candles[20].time, to: candles[30].time });

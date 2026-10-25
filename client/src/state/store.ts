@@ -665,6 +665,10 @@ export const useStore = create<AppState>()((set, get) => {
         get().clearChartRange();
         return;
       }
+      if (get().live) {
+        get().pushToast('error', 'Turn live off before cropping the chart: live bars land at the end of the full data.');
+        return;
+      }
       const crop = cropToChartRange(full, range);
       if (!crop.ok) {
         get().pushToast('error', chartRangeErrorText(crop.error));
