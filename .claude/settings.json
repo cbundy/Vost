@@ -7,7 +7,7 @@
       "source": {
         "source": "github",
         "repo": "cbundy/dev-system",
-        "ref": "v0.90.0"
+        "ref": "v0.99.0"
       }
     }
   },
@@ -34,14 +34,13 @@
       "Bash(callum-flow-claim *)",
       "Bash(callum-flow-milestone)",
       "Bash(callum-flow-milestone *)",
-      "Bash(callum-flow-design-route *)",
       "Bash(callum-flow-implementer-route *)",
       "Bash(callum-flow-designer-route *)",
-      "Bash(callum-flow-regate *)",
       "Bash(callum-flow-sweep)",
       "Bash(callum-flow-sweep *)",
       "Bash(callum-flow-evaluate *)",
       "Bash(callum-flow-evidence-upload *)",
+      "Bash(callum-flow-capture *)",
       "Bash(callum-flow-factory-state)",
       "Bash(callum-flow-factory-state *)",
       "Bash(callum-flow-issue-read *)"
