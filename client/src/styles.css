@@ -156,6 +156,16 @@ textarea {
   margin: 0 2px;
 }
 
+.topbar-range {
+  color: var(--muted-2);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
 .topbar-right {
   margin-left: auto;
   display: flex;
@@ -1294,4 +1304,10 @@ a:hover {
 }
 .pine-editor .cm-scroller {
   overflow: auto;
+}
+
+@media (max-width: 700px) {
+  .topbar-range {
+    display: none;
+  }
 }

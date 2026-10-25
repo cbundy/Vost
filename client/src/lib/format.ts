@@ -67,6 +67,18 @@ export function fmtDurationBarCount(bars: number): string {
   return bars === 1 ? '1 bar' : `${fmtNum(bars, 0)} bars`;
 }
 
+/** Loaded data span, e.g. "12 Dec 2012, 14:00 → 04 Feb 2020, 19:00 · 4,987 bars". Empty when there is no data. */
+export function fmtDataRange(
+  firstSec: number | null | undefined,
+  lastSec: number | null | undefined,
+  count: number,
+  opts: { live?: boolean; now?: number } = {},
+): string {
+  if (count <= 0 || firstSec == null || lastSec == null) return '';
+  const end = opts.live ? `now ${fmtTime(opts.now ?? Date.now() / 1000)}` : fmtTime(lastSec);
+  return `${fmtTime(firstSec)} → ${end} · ${fmtDurationBarCount(count)}`;
+}
+
 /** Human-readable bar interval, e.g. 3600 -> "1h". */
 export function barLabelFromSeconds(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) return 'custom';
