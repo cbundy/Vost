@@ -47,6 +47,7 @@ function mappingFromRoles(roles: Role[]): ColumnMapping {
 export function CsvImportModal({ onClose }: { onClose: () => void }) {
   const addDataset = useStore((s) => s.addDataset);
   const pushToast = useStore((s) => s.pushToast);
+  const timeZone = useStore((s) => s.timeZone);
 
   const [fileName, setFileName] = useState('');
   const [text, setText] = useState<string | null>(null);
@@ -311,7 +312,8 @@ export function CsvImportModal({ onClose }: { onClose: () => void }) {
               <span className="badge green">{fmtNum(built.result.candles.length, 0)} candles</span>
               <span className="badge">bar size ≈ {built.result.barLabel}</span>
               <span className="badge">
-                {fmtTime(built.result.candles[0].time)} → {fmtTime(built.result.candles[built.result.candles.length - 1].time)}
+                {fmtTime(built.result.candles[0].time, { timeZone })} →{' '}
+                {fmtTime(built.result.candles[built.result.candles.length - 1].time, { timeZone })}
               </span>
               {built.result.dropped > 0 && <span className="badge amber">{built.result.dropped} rows skipped</span>}
               {built.result.adjusted > 0 && <span className="badge amber">{built.result.adjusted} OHLC fixes</span>}

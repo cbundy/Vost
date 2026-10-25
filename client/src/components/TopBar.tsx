@@ -25,6 +25,7 @@ export function TopBar({
   const unread = useStore((s) => unreadCount(s.messages));
   const live = useStore((s) => s.live);
   const candles = useStore((s) => s.candles);
+  const timeZone = useStore((s) => s.timeZone);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const liveStatus = useStore((s) => s.liveStatus);
   const liveDetail = useStore((s) => s.liveDetail);
@@ -41,7 +42,7 @@ export function TopBar({
     return () => clearInterval(id);
   }, [live]);
 
-  const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live, now });
+  const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live, now, timeZone });
 
   const provider = getProvider(providerId);
   const timeframes = TIMEFRAMES.filter((tf) => provider.timeframes.includes(tf));

@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { BacktestTab } from './BacktestTab';
 import { OptimizerTab } from './OptimizerTab';
 import { ResultsTab } from './ResultsTab';
+import { ZoneClock } from './ZoneClock';
 
 type Tab = 'backtest' | 'optimizer' | 'results';
 
@@ -34,6 +35,7 @@ export function BottomDock() {
           {btResult && <span className="badge blue">{btResult.trades.length} trades</span>}
         </button>
         <div className="dock-spacer" />
+        <ZoneClock />
         <button className="ghost icon" title={collapsed ? 'Expand' : 'Collapse'} onClick={() => setCollapsed((v) => !v)}>
           {collapsed ? '▲' : '▼'}
         </button>

@@ -4,13 +4,20 @@ import {
   HistogramSeries,
   LineStyle,
   createChart,
+  type Time,
   type UTCTimestamp,
+  type IChartApi,
 } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
+import { fmtTime } from '../lib/format';
+import { fmtTick } from '../lib/time';
+import { useStore } from '../state/store';
 import type { BacktestResult } from '../lib/backtest/types';
 
 export function EquityChart({ result }: { result: BacktestResult }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const timeZone = useStore((s) => s.timeZone);
 
   useEffect(() => {
     const el = ref.current;
@@ -30,7 +37,15 @@ export function EquityChart({ result }: { result: BacktestResult }) {
         horzLines: { color: 'rgba(255,255,255,0.03)' },
       },
       rightPriceScale: { borderColor: '#1e2433' },
-      timeScale: { borderColor: '#1e2433', timeVisible: true, secondsVisible: false },
+      timeScale: {
+        borderColor: '#1e2433',
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (t: Time, type: number) => fmtTick(t as number, type, useStore.getState().timeZone),
+      },
+      localization: {
+        timeFormatter: (t: Time) => fmtTime(t as number, { timeZone: useStore.getState().timeZone }),
+      },
       crosshair: { vertLine: { color: 'rgba(139,148,167,0.4)' }, horzLine: { color: 'rgba(139,148,167,0.4)' } },
     });
 
@@ -72,8 +87,20 @@ export function EquityChart({ result }: { result: BacktestResult }) {
     if (panes[1]) panes[1].setStretchFactor(1);
 
     chart.timeScale().fitContent();
-    return () => chart.remove();
+    chartRef.current = chart;
+    return () => {
+      chartRef.current = null;
+      chart.remove();
+    };
   }, [result]);
+
+  /* Zone change: swap the formatters in place, keeping the visible range. */
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      localization: { timeFormatter: (t: Time) => fmtTime(t as number, { timeZone }) },
+      timeScale: { tickMarkFormatter: (t: Time, type: number) => fmtTick(t as number, type, timeZone) },
+    });
+  }, [timeZone, result]);
 
   return <div ref={ref} style={{ height: 240, width: '100%' }} />;
 }

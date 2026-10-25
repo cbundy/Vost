@@ -23,6 +23,8 @@ import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../l
 import type { LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce } from '../lib/storage';
+import { fmtTime } from '../lib/format';
+import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import * as wl from '../lib/watchlist';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
@@ -56,6 +58,7 @@ interface Prefs {
   indicators: IndicatorSpec[];
   btConfig: BacktestConfig;
   showTrades: boolean;
+  timeZone?: string;
 }
 
 const PREFS_KEY = 'prefs.v1';
@@ -83,6 +86,8 @@ export interface AppState {
   bars: number;
   indicators: IndicatorSpec[];
   showTrades: boolean;
+  /** IANA zone every date on screen is shown in (candle times stay UTC). */
+  timeZone: string;
   /** Pine run state by indicator id (not persisted). */
   pineRuns: Record<string, PineRunState>;
 
@@ -167,6 +172,7 @@ export interface AppState {
   removeIndicator(id: string): void;
   updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
   setShowTrades(v: boolean): void;
+  setTimeZone(tz: string): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
@@ -281,6 +287,7 @@ export const useStore = create<AppState>()((set, get) => {
       indicators: s.indicators,
       btConfig: s.btConfig,
       showTrades: s.showTrades,
+      timeZone: s.timeZone,
     } satisfies Prefs);
   }, 400);
 
@@ -372,6 +379,7 @@ export const useStore = create<AppState>()((set, get) => {
 
   return {
     ...defaultPrefs,
+    timeZone: browserTimeZone(),
     pineRuns: {},
     candles: [],
     dataKey: '',
@@ -446,6 +454,7 @@ export const useStore = create<AppState>()((set, get) => {
         indicators: Array.isArray(prefs.indicators) && prefs.indicators.length > 0 ? prefs.indicators : defaultPrefs.indicators,
         btConfig: { ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) },
         showTrades: prefs.showTrades ?? true,
+        timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
         datasets: Array.isArray(datasets) ? datasets : [],
         optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
       });
@@ -551,7 +560,7 @@ export const useStore = create<AppState>()((set, get) => {
         return;
       }
       get().addDataset({
-        name: name ?? `${dataLabel || 'Dataset'} · ${new Date().toLocaleDateString()}`,
+        name: name ?? `${dataLabel || 'Dataset'} · ${fmtTime(Date.now() / 1000, { dateOnly: true, timeZone: get().timeZone })}`,
         candles,
         source: providerId,
         description: dataLabel,
@@ -603,6 +612,12 @@ export const useStore = create<AppState>()((set, get) => {
       });
       persistPrefs();
       if (patch.source !== undefined || patch.inputs !== undefined || patch.visible === true) schedulePine(id);
+    },
+
+    setTimeZone(tz) {
+      if (!isValidTimeZone(tz)) return;
+      set({ timeZone: tz });
+      persistPrefs();
     },
 
     setShowTrades(v) {

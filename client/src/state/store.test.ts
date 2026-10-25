@@ -162,6 +162,55 @@ describe('pine indicators', () => {
   });
 });
 
+describe('timeZone pref', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  async function setup() {
+    const { useStore } = await import('./store');
+    track(useStore);
+    return { useStore };
+  }
+
+  it('persists setTimeZone and a fresh store reads it back', async () => {
+    vi.useFakeTimers();
+    try {
+      const { useStore } = await setup();
+      useStore.getState().setTimeZone('Asia/Tehran');
+      vi.advanceTimersByTime(1000);
+      expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).timeZone).toBe('Asia/Tehran');
+      vi.resetModules();
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const fresh = track((await import('./store')).useStore);
+      fresh.getState().init();
+      expect(fresh.getState().timeZone).toBe('Asia/Tehran');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores an invalid zone and keeps the current one', async () => {
+    const { useStore } = await setup();
+    useStore.getState().setTimeZone('Asia/Tehran');
+    useStore.getState().setTimeZone('Nope/Zone');
+    expect(useStore.getState().timeZone).toBe('Asia/Tehran');
+  });
+
+  it('old prefs without timeZone and invalid stored zones fall back to the browser zone', async () => {
+    const browser = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+    for (const stored of [{}, { timeZone: 'Nope/Zone' }]) {
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...stored }));
+      vi.resetModules();
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const fresh = track((await import('./store')).useStore);
+      fresh.getState().init();
+      expect(fresh.getState().timeZone).toBe(browser);
+    }
+  });
+});
+
 describe('openWatchItem', () => {
   beforeEach(() => {
     vi.resetModules();

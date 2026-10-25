@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { fmtClock } from '../lib/time';
 import { useStore } from '../state/store';
 import { Modal } from './Modal';
 
@@ -6,6 +7,7 @@ export function Inbox({ onClose }: { onClose: () => void }) {
   const messages = useStore((s) => s.messages);
   const markRead = useStore((s) => s.markMessagesRead);
   const clear = useStore((s) => s.clearMessages);
+  const timeZone = useStore((s) => s.timeZone);
 
   useEffect(() => {
     markRead();
@@ -35,7 +37,7 @@ export function Inbox({ onClose }: { onClose: () => void }) {
           {sorted.map((m) => (
             <li key={m.id} className={`inbox-item ${m.severity}`}>
               <div className="inbox-meta">
-                <span className="inbox-time">{new Date(m.time).toLocaleTimeString()}</span>
+                <span className="inbox-time">{fmtClock(m.time / 1000, timeZone)}</span>
                 <span className="inbox-source">{m.source}</span>
                 <span className="inbox-sev">{m.severity}</span>
               </div>

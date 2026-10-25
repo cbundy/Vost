@@ -28,3 +28,21 @@ describe('fmtDataRange', () => {
     expect(fmtDataRange(a, undefined, 5)).toBe('');
   });
 });
+
+describe('fmtTime in an explicit zone', () => {
+  it('formats UTC and Tehran', () => {
+    expect(fmtTime(a, { timeZone: 'UTC' })).toBe('12 Dec 2012, 14:00');
+    expect(fmtTime(a, { timeZone: 'Asia/Tehran' })).toBe('12 Dec 2012, 17:30');
+  });
+
+  it('dateOnly crosses the date line with the zone', () => {
+    const t = Date.UTC(2024, 0, 1, 23, 0) / 1000;
+    expect(fmtTime(t, { timeZone: 'UTC', dateOnly: true })).toBe('01 Jan 2024');
+    expect(fmtTime(t, { timeZone: 'Asia/Tehran', dateOnly: true })).toBe('02 Jan 2024');
+  });
+
+  it('fmtDataRange takes the zone', () => {
+    expect(fmtDataRange(a, b, 2, { timeZone: 'UTC' })).toBe('12 Dec 2012, 14:00 → 04 Feb 2020, 20:00 · 2 bars');
+    expect(fmtDataRange(a, b, 2, { timeZone: 'Asia/Tehran' })).toBe('12 Dec 2012, 17:30 → 04 Feb 2020, 23:30 · 2 bars');
+  });
+});

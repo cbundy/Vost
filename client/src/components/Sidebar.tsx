@@ -9,6 +9,7 @@ import { useStore, type PineRunState } from '../state/store';
 export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
   const symbol = useStore((s) => s.symbol);
   const candles = useStore((s) => s.candles);
+  const timeZone = useStore((s) => s.timeZone);
   const dataLabel = useStore((s) => s.dataLabel);
   const datasets = useStore((s) => s.datasets);
   const activeDatasetId = useStore((s) => s.activeDatasetId);
@@ -42,7 +43,7 @@ export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
             </div>
             {first && last && (
               <div className="muted-2" style={{ fontSize: 11.5, marginBottom: 8 }}>
-                {fmtTime(first.time, { dateOnly: true })} → {fmtTime(last.time, { dateOnly: true })} · close {last.close}
+                {fmtTime(first.time, { dateOnly: true, timeZone })} → {fmtTime(last.time, { dateOnly: true, timeZone })} · close {last.close}
               </div>
             )}
             <div className="form-row">
@@ -87,7 +88,7 @@ export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
                 <div className="ds-main">
                   <div className="ds-name">{ds.name}</div>
                   <div className="ds-meta">
-                    {fmtNum(ds.candles.length, 0)} bars · {new Date(ds.createdAt).toLocaleDateString()}
+                    {fmtNum(ds.candles.length, 0)} bars · {fmtTime(ds.createdAt / 1000, { dateOnly: true, timeZone })}
                   </div>
                 </div>
                 <div className="ds-actions">

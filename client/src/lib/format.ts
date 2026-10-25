@@ -1,6 +1,7 @@
 /**
  * Number / date formatting helpers used across the UI.
  */
+import { browserTimeZone, formatInZone } from './time';
 
 export function fmtPrice(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—';
@@ -43,23 +44,9 @@ export function fmtNum(v: number | null | undefined, digits = 2): string {
   return v.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
 }
 
-const DATE_TIME_FMT = new Intl.DateTimeFormat('en-GB', {
-  year: 'numeric',
-  month: 'short',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-const DATE_FMT = new Intl.DateTimeFormat('en-GB', {
-  year: 'numeric',
-  month: 'short',
-  day: '2-digit',
-});
-
-export function fmtTime(sec: number, opts: { dateOnly?: boolean } = {}): string {
-  const d = new Date(sec * 1000);
-  return opts.dateOnly ? DATE_FMT.format(d) : DATE_TIME_FMT.format(d);
+/** Formats in the given IANA zone; undefined means the browser zone. */
+export function fmtTime(sec: number, opts: { dateOnly?: boolean; timeZone?: string } = {}): string {
+  return formatInZone(sec, opts.timeZone ?? browserTimeZone(), { dateOnly: opts.dateOnly });
 }
 
 export function fmtDurationBarCount(bars: number): string {
@@ -72,11 +59,12 @@ export function fmtDataRange(
   firstSec: number | null | undefined,
   lastSec: number | null | undefined,
   count: number,
-  opts: { live?: boolean; now?: number } = {},
+  opts: { live?: boolean; now?: number; timeZone?: string } = {},
 ): string {
   if (count <= 0 || firstSec == null || lastSec == null) return '';
-  const end = opts.live ? `now ${fmtTime(opts.now ?? Date.now() / 1000)}` : fmtTime(lastSec);
-  return `${fmtTime(firstSec)} → ${end} · ${fmtDurationBarCount(count)}`;
+  const tz = { timeZone: opts.timeZone };
+  const end = opts.live ? `now ${fmtTime(opts.now ?? Date.now() / 1000, tz)}` : fmtTime(lastSec, tz);
+  return `${fmtTime(firstSec, tz)} → ${end} · ${fmtDurationBarCount(count)}`;
 }
 
 /** Human-readable bar interval, e.g. 3600 -> "1h". */
