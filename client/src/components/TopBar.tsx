@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { APP_VERSION, PROVIDER_GITHUB_URL } from '../lib/constants';
+import { fmtDataRange } from '../lib/format';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
@@ -22,6 +24,8 @@ export function TopBar({
   const loadState = useStore((s) => s.loadState);
   const unread = useStore((s) => unreadCount(s.messages));
   const live = useStore((s) => s.live);
+  const candles = useStore((s) => s.candles);
+  const [now, setNow] = useState(() => Date.now() / 1000);
   const liveStatus = useStore((s) => s.liveStatus);
   const liveDetail = useStore((s) => s.liveDetail);
   const setProvider = useStore((s) => s.setProvider);
@@ -29,6 +33,15 @@ export function TopBar({
   const setBars = useStore((s) => s.setBars);
   const loadData = useStore((s) => s.loadData);
   const setLive = useStore((s) => s.setLive);
+
+  useEffect(() => {
+    if (!live) return;
+    setNow(Date.now() / 1000);
+    const id = setInterval(() => setNow(Date.now() / 1000), 30_000);
+    return () => clearInterval(id);
+  }, [live]);
+
+  const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live, now });
 
   const provider = getProvider(providerId);
   const timeframes = TIMEFRAMES.filter((tf) => provider.timeframes.includes(tf));
@@ -97,6 +110,12 @@ export function TopBar({
           ))}
         </select>
       </div>
+
+      {rangeText && (
+        <span className="topbar-range" title={rangeText}>
+          {rangeText}
+        </span>
+      )}
 
       <button className="primary" onClick={() => void loadData()} disabled={loadState === 'loading'} title="Reload data">
         {loadState === 'loading' ? <span className="spinner" /> : 'Load'}
