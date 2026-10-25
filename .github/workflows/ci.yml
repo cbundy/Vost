@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +40,7 @@ jobs:
       - name: Build client
         run: npm run build
 
-      - name: Smoke-test the server (proxy + static)
+      - name: Smoke-test the server (API + static)
         run: |
           npm start &
           SERVER_PID=$!
@@ -52,6 +52,7 @@ jobs:
           EXPECTED=$(node -p "require('./package.json').version")
           ACTUAL=$(curl -fsS http://localhost:8787/api/health | jq -r .version)
           test "$ACTUAL" = "$EXPECTED" || { echo "health version $ACTUAL != package.json $EXPECTED"; exit 1; }
+          curl -fsS http://localhost:8787/api/providers | jq -e 'length >= 7'
           curl -fsS http://localhost:8787/ | grep -qi '<!doctype html>'
           kill $SERVER_PID
 

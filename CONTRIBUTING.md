@@ -28,49 +28,62 @@ Useful scripts:
 |---|---|
 | `client/src/components/` | React UI (chart panel, top bar, dock, CSV modal, …) |
 | `client/src/state/store.ts` | zustand store — owns data, indicators, datasets, backtest lifecycle |
-| `client/src/lib/providers/` | Data providers (`DataProvider` implementations) |
+| `client/src/lib/providers/` | Provider registry (built from the catalog), `/api` client, live feeds, demo |
 | `client/src/lib/csv.ts` | The CSV dialect-detection engine |
 | `client/src/lib/indicators.ts` | Indicator math (pure functions, easy to test) |
 | `client/src/lib/backtest/` | Engine, metrics, strategies, optimizer, custom-code runner |
 | `client/src/lib/workers/` | Web Worker entry point for backtests/optimization |
-| `server/index.mjs` | Zero-dependency Node server (static + whitelisted proxy) |
+| `server/index.mjs`, `server/main.ts` | Zero-dependency Node server (static files + the `/api` routes) |
+| `server/providers/` | One REST adapter per data provider (runs on the server) |
+| `shared/` | Wire types and the provider catalog, imported by both server and client |
 | `examples/` | Sample CSVs for the importer |
 
 ## Adding a data provider
 
-1. Create `client/src/lib/providers/myprovider.ts`:
+The server fetches every remote provider's data; the browser only calls `/api/*`. A provider has
+three parts:
+
+1. A server adapter, `server/providers/myprovider.ts`. The server is TypeScript that Node runs by type
+   stripping, so use erasable syntax only (no enums, namespaces or constructor parameter properties),
+   import relative files with their `.ts` extension, and import only `node:` built-ins and `shared/`.
 
 ```ts
-import type { Candle } from '../../types';
-import { fetchJson, type DataProvider, type HistoryRequest } from './http';
+import type { Candle } from '../../shared/market.ts';
+import { NotFoundError } from './errors.ts';
+import type { ProviderAdapter } from './types.ts';
+import { upstreamJson } from './upstream.ts';
 
-export const myProvider: DataProvider = {
+export const myAdapter: ProviderAdapter = {
   id: 'myprovider',
-  name: 'My Provider',
-  description: 'Free data from example.com, no key needed.',
-  needsProxy: true,                 // upstream sends no CORS headers
-  timeframes: ['1d'],
-  defaultTimeframe: '1d',
-  defaultSymbol: 'AAPL',
-  popularSymbols: [{ symbol: 'AAPL', label: 'Apple', exchange: 'NASDAQ' }],
 
-  async fetchHistory(req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]> {
+  async history(ctx, req) {
     const url = `https://api.example.com/ohlcv?symbol=${encodeURIComponent(req.symbol)}`;
-    const rows = await fetchJson<Array<{ t: number; o: number; h: number; l: number; c: number; v: number }>>(url, { signal });
-    return rows.map((r) => ({ time: Math.floor(r.t / 1000), open: r.o, high: r.h, low: r.l, close: r.c, volume: r.v }));
+    const rows = await upstreamJson<Array<{ t: number; o: number; h: number; l: number; c: number; v: number }>>('My Provider', url, ctx);
+    const candles: Candle[] = rows.map((r) => ({ time: Math.floor(r.t / 1000), open: r.o, high: r.h, low: r.l, close: r.c, volume: r.v }));
+    if (candles.length === 0) throw new NotFoundError(`No data returned for ${req.symbol}.`);
+    return candles;
+  },
+
+  async search(ctx, query) {
+    return [];
   },
 };
 ```
 
-   For realtime candles also set `supportsLive: true` and implement `startLive(opts)`, which opens a websocket
-   and returns a `{ stop() }` handle (see `lib/liveSocket.ts` for a reconnecting helper). Leave both out if the
-   upstream has no candle stream; `supportsLive` must be true exactly when `startLive` exists.
+   `upstreamJson` / `upstreamText` add the user-agent, retries and the timeout, and raise an `UpstreamError`
+   (which the API turns into a 502 naming the provider). Take the fetch from `ctx` so tests can inject a fake.
+   Register the adapter in `server/providers/index.ts`.
 
-2. Register it in `client/src/lib/providers/index.ts` (add to the `providers` array).
-3. If the upstream needs a new host, add that hostname to `ALLOWED_HOSTS` in `server/index.mjs`.
-4. Add a unit test for any parsing logic — see `client/src/lib/csv.test.ts` for the pattern.
+2. A catalog entry in `shared/providerCatalog.ts` (id, name, description, timeframes, default symbol and
+   timeframe, popular symbols, `supportsLive`, `hasSymbolList`, `hasSearch`). The client builds its provider
+   from it, so the UI picks it up automatically. The catalog holds no host name.
 
-`fetchJson`/`fetchText` route through the proxy automatically and fall back to direct fetches, so providers work in both deployment modes.
+3. Only if the exchange has a public candle websocket (until the server takes streaming over): its feed in
+   `client/src/lib/providers/liveFeeds.ts`, registered in `LIVE_FEEDS`, with `supportsLive: true` in the catalog.
+   `supportsLive` must be true exactly when a feed exists.
+
+Add unit tests for the adapter in `server/providers/` with an injected fake fetch (see `exchanges.test.ts`);
+no test may touch the network.
 
 ## Adding a built-in strategy
 

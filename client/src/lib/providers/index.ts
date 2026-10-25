@@ -1,32 +1,46 @@
 /**
- * Provider registry. To add your own data source, implement `DataProvider`
- * (see ./http.ts) and register it here — the UI picks it up automatically.
+ * Provider registry. The remote providers are built from the shared catalog
+ * (`shared/providerCatalog.ts`) and read their data from the Vost server
+ * through ./api.ts; the demo provider runs entirely in the browser.
  *
- * See docs/STRATEGIES.md and CONTRIBUTING.md for a walkthrough.
+ * To add a data source: write a server adapter in server/providers/, add a
+ * catalog entry, and (until the server takes over streaming) its live feed in
+ * ./liveFeeds.ts. See CONTRIBUTING.md.
  */
-import { binanceProvider } from './binance';
-import { bybitProvider } from './bybit';
-import { coinbaseProvider } from './coinbase';
+import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog.ts';
+import type { ProviderInfo } from '../../../../shared/market.ts';
+import { fetchHistoryApi, listSymbolsApi, searchSymbolsApi } from './api';
 import { demoProvider } from './demo';
 import type { DataProvider } from './http';
-import { krakenProvider } from './kraken';
-import { okxProvider } from './okx';
-import { stooqProvider } from './stooq';
-import { yahooProvider } from './yahoo';
+import { LIVE_FEEDS } from './liveFeeds';
 
-export const providers: DataProvider[] = [
-  binanceProvider,
-  coinbaseProvider,
-  krakenProvider,
-  bybitProvider,
-  okxProvider,
-  yahooProvider,   stooqProvider,
-  demoProvider,
-];
+function remoteProvider(info: ProviderInfo): DataProvider {
+  const provider: DataProvider = {
+    id: info.id,
+    name: info.name,
+    description: info.description,
+    supportsLive: info.supportsLive,
+    timeframes: info.timeframes,
+    defaultTimeframe: info.defaultTimeframe,
+    defaultSymbol: info.defaultSymbol,
+    popularSymbols: info.popularSymbols,
+    fetchHistory: (req, signal) => fetchHistoryApi(info.id, req, signal),
+  };
+  if (info.hasSearch) provider.searchSymbols = (query, signal) => searchSymbolsApi(info.id, query, signal);
+  if (info.hasSymbolList) provider.listSymbols = (signal) => listSymbolsApi(info.id, signal);
+  if (info.supportsLive) provider.startLive = LIVE_FEEDS[info.id];
+  return provider;
+}
+
+const remoteProviders = PROVIDER_CATALOG.map(remoteProvider);
+
+export const providers: DataProvider[] = [...remoteProviders, demoProvider];
+
+const fallbackProvider = providers[0];
 
 export function getProvider(id: string): DataProvider {
-  return providers.find((p) => p.id === id) ?? binanceProvider;
+  return providers.find((p) => p.id === id) ?? fallbackProvider;
 }
 
 export * from './http';
-export { binanceProvider, coinbaseProvider, krakenProvider, bybitProvider, okxProvider, yahooProvider, stooqProvider, demoProvider };
+export { demoProvider };

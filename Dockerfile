@@ -10,6 +10,8 @@ RUN npm ci
 
 # Build the web client (typecheck + vite build -> client/dist).
 COPY client ./client
+COPY shared ./shared
+COPY server ./server
 RUN npm run build
 
 # ---------- runtime stage: zero-dependency server + built assets ----------
@@ -26,6 +28,7 @@ ENV NODE_ENV=production \
 
 COPY package.json ./package.json
 COPY server ./server
+COPY shared ./shared
 COPY --from=build /app/client/dist ./client/dist
 
 # The server uses only Node built-ins — drop privileges.

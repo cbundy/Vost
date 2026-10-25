@@ -5,7 +5,7 @@
  * Reconnects with exponential backoff; falls back to data-stream host.
  */
 import { formatClose } from './messages';
-import { binanceStreamFallbackUrl, binanceStreamUrl, BINANCE_INTERVALS } from './providers/binance';
+import { binanceStreamFallbackUrl, binanceStreamUrl, BINANCE_INTERVALS } from './providers/liveFeeds';
 import type { LiveHandle, LiveOptions, LiveStatus } from './providers/http';
 
 export type { LiveHandle, LiveOptions, LiveStatus };

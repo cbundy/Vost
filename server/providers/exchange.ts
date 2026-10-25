@@ -1,16 +1,16 @@
 /**
- * Helpers shared by the keyless exchange providers (Coinbase, Kraken, Bybit,
- * OKX): backwards pagination, the 24h symbol-list cache and symbol search.
+ * Helpers shared by the keyless exchange adapters (Coinbase, Kraken, Bybit,
+ * OKX): backwards pagination, symbol search and sorting.
  */
-import type { Candle } from '../../types';
-import { loadJson, saveJson } from '../storage';
-import { sortCandles, type SymbolSuggestion } from './http';
+import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
 
-export const SYMBOL_CACHE_MS = 24 * 3600 * 1000;
-
-interface SymbolCache {
-  at: number;
-  symbols: SymbolSuggestion[];
+/** One candle per time (the last one wins), ascending. Drops rows without a finite time and close. */
+export function sortCandles(candles: Candle[]): Candle[] {
+  const map = new Map<number, Candle>();
+  for (const c of candles) {
+    if (Number.isFinite(c.time) && Number.isFinite(c.close)) map.set(c.time, c);
+  }
+  return Array.from(map.values()).sort((a, b) => a.time - b.time);
 }
 
 /**
@@ -36,15 +36,6 @@ export async function paginateBackwards(
     signal?.throwIfAborted();
   }
   return sortCandles(out).slice(-bars);
-}
-
-/** Symbol list cached in localStorage for 24h under `key`. */
-export async function loadCachedSymbols(key: string, load: () => Promise<SymbolSuggestion[]>): Promise<SymbolSuggestion[]> {
-  const cached = loadJson<SymbolCache | null>(key, null);
-  if (cached && Date.now() - cached.at < SYMBOL_CACHE_MS && cached.symbols.length > 0) return cached.symbols;
-  const symbols = await load();
-  saveJson(key, { at: Date.now(), symbols } satisfies SymbolCache);
-  return symbols;
 }
 
 /** Prefix matches first, then substring matches; at most 12. */

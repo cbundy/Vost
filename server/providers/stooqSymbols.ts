@@ -7,7 +7,7 @@
  *
  * Row format: [symbol, name, exchange, type].
  */
-import type { SymbolSuggestion } from './http';
+import type { SymbolSuggestion } from '../../shared/market.ts';
 
 type Row = readonly [symbol: string, label: string, exchange: string, type: string];
 

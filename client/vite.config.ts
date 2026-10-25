@@ -20,7 +20,7 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
-    // In development the API proxy runs on the Node server (default :8787).
+    // In development the API runs on the Node server (default :8787).
     proxy: {
       '/api': {
         target: process.env.VOST_SERVER_URL ?? 'http://localhost:8787',

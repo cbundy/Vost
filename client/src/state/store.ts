@@ -22,7 +22,7 @@ import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } f
 import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
 import type { LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
-import { loadJson, saveJson, debounce } from '../lib/storage';
+import { loadJson, saveJson, debounce, removeKey } from '../lib/storage';
 import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import * as wl from '../lib/watchlist';
@@ -443,6 +443,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     init() {
+      // The exchange symbol lists used to be cached in the browser; the server caches them now.
+      for (const id of ['binance', 'coinbase', 'kraken', 'bybit', 'okx']) removeKey(`${id}.symbols.v1`);
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
       set({

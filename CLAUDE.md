@@ -118,7 +118,7 @@ Non-gate command (UI evidence; never in a gate or CI; see `docs/e2e-visual-verif
 One suite while debugging: `npm test -- client/src/lib/csv.test.ts`. Test output settings
 (dot reporter, silent) live in `vitest.config.ts`.
 
-CI also smoke-tests the server (`npm start`, then `/api/health` and `/`) on Node 20, 22 and 24,
+CI also smoke-tests the server (`npm start`, then `/api/health` and `/`) on Node 22 and 24,
 and builds and smoke-tests the Docker image (job `docker`). There is no e2e test suite, only the capture command above; run the
 server smoke test locally only when a change touches `server/` or the build.
 

@@ -2,19 +2,9 @@
  * Core domain types shared across the app.
  */
 
-/** One OHLCV bar. `time` is a UNIX timestamp in **seconds** (UTC). */
-export interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
-
-/** Timeframes understood by the app. Not every provider supports every timeframe. */
-export const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'] as const;
-export type Timeframe = (typeof TIMEFRAMES)[number];
+export { TIMEFRAMES } from '../../shared/market.ts';
+import type { Candle } from '../../shared/market.ts';
+export type { Candle, Timeframe } from '../../shared/market.ts';
 
 /** Human label for a detected/synthetic timeframe. */
 export interface DatasetInfo {

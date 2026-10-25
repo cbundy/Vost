@@ -1,10 +1,15 @@
 /**
  * Yahoo Finance public chart API — free, no key. Covers stocks, ETFs, indices,
- * forex and crypto. Requires the self-hosted proxy (Yahoo sends no CORS
- * headers), so this provider is marked `needsProxy`.
+ * forex and crypto.
  */
-import type { Candle, Timeframe } from '../../types';
-import { fetchJson, HttpError, type DataProvider, type HistoryRequest, type SymbolSuggestion } from './http';
+import type { Candle, SymbolSuggestion, Timeframe } from '../../shared/market.ts';
+import { catalogEntry } from '../../shared/providerCatalog.ts';
+import { InputError, NotFoundError, UpstreamError } from './errors.ts';
+import type { ProviderAdapter } from './types.ts';
+import { upstreamJson } from './upstream.ts';
+
+const PROVIDER = 'Yahoo Finance';
+const POPULAR = catalogEntry('yahoo')!.popularSymbols;
 
 interface YahooChartResponse {
   chart?: {
@@ -97,21 +102,6 @@ function pickRange(interval: string, bars: number): string {
   return range;
 }
 
-const POPULAR_SYMBOLS: SymbolSuggestion[] = [
-  { symbol: 'AAPL', label: 'Apple Inc.', exchange: 'NASDAQ', type: 'stock' },
-  { symbol: 'MSFT', label: 'Microsoft Corp.', exchange: 'NASDAQ', type: 'stock' },
-  { symbol: 'NVDA', label: 'NVIDIA Corp.', exchange: 'NASDAQ', type: 'stock' },
-  { symbol: 'TSLA', label: 'Tesla Inc.', exchange: 'NASDAQ', type: 'stock' },
-  { symbol: 'SPY', label: 'SPDR S&P 500 ETF', exchange: 'NYSE', type: 'etf' },
-  { symbol: 'QQQ', label: 'Invesco QQQ Trust', exchange: 'NASDAQ', type: 'etf' },
-  { symbol: '^GSPC', label: 'S&P 500 Index', exchange: 'INDEX', type: 'index' },
-  { symbol: '^IXIC', label: 'Nasdaq Composite', exchange: 'INDEX', type: 'index' },
-  { symbol: 'BTC-USD', label: 'Bitcoin / USD', exchange: 'CCC', type: 'crypto' },
-  { symbol: 'ETH-USD', label: 'Ethereum / USD', exchange: 'CCC', type: 'crypto' },
-  { symbol: 'EURUSD=X', label: 'EUR / USD', exchange: 'FX', type: 'forex' },
-  { symbol: 'GC=F', label: 'Gold Futures', exchange: 'COMEX', type: 'future' },
-];
-
 const TYPE_LABELS: Record<string, string> = {
   EQUITY: 'stock',
   ETF: 'etf',
@@ -127,23 +117,19 @@ function typeLabel(quoteType: string | undefined): string | undefined {
   return TYPE_LABELS[quoteType.toUpperCase()] ?? quoteType.toLowerCase();
 }
 
-export const yahooProvider: DataProvider = {
-  id: 'yahoo',
-  name: 'Yahoo Finance',
-  description: 'Free delayed data for stocks, ETFs, indices, forex and crypto. No key needed.',
-  needsProxy: true,
-  timeframes: ['1m', '5m', '15m', '30m', '1h', '1d', '1w', '1M'],
-  defaultTimeframe: '1d',
-  defaultSymbol: 'AAPL',
-  popularSymbols: POPULAR_SYMBOLS,
+export { pickRange };
 
-  async searchSymbols(query: string, signal?: AbortSignal): Promise<SymbolSuggestion[]> {
+export const yahooAdapter: ProviderAdapter = {
+  id: 'yahoo',
+
+  async search(ctx, query) {
     const q = query.trim();
-    if (!q) return POPULAR_SYMBOLS;
+    if (!q) return POPULAR;
     try {
-      const data = await fetchJson<YahooSearchResponse>(
+      const data = await upstreamJson<YahooSearchResponse>(
+        PROVIDER,
         `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=50&newsCount=0&listsCount=0`,
-        { signal },
+        ctx,
       );
       const out: SymbolSuggestion[] = (data.quotes ?? [])
         .filter((x) => x.symbol)
@@ -153,33 +139,37 @@ export const yahooProvider: DataProvider = {
           exchange: x.exchDisp ?? undefined,
           type: typeLabel(x.quoteType),
         }));
-      return out.length > 0 ? out : POPULAR_SYMBOLS;
-    } catch {
-      return POPULAR_SYMBOLS;
+      return out.length > 0 ? out : POPULAR;
+    } catch (err) {
+      if (ctx.signal?.aborted) throw err;
+      return POPULAR;
     }
   },
 
-  async fetchHistory(req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]> {
+  async history(ctx, req) {
     const interval = YAHOO_INTERVALS[req.timeframe];
-    if (!interval) throw new Error(`Yahoo Finance does not support timeframe ${req.timeframe}`);
+    if (!interval) throw new InputError(`Yahoo Finance does not support timeframe ${req.timeframe}`);
     const range = pickRange(interval, req.bars);
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-      req.symbol.trim(),
-    )}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplit`;
+    const symbol = req.symbol.trim();
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplit`;
 
-    const data = await fetchJson<YahooChartResponse>(url, { signal }).catch((err: unknown) => {
-      if (err instanceof HttpError && err.status === 429) {
-        throw new Error(
+    const data = await upstreamJson<YahooChartResponse>(PROVIDER, url, ctx).catch((err: unknown) => {
+      if (err instanceof UpstreamError && err.status === 429) {
+        throw new UpstreamError(
+          PROVIDER,
+          err.host,
+          429,
+          err.body,
           'Yahoo Finance is rate-limiting this server (HTTP 429). Wait a minute and retry, or use Binance / CSV import.',
         );
       }
       throw err;
     });
     const err = data.chart?.error;
-    if (err) throw new Error(err.description ?? err.code ?? 'Yahoo Finance error');
+    if (err) throw new UpstreamError(PROVIDER, 'query1.finance.yahoo.com', 200, '', err.description ?? err.code ?? 'Yahoo Finance error');
     const result = data.chart?.result?.[0];
     if (!result?.timestamp || !result.indicators?.quote?.[0]) {
-      throw new Error(`No data for "${req.symbol}". Try symbols like AAPL, ^GSPC, BTC-USD, EURUSD=X.`);
+      throw new NotFoundError(`No data for "${symbol}". Try symbols like AAPL, ^GSPC, BTC-USD, EURUSD=X.`);
     }
     const quote = result.indicators.quote[0];
     const candles: Candle[] = [];
@@ -198,7 +188,7 @@ export const yahooProvider: DataProvider = {
         volume: quote.volume?.[i] ?? 0,
       });
     }
-    if (candles.length === 0) throw new Error(`No usable bars for "${req.symbol}" at ${req.timeframe}.`);
+    if (candles.length === 0) throw new NotFoundError(`No usable bars for "${symbol}" at ${req.timeframe}.`);
     return candles.slice(-req.bars);
   },
 };

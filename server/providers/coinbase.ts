@@ -1,15 +1,18 @@
 /**
  * Coinbase Exchange public market data - free, no API key.
- * Candles: 300 per request, paginated backwards by time window. The public
- * websocket feed has no candle channel, so live streaming is not offered.
+ * Candles: 300 per request, paginated backwards by time window.
  */
-import type { Candle } from '../../types';
-import { filterSymbols, loadCachedSymbols, paginateBackwards, sortSuggestions } from './exchange';
-import { fetchJson, type DataProvider, type HistoryRequest, type SymbolSuggestion } from './http';
+import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
+import { catalogEntry } from '../../shared/providerCatalog.ts';
+import { InputError, NotFoundError } from './errors.ts';
+import { filterSymbols, paginateBackwards, sortSuggestions } from './exchange.ts';
+import type { ProviderAdapter } from './types.ts';
+import { upstreamJson } from './upstream.ts';
 
+const PROVIDER = 'Coinbase';
 const HOST = 'https://api.exchange.coinbase.com';
 const MAX_PER_REQUEST = 300;
-const CACHE_KEY = 'coinbase.symbols.v1';
+const POPULAR = catalogEntry('coinbase')!.popularSymbols;
 
 /** Timeframe -> granularity in seconds (Coinbase has no 30m, 4h, 1w or 1M). */
 export const COINBASE_GRANULARITY: Record<string, number> = {
@@ -43,34 +46,20 @@ export function parseCoinbaseProducts(products: Product[]): SymbolSuggestion[] {
   );
 }
 
-const POPULAR_SYMBOLS: SymbolSuggestion[] = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'].map((b) => ({
-  symbol: `${b}-USD`,
-  label: `${b} / USD`,
-  exchange: 'Coinbase',
-  type: 'crypto',
-}));
-
-export const coinbaseProvider: DataProvider = {
+export const coinbaseAdapter: ProviderAdapter = {
   id: 'coinbase',
-  name: 'Coinbase',
-  description: 'Free public crypto spot data from Coinbase Exchange (REST candles, 300 per request). No key needed. No live streaming.',
-  needsProxy: false,
-  timeframes: ['1m', '5m', '15m', '1h', '1d'],
-  defaultTimeframe: '1h',
-  defaultSymbol: 'BTC-USD',
-  popularSymbols: POPULAR_SYMBOLS,
 
-  async searchSymbols(query, signal) {
-    if (!query.trim()) return POPULAR_SYMBOLS;
-    const all = await loadCachedSymbols(CACHE_KEY, async () =>
-      parseCoinbaseProducts(await fetchJson<Product[]>(`${HOST}/products`, { signal })),
+  async search(ctx, query) {
+    if (!query.trim()) return POPULAR;
+    const all = await ctx.symbols.get('coinbase', async () =>
+      parseCoinbaseProducts(await upstreamJson<Product[]>(PROVIDER, `${HOST}/products`, { fetch: ctx.fetch })),
     );
     return filterSymbols(all, query);
   },
 
-  async fetchHistory(req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]> {
+  async history(ctx, req) {
     const gran = COINBASE_GRANULARITY[req.timeframe];
-    if (!gran) throw new Error(`Coinbase does not support timeframe ${req.timeframe}`);
+    if (!gran) throw new InputError(`Coinbase does not support timeframe ${req.timeframe}`);
     const symbol = req.symbol.trim().toUpperCase();
     const candles = await paginateBackwards(
       Math.max(1, req.bars),
@@ -78,11 +67,11 @@ export const coinbaseProvider: DataProvider = {
         const end = before ?? Math.floor(Date.now() / 1000);
         const start = end - MAX_PER_REQUEST * gran;
         const qs = `granularity=${gran}&start=${new Date(start * 1000).toISOString()}&end=${new Date(end * 1000).toISOString()}`;
-        return parseCoinbaseCandles(await fetchJson(`${HOST}/products/${encodeURIComponent(symbol)}/candles?${qs}`, { signal }));
+        return parseCoinbaseCandles(await upstreamJson(PROVIDER, `${HOST}/products/${encodeURIComponent(symbol)}/candles?${qs}`, ctx));
       },
-      signal,
+      ctx.signal,
     );
-    if (candles.length === 0) throw new Error(`No data returned for ${symbol}. Check the symbol (e.g. BTC-USD).`);
+    if (candles.length === 0) throw new NotFoundError(`No data returned for ${symbol}. Check the symbol (e.g. BTC-USD).`);
     return candles;
   },
 };
