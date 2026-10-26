@@ -1,6 +1,6 @@
 {
   "name": "vost",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Vost — a self-hosted, open-source TradingView alternative: charting, data from free public APIs or CSV files, and unlimited backtesting.",
   "type": "module",
   "license": "MIT",
