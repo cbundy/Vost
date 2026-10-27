@@ -6,6 +6,7 @@ import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
 import { useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
+import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
 
 const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
@@ -137,6 +138,8 @@ export function TopBar({
           {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
         </button>
       )}
+
+      <ConnectionStatus />
 
       <div className="topbar-right">
         <button className="ghost icon inbox-btn" onClick={onOpenInbox} title="Inbox (messages and errors)" aria-label="Inbox">

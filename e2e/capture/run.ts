@@ -123,7 +123,7 @@ async function main(): Promise<string[]> {
     const baseUrl = `http://127.0.0.1:${port}`;
     server = spawn(process.execPath, ['server/index.mjs'], {
       cwd: ROOT,
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1' },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', VOST_STATUS_INTERVAL: '0' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     const serverOut = capture(server);

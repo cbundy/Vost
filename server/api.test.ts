@@ -10,11 +10,15 @@ let server: http.Server;
 let base = '';
 let current: FakeFetch;
 let upstream: (url: URL) => unknown;
+let outcomes: Array<{ provider: string; feed: string; ok: boolean; error?: string }>;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
     // A fresh cache and a fake fetch per request: no test touches the network or another test's cache.
-    const deps = createApiDeps({ fetch: current.fetch });
+    const deps = createApiDeps({
+      fetch: current.fetch,
+      onOutcome: (provider, feed, r) => outcomes.push({ provider, feed, ok: r.ok, ...(r.ok ? {} : { error: r.error }) }),
+    });
     void handleApi(req, res, new URL(req.url!, 'http://x'), deps);
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
@@ -22,6 +26,7 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 beforeEach(() => {
+  outcomes = [];
   upstream = () => {
     throw new Error('unexpected upstream call');
   };
@@ -237,5 +242,47 @@ describe('browser abort', () => {
     ac.abort();
     await pending;
     await vi.waitFor(() => expect(seen!.aborted).toBe(true));
+  });
+});
+
+describe('outcome hook (feeds /api/status)', () => {
+  it('reports a successful history request', async () => {
+    upstream = () => [kline(60000), kline(120000)];
+    const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=2');
+    expect(r.status).toBe(200);
+    expect(outcomes).toEqual([{ provider: 'binance', feed: 'history', ok: true }]);
+  });
+
+  it('reports an upstream failure as a failure of the matching feed', async () => {
+    upstream = () => new Response('down', { status: 503 });
+    const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=2');
+    expect(r.status).toBe(502);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0]).toMatchObject({ provider: 'binance', feed: 'history', ok: false });
+    expect(outcomes[0].error).toContain('503');
+  });
+
+  it('reports search and symbols requests under the symbols feed', async () => {
+    upstream = () => ({ symbols: [] });
+    await get('/api/search?provider=binance&q=btc');
+    await get('/api/symbols?provider=binance');
+    expect(outcomes.map((o) => [o.provider, o.feed, o.ok])).toEqual([
+      ['binance', 'symbols', true],
+      ['binance', 'symbols', true],
+    ]);
+  });
+
+  it('reports nothing for a caller mistake (400) or an unknown route (404)', async () => {
+    expect((await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=0')).status).toBe(400);
+    expect((await get('/api/history?provider=nope&symbol=X&timeframe=1h&bars=2')).status).toBe(400);
+    expect((await get('/api/nope')).status).toBe(404);
+    expect(outcomes).toEqual([]);
+  });
+
+  it('reports nothing for a symbol the provider does not have (NotFoundError)', async () => {
+    upstream = () => [];
+    const r = await get('/api/history?provider=binance&symbol=NOPE&timeframe=1h&bars=2');
+    expect(r.status).toBe(404);
+    expect(outcomes).toEqual([]);
   });
 });

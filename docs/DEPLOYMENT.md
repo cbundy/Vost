@@ -172,6 +172,7 @@ You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by
 |---|---|---|---|
 | `PORT` | server (runtime) | `8787` | HTTP listen port |
 | `HOST` | server (runtime) | `0.0.0.0` | Bind address; use `127.0.0.1` behind a proxy |
+| `VOST_STATUS_INTERVAL` | server (runtime) | `60` | Seconds between background health checks of the exchanges (see `/api/status`); `0` turns them off, and the status then stays `unknown` until someone presses "Test now" or real requests report in |
 | `VOST_SERVER_URL` | Vite dev server | `http://localhost:8787` | Upstream for the dev-time `/api` proxy |
 
 Variables are read once at process start. See [`.env.example`](../.env.example).
@@ -179,6 +180,7 @@ Variables are read once at process start. See [`.env.example`](../.env.example).
 ## Health checks & updates
 
 - `GET /api/health` → `{ ok, version, uptimeSeconds, node, clientsBuilt }`. `version` is the running release (the top bar and the startup log show the same number). Use it for Docker health checks, uptime monitors and load-balancer probes.
+- `GET /api/status` → `{ server: { state, version, uptimeSeconds }, intervalSeconds, checks: [...] }`: one check per exchange and data type (price history, symbol lookup, live stream; 17 in all), each with `state` (`ok`, `degraded`, `down`, `unknown`), `latencyMs`, `checkedAt`, `lastOkAt`, `error` and `source` (`probe`, `relay` or `traffic`). It backs the connection light in the top bar; add `?refresh=1` to run a fresh round of checks first (rate limited: a refresh within 15 s of the last round reuses it). Unlike `/api/health` it reports on the exchanges, not just on Vost. The server makes these test requests itself about every `VOST_STATUS_INTERVAL` seconds, so an outbound firewall must allow the same exchange hosts as the data requests, and every state change is logged as `[status] <provider> <feed> <old> -> <new>`.
 - Updating to a release = `git fetch --tags && git checkout vX.Y.Z && npm ci && npm run build && restart`. Hashed asset filenames change, so clients pick up the new build on next load; no cache-busting dance needed.
 - The server never writes to disk at runtime; back it with any read-only filesystem if you like.
 

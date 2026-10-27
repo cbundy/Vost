@@ -10,19 +10,22 @@ import { InputError, NotFoundError, UpstreamError } from './providers/errors.ts'
 import { adapters } from './providers/index.ts';
 import { createSymbolCache, type SymbolCache } from './providers/symbolCache.ts';
 import type { FetchFn } from './providers/upstream.ts';
+import type { CheckResult } from './status/registry.ts';
 import { sendJson } from './respond.ts';
 
 export interface ApiDeps {
   /** Defaults to `globalThis.fetch`. */
   fetch?: FetchFn;
   symbols: SymbolCache;
+  /** Told how each real history, symbols or search request went, for the status page (provider failures only, never a bad request). */
+  onOutcome?(provider: string, feed: 'history' | 'symbols', result: CheckResult): void;
 }
 
 export function createApiDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
   return { symbols: createSymbolCache(), ...overrides };
 }
 
-const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live'];
+const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live', '/api/status'];
 
 function provider(url: URL) {
   const id = url.searchParams.get('provider') ?? '';
@@ -48,6 +51,19 @@ function parseTime(name: string, raw: string | null): number | undefined {
   return Number(raw);
 }
 
+/** Runs a provider call and reports its outcome: a success, or an `UpstreamError` (a caller's mistake is not the provider's health). */
+async function tracked<T>(deps: ApiDeps, provider: string, feed: 'history' | 'symbols', call: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  try {
+    const out = await call();
+    deps.onOutcome?.(provider, feed, { ok: true, latencyMs: Date.now() - started });
+    return out;
+  } catch (err) {
+    if (err instanceof UpstreamError) deps.onOutcome?.(provider, feed, { ok: false, error: err.message, latencyMs: Date.now() - started });
+    throw err;
+  }
+}
+
 async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unknown> {
   const base = { fetch: deps.fetch, symbols: deps.symbols, signal };
   switch (url.pathname) {
@@ -67,7 +83,7 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (from === undefined) {
         const bars = parseBars(url.searchParams.get('bars'));
         if (to !== undefined) to = Math.min(to, Math.floor(Date.now() / 1000));
-        return adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) });
+        return tracked(deps, info.id, 'history', () => adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) }));
       }
       to = Math.min(to ?? Infinity, Math.floor(Date.now() / 1000));
       if (from > to) throw new InputError('from must not be after to (or in the future)');
@@ -75,16 +91,17 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (count > MAX_BARS) {
         throw new InputError(`That span is about ${count} ${timeframe} bars, above the limit of ${MAX_BARS}; pick a shorter span or a larger timeframe`);
       }
-      return adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to });
+      return tracked(deps, info.id, 'history', () => adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to }));
     }
     case '/api/symbols': {
       const { info, adapter } = provider(url);
       if (!info.hasSymbolList || !adapter.listSymbols) throw new InputError(`${info.name} has no symbol list; use /api/search`);
-      return adapter.listSymbols(base);
+      const list = adapter.listSymbols;
+      return tracked(deps, info.id, 'symbols', () => list.call(adapter, base));
     }
     case '/api/search': {
-      const { adapter } = provider(url);
-      return adapter.search(base, url.searchParams.get('q') ?? '');
+      const { info, adapter } = provider(url);
+      return tracked(deps, info.id, 'symbols', () => adapter.search(base, url.searchParams.get('q') ?? ''));
     }
     default:
       throw new NotFoundError(`Unknown API route. Try ${ROUTES.join(', ')}`);

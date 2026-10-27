@@ -11,6 +11,8 @@
  * Env:
  *   PORT  (default 8787)
  *   HOST  (default 0.0.0.0)
+ *   VOST_STATUS_INTERVAL  seconds between background health checks of the
+ *                         exchanges (default 60; 0 turns them off)
  */
 import http from 'node:http';
 import { createReadStream } from 'node:fs';
@@ -21,6 +23,8 @@ import { createApiDeps, handleApi } from './api.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
 import { sendJson } from './respond.ts';
+import { handleStatus } from './status/route.ts';
+import { createStatusService } from './status/scheduler.ts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIST = path.join(ROOT, 'client', 'dist');
@@ -141,8 +145,14 @@ npm start</pre>
 
 /* --------------------------------- server -------------------------------- */
 
-const apiDeps = createApiDeps();
 const relay = createRelay();
+const intervalEnv = Number(process.env.VOST_STATUS_INTERVAL ?? 60);
+const status = createStatusService({
+  version,
+  intervalSeconds: Number.isFinite(intervalEnv) && intervalEnv > 0 ? intervalEnv : 0,
+  relayStats: () => relay.stats(),
+});
+const apiDeps = createApiDeps({ onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -172,6 +182,10 @@ const server = http.createServer(async (req, res) => {
     return handleLive(req, res, url, relay);
   }
 
+  if (url.pathname === '/api/status') {
+    return void handleStatus(req, res, url, status);
+  }
+
   if (url.pathname.startsWith('/api/')) {
     return void handleApi(req, res, url, apiDeps);
   }
@@ -183,12 +197,14 @@ server.listen(PORT, HOST, () => {
   console.log('');
   console.log(`  ▲ Vost v${version} — self-hosted charts & backtesting`);
   console.log(`  → http://localhost:${PORT}`);
-  console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search`);
+  console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search, /api/status`);
   console.log(`  → live candles: /api/live`);
   console.log('');
+  status.scheduler.start();
 });
 
 const shutdown = (): void => {
+  status.scheduler.stop();
   relay.closeAll(); // ends the streams, so server.close does not wait on them
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();

@@ -34,6 +34,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 - Indicators: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD — configurable periods & colors, live editing
 - Crosshair legend with OHLC + change + volume, fit-to-screen, PNG screenshot, CSV export
 - Live streaming candles (the server keeps one exchange websocket per feed, shared by all tabs, with auto-reconnect and a Binance fallback host)
+- Connection health light in the top bar: whether each exchange's price history, symbol lookup and live stream is working right now, with a "Test now" button (the server checks about once a minute; `VOST_STATUS_INTERVAL=0` turns that off)
 
 **Data**
 - **Binance** — free public crypto klines + realtime websocket, no key
@@ -99,7 +100,7 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 
 For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
-The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. A static-only deployment (no Node server) supports only CSV import and Demo.
+The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. About once a minute it also makes a small test request to each provider's history, symbol-search and live feeds (about 17 checks, spread out, with the full symbol lists only every 10th round) to power the connection health light at `/api/status`; set `VOST_STATUS_INTERVAL=0` to switch that off. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. A static-only deployment (no Node server) supports only CSV import and Demo.
 
 > **Bring your own API:** add a server adapter in `server/providers/` and a catalog entry in `shared/providerCatalog.ts` — the UI picks it up automatically in the provider dropdown. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-data-provider).
 

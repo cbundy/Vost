@@ -111,7 +111,7 @@ Install first with `npm ci` (the gate commands in `.claude/factory-loop.json` in
 | Build | `npm run build` | step "Build client" |
 
 Non-gate command (UI evidence; never in a gate or CI; see `docs/e2e-visual-verification.md`):
-`npm run -s e2e:capture -- <scenario>` (scenarios: `chart`, `chart-pan`, `chart-reset`, `chart-range`, `zone-clock`, `bt-range`).
+`npm run -s e2e:capture -- <scenario>` (scenarios: `chart`, `chart-pan`, `chart-reset`, `chart-range`, `conn-status`, `zone-clock`, `bt-range`).
 
 One suite while debugging: `npm test -- client/src/lib/csv.test.ts`. Test output settings
 (dot reporter, silent) live in `vitest.config.ts`.
