@@ -1,4 +1,7 @@
+import { DOCK_DEFAULT, DOCK_MIN, clamp, dockLimits, shouldCollapseDock } from '../lib/paneSizes';
+import { useViewportSize } from '../lib/useViewportSize';
 import { useStore, type DockTab } from '../state/store';
+import { Splitter } from './Splitter';
 import { BacktestTab } from './BacktestTab';
 import { PineTab } from './PineTab';
 import { OptimizerTab } from './OptimizerTab';
@@ -16,6 +19,23 @@ export function BottomDock() {
   const btRunning = useStore((s) => s.btRunning);
   const optResult = useStore((s) => s.optResult);
 
+  const dockHeight = useStore((s) => s.dockHeight);
+  const setDockHeight = useStore((s) => s.setDockHeight);
+  const viewport = useViewportSize();
+  const limits = dockLimits(viewport.height);
+  const effective = clamp(dockHeight, limits.min, limits.max);
+
+  const onResize = (raw: number, via: 'drag' | 'key') => {
+    if (shouldCollapseDock(raw)) {
+      // Arrow-up on a collapsed dock expands it; any other move below the threshold keeps it collapsed.
+      if (collapsed && via === 'key' && raw > DOCK_MIN) setDockCollapsed(false);
+      else setDockCollapsed(true);
+      return;
+    }
+    setDockHeight(clamp(raw, limits.min, limits.max));
+    if (collapsed) setDockCollapsed(false);
+  };
+
   const select = (t: DockTab) => setDockTab(t);
   const tabProps = (t: DockTab) => ({
     role: 'tab' as const,
@@ -27,7 +47,19 @@ export function BottomDock() {
   });
 
   return (
-    <section className={`dock${collapsed ? ' collapsed' : ''}`}>
+    <section className={`dock${collapsed ? ' collapsed' : ''}`} style={{ ['--dock-height' as string]: `${effective}px` }}>
+      <Splitter
+        orientation="horizontal"
+        label="Resize bottom panel"
+        value={collapsed ? DOCK_MIN : effective}
+        min={limits.min}
+        max={limits.max}
+        onChange={onResize}
+        onReset={() => {
+          setDockHeight(DOCK_DEFAULT);
+          setDockCollapsed(false);
+        }}
+      />
       <div className="dock-tabs" role="tablist" aria-label="Dock">
         <button {...tabProps('backtest')}>
           <span>⚙</span> Backtest

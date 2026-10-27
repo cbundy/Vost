@@ -7,11 +7,13 @@ import { chartReset } from './chart-reset.ts';
 import { connStatus } from './conn-status.ts';
 import { zoneClock } from './zone-clock.ts';
 import { networkAudit } from './network-audit.ts';
+import { paneResize } from './pane-resize.ts';
+import { pineTab } from './pine-tab.ts';
 import { outage } from './outage.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [btRange, chart, chartPan, chartRange, chartReset, connStatus, networkAudit, outage, watchlist, zoneClock];
+const all: Scenario[] = [btRange, chart, chartPan, chartRange, chartReset, connStatus, networkAudit, outage, paneResize, pineTab, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();
