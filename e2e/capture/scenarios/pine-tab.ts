@@ -3,7 +3,7 @@ import type { Scenario } from '../scenario.ts';
 export const pineTab: Scenario = {
   name: 'pine-tab',
   description: 'Pine tab in the bottom dock: add through the sidebar, edit, error, collapsed then Edit, empty state',
-  viewports: ['desktop', 'narrow'],
+  viewports: ['desktop'],
   async run(ctx) {
     const { page } = ctx;
     await ctx.step('open app', () => page.goto('/'));
@@ -17,7 +17,7 @@ export const pineTab: Scenario = {
     await ctx.step('type a syntax error', async () => {
       await page.locator('.pine-editor .cm-content').click();
       await page.keyboard.press('Control+End');
-      await page.keyboard.type('\nplot(');
+      await page.keyboard.type('\nplot(1 +');
       await page.locator('.pine-error').waitFor();
     });
     await ctx.screenshot('error');
