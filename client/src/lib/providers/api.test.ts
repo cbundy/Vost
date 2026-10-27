@@ -65,3 +65,18 @@ describe('REST client', () => {
     await expect(providers[0].searchSymbols!('x')).rejects.toThrow('HTTP 502');
   });
 });
+
+describe('history from/to', () => {
+  it('puts from and to in the query only when set', async () => {
+    const urls = stubFetch(() => json([]));
+    const p = remote[0];
+    await p.fetchHistory({ symbol: 'A', timeframe: p.defaultTimeframe, bars: 10 });
+    await p.fetchHistory({ symbol: 'A', timeframe: p.defaultTimeframe, bars: 10, from: 100, to: 200 });
+    await p.fetchHistory({ symbol: 'A', timeframe: p.defaultTimeframe, bars: 10, to: 200 });
+    expect(urls[0]).not.toMatch(/[?&](from|to)=/);
+    expect(urls[1]).toMatch(/from=100/);
+    expect(urls[1]).toMatch(/to=200/);
+    expect(urls[2]).not.toMatch(/from=/);
+    expect(urls[2]).toMatch(/to=200/);
+  });
+});

@@ -61,16 +61,16 @@ export function cropToChartRange(full: Candle[], range: TimeRange): ChartCrop {
   const first = full[0]?.time;
   const last = full[full.length - 1]?.time;
   const { from, to } = range;
+  if (from != null && to != null && from > to) return { ok: false, error: 'from-after-to' };
   if (first == null || last == null) return { ok: false, error: 'outside' };
   if ((from != null && from < first) || (to != null && to > last)) return { ok: false, error: 'outside' };
-  if (from != null && to != null && from > to) return { ok: false, error: 'from-after-to' };
   const slice = sliceByTimeRange(full, range);
   if (slice.length < CHART_MIN_BARS) return { ok: false, error: 'too-few-bars' };
   return { ok: true, slice };
 }
 
 export function chartRangeErrorText(error: ChartRangeError): string {
-  if (error === 'outside') return 'Range is outside the loaded data - load more bars first';
+  if (error === 'outside') return 'Range is outside this dataset';
   if (error === 'from-after-to') return 'From is later than To';
   return `Fewer than ${CHART_MIN_BARS} bars in the chart range`;
 }

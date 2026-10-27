@@ -9,6 +9,7 @@ export function ChartRangeControl() {
   const fullCandles = useStore((s) => s.fullCandles);
   const candles = useStore((s) => s.candles);
   const timeZone = useStore((s) => s.timeZone);
+  const loading = useStore((s) => s.loadState === 'loading');
   const setChartRange = useStore((s) => s.setChartRange);
   const clearChartRange = useStore((s) => s.clearChartRange);
   const [open, setOpen] = useState(false);
@@ -30,7 +31,7 @@ export function ChartRangeControl() {
         onClick={toggle}
         disabled={full.length === 0}
         aria-expanded={open}
-        title="Show only a window of the loaded bars"
+        title="Show a time window of the chart"
       >
         {active ? 'Range on' : 'Range'}
       </button>
@@ -46,15 +47,16 @@ export function ChartRangeControl() {
             <button onClick={() => setOpen(false)}>Cancel</button>
             <button
               className="primary"
+              disabled={loading}
+              aria-busy={loading}
               onClick={() => {
-                setChartRange(draft);
-                const applied = useStore.getState().chartRange;
-                const wasOpen = draft.from == null && draft.to == null;
                 // a refusal leaves the panel open so the window can be corrected
-                if (wasOpen || (applied && applied.from === draft.from && applied.to === draft.to)) setOpen(false);
+                void setChartRange(draft).then((applied) => {
+                  if (applied) setOpen(false);
+                });
               }}
             >
-              Apply
+              {loading ? <span className="spinner" role="status" aria-label="Loading" /> : 'Apply'}
             </button>
           </div>
         </div>

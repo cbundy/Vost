@@ -110,6 +110,9 @@ describe('cropToChartRange', () => {
     expect(cropToChartRange(full, { from: null, to: 1901 })).toEqual({ ok: false, error: 'outside' });
     expect(cropToChartRange([], { from: 1, to: 2 })).toEqual({ ok: false, error: 'outside' });
   });
+  it('checks From later than To before outside', () => {
+    expect(cropToChartRange(full, { from: 5000, to: 10 })).toEqual({ ok: false, error: 'from-after-to' });
+  });
   it('From later than To', () => {
     expect(cropToChartRange(full, { from: 1500, to: 1200 })).toEqual({ ok: false, error: 'from-after-to' });
   });
@@ -118,7 +121,7 @@ describe('cropToChartRange', () => {
     expect(cropToChartRange(full, { from: 1210, to: 1290 })).toEqual({ ok: false, error: 'too-few-bars' });
   });
   it('has its own error wording', () => {
-    expect(chartRangeErrorText('outside')).toBe('Range is outside the loaded data - load more bars first');
+    expect(chartRangeErrorText('outside')).toBe('Range is outside this dataset');
     expect(chartRangeErrorText('from-after-to')).toBe('From is later than To');
     expect(chartRangeErrorText('too-few-bars')).toBe('Fewer than 2 bars in the chart range');
   });

@@ -17,7 +17,10 @@ async function getJson<T>(path: string, params: Record<string, string | number>,
 }
 
 export function fetchHistoryApi(provider: string, req: HistoryRequest, signal?: AbortSignal): Promise<Candle[]> {
-  return getJson<Candle[]>('history', { provider, symbol: req.symbol, timeframe: req.timeframe, bars: req.bars }, signal);
+  const params: Record<string, string | number> = { provider, symbol: req.symbol, timeframe: req.timeframe, bars: req.bars };
+  if (req.from != null) params.from = req.from;
+  if (req.to != null) params.to = req.to;
+  return getJson<Candle[]>('history', params, signal);
 }
 
 export function searchSymbolsApi(provider: string, q: string, signal?: AbortSignal): Promise<SymbolSuggestion[]> {

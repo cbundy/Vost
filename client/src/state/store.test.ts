@@ -398,7 +398,7 @@ describe('chartRange', () => {
     const key = useStore.getState().dataKey;
     const from = candles[20].time;
     const to = candles[80].time;
-    useStore.getState().setChartRange({ from, to });
+    await useStore.getState().setChartRange({ from, to });
     const s = useStore.getState();
     expect(s.candles).toHaveLength(61);
     expect(s.candles[0].time).toBe(from);
@@ -411,7 +411,7 @@ describe('chartRange', () => {
 
   it('setBtRange leaves chartRange untouched', async () => {
     const { useStore, candles } = await setup();
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     useStore.getState().setBtRange({ from: candles[30].time, to: null });
     expect(useStore.getState().chartRange).toEqual({ from: candles[20].time, to: candles[80].time });
   });
@@ -419,7 +419,7 @@ describe('chartRange', () => {
   it('refuses a chart range while live is on', async () => {
     const { useStore, candles } = await setup();
     useStore.setState({ live: true });
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     const s = useStore.getState();
     expect(s.chartRange).toBeNull();
     expect(s.candles).toHaveLength(candles.length);
@@ -429,25 +429,26 @@ describe('chartRange', () => {
 
   it('a second apply slices from the full set', async () => {
     const { useStore, candles } = await setup();
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[30].time });
-    useStore.getState().setChartRange({ from: candles[10].time, to: candles[90].time });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[30].time });
+    await useStore.getState().setChartRange({ from: candles[10].time, to: candles[90].time });
     expect(useStore.getState().candles).toHaveLength(81);
     expect(useStore.getState().fullCandles).toEqual(candles);
   });
 
   it('refusals add one error and change nothing', async () => {
     const { useStore, candles } = await setup();
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    useStore.setState({ activeDatasetId: 'local' }); // a local dataset cannot fetch more
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     const before = useStore.getState();
     const cases: [{ from: number | null; to: number | null }, string][] = [
-      [{ from: candles[0].time - 1, to: null }, 'Range is outside the loaded data - load more bars first'],
-      [{ from: null, to: candles[candles.length - 1].time + 1 }, 'Range is outside the loaded data - load more bars first'],
+      [{ from: candles[0].time - 1, to: null }, 'Range is outside this dataset'],
+      [{ from: null, to: candles[candles.length - 1].time + 1 }, 'Range is outside this dataset'],
       [{ from: candles[50].time, to: candles[10].time }, 'From is later than To'],
       [{ from: candles[5].time, to: candles[5].time }, 'Fewer than 2 bars in the chart range'],
     ];
     let n = errorCount(before);
     for (const [range, text] of cases) {
-      useStore.getState().setChartRange(range);
+      await useStore.getState().setChartRange(range);
       const s = useStore.getState();
       expect(errorCount(s)).toBe(++n);
       expect(s.toasts.some((t) => t.kind === 'error' && t.text === text)).toBe(true);
@@ -459,8 +460,9 @@ describe('chartRange', () => {
 
   it('refusals on uncropped data change nothing', async () => {
     const { useStore, candles } = await setup();
+    useStore.setState({ activeDatasetId: 'local' });
     const key = useStore.getState().dataKey;
-    useStore.getState().setChartRange({ from: candles[0].time - 5, to: null });
+    await useStore.getState().setChartRange({ from: candles[0].time - 5, to: null });
     const s = useStore.getState();
     expect(s.chartRange).toBeNull();
     expect(s.fullCandles).toBeNull();
@@ -474,9 +476,9 @@ describe('chartRange', () => {
       throw new Error('no fetch expected');
     });
     vi.stubGlobal('fetch', fetchSpy);
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     const key = useStore.getState().dataKey;
-    useStore.getState().clearChartRange();
+    await useStore.getState().clearChartRange();
     const s = useStore.getState();
     expect(s.candles).toBe(candles);
     expect(s.fullCandles).toBeNull();
@@ -487,8 +489,8 @@ describe('chartRange', () => {
 
   it('an open range acts as Clear', async () => {
     const { useStore, candles } = await setup();
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
-    useStore.getState().setChartRange({ from: null, to: null });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await useStore.getState().setChartRange({ from: null, to: null });
     expect(useStore.getState().candles).toBe(candles);
     expect(useStore.getState().chartRange).toBeNull();
   });
@@ -497,15 +499,15 @@ describe('chartRange', () => {
     const { useStore, candles } = await setup();
     const input = { name: 'd1', candles, source: 'csv', description: 'd1', barSeconds: 86400, barLabel: '1d' };
     const range = { from: candles[20].time, to: candles[80].time };
-    useStore.getState().setChartRange(range);
+    await useStore.getState().setChartRange(range);
     const id = useStore.getState().addDataset(input);
     expect(useStore.getState().chartRange).toBeNull();
     expect(useStore.getState().fullCandles).toBeNull();
-    useStore.getState().setChartRange(range);
+    await useStore.getState().setChartRange(range);
     useStore.getState().activateDataset(id);
     expect(useStore.getState().chartRange).toBeNull();
     expect(useStore.getState().candles).toHaveLength(candles.length);
-    useStore.getState().setChartRange(range);
+    await useStore.getState().setChartRange(range);
     useStore.getState().clearData();
     expect(useStore.getState().chartRange).toBeNull();
     expect(useStore.getState().fullCandles).toBeNull();
@@ -514,7 +516,7 @@ describe('chartRange', () => {
   it('loadData resets the range', async () => {
     const { useStore, candles } = await setup();
     useStore.setState({ providerId: 'demo', bars: 200 });
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     await useStore.getState().loadData();
     expect(useStore.getState().loadState).toBe('ready');
     expect(useStore.getState().chartRange).toBeNull();
@@ -528,7 +530,7 @@ describe('chartRange', () => {
     const orig = provider.startLive;
     provider.startLive = () => ({ stop() {} });
     try {
-      useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+      await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
       useStore.getState().setLive(true);
       expect(useStore.getState().candles).toBe(candles);
       expect(useStore.getState().chartRange).toBeNull();
@@ -542,7 +544,7 @@ describe('chartRange', () => {
     const { useStore, candles } = await setup();
     const from = candles[20].time;
     const to = candles[80].time;
-    useStore.getState().setChartRange({ from, to });
+    await useStore.getState().setChartRange({ from, to });
     await useStore.getState().runBacktest();
     const r = useStore.getState().btResult!;
     expect(r.equity[0].time).toBe(from);
@@ -551,7 +553,7 @@ describe('chartRange', () => {
 
   it('saveCurrentDataset stores the full candles', async () => {
     const { useStore, candles } = await setup();
-    useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     useStore.getState().saveCurrentDataset('full');
     const saved = useStore.getState().datasets.find((d) => d.name === 'full')!;
     expect(saved.candles).toHaveLength(candles.length);
@@ -561,7 +563,7 @@ describe('chartRange', () => {
     vi.useFakeTimers();
     try {
       const { useStore, candles } = await setup();
-      useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+      await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
       useStore.getState().setBars(300);
       vi.advanceTimersByTime(1000);
       expect(localStorage.getItem('vost.prefs.v1')).not.toContain('chartRange');
@@ -573,5 +575,170 @@ describe('chartRange', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('chartRange fetched from the provider', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  const DAY = 86400;
+  const mk = (from: number, n: number) =>
+    Array.from({ length: n }, (_, i) => ({ time: from + i * DAY, open: 1, high: 2, low: 0.5, close: 1.5, volume: 1 }));
+
+  async function setup() {
+    const { useStore } = await import('./store');
+    track(useStore);
+    const { demoProvider } = await import('../lib/providers');
+    const base = mk(1_600_000_000 - (1_600_000_000 % DAY), 100);
+    useStore.setState({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d', bars: 100, candles: base, activeDatasetId: null });
+    const calls: { from?: number; to?: number; bars: number }[] = [];
+    let handler: (req: { from?: number; to?: number; bars: number }) => Promise<ReturnType<typeof mk>> = async (req) =>
+      mk(req.from!, Math.floor((req.to! - req.from!) / DAY) + 1);
+    const spy = vi.spyOn(demoProvider, 'fetchHistory').mockImplementation(async (req) => {
+      calls.push({ from: req.from, to: req.to, bars: req.bars });
+      return handler(req);
+    });
+    return { useStore, base, calls, spy, setHandler: (h: typeof handler) => (handler = h) };
+  }
+
+  it('fetches a span outside the loaded bars, then crops inside it without a request', async () => {
+    const { useStore, base, calls } = await setup();
+    const from = base[0].time - 50 * DAY;
+    const to = base[0].time - 20 * DAY;
+    const key = useStore.getState().dataKey;
+    expect(await useStore.getState().setChartRange({ from, to })).toBe(true);
+    const s = useStore.getState();
+    expect(calls).toEqual([{ from, to, bars: 100 }]);
+    expect(s.candles).toHaveLength(31);
+    expect(s.fullCandles).toHaveLength(31);
+    expect(s.chartRange).toEqual({ from, to });
+    expect(s.chartRangeFetched).toBe(true);
+    expect(s.dataKey).not.toBe(key);
+    expect(s.loadState).toBe('ready');
+    const { fmtDataRange } = await import('../lib/format');
+    expect(fmtDataRange(s.candles[0].time, s.candles[30].time, s.candles.length, { timeZone: 'UTC' })).toContain('31');
+    // inside the fetched span: crop only
+    expect(await useStore.getState().setChartRange({ from: from + 5 * DAY, to: from + 10 * DAY })).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(useStore.getState().candles).toHaveLength(6);
+    // outside the fetched span: fetch again
+    expect(await useStore.getState().setChartRange({ from: from - 10 * DAY, to })).toBe(true);
+    expect(calls).toHaveLength(2);
+  });
+
+  it('a range inside the loaded bars crops with no request', async () => {
+    const { useStore, base, calls } = await setup();
+    expect(await useStore.getState().setChartRange({ from: base[10].time, to: base[20].time })).toBe(true);
+    expect(calls).toHaveLength(0);
+    expect(useStore.getState().chartRangeFetched).toBe(false);
+  });
+
+  it('an open From sends to and the current bars; an open To sends only from', async () => {
+    const { useStore, base, calls } = await setup();
+    await useStore.getState().setChartRange({ from: null, to: base[99].time + 10 * DAY });
+    expect(calls[0]).toEqual({ from: undefined, to: base[99].time + 10 * DAY, bars: 100 });
+    await useStore.getState().setChartRange({ from: base[0].time - 10 * DAY, to: null });
+    expect(calls[1]).toEqual({ from: base[0].time - 10 * DAY, to: undefined, bars: 100 });
+  });
+
+  it('from after to is refused before any request', async () => {
+    const { useStore, base, calls } = await setup();
+    expect(await useStore.getState().setChartRange({ from: base[0].time - DAY, to: base[0].time - 5 * DAY })).toBe(false);
+    expect(calls).toHaveLength(0);
+    expect(useStore.getState().toasts.some((t) => t.text === 'From is later than To')).toBe(true);
+  });
+
+  it('clearChartRange after a fetch reloads the latest bars and resets the flag', async () => {
+    const { useStore, base, calls, setHandler } = await setup();
+    await useStore.getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY });
+    setHandler(async () => base);
+    await useStore.getState().clearChartRange();
+    expect(calls[1]).toEqual({ from: undefined, to: undefined, bars: 100 });
+    const s = useStore.getState();
+    expect(s.candles).toEqual(base);
+    expect(s.chartRange).toBeNull();
+    expect(s.fullCandles).toBeNull();
+    expect(s.chartRangeFetched).toBe(false);
+  });
+
+  it('a provider error toasts once, keeps the data and resolves false', async () => {
+    const { useStore, base, setHandler } = await setup();
+    setHandler(async () => {
+      throw new Error('boom');
+    });
+    const before = useStore.getState();
+    expect(await useStore.getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(false);
+    const s = useStore.getState();
+    expect(s.candles).toBe(before.candles);
+    expect(s.chartRange).toBeNull();
+    expect(s.loadState).toBe('ready');
+    expect(s.toasts.filter((t) => t.kind === 'error').map((t) => t.text)).toEqual(['Could not load range: boom']);
+    expect(s.messages.filter((m) => m.severity === 'error')).toHaveLength(1);
+  });
+
+  it('fewer than 2 bars returned is refused', async () => {
+    const { useStore, base, setHandler } = await setup();
+    setHandler(async (req) => mk(req.from!, 1));
+    expect(await useStore.getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(false);
+    expect(useStore.getState().candles).toBe(base);
+    expect(useStore.getState().toasts.some((t) => t.text === 'Fewer than 2 bars in the chart range')).toBe(true);
+  });
+
+  it('a result arriving after a symbol change or a newer load is dropped', async () => {
+    const { useStore, base, setHandler } = await setup();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    setHandler(async (req) => {
+      await gate;
+      return mk(req.from!, 31);
+    });
+    const p = useStore.getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY });
+    expect(useStore.getState().loadState).toBe('loading');
+    useStore.setState({ symbol: 'DEMO-BEAR' });
+    release();
+    expect(await p).toBe(false);
+    expect(useStore.getState().candles).toBe(base);
+    expect(useStore.getState().chartRangeFetched).toBe(false);
+    expect(useStore.getState().toasts).toHaveLength(0);
+
+    // a newer loadData wins over an older range fetch
+    useStore.setState({ symbol: 'DEMO' });
+    let release2!: () => void;
+    const gate2 = new Promise<void>((r) => (release2 = r));
+    setHandler(async (req) => {
+      if (req.from == null) return base;
+      await gate2;
+      return mk(req.from, 31);
+    });
+    const p2 = useStore.getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY });
+    await useStore.getState().loadData();
+    release2();
+    expect(await p2).toBe(false);
+    expect(useStore.getState().candles).toBe(base);
+    expect(useStore.getState().chartRange).toBeNull();
+    expect(useStore.getState().loadState).toBe('ready');
+  });
+
+  it('partial coverage adds an inbox warning and an info toast naming the first date', async () => {
+    const { useStore, base, setHandler } = await setup();
+    const from = base[0].time - 50 * DAY;
+    setHandler(async () => mk(from + 10 * DAY, 21));
+    useStore.setState({ timeZone: 'UTC' });
+    expect(await useStore.getState().setChartRange({ from, to: from + 30 * DAY })).toBe(true);
+    const s = useStore.getState();
+    expect(s.messages.filter((m) => m.severity === 'warning')).toHaveLength(1);
+    expect(s.messages.find((m) => m.severity === 'warning')!.text).toContain('only from');
+    expect(s.toasts.filter((t) => t.kind === 'info')).toHaveLength(1);
+  });
+
+  it('a local dataset refuses with the dataset wording and no request', async () => {
+    const { useStore, base, calls } = await setup();
+    useStore.setState({ activeDatasetId: 'local' });
+    expect(await useStore.getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(false);
+    expect(calls).toHaveLength(0);
+    expect(useStore.getState().toasts.some((t) => t.text === 'Range is outside this dataset')).toBe(true);
   });
 });

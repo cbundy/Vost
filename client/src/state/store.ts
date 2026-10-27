@@ -20,12 +20,13 @@ import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } from '../lib/messages';
 import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
-import type { LiveHandle, LiveStatus } from '../lib/providers/http';
+import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce, removeKey } from '../lib/storage';
 import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
-import { chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
+import { TIMEFRAME_SECONDS } from '../../../shared/market.ts';
+import { CHART_MIN_BARS, chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, sliceByTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
@@ -101,6 +102,8 @@ export interface AppState {
   chartRange: TimeRange | null;
   /** The full loaded bars while a chart range crops `candles`; null otherwise. */
   fullCandles: Candle[] | null;
+  /** True while `fullCandles` is a span fetched from the provider for the chart range. */
+  chartRangeFetched: boolean;
   dataLabel: string;
   activeDatasetId: string | null;
   loadState: LoadState;
@@ -183,9 +186,12 @@ export interface AppState {
   setTimeZone(tz: string): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
-  /** Crops `candles` to a window of the loaded bars; an open range clears. */
-  setChartRange(range: TimeRange): void;
-  clearChartRange(): void;
+  /**
+   * Shows a time window of the chart: crops the loaded bars, or fetches the span from the provider
+   * when it lies outside them; an open range clears. Resolves true when applied.
+   */
+  setChartRange(range: TimeRange): Promise<boolean>;
+  clearChartRange(): Promise<void>;
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
@@ -283,6 +289,8 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
 /* ------------------------------------------------------------------ */
 
 let liveHandle: LiveHandle | null = null;
+/** Bumped by every data load and chart range fetch; only the newest result may be applied. */
+let requestToken = 0;
 
 /* ------------------------------------------------------------------ */
 /* Store                                                               */
@@ -375,10 +383,25 @@ export const useStore = create<AppState>()((set, get) => {
       candles,
       chartRange: null,
       fullCandles: null,
+      chartRangeFetched: false,
       dataKey: uid('data_'),
       dataLabel,
       activeDatasetId,
       loadState: 'ready',
+      btResult: null,
+      btError: null,
+      optResult: null,
+    });
+    schedulePineAll();
+  };
+
+  const applyRange = (slice: Candle[], full: Candle[], range: TimeRange, fetched: boolean) => {
+    set({
+      candles: slice,
+      fullCandles: full,
+      chartRange: { from: range.from, to: range.to },
+      chartRangeFetched: fetched,
+      dataKey: uid('data_'),
       btResult: null,
       btError: null,
       optResult: null,
@@ -400,6 +423,7 @@ export const useStore = create<AppState>()((set, get) => {
     dataKey: '',
     chartRange: null,
     fullCandles: null,
+    chartRangeFetched: false,
     dataLabel: '',
     activeDatasetId: null,
     loadState: 'idle',
@@ -523,15 +547,18 @@ export const useStore = create<AppState>()((set, get) => {
       const { providerId, symbol, timeframe, bars } = get();
       const provider = getProvider(providerId);
       const tf = provider.timeframes.includes(timeframe) ? timeframe : provider.defaultTimeframe;
+      const token = ++requestToken;
       set({ loadState: 'loading', timeframe: tf });
       try {
         const candles = await provider.fetchHistory({ symbol, timeframe: tf, bars });
+        if (token !== requestToken) return; // a newer load or range fetch owns the data now
         if (candles.length < 2) throw new Error(`Not enough data returned for ${symbol}.`);
         setCandles(candles, `${provider.name} · ${symbol} · ${tf}`, null);
         const s = get();
         if (s.live && provider.startLive) s.setLive(true); // reconnect for the new symbol/tf
         else if (s.live) s.setLive(false);
       } catch (err) {
+        if (token !== requestToken) return;
         set({ loadState: 'error' });
         get().pushToast('error', `Could not load data: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -543,6 +570,7 @@ export const useStore = create<AppState>()((set, get) => {
         candles: [],
         chartRange: null,
         fullCandles: null,
+        chartRangeFetched: false,
         dataKey: uid('data_'),
         dataLabel: '',
         activeDatasetId: null,
@@ -660,37 +688,72 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
     },
 
-    setChartRange(range) {
-      const full = get().fullCandles ?? get().candles;
+    async setChartRange(range) {
+      const state = get();
+      const full = state.fullCandles ?? state.candles;
       const open = range.from == null && range.to == null;
       if (open) {
-        get().clearChartRange();
-        return;
+        await get().clearChartRange();
+        return true;
       }
-      if (get().live) {
-        get().pushToast('error', 'Turn live off before cropping the chart: live bars land at the end of the full data.');
-        return;
+      if (state.live) {
+        state.pushToast('error', 'Turn live off before cropping the chart: live bars land at the end of the full data.');
+        return false;
       }
       const crop = cropToChartRange(full, range);
-      if (!crop.ok) {
-        get().pushToast('error', chartRangeErrorText(crop.error));
-        return;
+      if (crop.ok) {
+        applyRange(crop.slice, full, range, state.chartRangeFetched);
+        return true;
       }
-      set({
-        candles: crop.slice,
-        fullCandles: full,
-        chartRange: { from: range.from, to: range.to },
-        dataKey: uid('data_'),
-        btResult: null,
-        btError: null,
-        optResult: null,
-      });
-      schedulePineAll();
+      if (crop.error !== 'outside' || state.activeDatasetId != null) {
+        state.pushToast('error', chartRangeErrorText(crop.error));
+        return false;
+      }
+
+      // outside the provider's loaded bars: fetch that span
+      const { providerId, symbol, timeframe, bars } = state;
+      const provider = getProvider(providerId);
+      const token = ++requestToken;
+      const req: HistoryRequest = { symbol, timeframe, bars };
+      if (range.from != null) req.from = range.from;
+      if (range.to != null) req.to = range.to;
+      set({ loadState: 'loading' });
+      try {
+        const fetched = await provider.fetchHistory(req);
+        const now = get();
+        if (token !== requestToken || now.providerId !== providerId || now.symbol !== symbol || now.activeDatasetId != null || now.timeframe !== timeframe) {
+          return false; // stale: the user moved on, a newer request owns the state
+        }
+        const slice = sliceByTimeRange(fetched, range);
+        if (slice.length < CHART_MIN_BARS) {
+          set({ loadState: 'ready' });
+          now.pushToast('error', chartRangeErrorText('too-few-bars'));
+          return false;
+        }
+        applyRange(slice, fetched, range, true);
+        set({ loadState: 'ready' });
+        if (range.from != null && slice[0].time - range.from > TIMEFRAME_SECONDS[timeframe]) {
+          const date = fmtTime(slice[0].time, { timeZone: get().timeZone });
+          const text = `${provider.name} has data for this range only from ${date}`;
+          get().pushMessage(provider.name, 'warning', text);
+          get().pushToast('info', text);
+        }
+        return true;
+      } catch (err) {
+        if (token !== requestToken) return false;
+        set({ loadState: 'ready' });
+        get().pushToast('error', `Could not load range: ${err instanceof Error ? err.message : String(err)}`);
+        return false;
+      }
     },
 
-    clearChartRange() {
-      const { fullCandles } = get();
+    async clearChartRange() {
+      const { fullCandles, chartRangeFetched } = get();
       if (!fullCandles) return;
+      if (chartRangeFetched) {
+        await get().loadData(); // back to the latest bars; setCandles resets the range state
+        return;
+      }
       set({
         candles: fullCandles,
         fullCandles: null,
@@ -807,7 +870,15 @@ export const useStore = create<AppState>()((set, get) => {
         get().pushToast('info', `Live streaming is not available for ${provider.name} data.`);
         return;
       }
-      get().clearChartRange(); // live bars land at the end of the full data
+      if (get().chartRangeFetched) {
+        // a fetched span is not the latest bars: reload them, which reconnects live
+        set({ live: true, liveStatus: 'connecting', liveDetail: '' });
+        void get().loadData().then(() => {
+          if (get().loadState === 'error') stopLive();
+        });
+        return;
+      }
+      void get().clearChartRange(); // live bars land at the end of the full data
       liveHandle?.stop();
       set({ live: true, liveStatus: 'connecting', liveDetail: '' });
       liveHandle = provider.startLive({

@@ -3,6 +3,7 @@
  * clustering. Great for trying charts and backtests with zero network access.
  */
 import type { Candle, Timeframe } from '../../types';
+import { MAX_BARS, TIMEFRAME_SECONDS, rangeBarCount } from '../../../../shared/market.ts';
 import type { DataProvider, HistoryRequest, SymbolSuggestion } from './http';
 
 function mulberry32(seed: number) {
@@ -16,30 +17,25 @@ function mulberry32(seed: number) {
   };
 }
 
-const TF_SECONDS: Record<Timeframe, number> = {
-  '1m': 60,
-  '5m': 300,
-  '15m': 900,
-  '30m': 1800,
-  '1h': 3600,
-  '4h': 14400,
-  '1d': 86400,
-  '1w': 604800,
-  '1M': 2592000,
-};
-
 export function generateDemoCandles(opts: {
   bars?: number;
   timeframe?: Timeframe;
   seed?: number;
   startPrice?: number;
+  /** Unix seconds of the last bar's slot (floored to the timeframe); defaults to now. */
+  end?: number;
+  /** With `start`, the span [start, end] decides the bar count (no 50-bar floor, `bars` is ignored). */
+  start?: number;
 }): Candle[] {
-  const bars = Math.max(50, Math.min(opts.bars ?? 2000, 100000));
   const tf = opts.timeframe ?? '1d';
-  const step = TF_SECONDS[tf];
+  const step = TIMEFRAME_SECONDS[tf];
   const rand = mulberry32(opts.seed ?? 1337);
   const now = Math.floor(Date.now() / 1000);
-  const end = Math.floor(now / step) * step;
+  const end = Math.floor((opts.end ?? now) / step) * step;
+  const bars =
+    opts.start != null
+      ? Math.max(0, Math.floor((end - Math.ceil(opts.start / step) * step) / step) + 1)
+      : Math.max(50, Math.min(opts.bars ?? 2000, 100000));
   let price = opts.startPrice ?? 100;
   let vol = 0.012;
   const candles: Candle[] = [];
@@ -97,7 +93,20 @@ export const demoProvider: DataProvider = {
   async fetchHistory(req: HistoryRequest): Promise<Candle[]> {
     const seedMap: Record<string, number> = { DEMO: 1337, 'DEMO-BEAR': 4242, 'DEMO-CHOP': 2024 };
     const seed = seedMap[req.symbol.toUpperCase()] ?? 1337;
-    const candles = generateDemoCandles({ bars: req.bars, timeframe: req.timeframe, seed });
+    const now = Math.floor(Date.now() / 1000);
+    let span: { start?: number; end?: number } = {};
+    if (req.from != null) {
+      const to = Math.min(req.to ?? now, now);
+      if (req.from > to) throw new Error('from must not be after to (or in the future)');
+      const count = rangeBarCount(req.timeframe, req.from, to);
+      if (count > MAX_BARS) {
+        throw new Error(`That span is about ${count} ${req.timeframe} bars, above the limit of ${MAX_BARS}; pick a shorter span or a larger timeframe`);
+      }
+      span = { start: req.from, end: to };
+    } else if (req.to != null) {
+      span = { end: Math.min(req.to, now) };
+    }
+    const candles = generateDemoCandles({ bars: req.bars, timeframe: req.timeframe, seed, ...span });
     const sym = req.symbol.toUpperCase();
     if (sym === 'DEMO-BEAR') {
       // Mirror the series around its last close to get an exact downtrend
