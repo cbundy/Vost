@@ -45,7 +45,7 @@ export function ConnectionStatus() {
   useEffect(() => {
     if (!open) return;
     const onDown = (ev: MouseEvent) => {
-      if (!wrapRef.current?.contains(ev.target as Node)) setOpen(false);
+      if (!wrapRef.current?.contains(ev.target as Node)) close(true);
     };
     const onResize = () => setOpen(false);
     document.addEventListener('mousedown', onDown);
