@@ -5,7 +5,8 @@
  * Heavy computations run in a dedicated Web Worker; this module only talks to
  * it over a tiny promise-based message protocol.
  */
-import { applyKline } from '../lib/applyKline';
+import { applyKline, mergeCandles } from '../lib/applyKline';
+import { MAX_BARS, TIMEFRAME_SECONDS } from '../../../shared/market.ts';
 import { create } from 'zustand';
 import type { Candle, Dataset, Timeframe } from '../types';
 import { uid } from '../types';
@@ -283,6 +284,8 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
 /* ------------------------------------------------------------------ */
 
 let liveHandle: LiveHandle | null = null;
+/** Bumped whenever a live stream starts or stops, so a late backfill can tell it is stale. */
+let liveSession = 0;
 
 /* ------------------------------------------------------------------ */
 /* Store                                                               */
@@ -387,6 +390,7 @@ export const useStore = create<AppState>()((set, get) => {
   };
 
   const stopLive = () => {
+    liveSession++;
     liveHandle?.stop();
     liveHandle = null;
     set({ live: false, liveStatus: 'off', liveDetail: '' });
@@ -808,13 +812,48 @@ export const useStore = create<AppState>()((set, get) => {
         return;
       }
       get().clearChartRange(); // live bars land at the end of the full data
+      liveSession++;
+      const session = liveSession;
       liveHandle?.stop();
       set({ live: true, liveStatus: 'connecting', liveDetail: '' });
+
+      // After an outage (the exchange feed or the connection to the server) the stream
+      // resumes at the current bar: fetch what was missed once and merge it by time.
+      let backfilling = false;
+      const backfill = async (): Promise<void> => {
+        const last = get().candles[get().candles.length - 1];
+        if (!last || backfilling) return;
+        backfilling = true;
+        const dataKey = get().dataKey;
+        const elapsed = Math.floor((Date.now() / 1000 - last.time) / (TIMEFRAME_SECONDS[timeframe] ?? 60));
+        const bars = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
+        try {
+          const recent = await provider.fetchHistory({ symbol, timeframe, bars });
+          if (session !== liveSession || get().dataKey !== dataKey) return; // stopped or switched meanwhile
+          set({ candles: mergeCandles(get().candles, recent) });
+          schedulePineAll();
+        } catch (err) {
+          if (session !== liveSession) return;
+          get().pushMessage(
+            'Live',
+            'warning',
+            `Live data came back for ${symbol} ${timeframe}, but the bars missed meanwhile could not be loaded (${err instanceof Error ? err.message : String(err)}). The chart may have a gap; reload the data to fill it.`,
+          );
+        } finally {
+          backfilling = false;
+        }
+      };
+
+      let prevStatus: LiveStatus = 'connecting';
       liveHandle = provider.startLive({
         symbol,
         timeframe,
         onLog: (severity, text) => get().pushMessage('Live', severity, text),
-        onStatus: (status, detail) => set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' }),
+        onStatus: (status, detail) => {
+          set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' });
+          if (status === 'live' && (prevStatus === 'reconnecting' || prevStatus === 'error')) void backfill();
+          prevStatus = status;
+        },
         onKline: (candle, closed) => {
           const prev = get().candles;
           const next = applyKline(prev, candle);

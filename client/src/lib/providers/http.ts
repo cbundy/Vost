@@ -3,7 +3,7 @@
  * are built from the shared catalog in ./index.ts and call the server through
  * ./api.ts; the demo provider lives entirely in the browser.
  */
-import type { Candle, SymbolSuggestion, Timeframe } from '../../../../shared/market.ts';
+import type { Candle, LiveStatus as ServerLiveStatus, SymbolSuggestion, Timeframe } from '../../../../shared/market.ts';
 
 export type { SymbolSuggestion };
 
@@ -14,7 +14,8 @@ export interface HistoryRequest {
   bars: number;
 }
 
-export type LiveStatus = 'off' | 'connecting' | 'live' | 'reconnecting' | 'error';
+/** The server's feed states, plus `off` for a stream the client closed. */
+export type LiveStatus = 'off' | ServerLiveStatus;
 
 export interface LiveHandle {
   stop(): void;
@@ -35,7 +36,7 @@ export interface DataProvider {
   description: string;
   /** Works without any network connection. */
   offline?: boolean;
-  /** Supports realtime websocket updates (true exactly when `startLive` is present). */
+  /** Supports realtime updates through the server's `/api/live` stream (true exactly when `startLive` is present). */
   supportsLive?: boolean;
   /** Opens a realtime candle stream; present only when `supportsLive` is true. */
   startLive?(opts: LiveOptions): LiveHandle;

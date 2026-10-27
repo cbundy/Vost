@@ -22,7 +22,7 @@ export function createApiDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
   return { symbols: createSymbolCache(), ...overrides };
 }
 
-const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search'];
+const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live'];
 
 function provider(url: URL) {
   const id = url.searchParams.get('provider') ?? '';

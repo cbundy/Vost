@@ -1,6 +1,8 @@
 /**
  * Vost server - serves the built web client and the market-data API
- * (`/api/*`), which calls the public provider APIs on the browser's behalf.
+ * (`/api/*`), which calls the public provider APIs on the browser's behalf,
+ * and the live candle stream (`/api/live`), which shares one exchange
+ * websocket per feed between all open tabs.
  *
  * Zero npm dependencies: only Node built-ins (>= 22.18, which runs this
  * TypeScript by type stripping). Started through `server/index.mjs`. Run with
@@ -16,6 +18,8 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { createApiDeps, handleApi } from './api.ts';
+import { createRelay } from './live/relay.ts';
+import { handleLive } from './live/route.ts';
 import { sendJson } from './respond.ts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -138,6 +142,7 @@ npm start</pre>
 /* --------------------------------- server -------------------------------- */
 
 const apiDeps = createApiDeps();
+const relay = createRelay();
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -163,6 +168,10 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  if (url.pathname === '/api/live') {
+    return handleLive(req, res, url, relay);
+  }
+
   if (url.pathname.startsWith('/api/')) {
     return void handleApi(req, res, url, apiDeps);
   }
@@ -175,10 +184,12 @@ server.listen(PORT, HOST, () => {
   console.log(`  ▲ Vost v${version} — self-hosted charts & backtesting`);
   console.log(`  → http://localhost:${PORT}`);
   console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search`);
+  console.log(`  → live candles: /api/live`);
   console.log('');
 });
 
 const shutdown = (): void => {
+  relay.closeAll(); // ends the streams, so server.close does not wait on them
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();
 };

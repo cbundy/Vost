@@ -3,6 +3,7 @@
  * clustering. Great for trying charts and backtests with zero network access.
  */
 import type { Candle, Timeframe } from '../../types';
+import { TIMEFRAME_SECONDS as TF_SECONDS } from '../../../../shared/market.ts';
 import type { DataProvider, HistoryRequest, SymbolSuggestion } from './http';
 
 function mulberry32(seed: number) {
@@ -16,17 +17,6 @@ function mulberry32(seed: number) {
   };
 }
 
-const TF_SECONDS: Record<Timeframe, number> = {
-  '1m': 60,
-  '5m': 300,
-  '15m': 900,
-  '30m': 1800,
-  '1h': 3600,
-  '4h': 14400,
-  '1d': 86400,
-  '1w': 604800,
-  '1M': 2592000,
-};
 
 export function generateDemoCandles(opts: {
   bars?: number;

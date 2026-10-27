@@ -3,16 +3,19 @@
  * (`shared/providerCatalog.ts`) and read their data from the Vost server
  * through ./api.ts; the demo provider runs entirely in the browser.
  *
+ * Live candles come from the server's `/api/live` stream (../live.ts), never
+ * straight from an exchange.
+ *
  * To add a data source: write a server adapter in server/providers/, add a
- * catalog entry, and (until the server takes over streaming) its live feed in
- * ./liveFeeds.ts. See CONTRIBUTING.md.
+ * catalog entry, and (for live candles) its feed in server/live/feeds.ts. See
+ * CONTRIBUTING.md.
  */
 import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog.ts';
 import type { ProviderInfo } from '../../../../shared/market.ts';
 import { fetchHistoryApi, listSymbolsApi, searchSymbolsApi } from './api';
 import { demoProvider } from './demo';
+import { startLiveApi } from '../live';
 import type { DataProvider } from './http';
-import { LIVE_FEEDS } from './liveFeeds';
 
 function remoteProvider(info: ProviderInfo): DataProvider {
   const provider: DataProvider = {
@@ -28,7 +31,7 @@ function remoteProvider(info: ProviderInfo): DataProvider {
   };
   if (info.hasSearch) provider.searchSymbols = (query, signal) => searchSymbolsApi(info.id, query, signal);
   if (info.hasSymbolList) provider.listSymbols = (signal) => listSymbolsApi(info.id, signal);
-  if (info.supportsLive) provider.startLive = LIVE_FEEDS[info.id];
+  if (info.supportsLive) provider.startLive = (opts) => startLiveApi(info.id, opts);
   return provider;
 }
 
