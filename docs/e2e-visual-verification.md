@@ -25,8 +25,14 @@ What it does: builds the client, starts `server/index.mjs` on a free port bound 
 `/api/health`, runs each scenario in headless Chromium, then stops the browser and the server. A failing
 step exits non-zero within about 15 s with `e2e:capture: scenario "<name>" step "<step>" failed: <reason>`.
 
-Chromium comes from the Playwright cache (`playwright` is pinned to 1.64.1, nothing is downloaded on `npm ci`).
-If it is missing, run `npx playwright install chromium`.
+The dev container image ships Chromium at `/ms-playwright` (via `PLAYWRIGHT_BROWSERS_PATH`) at the pinned
+Playwright version (`playwright` is pinned to 1.64.1, nothing is downloaded on `npm ci`).
+On a machine outside the container, run `npx playwright install --with-deps chromium`.
+
+Troubleshooting a failed browser launch: `error while loading shared libraries: <lib>` means the container
+predates the Chromium image change (rebuild it) or, outside it, that the system libraries are missing (run the
+`--with-deps` install above). `Executable doesn't exist` means the browser download is missing
+(`npx playwright install chromium`).
 
 ## Demo data, offline
 

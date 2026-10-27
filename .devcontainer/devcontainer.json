@@ -10,10 +10,9 @@
   // --- repo-owned: edit freely ---
   "name": "Vost",
 
-  // The dev-system base image as is. For repo-specific tools, switch to a
-  // "build": { "dockerfile": "Dockerfile" } block with a Dockerfile that starts
-  // FROM ghcr.io/cbundy/dev-system/base:2 (images/base/README.md, "Extending the image").
-  "image": "ghcr.io/cbundy/dev-system/base:2",
+  // The dev-system base image plus Playwright Chromium, its system libraries and
+  // ffmpeg (for the e2e capture command), built from .devcontainer/Dockerfile.
+  "build": { "dockerfile": "Dockerfile" },
 
   "remoteEnv": {},
   // --- end repo-owned ---

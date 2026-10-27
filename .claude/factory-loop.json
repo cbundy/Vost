@@ -1,5 +1,6 @@
 {
   "releaseBranchPrefix": "release/",
+  "uiCapture": "npm run -s e2e:capture --",
   "gateCommands": [
     "npm ci && npm run typecheck",
     "npm ci && npm test"
