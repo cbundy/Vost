@@ -30,13 +30,12 @@ export const chartRange: Scenario = {
       await page.getByLabel('Chart range From').fill('2005-01-01T00:00');
       await page.getByLabel('Chart range To').fill('2006-12-31T00:00');
       await page.getByRole('button', { name: 'Apply' }).click();
-      await page.getByRole('button', { name: 'Range on' }).waitFor();
+      await page.getByRole('dialog', { name: 'Chart range' }).waitFor({ state: 'detached' });
       await page.getByText('2005', { exact: false }).first().waitFor();
       await page.waitForTimeout(600);
     });
     await ctx.screenshot('fetched');
     await ctx.step('clear the range', async () => {
-      await page.getByRole('button', { name: 'Cancel' }).click();
       await page.getByRole('button', { name: 'Clear range' }).click();
       await page.getByRole('button', { name: 'Clear range' }).waitFor({ state: 'detached' });
       await page.waitForTimeout(600);

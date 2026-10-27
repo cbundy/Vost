@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fmtTime } from '../lib/format';
 
 function stubStorage() {
   const store: Record<string, string> = {};
@@ -730,7 +731,8 @@ describe('chartRange fetched from the provider', () => {
     expect(await useStore.getState().setChartRange({ from, to: from + 30 * DAY })).toBe(true);
     const s = useStore.getState();
     expect(s.messages.filter((m) => m.severity === 'warning')).toHaveLength(1);
-    expect(s.messages.find((m) => m.severity === 'warning')!.text).toContain('only from');
+    const firstDate = fmtTime(from + 10 * DAY, { timeZone: 'UTC' });
+    expect(s.messages.find((m) => m.severity === 'warning')!.text).toContain(`only from ${firstDate}`);
     expect(s.toasts.filter((t) => t.kind === 'info')).toHaveLength(1);
   });
 
