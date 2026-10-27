@@ -70,6 +70,11 @@ export const myAdapter: ProviderAdapter = {
 };
 ```
 
+   `history` must also honour `req.from` / `req.to` (unix seconds, inclusive): when `from` is set, return exactly
+   the candles in that span (ignore `req.bars`), crop with `cropToSpan` and throw `noDataInSpan` from
+   `./range.ts` when none are left. Page backwards from `to` with `paginateBackwards({ from, to })` where the
+   provider pages. `server/providers/range.test.ts` has the cases to copy.
+
    `upstreamJson` / `upstreamText` add the user-agent, retries and the timeout, and raise an `UpstreamError`
    (which the API turns into a 502 naming the provider). Take the fetch from `ctx` so tests can inject a fake.
    Register the adapter in `server/providers/index.ts`.

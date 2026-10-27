@@ -12,6 +12,13 @@ export interface HistoryRequest {
   timeframe: Timeframe;
   /** Target number of bars (the provider may return fewer). */
   bars: number;
+  /**
+   * Range mode when set (unix seconds, inclusive): return exactly the candles
+   * with `from <= time <= to`, never cut by `bars`, which is ignored then.
+   */
+  from?: number;
+  /** Newest candle time wanted (unix seconds, inclusive). Without it: now. With `bars` only, `bars` candles end here. */
+  to?: number;
 }
 
 /** One REST adapter: the server-side half of a provider in the catalog. */

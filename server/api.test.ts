@@ -113,6 +113,61 @@ describe('GET /api/history', () => {
       }
     }
   });
+
+  describe('time span', () => {
+    const NOW = 1_700_000_000;
+    const klines = (u: URL) => {
+      const end = Number(u.searchParams.get('endTime') ?? Infinity);
+      return [0, 3600, 7200, 10800].filter((t) => t * 1000 <= end).map((t) => kline(t * 1000));
+    };
+    it('accepts from without bars', async () => {
+      upstream = klines;
+      const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=3600&to=7200');
+      expect(r.status).toBe(200);
+      expect(r.body.map((c: { time: number }) => c.time)).toEqual([3600, 7200]);
+      expect(current.urls[0]).toContain(`endTime=${7200 * 1000 + 999}`);
+    });
+    it('passes to through with bars', async () => {
+      upstream = klines;
+      const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=2&to=7200');
+      expect(r.body.map((c: { time: number }) => c.time)).toEqual([3600, 7200]);
+      expect(current.urls[0]).toContain(`limit=2&endTime=${7200 * 1000 + 999}`);
+    });
+    it('still needs bars without from', async () => {
+      const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&to=7200');
+      expect(r.status).toBe(400);
+      expect(r.body.error).toMatch(/bars must be/);
+    });
+    it('clamps a future to to now', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(NOW * 1000);
+      try {
+        upstream = () => [kline((NOW - 3600) * 1000)];
+        const r = await get(`/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=${NOW - 7200}&to=${NOW + 999999}`);
+        expect(r.status).toBe(200);
+        expect(current.urls[0]).toContain(`endTime=${NOW * 1000 + 999}`);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+    it.each([
+      ['a non-numeric from', 'from=abc&to=10', /from must be a unix time/],
+      ['a non-numeric to', 'from=1&to=1.5', /to must be a unix time/],
+      ['from after to', 'from=100&to=10', /from must not be after to/],
+      ['a span over the cap', 'from=0&to=99999999', /20000/],
+    ])('400 for %s', async (_n, qs, msg) => {
+      const r = await get(`/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&${qs}`);
+      expect(r.status).toBe(400);
+      expect(r.body.error).toMatch(msg);
+      expect(current.urls).toHaveLength(0);
+    });
+    it('404 with the span for a span without data', async () => {
+      upstream = klines;
+      const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=50000&to=60000');
+      expect(r.status).toBe(404);
+      expect(r.body.error).toBe('Binance has no BTCUSDT 1h data from 1970-01-01T13:53:20.000Z to 1970-01-01T16:40:00.000Z');
+    });
+  });
 });
 
 describe('GET /api/symbols', () => {

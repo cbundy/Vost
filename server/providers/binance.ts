@@ -4,10 +4,11 @@
  * data-api.binance.vision mirror when api.binance.com fails (it is blocked in
  * some regions).
  */
-import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
+import { MAX_BARS, type Candle, type SymbolSuggestion } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
 import { sortCandles } from './exchange.ts';
+import { cropToSpan, noDataInSpan } from './range.ts';
 import { matchSymbols } from './symbolMatch.ts';
 import type { AdapterContext, HistoryRequest, ProviderAdapter } from './types.ts';
 import { upstreamJson } from './upstream.ts';
@@ -45,13 +46,24 @@ async function jsonWithFallback<T>(ctx: AdapterContext, path: string): Promise<T
   throw lastErr instanceof Error ? lastErr : new UpstreamError(PROVIDER, HOSTS[0], null, 'Binance is unreachable');
 }
 
-/** Fetch up to `limit` klines ending "now", paginating backwards. */
-async function fetchKlines(ctx: AdapterContext, symbol: string, interval: string, limit: number): Promise<Candle[]> {
+/**
+ * Fetch klines ending at `to` (default "now"), paginating backwards: `limit`
+ * of them, or in range mode (`from` set) every one in `from`..`to`.
+ */
+async function fetchKlines(
+  ctx: AdapterContext,
+  symbol: string,
+  interval: string,
+  span: { limit: number; from?: number; to?: number },
+): Promise<Candle[]> {
+  const { limit, from, to } = span;
+  const range = from !== undefined;
   const out: Candle[] = [];
-  let endTime: number | undefined;
-  while (out.length < limit) {
-    const batch = Math.min(MAX_PER_REQUEST, limit - out.length);
-    const qs = `symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${batch}` + (endTime ? `&endTime=${endTime}` : '');
+  // Binance's endTime is inclusive and a kline is keyed by its open time, so +999 ms keeps the candle opening at `to`.
+  let endTime: number | undefined = to === undefined ? undefined : to * 1000 + 999;
+  while (range ? out.length <= MAX_BARS : out.length < limit) {
+    const batch = range ? MAX_PER_REQUEST : Math.min(MAX_PER_REQUEST, limit - out.length);
+    const qs = `symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${batch}` + (endTime !== undefined ? `&endTime=${endTime}` : '');
     const raw = await jsonWithFallback<unknown[]>(ctx, `/api/v3/klines?${qs}`);
     if (!Array.isArray(raw) || raw.length === 0) break;
     for (const row of raw) {
@@ -67,10 +79,13 @@ async function fetchKlines(ctx: AdapterContext, symbol: string, interval: string
       if (Number.isFinite(candle.time) && Number.isFinite(candle.close)) out.push(candle);
     }
     if (raw.length < batch) break; // reached the beginning of history
-    endTime = Number((raw[0] as unknown[])[0]) - 1;
+    const oldestMs = Number((raw[0] as unknown[])[0]);
+    if (range && oldestMs <= from * 1000) break;
+    endTime = oldestMs - 1;
     ctx.signal?.throwIfAborted();
   }
-  return sortCandles(out).slice(-limit);
+  const sorted = sortCandles(out);
+  return range ? cropToSpan(sorted, from, to) : sorted.slice(-limit);
 }
 
 const PRIORITY = ['USDT', 'USDC', 'FDUSD', 'BTC', 'ETH', 'BUSD', 'EUR', 'TRY'];
@@ -104,7 +119,8 @@ export const binanceAdapter: ProviderAdapter = {
     const interval = BINANCE_INTERVALS[req.timeframe];
     if (!interval) throw new InputError(`Binance does not support timeframe ${req.timeframe}`);
     const symbol = req.symbol.trim().toUpperCase();
-    const candles = await fetchKlines(ctx, symbol, interval, Math.max(1, req.bars));
+    const candles = await fetchKlines(ctx, symbol, interval, { limit: Math.max(1, req.bars), from: req.from, to: req.to });
+    if (candles.length === 0 && req.from !== undefined) throw noDataInSpan(PROVIDER, symbol, req.timeframe, req.from, req.to!);
     if (candles.length === 0) throw new NotFoundError(`No data returned for ${symbol}. Check the symbol (e.g. BTCUSDT).`);
     return candles;
   },

@@ -4,6 +4,7 @@
  */
 import type { Candle, SymbolSuggestion, Timeframe } from '../../shared/market.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
+import { cropToSpan, noDataInSpan } from './range.ts';
 import { matchSymbols } from './symbolMatch.ts';
 import { STOOQ_SYMBOLS } from './stooqSymbols.ts';
 import type { ProviderAdapter } from './types.ts';
@@ -84,6 +85,11 @@ export const stooqAdapter: ProviderAdapter = {
     const candles = parseStooqCsv(text);
     if (candles.length === 0) throw new UpstreamError(PROVIDER, 'stooq.com', 200, '', `Stooq: could not parse the CSV for "${req.symbol}".`);
     candles.sort((a, b) => a.time - b.time);
-    return candles.slice(-req.bars);
+    if (req.from !== undefined) {
+      const inSpan = cropToSpan(candles, req.from, req.to);
+      if (inSpan.length === 0) throw noDataInSpan(PROVIDER, req.symbol.trim(), req.timeframe, req.from, req.to!);
+      return inSpan;
+    }
+    return cropToSpan(candles, undefined, req.to).slice(-req.bars);
   },
 };
