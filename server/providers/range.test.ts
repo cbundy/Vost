@@ -131,6 +131,19 @@ describe('Bybit', () => {
     expect(f.urls[0]).toContain('limit=1000');
     expect(f.urls).toHaveLength(1);
   });
+  it('pages across several requests without duplicates and returns partial coverage', async () => {
+    const big = Array.from({ length: 2500 }, (_, i) => (i + 100) * H); // history starts at hour 100
+    const f = fakeFetch((u) => {
+      const end = Number(u.searchParams.get('end') ?? Infinity);
+      const list = big.filter((t) => t * 1000 <= end).slice(-1000).reverse().map((t) => [String(t * 1000), '1', '3', '0.5', '2', '9', '0']);
+      return { retCode: 0, result: { list } };
+    });
+    const out = await bybitAdapter.history(ctxFor(f), { symbol: 'X', timeframe: '1h', bars: 0, from: 0, to: 2599 * H });
+    expect(times(out)).toEqual(big);
+    expect(new Set(times(out)).size).toBe(out.length);
+    expect(f.urls.length).toBeGreaterThan(1);
+    expect(f.urls[1]).toContain(`end=${(2599 - 999) * H * 1000 - 1}`);
+  });
   it('404 for an empty span', async () => {
     const f = fakeFetch(market);
     await expect(bybitAdapter.history(ctxFor(f), { symbol: 'btcusdt', timeframe: '1h', bars: 0, from: 5000 * H, to: 5001 * H })).rejects.toThrow(
@@ -155,6 +168,14 @@ describe('OKX', () => {
     expect(f.urls).toHaveLength(3); // 251 candles: pages of 100 reach back to <= from on the third
     expect(f.urls[1]).toContain(`after=${651 * H * 1000}`);
   });
+  it('returns partial coverage when history starts after from', async () => {
+    const f = fakeFetch((u) => {
+      const r = market(u) as { code: string; data: string[][] };
+      return { code: r.code, data: r.data.filter((row) => Number(row[0]) >= 100 * H * 1000) };
+    });
+    const out = await okxAdapter.history(ctxFor(f), { symbol: 'btc-usdt', timeframe: '1h', bars: 0, from: 0, to: 350 * H });
+    expect(times(out)).toEqual(expected(100 * H, 350 * H));
+  });
   it('404 for an empty span', async () => {
     const f = fakeFetch(market);
     await expect(okxAdapter.history(ctxFor(f), { symbol: 'btc-usdt', timeframe: '1h', bars: 0, from: 5000 * H, to: 5001 * H })).rejects.toThrow(
@@ -177,6 +198,12 @@ describe('Coinbase', () => {
     expect(f.urls).toHaveLength(Math.ceil(span / (300 * H)));
     const first = new URL(f.urls[0]);
     expect(first.searchParams.get('end')).toBe(new Date(to * 1000).toISOString());
+  });
+  it('returns partial coverage when history starts after from', async () => {
+    const f = fakeFetch((u) => rows(Date.parse(u.searchParams.get('start')!) / 1000, Date.parse(u.searchParams.get('end')!) / 1000, (t) => t < 100 * H));
+    const out = await coinbaseAdapter.history(ctxFor(f), { symbol: 'btc-usd', timeframe: '1h', bars: 0, from: 0, to: 700 * H });
+    expect(times(out)).toEqual(expected(100 * H, 700 * H));
+    expect(new Set(times(out)).size).toBe(out.length);
   });
   it('404 for an empty span', async () => {
     const f = fakeFetch(() => []);
@@ -236,6 +263,11 @@ describe('Yahoo', () => {
     const ok = await yahooAdapter.history(ctxFor(fakeFetch(() => chart([now - 7 * 86400]))), { symbol: 'aapl', timeframe: '1m', bars: 0, from: now - 7 * 86400, to: now });
     expect(ok).toHaveLength(1);
   });
+  it('returns partial coverage when history starts after from', async () => {
+    const f = fakeFetch(() => chart([3 * 86400, 4 * 86400]));
+    const out = await yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe: '1d', bars: 0, from: 0, to: 10 * 86400 });
+    expect(times(out)).toEqual([3 * 86400, 4 * 86400]);
+  });
   it('404 when no bar is inside the span', async () => {
     const f = fakeFetch(() => chart([0, 86400]));
     await expect(yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe: '1d', bars: 0, from: 5 * 86400, to: 6 * 86400 })).rejects.toThrow(/Yahoo Finance has no aapl 1d data/);
@@ -249,6 +281,10 @@ describe('Stooq', () => {
   it('crops the CSV to the span without a bars cut', async () => {
     const out = await stooqAdapter.history(ctx(), { symbol: 'aapl.us', timeframe: '1d', bars: 1, from: day(2), to: day(4) });
     expect(times(out)).toEqual([day(2), day(3), day(4)]);
+  });
+  it('returns partial coverage when the CSV starts after from', async () => {
+    const out = await stooqAdapter.history(ctx(), { symbol: 'aapl.us', timeframe: '1d', bars: 1, from: day(1) - 10 * 86400, to: day(3) });
+    expect(times(out)).toEqual([day(1), day(2), day(3)]);
   });
   it('404 when the span holds nothing', async () => {
     await expect(stooqAdapter.history(ctx(), { symbol: 'aapl.us', timeframe: '1d', bars: 1, from: day(5) + 86400, to: day(5) + 2 * 86400 })).rejects.toThrow(/Stooq has no aapl.us 1d data/);
