@@ -78,6 +78,30 @@ describe('setLive recovery', () => {
     expect(fetchHistory.mock.calls[0][0].bars).toBe(12); // 10 bars elapsed + 2
   });
 
+  it('backfills after a browser-to-server drop that comes back as reconnecting -> connecting -> live', async () => {
+    const now = hourNow();
+    useStore.setState({ timeframe: '1h', candles: [bar(now - 3600, 2)], messages: [] });
+    const fetchHistory = vi.fn(async () => [bar(now - 3600, 2), bar(now, 3)]);
+    const opts = start(fetchHistory);
+    useStore.getState().setLive(true);
+    opts().onStatus('reconnecting');
+    opts().onStatus('connecting');
+    opts().onStatus('live');
+    await vi.waitFor(() => expect(fetchHistory).toHaveBeenCalledOnce());
+  });
+
+  it('backfills after live -> connecting -> live (server restart) but not on the first connect', async () => {
+    const now = hourNow();
+    useStore.setState({ timeframe: '1h', candles: [bar(now - 3600, 2)], messages: [] });
+    const fetchHistory = vi.fn(async () => [bar(now - 3600, 2), bar(now, 3)]);
+    const opts = start(fetchHistory);
+    useStore.getState().setLive(true);
+    expect(fetchHistory).not.toHaveBeenCalled();
+    opts().onStatus('connecting');
+    opts().onStatus('live');
+    await vi.waitFor(() => expect(fetchHistory).toHaveBeenCalledOnce());
+  });
+
   it('a failing backfill leaves the candles as they are and writes an inbox line', async () => {
     const now = hourNow();
     const before = [bar(now - 3600, 2)];

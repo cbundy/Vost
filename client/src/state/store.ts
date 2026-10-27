@@ -844,15 +844,22 @@ export const useStore = create<AppState>()((set, get) => {
         }
       };
 
-      let prevStatus: LiveStatus = 'connecting';
+      // A drop can surface as reconnecting -> connecting -> live (the server relay opens a fresh upstream
+      // entry, so its first status is 'connecting'), so remember any disruption, not just the status before live.
+      let wasLive = false;
+      let disrupted = false;
       liveHandle = provider.startLive({
         symbol,
         timeframe,
         onLog: (severity, text) => get().pushMessage('Live', severity, text),
         onStatus: (status, detail) => {
           set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' });
-          if (status === 'live' && (prevStatus === 'reconnecting' || prevStatus === 'error')) void backfill();
-          prevStatus = status;
+          if (status === 'reconnecting' || status === 'error' || (status === 'connecting' && wasLive)) disrupted = true;
+          if (status === 'live') {
+            if (disrupted) void backfill();
+            disrupted = false;
+            wasLive = true;
+          }
         },
         onKline: (candle, closed) => {
           const prev = get().candles;
