@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHART_MIN_HEIGHT, DOCK_COLLAPSE_BELOW, DOCK_DEFAULT, DOCK_MIN, SIDEBAR_DEFAULT, TOPBAR_HEIGHT,
-  clamp, dockLimits, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
+  clamp, dockLimits, resolveDockResize, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
 } from './paneSizes';
 
 describe('sidebarLimits', () => {
@@ -74,5 +74,27 @@ describe('sanitizeStoredSize', () => {
     for (const v of ['340', null, undefined, {}, -5, 0, NaN, Infinity, -Infinity]) {
       expect(sanitizeStoredSize(v, 264)).toBe(264);
     }
+  });
+});
+
+describe('resolveDockResize', () => {
+  const limits = dockLimits(900);
+  it('keeps the drag-start height when a drag collapses the dock', () => {
+    expect(resolveDockResize(30, 'drag', false, 400, limits)).toEqual({ height: 400, collapsed: true });
+  });
+  it('is idempotent for repeated moves below the threshold', () => {
+    expect(resolveDockResize(20, 'drag', true, 400, limits)).toEqual({ height: null, collapsed: true });
+  });
+  it('follows the pointer when it moves back above the threshold', () => {
+    expect(resolveDockResize(300, 'drag', true, 400, limits)).toEqual({ height: 300, collapsed: false });
+  });
+  it('expands a collapsed dock on arrow-up without changing the height', () => {
+    expect(resolveDockResize(DOCK_MIN + 16, 'key', true, 400, limits)).toEqual({ height: null, collapsed: false });
+  });
+  it('keeps a collapsed dock collapsed on other keys', () => {
+    expect(resolveDockResize(DOCK_MIN, 'key', true, 400, limits)).toEqual({ height: null, collapsed: true });
+  });
+  it('clamps the stored height', () => {
+    expect(resolveDockResize(5000, 'drag', false, 400, limits)).toEqual({ height: limits.max, collapsed: false });
   });
 });

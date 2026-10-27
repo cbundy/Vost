@@ -65,3 +65,28 @@ export function shouldCollapseDock(rawHeight: number): boolean {
 export function sanitizeStoredSize(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fallback;
 }
+
+export interface DockResize {
+  /** The height to store, or null to leave the stored height as it is. */
+  height: number | null;
+  collapsed: boolean;
+}
+
+/**
+ * What a dock resize does. A drag below the collapse threshold stores the height the drag started from
+ * (so expanding later restores it) and collapses; arrow-up on a collapsed dock expands it; any other move
+ * below the threshold keeps it collapsed; a move above it stores the clamped height and expands.
+ */
+export function resolveDockResize(
+  raw: number,
+  via: 'drag' | 'key',
+  wasCollapsed: boolean,
+  dragStartHeight: number,
+  limits: Limits,
+): DockResize {
+  if (shouldCollapseDock(raw)) {
+    if (wasCollapsed && via === 'key' && raw > DOCK_MIN) return { height: null, collapsed: false };
+    return { height: via === 'drag' && !wasCollapsed ? dragStartHeight : null, collapsed: true };
+  }
+  return { height: clamp(raw, limits.min, limits.max), collapsed: false };
+}

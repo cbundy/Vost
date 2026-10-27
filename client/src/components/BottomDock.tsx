@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { DOCK_DEFAULT, DOCK_MIN, clamp, dockLimits, shouldCollapseDock } from '../lib/paneSizes';
+import { DOCK_DEFAULT, DOCK_MIN, clamp, dockLimits, resolveDockResize } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { useStore, type DockTab } from '../state/store';
 import { Splitter } from './Splitter';
@@ -30,15 +30,9 @@ export function BottomDock() {
   const dragStartHeight = useRef(dockHeight);
 
   const onResize = (raw: number, via: 'drag' | 'key') => {
-    if (shouldCollapseDock(raw)) {
-      if (via === 'drag' && !collapsed) setDockHeight(dragStartHeight.current);
-      // Arrow-up on a collapsed dock expands it; any other move below the threshold keeps it collapsed.
-      if (collapsed && via === 'key' && raw > DOCK_MIN) setDockCollapsed(false);
-      else setDockCollapsed(true);
-      return;
-    }
-    setDockHeight(clamp(raw, limits.min, limits.max));
-    if (collapsed) setDockCollapsed(false);
+    const r = resolveDockResize(raw, via, collapsed, dragStartHeight.current, limits);
+    if (r.height !== null) setDockHeight(r.height);
+    if (r.collapsed !== collapsed) setDockCollapsed(r.collapsed);
   };
 
   const select = (t: DockTab) => setDockTab(t);
