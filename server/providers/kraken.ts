@@ -7,6 +7,7 @@ import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
 import { filterSymbols, sortCandles, sortSuggestions } from './exchange.ts';
+import { cropToSpan, isoTime, noDataInSpan } from './range.ts';
 import type { ProviderAdapter } from './types.ts';
 import { upstreamJson } from './upstream.ts';
 
@@ -87,7 +88,14 @@ export const krakenAdapter: ProviderAdapter = {
       `${HOST}/0/public/OHLC?pair=${encodeURIComponent(symbol)}&interval=${interval}`,
       ctx,
     );
-    const candles = sortCandles(parseKrakenOhlc(res)).slice(-Math.min(Math.max(1, req.bars), KRAKEN_MAX_CANDLES));
+    const all = sortCandles(parseKrakenOhlc(res));
+    const range = req.from !== undefined;
+    if (all.length > 0 && req.to !== undefined && req.to < all[0].time) {
+      throw new NotFoundError(`Kraken serves only the latest ${KRAKEN_MAX_CANDLES} candles, from ${isoTime(all[0].time)}; pick a later range or another provider`);
+    }
+    const inSpan = cropToSpan(all, req.from, req.to);
+    const candles = range ? inSpan : inSpan.slice(-Math.min(Math.max(1, req.bars), KRAKEN_MAX_CANDLES));
+    if (candles.length === 0 && range && all.length > 0) throw noDataInSpan(PROVIDER, symbol, req.timeframe, req.from!, req.to!);
     if (candles.length === 0) throw new NotFoundError(`No data returned for ${symbol}. Check the symbol (e.g. XBTUSD).`);
     return candles;
   },

@@ -6,6 +6,7 @@ import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
 import { filterSymbols, paginateBackwards, sortSuggestions } from './exchange.ts';
+import { noDataInSpan } from './range.ts';
 import type { ProviderAdapter } from './types.ts';
 import { upstreamJson } from './upstream.ts';
 
@@ -72,16 +73,20 @@ export const okxAdapter: ProviderAdapter = {
     const bar = OKX_BARS[req.timeframe];
     if (!bar) throw new InputError(`OKX does not support timeframe ${req.timeframe}`);
     const symbol = req.symbol.trim().toUpperCase();
+    const range = req.from !== undefined;
     const candles = await paginateBackwards(
-      Math.max(1, req.bars),
+      { bars: Math.max(1, req.bars), from: req.from, to: req.to },
       async (before) => {
-        const after = before === undefined ? '' : `&after=${before * 1000}`;
+        // `after` is exclusive: (to + 1) s keeps the candle opening at `to`.
+        const first = req.to === undefined ? '' : `&after=${(req.to + 1) * 1000}`;
+        const after = before === undefined ? first : `&after=${before * 1000}`;
         return parseOkxCandles(
           await upstreamJson(PROVIDER, `${HOST}/api/v5/market/history-candles?instId=${encodeURIComponent(symbol)}&bar=${bar}&limit=${MAX_PER_REQUEST}${after}`, ctx),
         );
       },
       ctx.signal,
     );
+    if (candles.length === 0 && range) throw noDataInSpan(PROVIDER, symbol, req.timeframe, req.from!, req.to!);
     if (candles.length === 0) throw new NotFoundError(`No data returned for ${symbol}. Check the symbol (e.g. BTC-USDT).`);
     return candles;
   },

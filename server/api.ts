@@ -4,7 +4,7 @@
  * can inject a fake fetch and never touch the network.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { MAX_BARS, TIMEFRAMES, type ApiError, type Timeframe } from '../shared/market.ts';
+import { MAX_BARS, TIMEFRAMES, rangeBarCount, type ApiError, type Timeframe } from '../shared/market.ts';
 import { PROVIDER_CATALOG, catalogEntry } from '../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './providers/errors.ts';
 import { adapters } from './providers/index.ts';
@@ -42,6 +42,12 @@ function parseBars(raw: string | null): number {
   return n;
 }
 
+function parseTime(name: string, raw: string | null): number | undefined {
+  if (raw === null) return undefined;
+  if (!/^\d+$/.test(raw.trim())) throw new InputError(`${name} must be a unix time in seconds (a non-negative integer)`);
+  return Number(raw);
+}
+
 async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unknown> {
   const base = { fetch: deps.fetch, symbols: deps.symbols, signal };
   switch (url.pathname) {
@@ -56,8 +62,20 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (!(TIMEFRAMES as readonly string[]).includes(timeframe)) {
         throw new InputError(`${info.name} does not support timeframe ${timeframe || '(none)'}`);
       }
-      const bars = parseBars(url.searchParams.get('bars'));
-      return adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars });
+      const from = parseTime('from', url.searchParams.get('from'));
+      let to = parseTime('to', url.searchParams.get('to'));
+      if (from === undefined) {
+        const bars = parseBars(url.searchParams.get('bars'));
+        if (to !== undefined) to = Math.min(to, Math.floor(Date.now() / 1000));
+        return adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) });
+      }
+      to = Math.min(to ?? Infinity, Math.floor(Date.now() / 1000));
+      if (from > to) throw new InputError('from must not be after to (or in the future)');
+      const count = rangeBarCount(timeframe as Timeframe, from, to);
+      if (count > MAX_BARS) {
+        throw new InputError(`That span is about ${count} ${timeframe} bars, above the limit of ${MAX_BARS}; pick a shorter span or a larger timeframe`);
+      }
+      return adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to });
     }
     case '/api/symbols': {
       const { info, adapter } = provider(url);

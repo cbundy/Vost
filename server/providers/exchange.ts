@@ -2,7 +2,8 @@
  * Helpers shared by the keyless exchange adapters (Coinbase, Kraken, Bybit,
  * OKX): backwards pagination, symbol search and sorting.
  */
-import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
+import { MAX_BARS, type Candle, type SymbolSuggestion } from '../../shared/market.ts';
+import { cropToSpan } from './range.ts';
 
 /** One candle per time (the last one wins), ascending. Drops rows without a finite time and close. */
 export function sortCandles(candles: Candle[]): Candle[] {
@@ -13,29 +14,46 @@ export function sortCandles(candles: Candle[]): Candle[] {
   return Array.from(map.values()).sort((a, b) => a.time - b.time);
 }
 
+/** What `paginateBackwards` collects: `bars` candles, or (when `from` is set) every candle in `from`..`to`. */
+export interface PageTarget {
+  bars?: number;
+  /** Range mode: keep paging until the oldest candle is at or before this time. */
+  from?: number;
+  /** Newest time wanted; the adapter starts its first page there. Candles after it are dropped. */
+  to?: number;
+}
+
 /**
- * Collect up to `bars` candles ending "now", paging backwards. `fetchPage`
+ * Collect candles ending at `to` (default "now"), paging backwards. `fetchPage`
  * receives the oldest candle time so far (unix seconds, undefined on the first
  * call) and returns one page of candles in any order. Stops when a page is
- * empty or reaches no further back (start of history).
+ * empty or reaches no further back (start of history); bars mode also stops at
+ * `bars` candles and keeps the newest `bars`, range mode stops once the oldest
+ * candle is at or before `from` (or past MAX_BARS candles) and keeps only the
+ * candles inside the span.
  */
 export async function paginateBackwards(
-  bars: number,
+  target: number | PageTarget,
   fetchPage: (beforeSec: number | undefined) => Promise<Candle[]>,
   signal?: AbortSignal,
 ): Promise<Candle[]> {
+  const { bars, from, to } = typeof target === 'number' ? ({ bars: target } as PageTarget) : target;
+  const range = from !== undefined;
   const out: Candle[] = [];
   let before: number | undefined;
-  while (out.length < bars) {
+  while (range ? out.length <= MAX_BARS : out.length < (bars ?? 0)) {
     const page = (await fetchPage(before)).filter((c) => Number.isFinite(c.time) && Number.isFinite(c.close));
     if (page.length === 0) break;
     const oldest = Math.min(...page.map((c) => c.time));
     if (before !== undefined && oldest >= before) break;
     out.push(...page);
     before = oldest;
+    if (range && oldest <= from) break;
     signal?.throwIfAborted();
   }
-  return sortCandles(out).slice(-bars);
+  const sorted = sortCandles(out);
+  if (range) return cropToSpan(sorted, from, to);
+  return (to === undefined ? sorted : cropToSpan(sorted, undefined, to)).slice(-(bars ?? 0));
 }
 
 /** Prefix matches first, then substring matches; at most 12. */

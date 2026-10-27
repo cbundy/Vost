@@ -21,6 +21,24 @@ export type Timeframe = (typeof TIMEFRAMES)[number];
 /** Largest `bars` a history request may ask for (the top bar's largest option). */
 export const MAX_BARS = 20000;
 
+/** Seconds per bar for every timeframe (a month counts as 30 days). */
+export const TIMEFRAME_SECONDS: Record<Timeframe, number> = {
+  '1m': 60,
+  '5m': 300,
+  '15m': 900,
+  '30m': 1800,
+  '1h': 3600,
+  '4h': 14400,
+  '1d': 86400,
+  '1w': 7 * 86400,
+  '1M': 30 * 86400,
+};
+
+/** How many bars a `from`..`to` span (unix seconds, both inclusive) holds at most. */
+export function rangeBarCount(timeframe: Timeframe, from: number, to: number): number {
+  return Math.floor((to - from) / TIMEFRAME_SECONDS[timeframe]) + 1;
+}
+
 export interface SymbolSuggestion {
   symbol: string;
   label?: string;

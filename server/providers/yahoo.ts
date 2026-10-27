@@ -5,6 +5,7 @@
 import type { Candle, SymbolSuggestion, Timeframe } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
+import { cropToSpan, isoTime, noDataInSpan } from './range.ts';
 import type { ProviderAdapter } from './types.ts';
 import { upstreamJson } from './upstream.ts';
 
@@ -84,6 +85,16 @@ const INTRADAY_MAX_RANGE: Record<string, string> = {
   '1h': '2y',
 };
 
+/** How far back Yahoo serves an intraday interval, in seconds, from the one INTRADAY_MAX_RANGE table. */
+function intradayDepthSeconds(interval: string): number | undefined {
+  const cap = INTRADAY_MAX_RANGE[interval];
+  if (!cap) return undefined;
+  const step = RANGE_STEPS.find((s) => s.range === cap);
+  if (step) return step.seconds;
+  const days = /^(\d+)d$/.exec(cap);
+  return days ? Number(days[1]) * 86400 : undefined;
+}
+
 function pickRange(interval: string, bars: number): string {
   const needed = bars * (BAR_SECONDS[interval] ?? 86400);
   let range = 'max';
@@ -149,9 +160,23 @@ export const yahooAdapter: ProviderAdapter = {
   async history(ctx, req) {
     const interval = YAHOO_INTERVALS[req.timeframe];
     if (!interval) throw new InputError(`Yahoo Finance does not support timeframe ${req.timeframe}`);
-    const range = pickRange(interval, req.bars);
     const symbol = req.symbol.trim();
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false&events=div%2Csplit`;
+    const now = Math.floor(Date.now() / 1000);
+    let window: string;
+    if (req.from !== undefined) {
+      const depth = intradayDepthSeconds(interval);
+      if (depth !== undefined && req.from < now - depth) {
+        throw new InputError(`${PROVIDER} serves ${req.timeframe} data only from ${isoTime(now - depth)}; pick a later start or a larger timeframe`);
+      }
+      window = `period1=${req.from}&period2=${(req.to ?? now) + 1}`;
+    } else if (req.to !== undefined) {
+      // Bars ending at `to`: ask for the usual range's worth of time before it, then keep the newest `bars`.
+      const seconds = RANGE_STEPS.find((s) => s.range === pickRange(interval, req.bars))?.seconds ?? Number.MAX_SAFE_INTEGER;
+      window = `period1=${Math.max(0, req.to + 1 - seconds)}&period2=${req.to + 1}`;
+    } else {
+      window = `range=${pickRange(interval, req.bars)}`;
+    }
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${window}&includePrePost=false&events=div%2Csplit`;
 
     const data = await upstreamJson<YahooChartResponse>(PROVIDER, url, ctx).catch((err: unknown) => {
       if (err instanceof UpstreamError && err.status === 429) {
@@ -188,7 +213,12 @@ export const yahooAdapter: ProviderAdapter = {
         volume: quote.volume?.[i] ?? 0,
       });
     }
+    if (req.from !== undefined) {
+      const inSpan = cropToSpan(candles, req.from, req.to);
+      if (inSpan.length === 0) throw noDataInSpan(PROVIDER, symbol, req.timeframe, req.from, req.to ?? now);
+      return inSpan;
+    }
     if (candles.length === 0) throw new NotFoundError(`No usable bars for "${symbol}" at ${req.timeframe}.`);
-    return candles.slice(-req.bars);
+    return cropToSpan(candles, undefined, req.to).slice(-req.bars);
   },
 };

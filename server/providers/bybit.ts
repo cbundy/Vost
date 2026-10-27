@@ -6,6 +6,7 @@ import type { Candle, SymbolSuggestion } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
 import { filterSymbols, paginateBackwards, sortSuggestions } from './exchange.ts';
+import { noDataInSpan } from './range.ts';
 import type { ProviderAdapter } from './types.ts';
 import { upstreamJson } from './upstream.ts';
 
@@ -73,17 +74,21 @@ export const bybitAdapter: ProviderAdapter = {
     if (!interval) throw new InputError(`Bybit does not support timeframe ${req.timeframe}`);
     const symbol = req.symbol.trim().toUpperCase();
     const bars = Math.max(1, req.bars);
+    const range = req.from !== undefined;
     const candles = await paginateBackwards(
-      bars,
+      { bars, from: req.from, to: req.to },
       async (before) => {
-        const limit = Math.min(MAX_PER_REQUEST, bars);
-        const end = before === undefined ? '' : `&end=${before * 1000 - 1}`;
+        const limit = range ? MAX_PER_REQUEST : Math.min(MAX_PER_REQUEST, bars);
+        // `end` is inclusive in ms: +999 keeps the candle opening at `to`.
+        const first = req.to === undefined ? '' : `&end=${req.to * 1000 + 999}`;
+        const end = before === undefined ? first : `&end=${before * 1000 - 1}`;
         return parseBybitKlines(
           await upstreamJson(PROVIDER, `${HOST}/v5/market/kline?category=spot&symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}${end}`, ctx),
         );
       },
       ctx.signal,
     );
+    if (candles.length === 0 && range) throw noDataInSpan(PROVIDER, symbol, req.timeframe, req.from!, req.to!);
     if (candles.length === 0) throw new NotFoundError(`No data returned for ${symbol}. Check the symbol (e.g. BTCUSDT).`);
     return candles;
   },
