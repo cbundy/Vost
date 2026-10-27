@@ -107,7 +107,7 @@ Install first with `npm ci` (the gate commands in `.claude/factory-loop.json` in
 | Gate | Command | CI (`.github/workflows/ci.yml`, job `ci`) |
 |---|---|---|
 | Lint (typecheck; there is no linter yet) | `npm run typecheck` | step "Lint (typecheck)" |
-| Test (Vitest, all `client/src/**/*.test.ts` and `scripts/**/*.test.ts`) | `npm test` | step "Test" |
+| Test (Vitest, all `client/src/**/*.test.ts`, `server/**/*.test.ts`, `shared/**/*.test.ts`, `scripts/**/*.test.ts` and `e2e/**/*.test.ts`) | `npm test` | step "Test" |
 | Build | `npm run build` | step "Build client" |
 
 Non-gate command (UI evidence; never in a gate or CI; see `docs/e2e-visual-verification.md`):

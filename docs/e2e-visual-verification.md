@@ -28,6 +28,11 @@ The dev container image ships Chromium at `/ms-playwright` (via `PLAYWRIGHT_BROW
 Playwright version (`playwright` is pinned to 1.64.1, nothing is downloaded on `npm ci`).
 On a machine outside the container, run `npx playwright install --with-deps chromium`.
 
+Troubleshooting a failed browser launch: `error while loading shared libraries: <lib>` means the container
+predates the Chromium image change (rebuild it) or, outside it, that the system libraries are missing (run the
+`--with-deps` install above). `Executable doesn't exist` means the browser download is missing
+(`npx playwright install chromium`).
+
 ## Demo data, offline
 
 Every capture runs offline on the Demo provider. Each scenario starts with `localStorage` seeded
