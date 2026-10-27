@@ -33,7 +33,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 - Candlestick chart with volume, powered by TradingView's open-source *lightweight-charts* (v5, panes supported)
 - Indicators: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD — configurable periods & colors, live editing
 - Crosshair legend with OHLC + change + volume, fit-to-screen, PNG screenshot, CSV export
-- Live streaming candles from Binance websockets (auto-reconnect, data-stream fallback host)
+- Live streaming candles (the server keeps one exchange websocket per feed, shared by all tabs, with auto-reconnect and a Binance fallback host)
 
 **Data**
 - **Binance** — free public crypto klines + realtime websocket, no key
@@ -99,7 +99,7 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 
 For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
-The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. Your browser never calls those third parties for history or symbol search. Live candles still stream straight from the exchanges' public websockets for now. A static-only deployment (no Node server) supports only CSV import and Demo.
+The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. A static-only deployment (no Node server) supports only CSV import and Demo.
 
 > **Bring your own API:** add a server adapter in `server/providers/` and a catalog entry in `shared/providerCatalog.ts` — the UI picks it up automatically in the provider dropdown. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-data-provider).
 
@@ -170,7 +170,7 @@ Vost/
 │   └── src/
 │       ├── components/        # UI: chart panel, top bar, dock, CSV modal…
 │       ├── lib/
-│       │   ├── providers/     # provider registry, /api client, live feeds, demo
+│       │   ├── providers/     # provider registry, /api client, live stream client, demo
 │       │   ├── backtest/      # engine, metrics, strategies, optimizer
 │       │   ├── csv.ts         # dialect-tolerant CSV import engine
 │       │   ├── indicators.ts  # SMA/EMA/RSI/MACD/BB/ATR/VWAP…
@@ -180,13 +180,14 @@ Vost/
 │   ├── index.mjs              # entry point: checks the Node version, then loads main.ts
 │   ├── main.ts                # zero-dep Node server: static files + the /api routes
 │   ├── api.ts                 # /api/providers, /history, /symbols, /search
+│   ├── live/                  # /api/live: shared exchange websockets streamed to the browser
 │   └── providers/             # one REST adapter per data provider (Binance, Yahoo, …)
 ├── shared/                    # wire types and the provider catalog, used by server and client
 ├── examples/                  # ready-to-import sample CSVs
 └── docs/                      # strategy authoring & deployment guides
 ```
 
-- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers). It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency. No database; the only state is an in-memory symbol-list cache.
+- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its only state is in memory: the symbol-list cache and the open exchange websockets. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency. No database.
 - The **client** holds everything else: fetching, CSV parsing, indicator math, backtests (in a Web Worker), persistence (localStorage). This is what makes offline mode work.
 
 ### Configuration

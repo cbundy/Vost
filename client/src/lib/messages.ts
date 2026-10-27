@@ -27,6 +27,4 @@ export function markAllRead(list: InboxMessage[]): InboxMessage[] {
   return list.some((m) => !m.read) ? list.map((m) => (m.read ? m : { ...m, read: true })) : list;
 }
 
-export function formatClose(ev: { code?: number; reason?: string; wasClean?: boolean }): string {
-  return `close code ${ev.code ?? 'unknown'}, reason ${ev.reason ? `"${ev.reason}"` : '(none)'}, wasClean ${String(ev.wasClean ?? false)}`;
-}
+export { formatClose } from '../../../shared/market.ts';

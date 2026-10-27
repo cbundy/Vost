@@ -119,6 +119,17 @@ server {
     add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
 
+    # Live candles: a long-lived event stream, so no buffering and no short read timeout
+    location /api/live {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
@@ -138,6 +149,7 @@ server {
 
 Notes:
 
+- `/api/live` is a server-sent-events stream. Without the `location /api/live` block above (`proxy_buffering off`, a long `proxy_read_timeout`) the proxy holds the events back or cuts the stream, and the live indicator will not recover cleanly. The server also sends a `: ping` comment every 15 s and replies with `X-Accel-Buffering: no`.
 - Hashed assets (`/assets/*.js`, `*.css`) are served with `Cache-Control: immutable`; `index.html` with `no-cache`. Don't override this — it's what makes updates instant.
 - If you gate the app behind HTTP basic auth or an SSO proxy, protect `/` **and** `/api/*` so the market-data API isn't left open.
 

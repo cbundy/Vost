@@ -28,7 +28,7 @@ Useful scripts:
 |---|---|
 | `client/src/components/` | React UI (chart panel, top bar, dock, CSV modal, …) |
 | `client/src/state/store.ts` | zustand store — owns data, indicators, datasets, backtest lifecycle |
-| `client/src/lib/providers/` | Provider registry (built from the catalog), `/api` client, live feeds, demo |
+| `client/src/lib/providers/` | Provider registry (built from the catalog), `/api` client, demo |
 | `client/src/lib/csv.ts` | The CSV dialect-detection engine |
 | `client/src/lib/indicators.ts` | Indicator math (pure functions, easy to test) |
 | `client/src/lib/backtest/` | Engine, metrics, strategies, optimizer, custom-code runner |
@@ -83,9 +83,10 @@ export const myAdapter: ProviderAdapter = {
    timeframe, popular symbols, `supportsLive`, `hasSymbolList`, `hasSearch`). The client builds its provider
    from it, so the UI picks it up automatically. The catalog holds no host name.
 
-3. Only if the exchange has a public candle websocket (until the server takes streaming over): its feed in
-   `client/src/lib/providers/liveFeeds.ts`, registered in `LIVE_FEEDS`, with `supportsLive: true` in the catalog.
-   `supportsLive` must be true exactly when a feed exists.
+3. Only if the exchange has a public candle websocket: its feed in `server/live/feeds.ts` (URL, interval map,
+   subscribe message, parser, and a `liveFeed()` case), with `supportsLive: true` in the catalog. The browser needs
+   no change: it reads every live feed through the server's `/api/live` stream. `supportsLive` must be true
+   exactly when a feed exists (`server/live/feeds.test.ts` checks it).
 
 Add unit tests for the adapter in `server/providers/` with an injected fake fetch (see `exchanges.test.ts`);
 no test may touch the network.
