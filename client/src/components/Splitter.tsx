@@ -10,13 +10,15 @@ interface Props {
   /** Called with the wanted size, not clamped for drags (so a caller can tell a drag past its minimum). */
   onChange(next: number, via: 'drag' | 'key'): void;
   onReset(): void;
+  /** Called when a drag begins. */
+  onDragStart?(): void;
   label: string;
   className?: string;
 }
 
-export function Splitter({ orientation, value, min, max, onChange, onReset, label, className }: Props) {
-  const latest = useRef({ value, min, max, onChange, orientation });
-  latest.current = { value, min, max, onChange, orientation };
+export function Splitter({ orientation, value, min, max, onChange, onReset, onDragStart, label, className }: Props) {
+  const latest = useRef({ value, min, max, onChange, orientation, onDragStart });
+  latest.current = { value, min, max, onChange, orientation, onDragStart };
   const cleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => () => cleanup.current?.(), []);
@@ -31,6 +33,7 @@ export function Splitter({ orientation, value, min, max, onChange, onReset, labe
     const startY = e.clientY;
     const startValue = latest.current.value;
     const pointerId = e.pointerId;
+    latest.current.onDragStart?.();
     el.setPointerCapture(pointerId);
     app?.classList.add('resizing', orientation === 'vertical' ? 'resizing-col' : 'resizing-row');
 

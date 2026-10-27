@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { DOCK_DEFAULT, DOCK_MIN, clamp, dockLimits, shouldCollapseDock } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { useStore, type DockTab } from '../state/store';
@@ -25,8 +26,12 @@ export function BottomDock() {
   const limits = dockLimits(viewport.height);
   const effective = clamp(dockHeight, limits.min, limits.max);
 
+  // The height the current drag started from, so collapsing by drag keeps the last expanded height.
+  const dragStartHeight = useRef(dockHeight);
+
   const onResize = (raw: number, via: 'drag' | 'key') => {
     if (shouldCollapseDock(raw)) {
+      if (via === 'drag' && !collapsed) setDockHeight(dragStartHeight.current);
       // Arrow-up on a collapsed dock expands it; any other move below the threshold keeps it collapsed.
       if (collapsed && via === 'key' && raw > DOCK_MIN) setDockCollapsed(false);
       else setDockCollapsed(true);
@@ -55,6 +60,9 @@ export function BottomDock() {
         min={limits.min}
         max={limits.max}
         onChange={onResize}
+        onDragStart={() => {
+          dragStartHeight.current = effective;
+        }}
         onReset={() => {
           setDockHeight(DOCK_DEFAULT);
           setDockCollapsed(false);
