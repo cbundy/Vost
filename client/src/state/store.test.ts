@@ -779,10 +779,15 @@ describe('pine editor selection', () => {
     expect(useStore.getState().pineOpen).toBe(false);
   });
 
-  it('openPineEditor keeps dockHeight', async () => {
+  it('collapsing then expanding keeps dockHeight, and openPineEditor keeps it too', async () => {
     const { useStore } = await import('./store');
     track(useStore);
     useStore.getState().setDockHeight(410);
+    useStore.getState().setDockCollapsed(true);
+    expect(useStore.getState().dockHeight).toBe(410);
+    useStore.getState().setDockCollapsed(false);
+    expect(useStore.getState().dockHeight).toBe(410);
+    useStore.getState().setDockCollapsed(true);
     useStore.getState().openPineEditor(useStore.getState().addIndicator('pine'));
     expect(useStore.getState().dockHeight).toBe(410);
   });
