@@ -7,6 +7,7 @@ It is not a test suite: it is in no gate and must never run from CI or a gate co
 
 ```bash
 npm ci
+npm run -s e2e:capture -- alerts                # docs/evidence/alerts/alerts-{demo,empty,created,popup,inbox,triggered,menu,prefilled}-{desktop,narrow}.png + alerts-{telegram,checks}-{desktop,narrow}.txt (Binance on the fake feed, real server)
 npm run -s e2e:capture -- chart                 # docs/evidence/chart/chart-desktop.png, chart-narrow.png
 npm run -s e2e:capture -- chart-pan             # docs/evidence/chart-pan/chart-pan.webm (+ .gif if ffmpeg is on PATH)
 npm run -s e2e:capture -- chart-reset           # docs/evidence/chart-reset/{fresh,moved,reset}.png + chart-reset.webm
