@@ -51,7 +51,7 @@ export default function App() {
         onOpenInbox={() => setInboxOpen(true)}
       />
       <div className="app-body">
-        {drawerShown && <div className="drawer-backdrop" onMouseDown={closeDrawer} />}
+        {drawerShown && <div className="drawer-backdrop" onMouseDown={(e) => { e.preventDefault(); closeDrawer(); }} />}
         {drawerShown && (
           <Sidebar
             drawer={{ onClose: closeDrawer }}

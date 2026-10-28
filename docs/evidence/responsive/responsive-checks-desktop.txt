@@ -1,0 +1,18 @@
+360x740: scrollWidth=360/360 topbar=48 chartH=371 dock=320 more=true clipped=0
+768x1024: scrollWidth=768/768 topbar=48 chartH=655 dock=320 more=true clipped=0
+1024x768: scrollWidth=1024/1024 topbar=48 chartH=399 dock=320 more=true clipped=0
+1920x1080: scrollWidth=1920/1920 topbar=48 chartH=711 dock=320 more=false clipped=0
+740x360: scrollWidth=740/740 topbar=48 chartH=200 dock=111 more=true clipped=0
+1281x800: scrollWidth=1281/1281 topbar=48 chartH=431 dock=320 more=false clipped=0
+1280x800: scrollWidth=1280/1280 topbar=48 chartH=431 dock=320 more=true clipped=0
+1440x900: scrollWidth=1440/1440 topbar=48 chartH=531 dock=320 more=false clipped=0
+drawer-360: scrollWidth=360/360 topbar=48 chartH=371 dock=320 more=true clipped=0
+drawer-768: scrollWidth=768/768 topbar=48 chartH=655 dock=320 more=true clipped=0
+more-360: scrollWidth=360/360 topbar=48 chartH=371 dock=320 more=true clipped=0
+range-from-more-360: scrollWidth=360/360 topbar=48 chartH=371 dock=320 more=true clipped=0
+csv-360: modal=344x636 at 8,52
+csv-360: scrollWidth=360/360 topbar=48 chartH=371 dock=320 more=true clipped=0
+inbox-360: modal=344x190
+inbox-360: scrollWidth=360/360 topbar=48 chartH=371 dock=320 more=true clipped=0
+dock-tablist: scrollWidth=144 clientWidth=144 labelWidth=1
+widened-1440: scrollWidth=1440/1440 topbar=48 chartH=531 dock=320 more=false clipped=0
