@@ -1,3 +1,4 @@
+import { DOWN_COLOR, UP_COLOR, chartTheme, theme } from '../lib/theme';
 import {
   CandlestickSeries,
   ColorType,
@@ -31,8 +32,8 @@ type IndEntry = {
 };
 
 const RIGHT_OFFSET = 3;
-const UP = '#22c55e';
-const DOWN = '#ef4444';
+const UP = UP_COLOR;
+const DOWN = DOWN_COLOR;
 
 function toCandleData(c: { time: number; open: number; high: number; low: number; close: number }) {
   return {
@@ -92,23 +93,23 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     const chart = createChart(el, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: '#0b0e14' },
-        textColor: '#8b94a7',
+        background: { type: ColorType.Solid, color: chartTheme.background },
+        textColor: chartTheme.text,
         fontSize: 11,
         fontFamily: "Inter, 'Segoe UI', system-ui, sans-serif",
       },
       grid: {
-        vertLines: { color: 'rgba(255,255,255,0.035)' },
-        horzLines: { color: 'rgba(255,255,255,0.035)' },
+        vertLines: { color: chartTheme.grid },
+        horzLines: { color: chartTheme.grid },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: 'rgba(139,148,167,0.45)', labelBackgroundColor: '#2a3348' },
-        horzLine: { color: 'rgba(139,148,167,0.45)', labelBackgroundColor: '#2a3348' },
+        vertLine: { color: chartTheme.crosshair, labelBackgroundColor: chartTheme.crosshairLabel },
+        horzLine: { color: chartTheme.crosshair, labelBackgroundColor: chartTheme.crosshairLabel },
       },
-      rightPriceScale: { borderColor: '#1e2433' },
+      rightPriceScale: { borderColor: chartTheme.scaleBorder },
       timeScale: {
-        borderColor: '#1e2433',
+        borderColor: chartTheme.scaleBorder,
         timeVisible: true,
         secondsVisible: false,
         rightOffset: RIGHT_OFFSET,
@@ -361,7 +362,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
       markers.push({
         time: t.exitTime as UTCTimestamp,
         position: t.side === 'long' ? 'aboveBar' : 'belowBar',
-        color: hexToRgba('#8b94a7', 0.9),
+        color: hexToRgba(theme.muted, 0.9),
         shape: 'circle',
         size: 0.6,
       });

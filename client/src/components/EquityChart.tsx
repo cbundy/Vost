@@ -1,3 +1,4 @@
+import { DOWN_COLOR, UP_COLOR, chartTheme } from '../lib/theme';
 import {
   AreaSeries,
   ColorType,
@@ -23,22 +24,22 @@ export function EquityChart({ result }: { result: BacktestResult }) {
     const el = ref.current;
     if (!el) return;
     const positive = result.metrics.totalReturnPct >= 0;
-    const mainColor = positive ? '#22c55e' : '#ef4444';
+    const mainColor = positive ? UP_COLOR : DOWN_COLOR;
 
     const chart = createChart(el, {
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#8b94a7',
+        textColor: chartTheme.text,
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: 'rgba(255,255,255,0.03)' },
-        horzLines: { color: 'rgba(255,255,255,0.03)' },
+        vertLines: { color: chartTheme.gridFaint },
+        horzLines: { color: chartTheme.gridFaint },
       },
-      rightPriceScale: { borderColor: '#1e2433' },
+      rightPriceScale: { borderColor: chartTheme.scaleBorder },
       timeScale: {
-        borderColor: '#1e2433',
+        borderColor: chartTheme.scaleBorder,
         timeVisible: true,
         secondsVisible: false,
         tickMarkFormatter: (t: Time, type: number) => fmtTick(t as number, type, useStore.getState().timeZone),
@@ -46,7 +47,7 @@ export function EquityChart({ result }: { result: BacktestResult }) {
       localization: {
         timeFormatter: (t: Time) => fmtTime(t as number, { timeZone: useStore.getState().timeZone }),
       },
-      crosshair: { vertLine: { color: 'rgba(139,148,167,0.4)' }, horzLine: { color: 'rgba(139,148,167,0.4)' } },
+      crosshair: { vertLine: { color: chartTheme.crosshairFaint }, horzLine: { color: chartTheme.crosshairFaint } },
     });
 
     const equitySeries = chart.addSeries(AreaSeries, {
@@ -62,7 +63,7 @@ export function EquityChart({ result }: { result: BacktestResult }) {
     );
     equitySeries.createPriceLine({
       price: result.metrics.initialCapital,
-      color: 'rgba(139,148,167,0.7)',
+      color: chartTheme.refLine,
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,

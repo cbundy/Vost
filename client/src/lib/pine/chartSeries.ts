@@ -2,6 +2,7 @@
  * Pure mapping from a Pine run (PineResult) to chart series descriptions.
  * No chart library imports: ChartPanel's pine hook turns these into series.
  */
+import { DOWN_COLOR, UP_COLOR, chartTheme } from '../theme';
 import type { Candle } from '../../types';
 import type { PinePlot, PineResult } from './types';
 
@@ -42,9 +43,9 @@ export interface PineChartModel {
   markers: PineMarkerDesc[];
 }
 
-const UP = '#22c55e';
-const DOWN = '#ef4444';
-const EXIT = 'rgba(139,148,167,0.9)';
+const UP = UP_COLOR;
+const DOWN = DOWN_COLOR;
+const EXIT = chartTheme.exit;
 
 /** lightweight-charts does not parse #RRGGBBAA, so turn it into rgba(). */
 export function cssColor(c: string | null | undefined, fallback: string): string {

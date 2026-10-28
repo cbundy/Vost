@@ -13,7 +13,7 @@ export const DOCK_COLLAPSE_BELOW = DOCK_MIN + 24;
 /** The chart area always keeps at least this much height. */
 export const CHART_MIN_HEIGHT = 200;
 /** Top bar plus the 1px border above the app body. */
-export const TOPBAR_HEIGHT = 49;
+export const TOPBAR_HEIGHT = 41;
 
 /** At this viewport width and below the sidebar is a slide-in drawer (the CSS uses the same number). */
 export const DRAWER_MAX_WIDTH = 900;

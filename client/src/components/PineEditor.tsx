@@ -1,3 +1,4 @@
+import { editorTheme } from '../lib/theme';
 import { useEffect, useRef } from 'react';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
@@ -22,17 +23,17 @@ const highlight = HighlightStyle.define([
 
 const theme = EditorView.theme(
   {
-    '&': { backgroundColor: '#0c0f17', border: '1px solid var(--border-2)', borderRadius: 'var(--radius-sm)', fontSize: '12.5px' },
+    '&': { backgroundColor: editorTheme.background, border: '1px solid var(--border-2)', borderRadius: 'var(--radius-sm)', fontSize: '12.5px' },
     '&.cm-focused': { outline: '1px solid var(--border-2)' },
     '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.55' },
-    '.cm-content': { caretColor: '#e6e8ef' },
-    '.cm-cursor': { borderLeftColor: '#e6e8ef' },
-    '.cm-gutters': { backgroundColor: '#0c0f17', color: '#5c6784', border: 'none' },
+    '.cm-content': { caretColor: editorTheme.text },
+    '.cm-cursor': { borderLeftColor: editorTheme.text },
+    '.cm-gutters': { backgroundColor: editorTheme.background, color: editorTheme.gutterText, border: 'none' },
     '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
     '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.03)' },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'rgba(100,140,255,0.3)' },
-    '.cm-tooltip': { backgroundColor: '#161b27', border: '1px solid var(--border-2)', color: '#e6e8ef' },
-    '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'rgba(100,140,255,0.3)', color: '#e6e8ef' },
+    '.cm-tooltip': { backgroundColor: editorTheme.tooltip, border: '1px solid var(--border-2)', color: editorTheme.text },
+    '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'rgba(100,140,255,0.3)', color: editorTheme.text },
     '&.cm-focused .cm-matchingBracket': { backgroundColor: 'rgba(100,140,255,0.35)', outline: 'none' },
   },
   { dark: true },
