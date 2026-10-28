@@ -84,6 +84,12 @@ describe('alerts routes', () => {
     expect(bad.status).toBe(400);
   });
 
+  it('answers 404 for a malformed percent-escape and keeps serving', async () => {
+    expect((await fetch(`${base}/api/alerts/%E0%A4%A`, { method: 'DELETE', headers: JSON_H })).status).toBe(404);
+    expect((await fetch(`${base}/api/alerts/%E0%A4%A`, { method: 'GET' })).status).toBe(404);
+    expect((await fetch(`${base}/api/alerts`)).status).toBe(200);
+  });
+
   it('answers 405 for other methods', async () => {
     expect((await fetch(`${base}/api/alerts`, { method: 'PATCH' })).status).toBe(405);
     expect((await fetch(`${base}/api/alerts/x`, { method: 'GET' })).status).toBe(405);

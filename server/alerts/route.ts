@@ -85,7 +85,14 @@ export async function handleAlerts(req: IncomingMessage, res: ServerResponse, ur
     return;
   }
 
-  const id = url.pathname === '/api/alerts' ? null : decodeURIComponent(url.pathname.slice('/api/alerts/'.length));
+  let id: string | null = null;
+  if (url.pathname !== '/api/alerts') {
+    try {
+      id = decodeURIComponent(url.pathname.slice('/api/alerts/'.length));
+    } catch {
+      return refuse(404, 'No such alert');
+    }
+  }
   const allowed = id === null ? ['GET', 'POST'] : ['PUT', 'DELETE'];
   if (!allowed.includes(method)) {
     res.setHeader('allow', allowed.join(', '));
