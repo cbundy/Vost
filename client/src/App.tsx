@@ -6,6 +6,7 @@ import { CsvImportModal } from './components/CsvImportModal';
 import { Sidebar } from './components/Sidebar';
 import { Toasts } from './components/Toasts';
 import { TopBar } from './components/TopBar';
+import { SideRail } from './components/SideRail';
 import { Splitter } from './components/Splitter';
 import { DRAWER_QUERY, SIDEBAR_DEFAULT, clamp, sidebarLimits } from './lib/paneSizes';
 import { useMediaQuery } from './lib/useMediaQuery';
@@ -16,8 +17,10 @@ export default function App() {
   const init = useStore((s) => s.init);
   const [csvOpen, setCsvOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
-  // The desktop sidebar and the narrow-screen drawer keep separate open states.
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  // The desktop panel's collapsed state is a saved pref; the narrow-screen drawer's open state is local.
+  const panelCollapsed = useStore((s) => s.sidePanelCollapsed);
+  const setPanelCollapsed = useStore((s) => s.setSidePanelCollapsed);
+  const desktopSidebarOpen = !panelCollapsed;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isDrawer = useMediaQuery(DRAWER_QUERY);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -45,7 +48,7 @@ export default function App() {
   return (
     <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px` }}>
       <TopBar onImportCsv={() => setCsvOpen(true)}
-        onToggleSidebar={() => (isDrawer ? setDrawerOpen((v) => !v) : setDesktopSidebarOpen((v) => !v))}
+        onToggleSidebar={() => (isDrawer ? setDrawerOpen((v) => !v) : setPanelCollapsed(desktopSidebarOpen))}
         sidebarExpanded={isDrawer ? drawerShown : desktopSidebarOpen}
         toggleRef={toggleRef}
         onOpenInbox={() => setInboxOpen(true)}
@@ -61,10 +64,13 @@ export default function App() {
             }}
           />
         )}
-        {!isDrawer && desktopSidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
+        <main className="chart-area">
+          <ChartPanel onImportCsv={() => setCsvOpen(true)} />
+        </main>
         {!isDrawer && desktopSidebarOpen && (
           <Splitter
             orientation="vertical"
+            grow="start"
             label="Resize sidebar"
             value={effectiveSidebar}
             min={limits.min}
@@ -73,9 +79,8 @@ export default function App() {
             onReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
           />
         )}
-        <main className="chart-area">
-          <ChartPanel onImportCsv={() => setCsvOpen(true)} />
-        </main>
+        {!isDrawer && desktopSidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
+        {!isDrawer && <SideRail />}
       </div>
       <BottomDock />
       {csvOpen && <CsvImportModal onClose={() => setCsvOpen(false)} />}

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Scenario } from '../scenario.ts';
+import { showSideSection } from '../side-panel.ts';
 
 const legacy = readFileSync(new URL('../../../client/src/lib/pine/fixtures/legacy-wavetrend.pine', import.meta.url), 'utf8');
 
@@ -16,6 +17,7 @@ export const pineConvert: Scenario = {
         await page.getByRole('button', { name: 'Toggle sidebar' }).click();
         await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
       }
+      await showSideSection(page, 'Indicators', viewport === 'narrow');
       await page.locator('#add-indicator-select').selectOption('pine');
       if (viewport === 'narrow') {
         await page.keyboard.press('Escape');

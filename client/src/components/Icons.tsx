@@ -23,7 +23,32 @@ function Svg({ size = 14, children }: { size?: number; children: ReactNode }) {
 export const SidebarIcon = () => (
   <Svg size={15}>
     <rect x="3" y="4" width="18" height="16" rx="2" />
-    <line x1="9" y1="4" x2="9" y2="20" />
+    <line x1="15" y1="4" x2="15" y2="20" />
+  </Svg>
+);
+
+export const ListIcon = () => (
+  <Svg size={16}>
+    <line x1="8" y1="6" x2="21" y2="6" />
+    <line x1="8" y1="12" x2="21" y2="12" />
+    <line x1="8" y1="18" x2="21" y2="18" />
+    <line x1="3" y1="6" x2="3.01" y2="6" />
+    <line x1="3" y1="12" x2="3.01" y2="12" />
+    <line x1="3" y1="18" x2="3.01" y2="18" />
+  </Svg>
+);
+
+export const DatabaseIcon = () => (
+  <Svg size={16}>
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+  </Svg>
+);
+
+export const IndicatorIcon = () => (
+  <Svg size={16}>
+    <polyline points="3 17 9 11 13 15 21 7" />
   </Svg>
 );
 

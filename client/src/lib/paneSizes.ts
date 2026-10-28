@@ -63,17 +63,25 @@ export function dockLimits(viewportH: number): Limits {
   return { min: DOCK_MIN, max: Math.max(DOCK_MIN, Math.floor(viewportH - TOPBAR_HEIGHT - CHART_BAR_HEIGHT - CHART_MIN_HEIGHT)) };
 }
 
+/** Which edge of the pane the splitter sits on: 'end' = after it (left/top pane), 'start' = before it (right pane). */
+export type SplitterGrow = 'end' | 'start';
+
 /**
  * The next size for a key press, or null when the key does nothing.
- * ArrowRight and ArrowUp grow the pane, ArrowLeft and ArrowDown shrink it; Home goes to the minimum, End to the maximum.
+ * With grow 'end' (default) ArrowRight and ArrowUp grow the pane and ArrowLeft and ArrowDown shrink it;
+ * with grow 'start' (a pane to the right of its splitter) ArrowLeft grows and ArrowRight shrinks.
+ * Home goes to the minimum, End to the maximum.
  */
-export function step(value: number, key: string, shift: boolean, limits: Limits): number | null {
+export function step(value: number, key: string, shift: boolean, limits: Limits, grow: SplitterGrow = 'end'): number | null {
   const amount = shift ? STEP_SHIFT : STEP;
+  const right = grow === 'start' ? -amount : amount;
   switch (key) {
     case 'ArrowRight':
+      return clamp(value + right, limits.min, limits.max);
+    case 'ArrowLeft':
+      return clamp(value - right, limits.min, limits.max);
     case 'ArrowUp':
       return clamp(value + amount, limits.min, limits.max);
-    case 'ArrowLeft':
     case 'ArrowDown':
       return clamp(value - amount, limits.min, limits.max);
     case 'Home':
@@ -83,6 +91,15 @@ export function step(value: number, key: string, shift: boolean, limits: Limits)
     default:
       return null;
   }
+}
+
+/**
+ * How much a pane grows for a pointer move of (dx, dy) pixels. A vertical splitter follows the x movement
+ * (negated when the pane is on its right), a horizontal one grows upward.
+ */
+export function dragDelta(orientation: 'vertical' | 'horizontal', grow: SplitterGrow, dx: number, dy: number): number {
+  if (orientation === 'horizontal') return -dy;
+  return grow === 'start' ? -dx : dx;
 }
 
 export function shouldCollapseDock(rawHeight: number): boolean {

@@ -834,6 +834,37 @@ describe('pane size prefs', () => {
     expect(b.getState().sidebarWidth).toBe(900);
     expect(b.getState().dockHeight).toBe(410);
   });
+
+  it('prefs without a side panel load an open watchlist', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify(base));
+    const useStore = await fresh();
+    useStore.getState().init();
+    expect(useStore.getState().sidePanel).toBe('watchlist');
+    expect(useStore.getState().sidePanelCollapsed).toBe(false);
+  });
+
+  it('junk side panel prefs load the defaults', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, sidePanel: 'charts', sidePanelCollapsed: 'yes' }));
+    const useStore = await fresh();
+    useStore.getState().init();
+    expect(useStore.getState().sidePanel).toBe('watchlist');
+    expect(useStore.getState().sidePanelCollapsed).toBe(false);
+  });
+
+  it('persists the side panel and a fresh store reads it back', async () => {
+    const a = await fresh();
+    a.getState().setSidePanel('indicators');
+    a.getState().setSidePanelCollapsed(true);
+    a.getState().flushPersist();
+    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    expect(saved.sidePanel).toBe('indicators');
+    expect(saved.sidePanelCollapsed).toBe(true);
+    vi.resetModules();
+    const b = await fresh();
+    b.getState().init();
+    expect(b.getState().sidePanel).toBe('indicators');
+    expect(b.getState().sidePanelCollapsed).toBe(true);
+  });
 });
 
 describe('replay', () => {
