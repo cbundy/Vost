@@ -6,9 +6,10 @@ import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
+import { useAlerts } from '../state/alerts';
 import { selectDataCandles, useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
-import { InboxIcon, RefreshIcon, ReplayIcon, SidebarIcon, StarIcon, UploadIcon } from './Icons';
+import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, SidebarIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
@@ -19,6 +20,7 @@ export function TopBar({
   onImportCsv,
   onToggleSidebar,
   onOpenInbox,
+  onOpenAlerts,
   sidebarExpanded,
   toggleRef,
   pineToggleRef,
@@ -26,6 +28,7 @@ export function TopBar({
   onImportCsv: () => void;
   onToggleSidebar: () => void;
   onOpenInbox: () => void;
+  onOpenAlerts: () => void;
   sidebarExpanded: boolean;
   toggleRef?: Ref<HTMLButtonElement>;
   pineToggleRef?: Ref<HTMLButtonElement>;
@@ -38,6 +41,7 @@ export function TopBar({
   const timeframe = useStore((s) => s.timeframe);
   const bars = useStore((s) => s.bars);
   const loadState = useStore((s) => s.loadState);
+  const activeAlerts = useAlerts((s) => s.alerts.filter((a) => a.status === 'active').length);
   const unread = useStore((s) => unreadCount(s.messages));
   const pineOpen = useStore((s) => s.pineOpen);
   const pineCount = useStore((s) => s.indicators.filter((i) => i.kind === 'pine').length);
@@ -232,6 +236,10 @@ export function TopBar({
           {tier === 'full' && <span className="btn-label">Pine Editor</span>}
           {pineRunning && <span className="spinner" />}
           {pineCount > 0 && <span className="badge">{pineCount}</span>}
+        </button>
+        <button className="ghost icon inbox-btn" onClick={onOpenAlerts} title="Alerts" aria-label="Alerts">
+          <BellIcon />
+          {activeAlerts > 0 && <span className="inbox-badge alerts-badge" data-testid="alerts-badge">{activeAlerts > 99 ? '99+' : activeAlerts}</span>}
         </button>
         {!importInMore && importButton()}
         {!importInMore && githubLink}

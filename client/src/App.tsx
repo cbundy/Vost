@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BottomDock } from './components/BottomDock';
 import { ChartPanel } from './components/ChartPanel';
+import { AlertPopup } from './components/AlertPopup';
+import { AlertsPanel } from './components/AlertsPanel';
 import { Inbox } from './components/Inbox';
 import { CsvImportModal } from './components/CsvImportModal';
 import { PinePane } from './components/PinePane';
@@ -12,12 +14,15 @@ import { Splitter } from './components/Splitter';
 import { DRAWER_QUERY, PINE_DEFAULT, SIDEBAR_DEFAULT, clamp, pineLimits, sidebarLimits } from './lib/paneSizes';
 import { useMediaQuery } from './lib/useMediaQuery';
 import { useViewportSize } from './lib/useViewportSize';
+import { useAlerts } from './state/alerts';
 import { useStore } from './state/store';
 
 export default function App() {
   const init = useStore((s) => s.init);
   const [csvOpen, setCsvOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
+  // The Alerts panel; `level` is a price prefilled from the chart's right-click menu.
+  const [alertsPanel, setAlertsPanel] = useState<{ level?: number } | null>(null);
   // The desktop panel's collapsed state is a saved pref; the narrow-screen drawer's open state is local.
   const panelCollapsed = useStore((s) => s.sidePanelCollapsed);
   const setPanelCollapsed = useStore((s) => s.setSidePanelCollapsed);
@@ -58,6 +63,11 @@ export default function App() {
     init();
   }, [init]);
 
+  useEffect(() => {
+    useAlerts.getState().start();
+    return () => useAlerts.getState().stop();
+  }, []);
+
   return (
     <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px`, ['--pine-width' as string]: `${effectivePine}px` }}>
       <TopBar onImportCsv={() => setCsvOpen(true)}
@@ -66,6 +76,7 @@ export default function App() {
         toggleRef={toggleRef}
         pineToggleRef={pineToggleRef}
         onOpenInbox={() => setInboxOpen(true)}
+        onOpenAlerts={() => setAlertsPanel({})}
       />
       <div className="app-body">
         {drawerShown && <div className="drawer-backdrop" onMouseDown={(e) => { e.preventDefault(); closeDrawer(); }} />}
@@ -79,7 +90,7 @@ export default function App() {
           />
         )}
         <main className="chart-area">
-          <ChartPanel onImportCsv={() => setCsvOpen(true)} />
+          <ChartPanel onImportCsv={() => setCsvOpen(true)} onAddAlert={(level) => setAlertsPanel({ level })} />
           {isDrawer && pineOpen && <PinePane dialog onClose={closePine} />}
         </main>
         {!isDrawer && pineOpen && (
@@ -113,6 +124,8 @@ export default function App() {
       <BottomDock />
       {csvOpen && <CsvImportModal onClose={() => setCsvOpen(false)} />}
       {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} />}
+      {alertsPanel && <AlertsPanel key={alertsPanel.level ?? 'none'} initialLevel={alertsPanel.level} onClose={() => setAlertsPanel(null)} />}
+      <AlertPopup onOpenAlerts={() => setAlertsPanel({})} />
       <Toasts />
     </div>
   );
