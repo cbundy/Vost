@@ -708,6 +708,7 @@ button.icon {
 
 .chart-range-bar .chart-range {
   flex: none;
+  position: static;
 }
 
 .chart-range-bar .zone-clock-btn {
@@ -717,6 +718,8 @@ button.icon {
 .chart-range-bar .chart-range-panel {
   top: auto;
   bottom: calc(100% + 8px);
+  left: auto;
+  right: 6px;
 }
 
 .chart-toolbar {
