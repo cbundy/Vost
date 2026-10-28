@@ -23,6 +23,6 @@ export const ray: DrawingTool = {
     ctx.lineWidth = selected ? 2 : 1.5;
     ctx.stroke();
   },
-  hit: ([a, b], p, { width, height }) => distToSegment(p, a, rayEnd(a, b, width, height)) <= HIT_TOLERANCE,
+  hit: ([a, b], p, { width, height }, tolerance = HIT_TOLERANCE) => distToSegment(p, a, rayEnd(a, b, width, height)) <= tolerance,
   handles: (pts) => pts,
 };

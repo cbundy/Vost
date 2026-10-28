@@ -1,2 +1,24 @@
 ok   rail hidden
 ok   chart starts at the left edge - x=0
+ok   menu button has title and aria-haspopup
+ok   collapsed at start
+ok   expanded
+ok   menu has Cursor
+ok   menu has Trend line
+ok   menu has Horizontal line
+ok   menu has Magnet
+ok   menu has Hide all drawings
+ok   menu has Delete all drawings
+ok   Delete all disabled with no drawings
+ok   Escape closes it
+ok   focus is back on the button
+ok   menu closed after picking
+ok   one trend line stored - trendLine
+ok   two distinct anchors
+ok   tap on empty chart cleared the selection (handles gone)
+ok   tap on the line selected it (handles back)
+ok   still one drawing
+ok   swipe panned the chart
+ok   pinch zoomed the chart
+ok   no drawing added
+ok   the drawing was not moved

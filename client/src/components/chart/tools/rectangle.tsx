@@ -20,7 +20,7 @@ export const rectangle: DrawingTool = {
     ctx.lineWidth = selected ? 2 : 1.5;
     ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
   },
-  hit: ([a, b], p) => pointInRect(p, a, b, HIT_TOLERANCE),
+  hit: ([a, b], p, _view, tolerance = HIT_TOLERANCE) => pointInRect(p, a, b, tolerance),
   handles: ([a, b]) => rectCorners(a, b),
   dragHandle(origPts: Pt[], handle: number, p: Pt) {
     return rectCornerDrag(origPts[0], origPts[1], handle, p);

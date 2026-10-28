@@ -2402,3 +2402,37 @@ a:hover {
 .chart-context-menu button:hover:not(:disabled) {
   background: var(--panel-3);
 }
+
+/* ------------------------- drawing rail extras ------------------------- */
+
+.rail-divider {
+  width: 20px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+  flex: 0 0 auto;
+}
+
+.drawing-menu {
+  position: relative;
+}
+
+.drawing-menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.drawing-menu-pop .rail-divider {
+  width: 100%;
+}

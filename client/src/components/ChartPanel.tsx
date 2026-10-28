@@ -29,7 +29,8 @@ import { getProvider } from '../lib/providers';
 import { selectDataCandles, useStore } from '../state/store';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
-import { DrawingRail } from './DrawingRail';
+import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
+import { useMediaQuery } from '../lib/useMediaQuery';
 
 type IndEntry = {
   series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
@@ -249,6 +250,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
   }, [chartApi, indicators]);
 
   usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff);
+  const narrow = useMediaQuery('(max-width: 600px)');
   const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef);
 
   /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */
@@ -436,15 +438,28 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
     chartApi.timeScale().fitContent();
   }
 
+  const drawingControls: DrawingControls = {
+    tool: drawings.tool,
+    onPick: drawings.setTool,
+    disabled: !drawings.hasData,
+    magnet: drawings.magnet,
+    onMagnet: drawings.toggleMagnet,
+    hidden: drawings.hidden,
+    onHidden: drawings.toggleHidden,
+    canDeleteAll: drawings.drawingCount > 0,
+    onDeleteAll: drawings.deleteAll,
+  };
+
   return (
     <div className="chart-wrap">
-      <DrawingRail tool={drawings.tool} onPick={drawings.setTool} disabled={!drawings.hasData} />
+      <DrawingRail {...drawingControls} />
       <div className="chart-main">
       <div className="chart-legend" ref={legendRef} />
       <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
       <ChartRangeBar chartApi={chartApi} />
       <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} />
       <div className="chart-toolbar">
+        {narrow && <DrawingMenu {...drawingControls} />}
         <button
           className="ghost icon"
           title="Reset view"

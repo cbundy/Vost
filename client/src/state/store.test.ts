@@ -1139,4 +1139,36 @@ describe('replay', () => {
       provider.startLive = orig;
     }
   });
+
+  it('drawing magnet and hide-all: default off, persisted, bad values load as off', async () => {
+    const load = async (prefs: Record<string, unknown>) => {
+      vi.resetModules();
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const st = track((await import('./store')).useStore);
+      st.getState().init();
+      return st;
+    };
+    const old = await load({});
+    expect(old.getState().drawingMagnet).toBe(false);
+    expect(old.getState().drawingsHidden).toBe(false);
+
+    old.getState().setDrawingMagnet(true);
+    old.getState().setDrawingsHidden(true);
+    old.getState().flushPersist();
+    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    expect(saved.drawingMagnet).toBe(true);
+    expect(saved.drawingsHidden).toBe(true);
+
+    vi.resetModules();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const fresh = track((await import('./store')).useStore);
+    fresh.getState().init();
+    expect(fresh.getState().drawingMagnet).toBe(true);
+    expect(fresh.getState().drawingsHidden).toBe(true);
+
+    const bad = await load({ drawingMagnet: 'yes', drawingsHidden: 1 });
+    expect(bad.getState().drawingMagnet).toBe(false);
+    expect(bad.getState().drawingsHidden).toBe(false);
+  });
 });

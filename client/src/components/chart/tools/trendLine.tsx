@@ -22,6 +22,6 @@ export const trendLine: DrawingTool = {
     ctx.lineWidth = selected ? 2 : 1.5;
     ctx.stroke();
   },
-  hit: ([a, b], p) => distToSegment(p, a, b) <= HIT_TOLERANCE,
+  hit: ([a, b], p, _view, tolerance = HIT_TOLERANCE) => distToSegment(p, a, b) <= tolerance,
   handles: (pts) => pts,
 };

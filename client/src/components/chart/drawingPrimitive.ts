@@ -9,7 +9,7 @@ import type {
   SeriesAttachedParameter,
   Time,
 } from 'lightweight-charts';
-import { HANDLE_HIT_RADIUS, HANDLE_RADIUS, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
+import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
 import type { Anchor, Drawing } from '../../lib/drawings';
 import { theme } from '../../lib/theme';
 import { getTool } from './tools';
@@ -116,21 +116,21 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   }
 
   /** What a press at p would grab: the selected drawing's handles first, then drawings from the top. */
-  hit(p: Pt): DrawingHit | null {
+  hit(p: Pt, opts: HitOpts = MOUSE_HIT): DrawingHit | null {
     const sel = this.drawings.find((d) => d.id === this.selectedId);
     if (sel) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
       if (tool && pts) {
         const hs = tool.handles(pts, this.viewFor(sel.anchors));
-        for (let i = 0; i < hs.length; i++) if (hitsHandle(p, hs[i], HANDLE_HIT_RADIUS)) return { id: sel.id, handle: i };
+        for (let i = 0; i < hs.length; i++) if (hitsHandle(p, hs[i], opts.handleRadius)) return { id: sel.id, handle: i };
       }
     }
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i];
       const tool = getTool(d.tool);
       const pts = tool && this.points(d);
-      if (tool && pts && tool.hit(pts, p, this.viewFor(d.anchors))) return { id: d.id, handle: null };
+      if (tool && pts && tool.hit(pts, p, this.viewFor(d.anchors), opts.tolerance)) return { id: d.id, handle: null };
     }
     return null;
   }
@@ -161,6 +161,18 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
             ctx.strokeStyle = theme.text;
             ctx.stroke();
           }
+        }
+        // A draft whose two anchors are still equal (first tap placed) shows that anchor as a handle.
+        const [first, second] = d.anchors;
+        if (d === this.draft && d.anchors.length === 2 && first.time === second.time && first.price === second.price) {
+          const p0 = pts[0];
+          ctx.beginPath();
+          ctx.arc(p0.x, p0.y, HANDLE_RADIUS, 0, Math.PI * 2);
+          ctx.fillStyle = theme.bg;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = theme.text;
+          ctx.stroke();
         }
         ctx.restore();
       }

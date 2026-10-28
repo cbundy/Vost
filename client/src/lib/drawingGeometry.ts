@@ -79,6 +79,41 @@ export function hitsHandle(p: Pt, handle: Pt, radius = HANDLE_HIT_RADIUS): boole
   return Math.hypot(p.x - handle.x, p.y - handle.y) <= radius;
 }
 
+/** Handle hit radius for a touch pointer (a fingertip is wider than a mouse). */
+export const TOUCH_HANDLE_HIT_RADIUS = 12;
+/** Body hit tolerance for a touch pointer. */
+export const TOUCH_HIT_TOLERANCE = 10;
+
+export type HitOpts = { handleRadius: number; tolerance: number };
+export const MOUSE_HIT: HitOpts = { handleRadius: HANDLE_HIT_RADIUS, tolerance: HIT_TOLERANCE };
+export const TOUCH_HIT: HitOpts = { handleRadius: TOUCH_HANDLE_HIT_RADIUS, tolerance: TOUCH_HIT_TOLERANCE };
+
+export type OhlcBar = { time: number; open: number; high: number; low: number; close: number };
+
+/**
+ * Magnet: when the anchor's fractional bar index is within half a bar of a real bar, moves it to that
+ * bar's time and to the nearest of its open, high, low, close. Outside every bar it is returned as is.
+ * `priceOnly` keeps the time (a horizontal line).
+ */
+export function snapToBar(
+  candles: readonly OhlcBar[],
+  anchor: { time: number; price: number },
+  opts: { priceOnly?: boolean } = {},
+): { time: number; price: number } {
+  const n = candles.length;
+  if (n === 0) return anchor;
+  const logical = timeToLogical(
+    candles.map((c) => c.time),
+    anchor.time,
+  );
+  const i = Math.round(logical);
+  if (i < 0 || i > n - 1 || Math.abs(logical - i) > 0.5) return anchor;
+  const bar = candles[i];
+  let price = bar.open;
+  for (const v of [bar.high, bar.low, bar.close]) if (Math.abs(v - anchor.price) < Math.abs(price - anchor.price)) price = v;
+  return { time: opts.priceOnly ? anchor.time : bar.time, price };
+}
+
 /** Where the ray from a through b leaves the pane [0,width] x [0,height]; a itself when a equals b. */
 export function rayEnd(a: Pt, b: Pt, width: number, height: number): Pt {
   const dx = b.x - a.x;

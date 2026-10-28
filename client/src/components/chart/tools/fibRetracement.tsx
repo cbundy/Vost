@@ -53,11 +53,11 @@ export const fibRetracement: DrawingTool = {
     ctx.stroke();
     ctx.restore();
   },
-  hit(pts, p, view) {
+  hit(pts, p, view, tolerance = HIT_TOLERANCE) {
     const x0 = Math.min(pts[0].x, pts[1].x);
     const x1 = Math.max(pts[0].x, pts[1].x);
-    if (p.x < x0 - HIT_TOLERANCE || p.x > x1 + HIT_TOLERANCE) return false;
-    return levels(view).some((l) => Math.abs(p.y - l.y) <= HIT_TOLERANCE);
+    if (p.x < x0 - tolerance || p.x > x1 + tolerance) return false;
+    return levels(view).some((l) => Math.abs(p.y - l.y) <= tolerance);
   },
   handles: (pts) => pts,
 };

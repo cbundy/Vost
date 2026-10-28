@@ -52,6 +52,12 @@ export function remove(s: DrawingsState, id: string): DrawingsState {
   return record(s, s.drawings, s.drawings.filter((d) => d.id !== id));
 }
 
+/** Removes every drawing as one undoable step; the same state when there is nothing to remove. */
+export function removeAll(s: DrawingsState): DrawingsState {
+  if (s.drawings.length === 0) return s;
+  return record(s, s.drawings, []);
+}
+
 /** Live drag preview: changes the anchors without touching history. Pair with {@link commit}. */
 export function preview(s: DrawingsState, id: string, anchors: Anchor[]): DrawingsState {
   return { ...s, drawings: s.drawings.map((d) => (d.id === id ? { ...d, anchors } : d)) };

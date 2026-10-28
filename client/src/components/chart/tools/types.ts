@@ -29,7 +29,7 @@ export interface DrawingTool {
   priceOnly?: boolean;
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;
   /** Whether a press at p grabs the drawing's body. */
-  hit(pts: Pt[], p: Pt, view: ToolView): boolean;
+  hit(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
   /** Where the selection handles go. */
   handles(pts: Pt[], view: ToolView): Pt[];
   /**
