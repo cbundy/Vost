@@ -94,3 +94,37 @@ export const MoreIcon = () => (
     <circle cx="19" cy="12" r="2" />
   </svg>
 );
+
+export const ReplayIcon = () => (
+  <Svg>
+    <path d="M3 12a9 9 0 1 0 2.64-6.36" />
+    <path d="M3 4v5h5" />
+    <path d="m10 9 5 3-5 3z" />
+  </Svg>
+);
+
+const Glyph = ({ children }: { children: ReactNode }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    {children}
+  </svg>
+);
+export const StepBackIcon = () => (
+  <Glyph>
+    <path d="M6 5h2.5v14H6zM20 5v14L9.5 12z" />
+  </Glyph>
+);
+export const StepForwardIcon = () => (
+  <Glyph>
+    <path d="M15.5 5H18v14h-2.5zM4 5l10.5 7L4 19z" />
+  </Glyph>
+);
+export const PlayIcon = () => (
+  <Glyph>
+    <path d="M7 4v16l13-8z" />
+  </Glyph>
+);
+export const PauseIcon = () => (
+  <Glyph>
+    <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
+  </Glyph>
+);

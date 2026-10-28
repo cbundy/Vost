@@ -6,9 +6,9 @@ import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
-import { useStore } from '../state/store';
+import { selectDataCandles, useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
-import { InboxIcon, RefreshIcon, SidebarIcon, StarIcon, UploadIcon } from './Icons';
+import { InboxIcon, RefreshIcon, ReplayIcon, SidebarIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
@@ -38,7 +38,9 @@ export function TopBar({
   const loadState = useStore((s) => s.loadState);
   const unread = useStore((s) => unreadCount(s.messages));
   const live = useStore((s) => s.live);
-  const candles = useStore((s) => s.candles);
+  const candles = useStore(selectDataCandles);
+  const replayOn = useStore((s) => s.replay != null);
+  const hasBars = useStore((s) => s.candles.length >= 3);
   const chartRange = useStore((s) => s.chartRange);
   const timeZone = useStore((s) => s.timeZone);
   const [now, setNow] = useState(() => Date.now() / 1000);
@@ -95,6 +97,24 @@ export function TopBar({
     >
       <span className={`live-dot ${liveClass}`} />
       {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
+    </button>
+  );
+  const replayButton = (after?: () => void) => (
+    <button
+      className={replayOn ? 'badge blue' : 'badge'}
+      style={{ cursor: 'pointer' }}
+      disabled={!hasBars && !replayOn}
+      aria-pressed={replayOn}
+      title={replayOn ? 'Leave bar replay' : 'Replay the chart bar by bar from a bar you pick'}
+      onClick={() => {
+        after?.();
+        const st = useStore.getState();
+        if (st.replay) st.exitReplay();
+        else st.startReplayPick();
+      }}
+    >
+      <ReplayIcon />
+      Replay
     </button>
   );
   const importButton = (after?: () => void) => (
@@ -185,6 +205,8 @@ export function TopBar({
 
       {!providerInMore && liveButton}
 
+      {!providerInMore && replayButton()}
+
       <ConnectionStatus />
 
       <div className="topbar-right">
@@ -223,6 +245,12 @@ export function TopBar({
                   <div className="more-row">
                     <span className="more-label">Live</span>
                     {liveButton}
+                  </div>
+                )}
+                {providerInMore && (
+                  <div className="more-row">
+                    <span className="more-label">Replay</span>
+                    {replayButton(close)}
                   </div>
                 )}
                 <div className="more-row">{importButton(close)}</div>

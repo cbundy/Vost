@@ -9,13 +9,13 @@ import { messageToError } from '../lib/pine/language';
 import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange, timeRangeErrorText } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
-import { useStore } from '../state/store';
+import { selectBars, useStore } from '../state/store';
 
 export function BacktestTab() {
   const btConfig = useStore((s) => s.btConfig);
   const btRunning = useStore((s) => s.btRunning);
   const btError = useStore((s) => s.btError);
-  const candles = useStore((s) => s.candles);
+  const candles = useStore(selectBars);
   const setBtConfig = useStore((s) => s.setBtConfig);
   const runBacktest = useStore((s) => s.runBacktest);
   const pushToast = useStore((s) => s.pushToast);

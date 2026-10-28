@@ -28,6 +28,15 @@ import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import { CHART_MIN_BARS, chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, sliceByTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
+import {
+  REPLAY_MIN_VISIBLE,
+  REPLAY_SPEEDS,
+  replayAtEnd,
+  replayIntervalMs,
+  replayStartIndex,
+  replayVisible,
+  stepReplay as stepPosition,
+} from '../lib/replay';
 import { DOCK_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
 import { nextPineSelection } from '../lib/pineSelection';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
@@ -94,6 +103,24 @@ const defaultPrefs: Prefs = {
   showTrades: true,
 };
 
+export interface ReplayState {
+  phase: 'picking' | 'active';
+  source: Candle[];
+  cursor: number;
+  playing: boolean;
+  speed: number;
+}
+
+/** The full loaded bars: the span behind a chart range, else the bars replay began on, else what the chart shows. */
+export function selectDataCandles(s: Pick<AppState, 'candles' | 'fullCandles' | 'replay'>): Candle[] {
+  return s.fullCandles ?? selectBars(s);
+}
+
+/** The bars the chart would show without a replay cut: what backtests and optimizer runs use (a chart range still crops). */
+export function selectBars(s: Pick<AppState, 'candles' | 'replay'>): Candle[] {
+  return s.replay?.phase === 'active' ? s.replay.source : s.candles;
+}
+
 export interface AppState {
   /* preferences (persisted) */
   providerId: string;
@@ -130,6 +157,11 @@ export interface AppState {
   dataLabel: string;
   activeDatasetId: string | null;
   loadState: LoadState;
+  /**
+   * Bar replay (not persisted). While `active`, `candles` is `source.slice(0, cursor + 1)` and `source` holds the
+   * bars shown when replay began, plus any live bars that arrived since. `picking` waits for a start bar.
+   */
+  replay: ReplayState | null;
 
   /* saved local datasets */
   datasets: Dataset[];
@@ -225,6 +257,15 @@ export interface AppState {
    */
   setChartRange(range: TimeRange): Promise<boolean>;
   clearChartRange(): Promise<void>;
+  /** Replay: wait for a start bar, begin at a time, step, play, pause, change speed, leave. */
+  startReplayPick(): void;
+  cancelReplay(): void;
+  startReplayAt(time: number): boolean;
+  stepReplay(delta: number): void;
+  playReplay(): void;
+  pauseReplay(): void;
+  setReplaySpeed(speed: number): void;
+  exitReplay(): void;
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
@@ -322,6 +363,12 @@ function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void):
 /* ------------------------------------------------------------------ */
 
 let liveHandle: LiveHandle | null = null;
+/** The replay play timer; every path that ends replay clears it. */
+let replayTimer: ReturnType<typeof setTimeout> | null = null;
+const clearReplayTimer = () => {
+  if (replayTimer != null) clearTimeout(replayTimer);
+  replayTimer = null;
+};
 /** Bumped by every data load and chart range fetch; only the newest result may be applied. */
 let requestToken = 0;
 /** Bumped whenever a live stream starts or stops, so a late backfill can tell it is stale. */
@@ -417,13 +464,17 @@ export const useStore = create<AppState>()((set, get) => {
     for (const i of get().indicators) if (i.kind === 'pine') schedulePine(i.id);
   };
 
+  const dropReplay = () => clearReplayTimer();
+
   const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
+    dropReplay();
     set({
       candles,
       chartRange: null,
       fullCandles: null,
       chartRangeFetched: false,
       dataKey: uid('data_'),
+      replay: null,
       dataLabel,
       activeDatasetId,
       loadState: 'ready',
@@ -435,7 +486,9 @@ export const useStore = create<AppState>()((set, get) => {
   };
 
   const applyRange = (slice: Candle[], full: Candle[], range: TimeRange, fetched: boolean) => {
+    dropReplay();
     set({
+      replay: null,
       candles: slice,
       fullCandles: full,
       chartRange: { from: range.from, to: range.to },
@@ -474,6 +527,7 @@ export const useStore = create<AppState>()((set, get) => {
     dataLabel: '',
     activeDatasetId: null,
     loadState: 'idle',
+    replay: null,
     datasets: [],
     live: false,
     liveStatus: 'off',
@@ -599,6 +653,7 @@ export const useStore = create<AppState>()((set, get) => {
       const provider = getProvider(providerId);
       const tf = provider.timeframes.includes(timeframe) ? timeframe : provider.defaultTimeframe;
       const token = ++requestToken;
+      get().exitReplay();
       set({ loadState: 'loading', timeframe: tf });
       try {
         const candles = await provider.fetchHistory({ symbol, timeframe: tf, bars });
@@ -617,7 +672,9 @@ export const useStore = create<AppState>()((set, get) => {
 
     clearData() {
       stopLive();
+      dropReplay();
       set({
+        replay: null,
         candles: [],
         chartRange: null,
         fullCandles: null,
@@ -652,8 +709,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     saveCurrentDataset(name) {
-      const { candles: shown, fullCandles, dataLabel, activeDatasetId, providerId } = get();
-      const candles = fullCandles ?? shown;
+      const { dataLabel, activeDatasetId, providerId } = get();
+      const candles = selectDataCandles(get());
       if (candles.length === 0) {
         get().pushToast('info', 'Nothing to save — load some data first.');
         return;
@@ -780,7 +837,7 @@ export const useStore = create<AppState>()((set, get) => {
 
     async setChartRange(range) {
       const state = get();
-      const full = state.fullCandles ?? state.candles;
+      const full = selectDataCandles(state);
       const open = range.from == null && range.to == null;
       if (open) {
         await get().clearChartRange();
@@ -844,7 +901,9 @@ export const useStore = create<AppState>()((set, get) => {
         await get().loadData(); // back to the latest bars; setCandles resets the range state
         return;
       }
+      dropReplay();
       set({
+        replay: null,
         candles: fullCandles,
         fullCandles: null,
         chartRange: null,
@@ -856,8 +915,88 @@ export const useStore = create<AppState>()((set, get) => {
       schedulePineAll();
     },
 
+    startReplayPick() {
+      if (get().candles.length < REPLAY_MIN_VISIBLE + 1) {
+        get().pushToast('error', 'Load some data before starting a replay.');
+        return;
+      }
+      if (get().replay) return;
+      set({ replay: { phase: 'picking', source: [], cursor: 0, playing: false, speed: REPLAY_SPEEDS[0] } });
+    },
+
+    cancelReplay() {
+      if (get().replay?.phase === 'picking') set({ replay: null });
+    },
+
+    startReplayAt(time) {
+      const rp = get().replay;
+      if (rp?.phase !== 'picking') return false;
+      const source = get().candles;
+      const cursor = replayStartIndex(source, time);
+      if (cursor == null) {
+        get().pushToast('error', 'That time is outside the loaded bars, or too close to the end to replay.');
+        return false;
+      }
+      set({ replay: { phase: 'active', source, cursor, playing: false, speed: rp.speed }, candles: replayVisible(source, cursor) });
+      schedulePineAll();
+      return true;
+    },
+
+    stepReplay(delta) {
+      const rp = get().replay;
+      if (rp?.phase !== 'active') return;
+      get().pauseReplay();
+      const cursor = stepPosition(rp, delta);
+      if (cursor === rp.cursor) return;
+      set({ replay: { ...get().replay!, cursor }, candles: replayVisible(rp.source, cursor) });
+      schedulePineAll();
+    },
+
+    playReplay() {
+      const rp = get().replay;
+      if (rp?.phase !== 'active' || rp.playing || replayAtEnd(rp)) return;
+      clearReplayTimer();
+      set({ replay: { ...rp, playing: true } });
+      const tick = () => {
+        replayTimer = null;
+        const cur = get().replay;
+        if (cur?.phase !== 'active' || !cur.playing) return;
+        const cursor = stepPosition(cur, 1);
+        const next = { ...cur, cursor, playing: !replayAtEnd({ source: cur.source, cursor }) };
+        set({ replay: next, candles: replayVisible(cur.source, cursor) });
+        schedulePineAll();
+        if (next.playing) replayTimer = setTimeout(tick, replayIntervalMs(get().replay!.speed));
+      };
+      replayTimer = setTimeout(tick, replayIntervalMs(rp.speed));
+    },
+
+    pauseReplay() {
+      clearReplayTimer();
+      const rp = get().replay;
+      if (rp?.playing) set({ replay: { ...rp, playing: false } });
+    },
+
+    setReplaySpeed(speed) {
+      const rp = get().replay;
+      if (!rp || !(REPLAY_SPEEDS as readonly number[]).includes(speed)) return;
+      set({ replay: { ...rp, speed } });
+    },
+
+    exitReplay() {
+      const rp = get().replay;
+      clearReplayTimer();
+      if (!rp) return;
+      if (rp.phase === 'picking') {
+        set({ replay: null });
+        return;
+      }
+      set({ replay: null, candles: rp.source });
+      schedulePineAll();
+    },
+
     async runBacktest() {
-      const { candles: all, btConfig, btRange } = get();
+      const { btConfig, btRange } = get();
+      const all = selectBars(get());
       if (all.length < 3) {
         get().pushToast('error', 'Load some data before running a backtest.');
         return;
@@ -886,7 +1025,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     async refreshPineInputs() {
-      const { candles, btConfig } = get();
+      const { btConfig } = get();
+      const candles = selectBars(get());
       if (btConfig.strategyId !== 'pine' || candles.length === 0) {
         if (get().pineInputs.length > 0) set({ pineInputs: [] });
         return;
@@ -914,7 +1054,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     async runOptimizer() {
-      const { candles: all, btConfig, optConfig, btRange } = get();
+      const { btConfig, optConfig, btRange } = get();
+      const all = selectBars(get());
       if (all.length < 3) {
         get().pushToast('error', 'Load some data before optimizing.');
         return;
@@ -960,6 +1101,7 @@ export const useStore = create<AppState>()((set, get) => {
         get().pushToast('info', `Live streaming is not available for ${provider.name} data.`);
         return;
       }
+      get().exitReplay(); // live bars land at the end of the real chart
       if (get().chartRangeFetched) {
         // a fetched span is not the latest bars: reload them, which reconnects live
         set({ live: true, liveStatus: 'connecting', liveDetail: '' });
@@ -976,19 +1118,28 @@ export const useStore = create<AppState>()((set, get) => {
 
       // After an outage (the exchange feed or the connection to the server) the stream
       // resumes at the current bar: fetch what was missed once and merge it by time.
+      const liveBars = () => {
+        const rp = get().replay;
+        return rp?.phase === 'active' ? rp.source : get().candles;
+      };
       let backfilling = false;
       const backfill = async (): Promise<void> => {
-        const last = get().candles[get().candles.length - 1];
+        const bars = liveBars();
+        const last = bars[bars.length - 1];
         if (!last || backfilling) return;
         backfilling = true;
         const dataKey = get().dataKey;
         const elapsed = Math.floor((Date.now() / 1000 - last.time) / (TIMEFRAME_SECONDS[timeframe] ?? 60));
-        const bars = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
+        const count = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
         try {
-          const recent = await provider.fetchHistory({ symbol, timeframe, bars });
+          const recent = await provider.fetchHistory({ symbol, timeframe, bars: count });
           if (session !== liveSession || get().dataKey !== dataKey) return; // stopped or switched meanwhile
-          set({ candles: mergeCandles(get().candles, recent) });
-          schedulePineAll();
+          const rp = get().replay;
+          if (rp?.phase === 'active') set({ replay: { ...rp, source: mergeCandles(rp.source, recent) } });
+          else {
+            set({ candles: mergeCandles(get().candles, recent) });
+            schedulePineAll();
+          }
         } catch (err) {
           if (session !== liveSession) return;
           get().pushMessage(
@@ -1019,11 +1170,18 @@ export const useStore = create<AppState>()((set, get) => {
           }
         },
         onKline: (candle, closed) => {
-          const prev = get().candles;
-          const next = applyKline(prev, candle);
-          if (next !== prev) {
-            set({ candles: next });
-            schedulePineAll();
+          const rp = get().replay;
+          if (rp?.phase === 'active') {
+            // the chart stays where replay is; the live bar waits in the source
+            const next = applyKline(rp.source, candle);
+            if (next !== rp.source) set({ replay: { ...rp, source: next } });
+          } else {
+            const prev = get().candles;
+            const next = applyKline(prev, candle);
+            if (next !== prev) {
+              set({ candles: next });
+              schedulePineAll();
+            }
           }
           if (closed && get().showTrades && get().btResult) {
             /* keep backtest results untouched; user re-runs manually */
