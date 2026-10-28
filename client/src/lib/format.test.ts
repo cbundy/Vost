@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fmtDataRange, fmtTime } from './format';
+import { fmtDataRange, fmtElapsed, fmtTime } from './format';
 
 const a = 1355320800;
 const b = 1580846400;
@@ -44,5 +44,16 @@ describe('fmtTime in an explicit zone', () => {
   it('fmtDataRange takes the zone', () => {
     expect(fmtDataRange(a, b, 2, { timeZone: 'UTC' })).toBe('12 Dec 2012, 14:00 → 04 Feb 2020, 20:00 · 2 bars');
     expect(fmtDataRange(a, b, 2, { timeZone: 'Asia/Tehran' })).toBe('12 Dec 2012, 17:30 → 04 Feb 2020, 23:30 · 2 bars');
+  });
+});
+
+describe('fmtElapsed', () => {
+  it('shows the two largest non-zero units', () => {
+    expect(fmtElapsed(0)).toBe('0m');
+    expect(fmtElapsed(30)).toBe('30s');
+    expect(fmtElapsed(2700)).toBe('45m');
+    expect(fmtElapsed(8100)).toBe('2h 15m');
+    expect(fmtElapsed(274000)).toBe('3d 4h');
+    expect(fmtElapsed(40 * 86400 + 3600)).toBe('40d 1h');
   });
 });

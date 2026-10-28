@@ -6,6 +6,8 @@ ok   expanded
 ok   menu has Cursor
 ok   menu has Trend line
 ok   menu has Horizontal line
+ok   menu has Text
+ok   menu has Measure
 ok   menu has Magnet
 ok   menu has Hide all drawings
 ok   menu has Delete all drawings
@@ -22,3 +24,8 @@ ok   swipe panned the chart
 ok   pinch zoomed the chart
 ok   no drawing added
 ok   the drawing was not moved
+ok   the input is focused
+ok   one text drawing added
+ok   with its text
+ok   the measure is painted
+ok   nothing stored by the measure

@@ -165,3 +165,61 @@ export const FIB_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786
 export function fibLevelPrices(start: number, end: number): number[] {
   return FIB_LEVELS.map((r) => end + (start - end) * r);
 }
+
+/**
+ * Word-wraps text into lines no wider than maxWidth by the given width function. Breaks at spaces; a single
+ * word wider than maxWidth is broken by characters. Always returns at least one line.
+ */
+export function wrapText(text: string, maxWidth: number, measure: (s: string) => number): string[] {
+  const lines: string[] = [];
+  for (const para of text.split('\n')) {
+    let line = '';
+    for (const word of para.split(' ')) {
+      const joined = line ? `${line} ${word}` : word;
+      if (measure(joined) <= maxWidth) {
+        line = joined;
+        continue;
+      }
+      if (line) lines.push(line);
+      line = '';
+      let rest = word;
+      while (rest && measure(rest) > maxWidth) {
+        let n = 1;
+        while (n < rest.length && measure(rest.slice(0, n + 1)) <= maxWidth) n++;
+        lines.push(rest.slice(0, n));
+        rest = rest.slice(n);
+      }
+      line = rest;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+export type MeasureSummary = {
+  /** End price minus start price. */
+  change: number;
+  /** Change as a percent of the start price, or null when the start price is 0. */
+  pct: number | null;
+  /** Absolute number of bars between the two times. */
+  bars: number;
+  /** Absolute seconds between the two times. */
+  seconds: number;
+  direction: 'up' | 'down' | 'flat';
+};
+
+/** The numbers the measure tool shows between two anchors; bar times give the bar count. */
+export function measureSummary(
+  start: { time: number; price: number },
+  end: { time: number; price: number },
+  times: readonly number[],
+): MeasureSummary {
+  const change = end.price - start.price;
+  return {
+    change,
+    pct: start.price === 0 ? null : (change / start.price) * 100,
+    bars: Math.abs(Math.round(timeToLogical(times, end.time) - timeToLogical(times, start.time))),
+    seconds: Math.abs(end.time - start.time),
+    direction: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
+  };
+}

@@ -20,7 +20,7 @@ export const drawings: Scenario = {
   name: 'drawings',
   touch: ['narrow'],
   keepPrefs: true,
-    description: 'Drawing tools: rail with magnet, hide all and delete all, the phone drawing menu, tap drawing, touch pan and pinch, draw a trend line, a horizontal line, a ray, a rectangle and a Fibonacci retracement, select, drag a handle and the body, delete, undo, reload, timeframe change, pan after drawing',
+    description: 'Drawing tools: rail with magnet, hide all and delete all, the phone drawing menu, tap drawing, touch pan and pinch, draw a trend line, a horizontal line, a ray, a rectangle and a Fibonacci retracement, select, drag a handle and the body, delete, undo, reload, timeframe change, pan after drawing, text notes (place, edit, typing keeps the drawings, reload) and the temporary measure, on desktop and with touch',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -58,7 +58,7 @@ export const drawings: Scenario = {
         check('collapsed at start', (await menuBtn.getAttribute('aria-expanded')) === 'false');
         await menuBtn.tap();
         check('expanded', (await menuBtn.getAttribute('aria-expanded')) === 'true');
-        for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Magnet', 'Hide all drawings', 'Delete all drawings']) {
+        for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Text', 'Measure', 'Magnet', 'Hide all drawings', 'Delete all drawings']) {
           check(`menu has ${name}`, await pick(name).isVisible());
         }
         check('Delete all disabled with no drawings', await pick('Delete all drawings').isDisabled());
@@ -140,6 +140,39 @@ export const drawings: Scenario = {
         check('no drawing added', after.length === 1);
         check('the drawing was not moved', JSON.stringify(after[0].anchors) === JSON.stringify(before.anchors));
       });
+      const input = page.getByLabel('Note text');
+      await ctx.step('pick Text, tap, type and commit a note with touch', async () => {
+        const before = (await stored()).length;
+        await menuBtn.tap();
+        await pick('Text').tap();
+        const p = await at(0.3, 0.25);
+        await page.touchscreen.tap(p.x, p.y);
+        await input.waitFor({ state: 'visible' });
+        check('the input is focused', await input.evaluate((el) => el === document.activeElement));
+        await page.keyboard.type('touch note');
+        await ctx.screenshot('touch-text-typing');
+        await page.keyboard.press('Enter');
+        const list = await stored();
+        check('one text drawing added', list.length === before + 1 && list.at(-1)!.tool === 'text');
+        check('with its text', (list.at(-1) as unknown as { text: string }).text === 'touch note');
+        await ctx.screenshot('touch-text');
+      });
+      await ctx.step('pick Measure and tap twice', async () => {
+        const before = (await stored()).length;
+        const shot = () => page.locator('.chart-container').screenshot();
+        const base = await shot();
+        await menuBtn.tap();
+        await pick('Measure').tap();
+        const a = await at(0.35, 0.7);
+        const b = await at(0.65, 0.5);
+        await page.touchscreen.tap(a.x, a.y);
+        await page.waitForTimeout(150);
+        await page.touchscreen.tap(b.x, b.y);
+        await page.waitForTimeout(300);
+        check('the measure is painted', !base.equals(await shot()));
+        check('nothing stored by the measure', (await stored()).length === before);
+        await ctx.screenshot('touch-measure');
+      });
       await ctx.writeText('checks', checks.join('\n') + '\n');
       return;
     }
@@ -150,7 +183,7 @@ export const drawings: Scenario = {
       if (!r) throw new Error('no rail box');
       check('rail left of canvas', r.x + r.width <= b.x + 0.5, `rail right=${r.x + r.width} canvas left=${b.x}`);
       check('rail about 40px wide', Math.abs(r.width - 40) <= 2, `${r.width}`);
-      for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Ray', 'Rectangle', 'Fibonacci retracement']) {
+      for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Ray', 'Rectangle', 'Fibonacci retracement', 'Text', 'Measure']) {
         const btn = rail.getByRole('button', { name, exact: true });
         check(`${name} button has title and aria-pressed`, (await btn.getAttribute('title')) === name && (await btn.getAttribute('aria-pressed')) !== null);
       }
@@ -410,6 +443,113 @@ export const drawings: Scenario = {
       check('chart panned', !first.equals(await shot()));
     });
     await ctx.screenshot('panned');
+
+    const cont = page.locator('.chart-container');
+    const input = page.getByLabel('Note text');
+    const notes = async () => (await stored()).filter((d) => d.tool === 'text') as unknown as { id: string; text: string; anchors: { time: number; price: number }[] }[];
+    const NOTE = { x: 0.2, y: 0.3 };
+
+    await ctx.step('Text: click the plot, type and press Enter', async () => {
+      const total = (await stored()).length;
+      await press('Text').click();
+      check('Text pressed', (await pressed('Text')) === 'true');
+      const p = await at(NOTE.x, NOTE.y);
+      await page.mouse.click(p.x, p.y);
+      await input.waitFor({ state: 'visible' });
+      check('the input is focused', await input.evaluate((el) => el === document.activeElement));
+      check('tool back to Cursor', (await pressed('Cursor')) === 'true');
+      await page.keyboard.type('first note');
+      await page.keyboard.press('Enter');
+      const list = await notes();
+      check('one text drawing stored with the text', list.length === 1 && list[0].text === 'first note', JSON.stringify(list));
+      check('exactly one drawing added', (await stored()).length === total + 1);
+      check('the input is gone', (await input.count()) === 0);
+    });
+    await ctx.screenshot('text-placed');
+
+    await ctx.step('Text: double-click edits; typing keys never delete or undo', async () => {
+      const total = (await stored()).length;
+      const p = await at(NOTE.x, NOTE.y);
+      await page.mouse.dblclick(p.x + 20, p.y + 12);
+      await input.waitFor({ state: 'visible' });
+      check('the input shows the text', (await input.inputValue()) === 'first note');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Delete');
+      await page.keyboard.type('ed');
+      check('typing edited the input', (await input.inputValue()) === 'first noed');
+      check('typing did not remove a drawing', (await stored()).length === total);
+      await page.keyboard.press('Control+z');
+      check('Ctrl+Z inside the input did not change storage', (await stored()).length === total && (await notes())[0].text === 'first note');
+      await page.keyboard.press('Control+y');
+      check('the input is still open', (await input.count()) === 1);
+      await page.keyboard.press('Enter');
+      const list = await notes();
+      check('the text changed', list.length === 1 && list[0].text === 'first noed', list[0]?.text);
+      check('no drawing lost', (await stored()).length === total);
+    });
+    await ctx.screenshot('text-edited');
+
+    await ctx.step('Text: Escape cancels a new note', async () => {
+      const total = (await stored()).length;
+      await press('Text').click();
+      const p = await at(0.6, 0.85);
+      await page.mouse.click(p.x, p.y);
+      await input.waitFor({ state: 'visible' });
+      await page.keyboard.type('never saved');
+      await page.keyboard.press('Escape');
+      check('the input is gone', (await input.count()) === 0);
+      check('nothing added', (await stored()).length === total);
+    });
+
+    await ctx.step('Text: the note survives a reload', async () => {
+      await page.reload();
+      await ctx.waitForChart();
+      await page.waitForTimeout(500);
+      const list = await notes();
+      check('the note is stored with its text', list.length === 1 && list[0].text === 'first noed');
+    });
+    await ctx.screenshot('text-reloaded');
+
+    await ctx.step('Measure: drag up, nothing stored, Escape clears', async () => {
+      const total = (await stored()).length;
+      const base = await cont.screenshot();
+      await press('Measure').click();
+      const a = await at(0.4, 0.6);
+      const b = await at(0.6, 0.4);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 15 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      const shown = await cont.screenshot();
+      check('the measure is painted', !base.equals(shown));
+      check('stored count unchanged', (await stored()).length === total);
+      await ctx.screenshot('measure-up');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+      check('Escape cleared it', !shown.equals(await cont.screenshot()));
+    });
+
+    await ctx.step('Measure: drag down, a click clears it, a reload keeps no measure', async () => {
+      await press('Measure').click();
+      const a = await at(0.4, 0.4);
+      const b = await at(0.6, 0.6);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 15 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      const shown = await cont.screenshot();
+      await ctx.screenshot('measure-down');
+      const empty = await at(0.8, 0.9);
+      await page.mouse.click(empty.x, empty.y);
+      await page.waitForTimeout(300);
+      check('a click on the chart cleared it', !shown.equals(await cont.screenshot()));
+      await page.reload();
+      await ctx.waitForChart();
+      check('no measure drawing is stored', (await stored()).every((d) => d.tool !== 'measure'));
+    });
 
     await ctx.writeText('checks', checks.join('\n') + '\n');
   },

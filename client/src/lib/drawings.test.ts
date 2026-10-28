@@ -12,13 +12,15 @@ import {
   remove,
   removeAll,
   saveDrawings,
+  setText,
   sourceKey,
   undo,
   update,
   type Drawing,
 } from './drawings';
 
-const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2 };
+const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, text: 1 };
+const TEXT = new Set(['text']);
 const store = new Map<string, string>();
 beforeEach(() => {
   store.clear();
@@ -159,6 +161,26 @@ describe('storage', () => {
     expect(loadDrawings({ trendLine: 2, horizontalLine: 1 }).sources).toEqual(saved.sources);
     expect(loadDrawings(COUNTS).sources).toEqual(saved.sources);
   });
+  it('round trips a text drawing and trims and cuts its text', () => {
+    const note = (id: string, text: unknown) => ({ id, tool: 'text', anchors: [{ time: 5, price: 6 }], text });
+    saveDrawings({ s: [note('a', 'hello') as Drawing] });
+    expect(loadDrawings(COUNTS, TEXT).sources).toEqual({ s: [note('a', 'hello')] });
+    const got = parseStore({ version: 1, sources: { s: [note('b', `  ${'x'.repeat(600)}  `), note('c', '  hi  ')] } }, COUNTS, TEXT);
+    expect(got.sources.s.map((d) => d.text)).toEqual(['x'.repeat(500), 'hi']);
+  });
+  it('drops a text drawing with missing, numeric or blank text and keeps its neighbours', () => {
+    const anchors = [{ time: 5, price: 6 }];
+    const raw = { version: 1, sources: { s: [trend('a'), { id: 'm', tool: 'text', anchors }, { id: 'n', tool: 'text', anchors, text: 5 }, { id: 'b', tool: 'text', anchors, text: '   ' }, hline('z')] } };
+    expect(parseStore(raw, COUNTS, TEXT).sources).toEqual({ s: [trend('a'), hline('z')] });
+  });
+  it('keeps text only on text tools', () => {
+    const raw = { version: 1, sources: { s: [{ ...trend('a'), text: 'nope' }] } };
+    expect(parseStore(raw, COUNTS, TEXT).sources).toEqual({ s: [trend('a')] });
+  });
+  it('drops a stored measure drawing', () => {
+    const measure = { id: 'm', tool: 'measure', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] };
+    expect(parseStore({ version: 1, sources: { s: [measure, trend('a')] } }, COUNTS, TEXT).sources).toEqual({ s: [trend('a')] });
+  });
   it('treats a newer version as none and leaves it in storage until the user saves', () => {
     const newer = JSON.stringify({ version: 2, sources: { s: [trend('a')] } });
     store.set('vost.' + STORAGE_KEY, newer);
@@ -184,5 +206,22 @@ describe('removeAll', () => {
   it('returns the same state when there is nothing to remove', () => {
     const s = emptyState();
     expect(removeAll(s)).toBe(s);
+  });
+});
+
+describe('setText', () => {
+  const note: Drawing = { id: 'n', tool: 'text', anchors: [{ time: 1, price: 2 }], text: 'old' };
+  it('is one undo step and keeps the text across update', () => {
+    const s0 = emptyState([note]);
+    const s1 = setText(s0, 'n', '  new ');
+    expect(s1.drawings[0].text).toBe('new');
+    expect(s1.past).toHaveLength(1);
+    expect(undo(s1).drawings[0].text).toBe('old');
+    expect(update(s1, 'n', [{ time: 3, price: 4 }]).drawings[0].text).toBe('new');
+  });
+  it('adds no step when unchanged or when the id is unknown', () => {
+    const s0 = emptyState([note]);
+    expect(setText(s0, 'n', ' old ')).toBe(s0);
+    expect(setText(s0, 'zz', 'x')).toBe(s0);
   });
 });

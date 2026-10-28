@@ -6,6 +6,8 @@ ok   Horizontal line button has title and aria-pressed
 ok   Ray button has title and aria-pressed
 ok   Rectangle button has title and aria-pressed
 ok   Fibonacci retracement button has title and aria-pressed
+ok   Text button has title and aria-pressed
+ok   Measure button has title and aria-pressed
 ok   Cursor pressed at start
 ok   Magnet button has title
 ok   Hide all drawings button has title
@@ -63,3 +65,24 @@ ok   five drawings in storage after reload
 ok   pointer cursor over the reloaded trend line - pointer
 ok   drawings unchanged by the change
 ok   chart panned
+ok   Text pressed
+ok   the input is focused
+ok   tool back to Cursor
+ok   one text drawing stored with the text - [{"id":"dmvs5nrs61b15l","tool":"text","anchors":[{"time":1790168400,"price":192.92154584576326}],"text":"first note"}]
+ok   exactly one drawing added
+ok   the input is gone
+ok   the input shows the text
+ok   typing edited the input
+ok   typing did not remove a drawing
+ok   Ctrl+Z inside the input did not change storage
+ok   the input is still open
+ok   the text changed - first noed
+ok   no drawing lost
+ok   the input is gone
+ok   nothing added
+ok   the note is stored with its text
+ok   the measure is painted
+ok   stored count unchanged
+ok   Escape cleared it
+ok   a click on the chart cleared it
+ok   no measure drawing is stored

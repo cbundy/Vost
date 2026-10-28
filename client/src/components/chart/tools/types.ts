@@ -11,6 +11,10 @@ export interface ToolView {
   height: number;
   /** The drawing's anchors (time and price), in the same order as its pixel points. */
   anchors: readonly Anchor[];
+  /** The drawing's text; empty for tools without text. */
+  text: string;
+  /** Times of the loaded bars, ascending. */
+  times: readonly number[];
   /** Pixel y of a price, or null when it is off the scale. */
   priceToY(price: number): number | null;
   /** A price as the series formats it. */
@@ -25,6 +29,10 @@ export interface DrawingTool {
   icon: ReactNode;
   /** Anchors the tool needs before it is finished. */
   anchors: number;
+  /** The tool stores text (a note). */
+  text?: true;
+  /** The tool is shown while and after it is drawn but never stored, hit or undone (the measure). */
+  transient?: true;
   /** A drag moves it vertically only (the time of its anchor is kept). */
   priceOnly?: boolean;
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;
