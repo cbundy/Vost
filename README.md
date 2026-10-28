@@ -204,7 +204,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 
 ## Roadmap
 
-- [ ] Drawing tools (trend lines, fibs, rectangles)
+- [x] Drawing tools: trend line and horizontal line (select, move, delete, undo/redo, saved per symbol); fibs and rectangles still to come
 - [ ] Alerts on price/indicator conditions
 - [ ] Multiple chart layouts & compare mode
 - [ ] More providers: keyless crypto exchanges (Coinbase, Kraken, Bybit, OKX) then free-key Twelve Data and Alpha Vantage - see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)
