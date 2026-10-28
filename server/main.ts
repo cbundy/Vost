@@ -13,6 +13,10 @@
  *   HOST  (default 0.0.0.0)
  *   VOST_STATUS_INTERVAL  seconds between background health checks of the
  *                         exchanges (default 60; 0 turns them off)
+ *   VOST_DATA_DIR  folder for the one file the server writes, alerts.json
+ *                  (default <repo>/data; /data in the Docker image)
+ *   VOST_ALERT_POLL  seconds between price polls for alerts on providers
+ *                    without a live feed (default 60; minimum 10)
  *   VOST_TEST_UPSTREAM  test only: http://127.0.0.1:<port> of a fake market-data
  *                       service that every outbound call is rewritten to (see
  *                       docs/e2e-visual-verification.md). Refused when
@@ -23,6 +27,7 @@ import { createReadStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { createAlerts, isAlertsPath } from './alerts/index.ts';
 import { createApiDeps, handleApi } from './api.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
@@ -166,8 +171,20 @@ const status = createStatusService({
 });
 const apiDeps = createApiDeps({ onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
 
+const DATA_DIR = path.resolve(process.env.VOST_DATA_DIR || path.join(ROOT, 'data'));
+const pollEnv = Number(process.env.VOST_ALERT_POLL ?? 60);
+const alerts = await createAlerts({
+  dataDir: DATA_DIR,
+  pollSeconds: Number.isFinite(pollEnv) ? pollEnv : 60,
+  relay,
+  ctx: () => ({ fetch: apiDeps.fetch, symbols: apiDeps.symbols }),
+});
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+
+  // Alerts are same-origin only: no CORS grant, not even on the preflight.
+  if (isAlertsPath(url.pathname)) return void alerts.handle(req, res, url);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
@@ -211,14 +228,16 @@ server.listen(PORT, HOST, () => {
   console.log(`  → http://localhost:${PORT}`);
   console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search, /api/status`);
   console.log(`  → live candles: /api/live`);
+  console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR})`);
   console.log('');
   status.scheduler.start();
 });
 
 const shutdown = (): void => {
   status.scheduler.stop();
+  const saved = alerts.stop(); // drops its feeds, ends its streams, writes held prices
   relay.closeAll(); // ends the streams, so server.close does not wait on them
-  server.close(() => process.exit(0));
+  server.close(() => void saved.finally(() => process.exit(0)));
   setTimeout(() => process.exit(0), 2000).unref();
 };
 process.on('SIGINT', shutdown);

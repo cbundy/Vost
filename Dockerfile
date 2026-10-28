@@ -24,12 +24,17 @@ LABEL org.opencontainers.image.source="https://github.com/cbundy/Vost" \
 
 ENV NODE_ENV=production \
     PORT=8787 \
-    HOST=0.0.0.0
+    HOST=0.0.0.0 \
+    VOST_DATA_DIR=/data
 
 COPY package.json ./package.json
 COPY server ./server
 COPY shared ./shared
 COPY --from=build /app/client/dist ./client/dist
+
+# The one piece of state: alerts.json. Owned by the unprivileged user.
+RUN mkdir -p /data && chown node:node /data
+VOLUME /data
 
 # The server uses only Node built-ins — drop privileges.
 USER node

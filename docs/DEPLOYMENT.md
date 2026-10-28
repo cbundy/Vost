@@ -1,11 +1,12 @@
 # Deploying Vost
 
-Vost is a static web client plus a tiny zero-dependency Node server. The server does exactly two things:
+Vost is a static web client plus a tiny zero-dependency Node server. The server does three things:
 
 1. serves `client/dist` (the built web app),
-2. answers the market-data API (`/api/providers`, `/api/history`, `/api/symbols`, `/api/search`): it calls the public provider APIs (Binance, Yahoo, Stooq, …) on the browser's behalf, because many of them send no CORS headers.
+2. answers the market-data API (`/api/providers`, `/api/history`, `/api/symbols`, `/api/search`): it calls the public provider APIs (Binance, Yahoo, Stooq, …) on the browser's behalf, because many of them send no CORS headers,
+3. keeps price alerts (`/api/alerts`) and watches prices for them around the clock, even with every browser tab closed.
 
-There is no database; the only server-side state is an in-memory symbol-list cache. The server is TypeScript that Node runs directly (type stripping), so there is no server build step and no npm dependency at runtime. Everything else — fetch orchestration, CSV parsing, indicators, backtests — runs in the visitor's browser.
+There is no database. The one piece of state on disk is the alerts file, `alerts.json`, in the data folder (`VOST_DATA_DIR`); everything else is in memory (the symbol-list cache, the open exchange websockets). The server is TypeScript that Node runs directly (type stripping), so there is no server build step and no npm dependency at runtime. Everything else — fetch orchestration, CSV parsing, indicators, backtests — runs in the visitor's browser.
 
 - [Docker](#docker)
 - [Docker Compose](#docker-compose)
@@ -28,7 +29,7 @@ docker build -t vost .
 docker run -d --name vost -p 8787:8787 --restart unless-stopped vost
 ```
 
-Open <http://localhost:8787>. The image runs as a non-root user and needs no writable volumes.
+Open <http://localhost:8787>. The image runs as a non-root user. Mount a volume on `/data` to keep alerts across container re-creation (`-v vost-data:/data`); without it they live and die with the container.
 
 ## Docker Compose
 
@@ -173,6 +174,8 @@ You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by
 | `PORT` | server (runtime) | `8787` | HTTP listen port |
 | `HOST` | server (runtime) | `0.0.0.0` | Bind address; use `127.0.0.1` behind a proxy |
 | `VOST_STATUS_INTERVAL` | server (runtime) | `60` | Seconds between background health checks of the exchanges (see `/api/status`); `0` turns them off, and the status then stays `unknown` until someone presses "Test now" or real requests report in |
+| `VOST_DATA_DIR` | server (runtime) | `<repo>/data` (`/data` in the Docker image) | Folder for `alerts.json`, created on first write. If it is not writable the server still starts, alerts can be listed but every change answers `503` naming this variable |
+| `VOST_ALERT_POLL` | server (runtime) | `60` | Seconds between price polls for alerts on providers without a live feed (Coinbase, Yahoo, Stooq); values below 10 count as 10. Binance, Kraken, Bybit and OKX alerts use the shared live stream instead |
 | `VOST_SERVER_URL` | Vite dev server | `http://localhost:8787` | Upstream for the dev-time `/api` proxy |
 
 Variables are read once at process start. See [`.env.example`](../.env.example).
@@ -182,7 +185,8 @@ Variables are read once at process start. See [`.env.example`](../.env.example).
 - `GET /api/health` → `{ ok, version, uptimeSeconds, node, clientsBuilt }`. `version` is the running release (the top bar and the startup log show the same number). Use it for Docker health checks, uptime monitors and load-balancer probes.
 - `GET /api/status` → `{ server: { state, version, uptimeSeconds }, intervalSeconds, checks: [...] }`: one check per exchange and data type (price history, symbol lookup, live stream; 17 in all), each with `state` (`ok`, `degraded`, `down`, `unknown`), `latencyMs`, `checkedAt`, `lastOkAt`, `error` and `source` (`probe`, `relay` or `traffic`). It backs the connection light in the top bar; add `?refresh=1` to run a fresh round of checks first (rate limited: a refresh within 15 s of the last round reuses it). Unlike `/api/health` it reports on the exchanges, not just on Vost. The server makes these test requests itself about every `VOST_STATUS_INTERVAL` seconds, so an outbound firewall must allow the same exchange hosts as the data requests, and every state change is logged as `[status] <provider> <feed> <old> -> <new>`.
 - Updating to a release = `git fetch --tags && git checkout vX.Y.Z && npm ci && npm run build && restart`. Hashed asset filenames change, so clients pick up the new build on next load; no cache-busting dance needed.
-- The server never writes to disk at runtime; back it with any read-only filesystem if you like.
+- `GET /api/alerts` → `{ alerts: [...] }`; `POST /api/alerts`, `PUT /api/alerts/<id>` and `DELETE /api/alerts/<id>` change them, and `GET /api/alerts/events` is an event stream of every change and every firing. Alert changes are same-origin only: they must be `application/json` and must come from the Vost page itself (a request with a foreign `Origin` header or `Sec-Fetch-Site: cross-site` gets `403`), and alert replies carry no CORS header. A reverse proxy must therefore pass the `Host` header through unchanged.
+- The server writes to disk only to save `alerts.json` (atomically, on every change). Back it up by copying that file; a file it cannot read is renamed `alerts.json.bad-<time>` and the server starts with no alerts.
 
 ## Troubleshooting
 

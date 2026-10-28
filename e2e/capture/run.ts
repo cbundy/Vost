@@ -1,8 +1,9 @@
 // Evidence capture runner. See docs/e2e-visual-verification.md. Never run from CI or a gate.
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -111,6 +112,7 @@ async function main(): Promise<string[]> {
 
   let server: ChildProcess | null = null;
   let upstream: FakeUpstream | null = null;
+  let dataDir: string | null = null;
   let browser: Browser | null = null;
   const stop = () => {
     void stopServer(server).finally(() => process.exit(130));
@@ -127,6 +129,7 @@ async function main(): Promise<string[]> {
     const baseUrl = `http://127.0.0.1:${port}`;
     // The fake market-data service comes first: no capture may reach the real network from the server either.
     upstream = await startFakeUpstream();
+    dataDir = await mkdtemp(path.join(tmpdir(), 'vost-capture-'));
     server = spawn(process.execPath, ['server/index.mjs'], {
       cwd: ROOT,
       env: {
@@ -136,6 +139,7 @@ async function main(): Promise<string[]> {
         PORT: String(port),
         HOST: '127.0.0.1',
         VOST_STATUS_INTERVAL: '0',
+        VOST_DATA_DIR: dataDir,
         VOST_TEST_UPSTREAM: upstream.url,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -170,6 +174,7 @@ async function main(): Promise<string[]> {
     await browser?.close().catch(() => undefined);
     await stopServer(server);
     await upstream?.close();
+    if (dataDir) await rm(dataDir, { recursive: true, force: true });
   }
 }
 
