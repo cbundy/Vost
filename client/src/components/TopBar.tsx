@@ -93,7 +93,7 @@ export function TopBar({
       onClick={() => (liveStatus === 'error' ? onOpenInbox() : setLive(!live))}
       title={liveStatus === 'error' ? `${liveDetail} - click to open the inbox` : liveDetail || 'Stream live candles from Binance'}
     >
-      <span className={`live-dot ${liveClass}`} style={{ marginRight: 6 }} />
+      <span className={`live-dot ${liveClass}`} />
       {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
     </button>
   );
