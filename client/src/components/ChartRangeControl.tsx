@@ -1,3 +1,4 @@
+import { RangeIcon } from './Icons';
 import { useState } from 'react';
 import { useStore } from '../state/store';
 import { FULL_RANGE, type TimeRange } from '../lib/timeRange';
@@ -33,6 +34,7 @@ export function ChartRangeControl() {
         aria-expanded={open}
         title="Show a time window of the chart"
       >
+        <RangeIcon />
         {active ? 'Range on' : 'Range'}
       </button>
       {active && (

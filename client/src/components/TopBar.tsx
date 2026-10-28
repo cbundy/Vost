@@ -8,6 +8,7 @@ import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
 import { useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
+import { InboxIcon, RefreshIcon, SidebarIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
@@ -92,7 +93,7 @@ export function TopBar({
       onClick={() => (liveStatus === 'error' ? onOpenInbox() : setLive(!live))}
       title={liveStatus === 'error' ? `${liveDetail} - click to open the inbox` : liveDetail || 'Stream live candles from Binance'}
     >
-      <span className={`live-dot ${liveClass}`} style={{ marginRight: 6 }} />
+      <span className={`live-dot ${liveClass}`} />
       {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
     </button>
   );
@@ -104,12 +105,14 @@ export function TopBar({
       }}
       title="Import OHLCV CSV — works fully offline"
     >
-      ⬆ Import CSV
+      <UploadIcon />
+      Import CSV
     </button>
   );
   const githubLink = (
-    <a className="badge" href={PROVIDER_GITHUB_URL} target="_blank" rel="noreferrer" title="Star Vost on GitHub" style={{ padding: '5px 10px' }}>
-      ★ GitHub
+    <a className="badge" href={PROVIDER_GITHUB_URL} target="_blank" rel="noreferrer" title="Star Vost on GitHub">
+      <StarIcon />
+      GitHub
     </a>
   );
 
@@ -124,13 +127,10 @@ export function TopBar({
         aria-controls="sidebar"
         onClick={onToggleSidebar}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <line x1="9" y1="4" x2="9" y2="20" />
-        </svg>
+        <SidebarIcon />
       </button>
 
-      <div className="brand" title="Vost — open-source charts & backtesting">
+      <div className="brand" title={`Vost v${APP_VERSION} — self-hosted charts & backtesting`}>
         <span className="brand-logo">
           <svg width="16" height="16" viewBox="0 0 32 32">
             <rect x="5" y="9" width="4" height="14" rx="1" fill="#22c55e" />
@@ -142,8 +142,6 @@ export function TopBar({
           </svg>
         </span>
         <span className="brand-name">Vost</span>
-        <span className="brand-version" title="Vost version">v{APP_VERSION}</span>
-        <span className="brand-tag">self-hosted charts &amp; backtesting</span>
       </div>
 
       <div className="topbar-sep" />
@@ -176,8 +174,15 @@ export function TopBar({
         </span>
       )}
 
-      <button className="primary" onClick={() => void loadData()} disabled={loadState === 'loading'} title="Reload data">
-        {loadState === 'loading' ? <span className="spinner" /> : 'Load'}
+      <button className="primary" onClick={() => void loadData()} disabled={loadState === 'loading'} title="Reload data" aria-label="Load">
+        {loadState === 'loading' ? (
+          <span className="spinner" />
+        ) : (
+          <>
+            <RefreshIcon />
+            <span className="btn-label">Load</span>
+          </>
+        )}
       </button>
 
       {!providerInMore && liveButton}
@@ -186,10 +191,7 @@ export function TopBar({
 
       <div className="topbar-right">
         <button className="ghost icon inbox-btn" onClick={onOpenInbox} title="Inbox (messages and errors)" aria-label="Inbox">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-          </svg>
+          <InboxIcon />
           {unread > 0 && <span className="inbox-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
         {!importInMore && importButton()}

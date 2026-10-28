@@ -86,7 +86,7 @@ export const responsive: Scenario = {
         log.push(`${label}: scrollWidth=${l.scrollWidth}/${l.innerWidth} topbar=${l.topbarHeight} chartH=${l.chartHeight} dock=${l.dock.height} more=${l.hasMore} clipped=${l.clipped.length}`);
         if (l.scrollWidth > l.innerWidth) throw new Error(`${label}: horizontal overflow ${l.scrollWidth} > ${l.innerWidth}`);
         if (l.clipped.length) throw new Error(`${label}: past the viewport: ${l.clipped.slice(0, 3).join('; ')}`);
-        if (l.topbarHeight !== 48) throw new Error(`${label}: top bar is ${l.topbarHeight}px tall`);
+        if (l.topbarHeight !== 40) throw new Error(`${label}: top bar is ${l.topbarHeight}px tall`);
         if (l.scrollHeight > l.clientHeight) throw new Error(`${label}: vertical overflow ${l.scrollHeight} > ${l.clientHeight}`);
         if (opts.chart !== false) {
           if (l.chartHeight < 200) throw new Error(`${label}: chart is ${l.chartHeight}px tall`);

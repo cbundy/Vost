@@ -109,10 +109,10 @@ async function handleStatic(req: http.IncomingMessage, res: http.ServerResponse,
     } catch {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(
-        `<!doctype html><html><body style="background:#0b0e14;color:#e6ebf5;font-family:system-ui;padding:40px;max-width:640px;margin:auto">
+        `<!doctype html><html><body style="background:#09090b;color:#e8e8ed;font-family:system-ui;padding:40px;max-width:640px;margin:auto">
         <h1>Vost is running — but the client is not built yet</h1>
         <p>The market-data API is live at <code>/api/providers</code>. To build the web app:</p>
-        <pre style="background:#11151f;padding:14px;border-radius:8px">npm install
+        <pre style="background:#111114;padding:14px;border-radius:8px">npm install
 npm run build
 npm start</pre>
         <p>…or, for development with hot reload: <code>npm run dev</code></p>

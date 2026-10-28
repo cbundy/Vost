@@ -1,3 +1,4 @@
+import { MoreIcon } from './Icons';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** The top bar's "More" button and its popover; the children are the controls that do not fit the row. */
@@ -45,11 +46,7 @@ export function TopBarMore({ children }: { children: (close: () => void) => Reac
         title="More"
         onClick={() => setOpen((v) => !v)}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="2" />
-          <circle cx="12" cy="12" r="2" />
-          <circle cx="19" cy="12" r="2" />
-        </svg>
+        <MoreIcon />
       </button>
       {open && (
         <div className="topbar-more-pop" role="dialog" aria-label="More">

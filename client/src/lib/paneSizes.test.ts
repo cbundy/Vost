@@ -26,8 +26,8 @@ describe('dockLimits', () => {
       const l = dockLimits(h);
       expect(h - TOPBAR_HEIGHT - l.max).toBeGreaterThanOrEqual(CHART_MIN_HEIGHT);
     }
-    expect(dockLimits(720).max).toBe(471);
-    expect(dockLimits(600).max).toBe(351);
+    expect(dockLimits(720).max).toBe(479);
+    expect(dockLimits(600).max).toBe(359);
   });
   it('never goes below the tab strip', () => {
     expect(dockLimits(100)).toEqual({ min: DOCK_MIN, max: DOCK_MIN });
