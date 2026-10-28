@@ -1,0 +1,5 @@
+bar open 58222.44, alert level 58280.66
+popup text: BTCUSDT crossed up 58,280.66 (at 58,375.448) - capture run
+inbox: 12:32 UTC Alerts warning BTCUSDT crossed up 58,280.66 (at 58,375.448) - capture run
+after reload: popups=0 inbox lines=0
+menu: "Add alert at 61664.09", prefilled level 61664.09
