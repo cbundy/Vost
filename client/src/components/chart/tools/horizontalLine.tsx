@@ -14,7 +14,7 @@ export const horizontalLine: DrawingTool = {
   ),
   anchors: 1,
   priceOnly: true,
-  draw(ctx, [a], { width, selected }) {
+  draw(ctx, [a], { width }, { selected }) {
     ctx.beginPath();
     ctx.moveTo(0, a.y);
     ctx.lineTo(width, a.y);
@@ -24,5 +24,5 @@ export const horizontalLine: DrawingTool = {
   },
   hit: ([a], p) => Math.abs(p.y - a.y) <= HIT_TOLERANCE,
   // The line spans the width, so the handle stays on screen even when its anchor time is off it.
-  handles: ([a], width) => [{ x: Math.min(Math.max(a.x, HANDLE_RADIUS + 2), width - HANDLE_RADIUS - 2), y: a.y }],
+  handles: ([a], { width }) => [{ x: Math.min(Math.max(a.x, HANDLE_RADIUS + 2), width - HANDLE_RADIUS - 2), y: a.y }],
 };

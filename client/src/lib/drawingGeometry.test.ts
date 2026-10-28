@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distToSegment, hitsHandle, logicalToTime, medianInterval, timeToLogical } from './drawingGeometry';
+import { FIB_LEVELS, distToSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, timeToLogical } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -61,5 +61,58 @@ describe('segment distance and handle hit', () => {
   it('hits a handle within its radius only', () => {
     expect(hitsHandle({ x: 5, y: 5 }, { x: 8, y: 9 }, 5)).toBe(true);
     expect(hitsHandle({ x: 5, y: 5 }, { x: 8, y: 10 }, 5)).toBe(false);
+  });
+});
+
+describe('ray, rectangle and fibonacci geometry', () => {
+  it('fibLevelPrices puts 0 at the end, 1 at the start and 0.5 at the midpoint, up and down', () => {
+    for (const [start, end] of [[100, 200], [200, 100]]) {
+      const p = fibLevelPrices(start, end);
+      expect(p).toHaveLength(FIB_LEVELS.length);
+      expect(p[0]).toBe(end);
+      expect(p[p.length - 1]).toBe(start);
+      expect(p[FIB_LEVELS.indexOf(0.5)]).toBe(150);
+    }
+  });
+
+  it('rayEnd ends on the pane edge, on the line through a and b', () => {
+    const W = 200;
+    const H = 100;
+    expect(rayEnd({ x: 10, y: 50 }, { x: 20, y: 40 }, W, H)).toEqual({ x: 60, y: 0 });
+    expect(rayEnd({ x: 10, y: 50 }, { x: 20, y: 60 }, W, H)).toEqual({ x: 60, y: H });
+    expect(rayEnd({ x: 10, y: 50 }, { x: 20, y: 50 }, W, H)).toEqual({ x: W, y: 50 });
+    expect(rayEnd({ x: 100, y: 50 }, { x: 40, y: 50 }, W, H)).toEqual({ x: 0, y: 50 });
+    expect(rayEnd({ x: 30, y: 50 }, { x: 30, y: 70 }, W, H)).toEqual({ x: 30, y: H });
+    expect(rayEnd({ x: 30, y: 50 }, { x: 30, y: 10 }, W, H)).toEqual({ x: 30, y: 0 });
+    expect(rayEnd({ x: 30, y: 50 }, { x: 30, y: 50 }, W, H)).toEqual({ x: 30, y: 50 });
+  });
+
+  it('pointInRect covers inside, border, near-outside and outside, with corners in either order', () => {
+    const a = { x: 10, y: 10 };
+    const b = { x: 50, y: 40 };
+    for (const [c, d] of [[a, b], [b, a], [{ x: 10, y: 40 }, { x: 50, y: 10 }]]) {
+      expect(pointInRect({ x: 30, y: 25 }, c, d, 6)).toBe(true);
+      expect(pointInRect({ x: 10, y: 25 }, c, d, 6)).toBe(true);
+      expect(pointInRect({ x: 54, y: 25 }, c, d, 6)).toBe(true);
+      expect(pointInRect({ x: 60, y: 25 }, c, d, 6)).toBe(false);
+      expect(pointInRect({ x: 30, y: 0 }, c, d, 6)).toBe(false);
+    }
+  });
+
+  it('rectCornerDrag keeps the opposite corner, also when dragged past it', () => {
+    const a = { x: 10, y: 40 };
+    const b = { x: 50, y: 10 };
+    const corners = rectCorners(a, b);
+    expect(corners).toEqual([{ x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 40 }, { x: 10, y: 40 }]);
+    for (let i = 0; i < 4; i++) {
+      for (const q of [{ x: 70, y: 5 }, { x: -20, y: 90 }]) {
+        const [n1, n2] = rectCornerDrag(a, b, i, q);
+        expect(n1).toEqual(corners[(i + 2) % 4]);
+        expect(n2).toEqual(q);
+        const after = rectCorners(n1, n2);
+        expect(after.some((c) => c.x === q.x && c.y === q.y)).toBe(true);
+        expect(after.some((c) => c.x === n1.x && c.y === n1.y)).toBe(true);
+      }
+    }
   });
 });

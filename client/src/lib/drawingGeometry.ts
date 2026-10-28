@@ -78,3 +78,55 @@ export function distToSegment(p: Pt, a: Pt, b: Pt): number {
 export function hitsHandle(p: Pt, handle: Pt, radius = HANDLE_HIT_RADIUS): boolean {
   return Math.hypot(p.x - handle.x, p.y - handle.y) <= radius;
 }
+
+/** Where the ray from a through b leaves the pane [0,width] x [0,height]; a itself when a equals b. */
+export function rayEnd(a: Pt, b: Pt, width: number, height: number): Pt {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  if (dx === 0 && dy === 0) return { ...a };
+  let t = Infinity;
+  if (dx > 0) t = Math.min(t, (width - a.x) / dx);
+  else if (dx < 0) t = Math.min(t, (0 - a.x) / dx);
+  if (dy > 0) t = Math.min(t, (height - a.y) / dy);
+  else if (dy < 0) t = Math.min(t, (0 - a.y) / dy);
+  t = Math.max(0, t);
+  return { x: a.x + dx * t, y: a.y + dy * t };
+}
+
+/** Whether p is inside the rectangle with opposite corners a and b, or within tol of its border. */
+export function pointInRect(p: Pt, a: Pt, b: Pt, tol: number): boolean {
+  return (
+    p.x >= Math.min(a.x, b.x) - tol &&
+    p.x <= Math.max(a.x, b.x) + tol &&
+    p.y >= Math.min(a.y, b.y) - tol &&
+    p.y <= Math.max(a.y, b.y) + tol
+  );
+}
+
+/** The four corners of the rectangle with opposite corners a and b: top-left, top-right, bottom-right, bottom-left. */
+export function rectCorners(a: Pt, b: Pt): Pt[] {
+  const x0 = Math.min(a.x, b.x);
+  const x1 = Math.max(a.x, b.x);
+  const y0 = Math.min(a.y, b.y);
+  const y1 = Math.max(a.y, b.y);
+  return [
+    { x: x0, y: y0 },
+    { x: x1, y: y0 },
+    { x: x1, y: y1 },
+    { x: x0, y: y1 },
+  ];
+}
+
+/** The new opposite corners [a, b] when corner (an index of {@link rectCorners}) is dragged to q: the opposite corner stays. */
+export function rectCornerDrag(a: Pt, b: Pt, corner: number, q: Pt): [Pt, Pt] {
+  const opposite = rectCorners(a, b)[(corner + 2) % 4];
+  return [opposite, { x: q.x, y: q.y }];
+}
+
+/** Fibonacci retracement ratios, from the end anchor (0) to the start anchor (1). */
+export const FIB_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+
+/** Price of each level: level r is end + (start - end) * r. */
+export function fibLevelPrices(start: number, end: number): number[] {
+  return FIB_LEVELS.map((r) => end + (start - end) * r);
+}

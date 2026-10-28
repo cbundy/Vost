@@ -3,20 +3,35 @@ ok   rail about 40px wide - 40
 ok   Cursor button has title and aria-pressed
 ok   Trend line button has title and aria-pressed
 ok   Horizontal line button has title and aria-pressed
+ok   Ray button has title and aria-pressed
+ok   Rectangle button has title and aria-pressed
+ok   Fibonacci retracement button has title and aria-pressed
 ok   Cursor pressed at start
 ok   Trend line pressed
 ok   one drawing saved
 ok   tool back to Cursor
 ok   two drawings saved - trendLine,horizontalLine
+ok   Ray pressed
+ok   Ray saved with 2 anchors - trendLine,horizontalLine,ray
+ok   stored as ray
+ok   Rectangle pressed
+ok   Rectangle saved with 2 anchors - trendLine,horizontalLine,ray,rectangle
+ok   stored as rectangle
+ok   Fibonacci retracement pressed
+ok   Fibonacci retracement saved with 2 anchors - trendLine,horizontalLine,ray,rectangle,fibRetracement
+ok   stored as fibRetracement
 ok   pointer cursor over a drawing - pointer
 ok   second anchor moved
 ok   first anchor kept
 ok   both anchors moved by the same time - -5184000,-5184000
-ok   one drawing left
+ok   rectangle changed
+ok   bottom-left corner unchanged - {"time":1671753600,"price":63.757515673630465} -> {"time":1671753600,"price":63.757515673630465}
+ok   top-right corner moved
+ok   four drawings left
 ok   undo brings it back
 ok   redo removes it again
 ok   undo again
-ok   two drawings in storage after reload
+ok   five drawings in storage after reload
 ok   pointer cursor over the reloaded trend line - pointer
 ok   drawings unchanged by the change
 ok   chart panned

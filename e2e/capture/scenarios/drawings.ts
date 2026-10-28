@@ -10,10 +10,14 @@ const STORED = `(() => {
 /** The trend line's anchors as fractions of the chart canvas: near the right end, so a timeframe change keeps it in view. */
 const TA = { x: 0.915, y: 0.55 };
 const TB = { x: 0.94, y: 0.25 };
+/** Corners (canvas fractions) of the ray, rectangle and Fibonacci drags: clear of the trend line and each other. */
+const RAY = [{ x: 0.3, y: 0.35 }, { x: 0.45, y: 0.45 }];
+const RECT = [{ x: 0.3, y: 0.55 }, { x: 0.5, y: 0.7 }];
+const FIB = [{ x: 0.55, y: 0.15 }, { x: 0.75, y: 0.45 }];
 
 export const drawings: Scenario = {
   name: 'drawings',
-  description: 'Drawing tools: rail, draw a trend line and a horizontal line, select, drag a handle and the body, delete, undo, reload, timeframe change, pan after drawing',
+  description: 'Drawing tools: rail, draw a trend line, a horizontal line, a ray, a rectangle and a Fibonacci retracement, select, drag a handle and the body, delete, undo, reload, timeframe change, pan after drawing',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -53,7 +57,7 @@ export const drawings: Scenario = {
       if (!r) throw new Error('no rail box');
       check('rail left of canvas', r.x + r.width <= b.x + 0.5, `rail right=${r.x + r.width} canvas left=${b.x}`);
       check('rail about 40px wide', Math.abs(r.width - 40) <= 2, `${r.width}`);
-      for (const name of ['Cursor', 'Trend line', 'Horizontal line']) {
+      for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Ray', 'Rectangle', 'Fibonacci retracement']) {
         const btn = rail.getByRole('button', { name, exact: true });
         check(`${name} button has title and aria-pressed`, (await btn.getAttribute('title')) === name && (await btn.getAttribute('aria-pressed')) !== null);
       }
@@ -87,6 +91,35 @@ export const drawings: Scenario = {
       const list = await stored();
       check('two drawings saved', list.length === 2, list.map((d) => d.tool).join(','));
     });
+
+    const drawDrag = async (name: string, from: { x: number; y: number }, to: { x: number; y: number }, total: number) => {
+      await rail.getByRole('button', { name, exact: true }).click();
+      check(`${name} pressed`, (await rail.getByRole('button', { name, exact: true }).getAttribute('aria-pressed')) === 'true');
+      const a = await at(from.x, from.y);
+      const b = await at(to.x, to.y);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 15 });
+      await page.mouse.up();
+      const list = await stored();
+      check(`${name} saved with 2 anchors`, list.length === total && list[list.length - 1].anchors.length === 2, list.map((d) => d.tool).join(','));
+      return list[list.length - 1];
+    };
+    await ctx.step('draw a ray', async () => {
+      const d = await drawDrag('Ray', RAY[0], RAY[1], 3);
+      check('stored as ray', d.tool === 'ray');
+    });
+    await ctx.screenshot('ray');
+    await ctx.step('draw a rectangle', async () => {
+      const d = await drawDrag('Rectangle', RECT[0], RECT[1], 4);
+      check('stored as rectangle', d.tool === 'rectangle');
+    });
+    await ctx.screenshot('rectangle');
+    await ctx.step('draw a Fibonacci retracement', async () => {
+      const d = await drawDrag('Fibonacci retracement', FIB[0], FIB[1], 5);
+      check('stored as fibRetracement', d.tool === 'fibRetracement');
+    });
+    await ctx.screenshot('fib');
     await ctx.screenshot('drawn');
 
     await ctx.step('click the trend line to select it', async () => {
@@ -134,24 +167,46 @@ export const drawings: Scenario = {
     });
     await ctx.screenshot('moved');
 
+    await ctx.step('resize the rectangle by its top-right corner', async () => {
+      const mid = await at((RECT[0].x + RECT[1].x) / 2, (RECT[0].y + RECT[1].y) / 2);
+      await page.mouse.click(mid.x, mid.y);
+      await page.waitForTimeout(200);
+      const find = async () => (await stored()).find((d) => d.tool === 'rectangle')!;
+      const lows = (d: Awaited<ReturnType<typeof find>>) => ({
+        time: Math.min(...d.anchors.map((a) => a.time)),
+        price: Math.min(...d.anchors.map((a) => a.price)),
+      });
+      const before = await find();
+      const h = await at(RECT[1].x, RECT[0].y);
+      await page.mouse.move(h.x, h.y);
+      await page.mouse.down();
+      await page.mouse.move(h.x + 40, h.y - 30, { steps: 10 });
+      await page.mouse.up();
+      const after = await find();
+      check('rectangle changed', JSON.stringify(after.anchors) !== JSON.stringify(before.anchors));
+      check('bottom-left corner unchanged', JSON.stringify(lows(after)) === JSON.stringify(lows(before)), `${JSON.stringify(lows(before))} -> ${JSON.stringify(lows(after))}`);
+      check('top-right corner moved', Math.max(...after.anchors.map((a) => a.time)) > Math.max(...before.anchors.map((a) => a.time)) && Math.max(...after.anchors.map((a) => a.price)) > Math.max(...before.anchors.map((a) => a.price)));
+    });
+    await ctx.screenshot('rectangle-resized');
+
     await ctx.step('delete, then undo', async () => {
       await page.keyboard.press('Delete');
-      check('one drawing left', (await stored()).length === 1);
+      check('four drawings left', (await stored()).length === 4);
       await ctx.screenshot('deleted');
       await page.keyboard.press('Control+z');
-      check('undo brings it back', (await stored()).length === 2);
+      check('undo brings it back', (await stored()).length === 5);
       await page.keyboard.press('Control+Shift+z');
-      check('redo removes it again', (await stored()).length === 1);
+      check('redo removes it again', (await stored()).length === 4);
       await page.keyboard.press('Control+z');
-      check('undo again', (await stored()).length === 2);
+      check('undo again', (await stored()).length === 5);
     });
     await ctx.screenshot('undone');
 
-    await ctx.step('reload keeps both', async () => {
+    await ctx.step('reload keeps all', async () => {
       await page.reload();
       await ctx.waitForChart();
       await page.waitForTimeout(500);
-      check('two drawings in storage after reload', (await stored()).length === 2);
+      check('five drawings in storage after reload', (await stored()).length === 5);
       const mid = movedMid; // where the trend line sits after the body drag
       await page.mouse.move(mid.x - 20, mid.y - 20);
       await page.mouse.move(mid.x, mid.y, { steps: 5 });
