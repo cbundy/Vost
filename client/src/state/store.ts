@@ -79,6 +79,8 @@ interface Prefs {
   dockHeight?: number;
   sidePanel?: SidePanelSection;
   sidePanelCollapsed?: boolean;
+  drawingMagnet?: boolean;
+  drawingsHidden?: boolean;
 }
 
 /** The sections of the right-hand side panel; one shows at a time. */
@@ -142,6 +144,8 @@ export interface AppState {
   /** The side panel's visible section and whether it is collapsed to its rail (persisted). */
   sidePanel: SidePanelSection;
   sidePanelCollapsed: boolean;
+  drawingMagnet: boolean;
+  drawingsHidden: boolean;
   selectedPineId: string | null;
 
   /* market data */
@@ -248,6 +252,8 @@ export interface AppState {
   openPineEditor(id: string): void;
   updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
   setShowTrades(v: boolean): void;
+  setDrawingMagnet(v: boolean): void;
+  setDrawingsHidden(v: boolean): void;
   setTimeZone(tz: string): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
@@ -395,6 +401,8 @@ export const useStore = create<AppState>()((set, get) => {
       dockHeight: s.dockHeight,
       sidePanel: s.sidePanel,
       sidePanelCollapsed: s.sidePanelCollapsed,
+      drawingMagnet: s.drawingMagnet,
+      drawingsHidden: s.drawingsHidden,
     } satisfies Prefs);
   }, 400);
 
@@ -518,6 +526,8 @@ export const useStore = create<AppState>()((set, get) => {
     dockHeight: DOCK_DEFAULT,
     sidePanel: 'watchlist',
     sidePanelCollapsed: false,
+    drawingMagnet: false,
+    drawingsHidden: false,
     selectedPineId: null,
     candles: [],
     dataKey: '',
@@ -605,6 +615,8 @@ export const useStore = create<AppState>()((set, get) => {
         dockHeight: sanitizeStoredSize(prefs.dockHeight, DOCK_DEFAULT),
         sidePanel: SIDE_PANEL_SECTIONS.includes(prefs.sidePanel as SidePanelSection) ? (prefs.sidePanel as SidePanelSection) : 'watchlist',
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
+        drawingMagnet: prefs.drawingMagnet === true,
+        drawingsHidden: prefs.drawingsHidden === true,
         datasets: Array.isArray(datasets) ? datasets : [],
         optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
       });
@@ -816,6 +828,16 @@ export const useStore = create<AppState>()((set, get) => {
     setTimeZone(tz) {
       if (!isValidTimeZone(tz)) return;
       set({ timeZone: tz });
+      persistPrefs();
+    },
+
+    setDrawingMagnet(v) {
+      set({ drawingMagnet: v });
+      persistPrefs();
+    },
+
+    setDrawingsHidden(v) {
+      set({ drawingsHidden: v });
       persistPrefs();
     },
 

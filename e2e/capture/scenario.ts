@@ -36,6 +36,10 @@ export interface Scenario {
   /** Record a WebM (desktop size only). */
   video?: boolean;
   viewports?: ViewportName[];
+  /** Viewports that emulate a touch device (a touchscreen, mobile mode); the others use a mouse. */
+  touch?: ViewportName[];
+  /** Seed the prefs once per page load only when none are saved yet, so a reload keeps what the page saved. */
+  keepPrefs?: boolean;
   run(ctx: ScenarioContext): Promise<void>;
 }
 
@@ -60,6 +64,7 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
   const context: BrowserContext = await browser.newContext({
     viewport: size,
     baseURL: baseUrl,
+    ...(scenario.touch?.includes(viewport) ? { hasTouch: true, isMobile: true } : {}),
     ...(recording ? { recordVideo: { dir: videoDir, size } } : {}),
   });
   context.setDefaultTimeout(ACTION_TIMEOUT_MS);
@@ -88,12 +93,13 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
     aborted.push(url.href);
     void ws.close();
   });
-  await context.addInitScript(() => {
+  await context.addInitScript((keep) => {
+    if (keep && localStorage.getItem('vost.prefs.v1')) return;
     localStorage.setItem(
       'vost.prefs.v1',
       JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d' }),
     );
-  });
+  }, scenario.keepPrefs === true);
   const page = await context.newPage();
   const written: string[] = [];
 

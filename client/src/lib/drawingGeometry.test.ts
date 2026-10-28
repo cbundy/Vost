@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distToSegment, hitsHandle, logicalToTime, medianInterval, timeToLogical } from './drawingGeometry';
+import { distToSegment, hitsHandle, logicalToTime, medianInterval, snapToBar, timeToLogical } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -61,5 +61,32 @@ describe('segment distance and handle hit', () => {
   it('hits a handle within its radius only', () => {
     expect(hitsHandle({ x: 5, y: 5 }, { x: 8, y: 9 }, 5)).toBe(true);
     expect(hitsHandle({ x: 5, y: 5 }, { x: 8, y: 10 }, 5)).toBe(false);
+  });
+});
+
+describe('snapToBar', () => {
+  const bars = hourly.map((time, i) => ({ time, open: 100 + i, high: 110 + i, low: 90 + i, close: 102 + i }));
+  it('snaps to the bar time and the nearest of open, high, low, close', () => {
+    const near = { time: hourly[3] + 0.4 * H, price: 112 };
+    expect(snapToBar(bars, near)).toEqual({ time: hourly[3], price: 113 });
+    expect(snapToBar(bars, { time: hourly[3] - 0.49 * H, price: 91 })).toEqual({ time: hourly[3], price: 93 });
+    expect(snapToBar(bars, { time: hourly[2] + 0.6 * H, price: 100 })).toEqual({ time: hourly[3], price: 103 });
+    expect(snapToBar(bars, { time: hourly[1], price: 101.2 })).toEqual({ time: hourly[1], price: 101 });
+    expect(snapToBar(bars, { time: hourly[1], price: 103.2 })).toEqual({ time: hourly[1], price: 103 });
+  });
+  it('leaves an anchor outside every bar unchanged', () => {
+    const left = { time: hourly[0] - 0.6 * H, price: 105 };
+    const right = { time: hourly[7] + 0.6 * H, price: 105 };
+    expect(snapToBar(bars, left)).toBe(left);
+    expect(snapToBar(bars, right)).toBe(right);
+    expect(snapToBar(bars, { time: hourly[7] + 0.4 * H, price: 105 }).time).toBe(hourly[7]);
+  });
+  it('keeps the time with priceOnly', () => {
+    const a = { time: hourly[3] + 0.2 * H, price: 112 };
+    expect(snapToBar(bars, a, { priceOnly: true })).toEqual({ time: a.time, price: 113 });
+  });
+  it('returns the anchor for empty candles', () => {
+    const a = { time: 5, price: 6 };
+    expect(snapToBar([], a)).toBe(a);
   });
 });

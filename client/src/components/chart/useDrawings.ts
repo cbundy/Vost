@@ -1,6 +1,6 @@
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import type { Pt } from '../../lib/drawingGeometry';
+import { MOUSE_HIT, TOUCH_HIT, snapToBar, type Pt } from '../../lib/drawingGeometry';
 import {
   add,
   commit,
@@ -11,6 +11,7 @@ import {
   preview,
   redo,
   remove,
+  removeAll,
   sourceKey,
   undo,
   type Anchor,
@@ -48,9 +49,12 @@ export function useDrawings(
   const symbol = useStore((s) => s.symbol);
   const activeDatasetId = useStore((s) => s.activeDatasetId);
   const hasData = useStore((s) => s.candles.length > 0);
+  const magnet = useStore((s) => s.drawingMagnet);
+  const hidden = useStore((s) => s.drawingsHidden);
   const key = sourceKey({ providerId, symbol, activeDatasetId });
 
   const [tool, setToolState] = useState(CURSOR);
+  const [drawingCount, setDrawingCount] = useState(0);
   const toolRef = useRef(CURSOR);
   const keyRef = useRef(key);
   const hasDataRef = useRef(hasData);
@@ -61,6 +65,10 @@ export function useDrawings(
   const selectedRef = useRef<string | null>(null);
   const draftRef = useRef<Draft | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const magnetRef = useRef(magnet);
+  const hiddenRef = useRef(hidden);
+  magnetRef.current = magnet;
+  hiddenRef.current = hidden;
   keyRef.current = key;
   hasDataRef.current = hasData;
 
@@ -76,12 +84,14 @@ export function useDrawings(
   }, []);
 
   const sync = useCallback(() => {
-    primRef.current?.set(getState().drawings, selectedRef.current, draftRef.current?.drawing ?? null);
+    if (hiddenRef.current) primRef.current?.set([], null, null);
+    else primRef.current?.set(getState().drawings, selectedRef.current, draftRef.current?.drawing ?? null);
   }, [getState]);
 
   const setState = useCallback(
     (next: DrawingsState, persist: boolean) => {
       statesRef.current.set(keyRef.current, next);
+      setDrawingCount(next.drawings.length);
       if (persist) {
         sourcesRef.current = { ...(sourcesRef.current ?? loadDrawings(ANCHOR_COUNTS).sources), [keyRef.current]: next.drawings };
         saverRef.current ??= createDrawingSaver();
@@ -94,6 +104,7 @@ export function useDrawings(
 
   const setTool = useCallback(
     (id: string) => {
+      if (id !== CURSOR && hiddenRef.current) return;
       toolRef.current = id;
       setToolState(id);
       draftRef.current = null;
@@ -134,8 +145,21 @@ export function useDrawings(
     selectedRef.current = null;
     draftRef.current = null;
     dragRef.current = null;
+    setDrawingCount(getState().drawings.length);
     sync();
-  }, [key, sync]);
+  }, [key, sync, getState]);
+
+  /* Hide all: nothing is painted or hit, and the selection, any draft and the tool are dropped. */
+  useEffect(() => {
+    if (hidden) {
+      selectedRef.current = null;
+      draftRef.current = null;
+      dragRef.current = null;
+      toolRef.current = CURSOR;
+      setToolState(CURSOR);
+    }
+    sync();
+  }, [hidden, sync]);
 
   /* No data, no drawing. */
   useEffect(() => {
@@ -158,6 +182,11 @@ export function useDrawings(
     if (!chart || !el) return;
     let swallow = false;
     let idle: { p: Pt; hit: boolean } | null = null;
+    let touch = false;
+
+    /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
+    const snap = (a: Anchor, priceOnly = false): Anchor =>
+      magnetRef.current ? snapToBar(useStore.getState().candles, a, { priceOnly }) : a;
 
     const point = (e: PointerEvent): Pt => {
       const r = el.getBoundingClientRect();
@@ -202,6 +231,16 @@ export function useDrawings(
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      if (!e.isPrimary) {
+        // A second finger belongs to the chart (pinch): a draft still being pressed is cancelled.
+        if (draftRef.current?.phase === 'pressing') {
+          draftRef.current = null;
+          release();
+          sync();
+        }
+        return;
+      }
+      touch = e.pointerType === 'touch';
       const p = point(e);
       if (!inPlot(p)) return;
       const prim = primRef.current;
@@ -209,8 +248,9 @@ export function useDrawings(
       const toolId = toolRef.current;
       if (toolId !== CURSOR) {
         const def = getTool(toolId);
-        const anchor = prim.toAnchor(p);
-        if (!def || !anchor || !hasDataRef.current) return;
+        const raw = prim.toAnchor(p);
+        if (!def || !raw || !hasDataRef.current) return;
+        const anchor = snap(raw, def.priceOnly);
         claim(e);
         const draft = draftRef.current;
         if (draft) {
@@ -225,7 +265,7 @@ export function useDrawings(
         sync();
         return;
       }
-      const hit = prim.hit(p);
+      const hit = prim.hit(p, touch ? TOUCH_HIT : MOUSE_HIT);
       if (!hit) {
         idle = { p, hit: false };
         return;
@@ -251,11 +291,13 @@ export function useDrawings(
     const onMove = (e: PointerEvent) => {
       const prim = primRef.current;
       if (!prim) return;
+      if (!e.isPrimary) return;
       const p = point(e);
       const draft = draftRef.current;
       if (draft) {
-        const a = prim.toAnchor(p);
-        if (a) {
+        const raw = prim.toAnchor(p);
+        if (raw) {
+          const a = snap(raw, getTool(draft.drawing.tool)?.priceOnly);
           draftRef.current = { ...draft, drawing: { ...draft.drawing, anchors: [draft.drawing.anchors[0], a] } };
           sync();
         }
@@ -272,7 +314,8 @@ export function useDrawings(
           const q = drag.origPts[i];
           const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy });
           if (!a) return orig;
-          return def.priceOnly ? { time: orig.time, price: a.price } : a;
+          const placed = drag.handle !== null ? snap(a, def.priceOnly) : a;
+          return def.priceOnly ? { time: orig.time, price: placed.price } : placed;
         });
         setState(preview(getState(), drag.id, next), false);
         return;
@@ -283,6 +326,7 @@ export function useDrawings(
     };
 
     const onUp = (e: PointerEvent) => {
+      if (!e.isPrimary) return;
       const draft = draftRef.current;
       if (draft && draft.phase === 'pressing') {
         const p = point(e);
@@ -369,5 +413,24 @@ export function useDrawings(
     return () => window.removeEventListener('keydown', onKey);
   }, [getState, setState, setTool, sync]);
 
-  return { tool, setTool, hasData };
+  const deleteAll = useCallback(() => {
+    if (getState().drawings.length === 0) return;
+    if (!window.confirm('Delete all drawings on this chart?')) return;
+    setState(removeAll(getState()), true);
+    selectedRef.current = null;
+    draftRef.current = null;
+    sync();
+  }, [getState, setState, sync]);
+
+  return {
+    tool,
+    setTool,
+    hasData,
+    magnet,
+    hidden,
+    toggleMagnet: () => useStore.getState().setDrawingMagnet(!magnet),
+    toggleHidden: () => useStore.getState().setDrawingsHidden(!hidden),
+    deleteAll,
+    drawingCount,
+  };
 }

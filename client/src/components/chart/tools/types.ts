@@ -15,7 +15,7 @@ export interface DrawingTool {
   priceOnly?: boolean;
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], opts: ToolRenderOpts): void;
   /** Whether a press at p grabs the drawing's body. */
-  hit(pts: Pt[], p: Pt, width: number): boolean;
+  hit(pts: Pt[], p: Pt, width: number, tolerance?: number): boolean;
   /** Where the selection handles go. */
   handles(pts: Pt[], width: number): Pt[];
 }

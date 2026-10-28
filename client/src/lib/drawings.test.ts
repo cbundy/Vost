@@ -10,6 +10,7 @@ import {
   preview,
   redo,
   remove,
+  removeAll,
   saveDrawings,
   sourceKey,
   undo,
@@ -154,5 +155,22 @@ describe('storage', () => {
     expect(store.get('vost.' + STORAGE_KEY)).toBe(newer);
     saveDrawings({ s: [hline('z')] });
     expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!).version).toBe(1);
+  });
+});
+
+describe('removeAll', () => {
+  const a: Drawing = { id: 'a', tool: 'horizontalLine', anchors: [{ time: 1, price: 1 }] };
+  const b: Drawing = { id: 'b', tool: 'horizontalLine', anchors: [{ time: 2, price: 2 }] };
+  it('clears every drawing as one undo step', () => {
+    const s = add(add(emptyState(), a), b);
+    const cleared = removeAll(s);
+    expect(cleared.drawings).toEqual([]);
+    const back = undo(cleared);
+    expect(back.drawings.map((d) => d.id)).toEqual(['a', 'b']);
+    expect(redo(back).drawings).toEqual([]);
+  });
+  it('returns the same state when there is nothing to remove', () => {
+    const s = emptyState();
+    expect(removeAll(s)).toBe(s);
   });
 });
