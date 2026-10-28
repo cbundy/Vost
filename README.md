@@ -32,7 +32,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 **Charting**
 - Candlestick chart with volume, powered by TradingView's open-source *lightweight-charts* (v5, panes supported)
 - Indicators: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD — configurable periods & colors, live editing
-- Crosshair legend with OHLC + change + volume, fit-to-screen, PNG screenshot, CSV export
+- Coloured crosshair legend (label, OHLC, change, volume), a bar under the chart with quick ranges (1D to All), the Range picker and the time-zone clock, fit-to-screen, PNG screenshot, CSV export
 - Live streaming candles (the server keeps one exchange websocket per feed, shared by all tabs, with auto-reconnect and a Binance fallback host)
 - Connection health light in the top bar: whether each exchange's price history, symbol lookup and live stream is working right now, with a "Test now" button (the server checks about once a minute; `VOST_STATUS_INTERVAL=0` turns that off)
 
@@ -100,7 +100,7 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 
 For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
-The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. About once a minute it also makes a small test request to each provider's history, symbol-search and live feeds (about 17 checks, spread out, with the full symbol lists only every 10th round) to power the connection health light at `/api/status`; set `VOST_STATUS_INTERVAL=0` to switch that off. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. A static-only deployment (no Node server) supports only CSV import and Demo.
+The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. About once a minute it also makes a small test request to each provider's history, symbol-search and live feeds (about 17 checks, spread out, with the full symbol lists only every 10th round) to power the connection health light at `/api/status`; set `VOST_STATUS_INTERVAL=0` to switch that off. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. The server also keeps your price alerts in a small file and watches prices for them around the clock, so an alert fires once when the price crosses its level even with every browser tab closed. A static-only deployment (no Node server) supports only CSV import and Demo.
 
 > **Bring your own API:** add a server adapter in `server/providers/` and a catalog entry in `shared/providerCatalog.ts` — the UI picks it up automatically in the provider dropdown. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-data-provider).
 
@@ -181,6 +181,7 @@ Vost/
 │   ├── index.mjs              # entry point: checks the Node version, then loads main.ts
 │   ├── main.ts                # zero-dep Node server: static files + the /api routes
 │   ├── api.ts                 # /api/providers, /history, /symbols, /search
+│   ├── alerts/                # /api/alerts: stored price alerts, watched around the clock
 │   ├── live/                  # /api/live: shared exchange websockets streamed to the browser
 │   └── providers/             # one REST adapter per data provider (Binance, Yahoo, …)
 ├── shared/                    # wire types and the provider catalog, used by server and client
@@ -188,7 +189,7 @@ Vost/
 └── docs/                      # strategy authoring & deployment guides
 ```
 
-- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its only state is in memory: the symbol-list cache and the open exchange websockets. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency. No database.
+- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its only state on disk is the price-alerts file (`alerts.json` in `VOST_DATA_DIR`); the symbol-list cache and the open exchange websockets are in memory. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency. No database.
 - The **client** holds everything else: fetching, CSV parsing, indicator math, backtests (in a Web Worker), persistence (localStorage). This is what makes offline mode work.
 
 ### Configuration

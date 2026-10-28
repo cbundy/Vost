@@ -166,8 +166,6 @@ export function TopBar({
 
       {!importInMore && barsSelect}
 
-      {!providerInMore && <ChartRangeControl />}
-
       {rangeText && (
         <span className="topbar-range" title={rangeText}>
           {rangeText}

@@ -4,7 +4,7 @@ import { useStore } from '../state/store';
 import { FULL_RANGE, type TimeRange } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
 
-/** Top bar Range button and its draft panel; the store changes only on Apply. */
+/** Range button and its draft panel, in the chart bar (and the More menu on narrow top bars); the store changes only on Apply. */
 export function ChartRangeControl() {
   const chartRange = useStore((s) => s.chartRange);
   const fullCandles = useStore((s) => s.fullCandles);
