@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import { buildPineChart, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
+import { runFitsVisible } from '../lib/replay';
 import type { PineRunState } from '../state/store';
 
 type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
@@ -42,6 +43,8 @@ export function usePineSeries(
   indicators: IndicatorSpec[],
   pineRuns: Record<string, PineRunState>,
   epochRef: MutableRefObject<number>,
+  /** During replay: a run reaching past this bar time is never drawn. */
+  lastVisibleTime: number | null = null,
 ) {
   const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], descs: [] as PineSeriesDesc[] });
 
@@ -52,6 +55,7 @@ export function usePineSeries(
     for (const spec of indicators) {
       const run = pineRuns[spec.id];
       if (spec.kind !== 'pine' || !spec.visible || !run?.result || !run.candles) continue;
+      if (!runFitsVisible(run.candles, lastVisibleTime)) continue;
       items.push({
         id: spec.id,
         model: buildPineChart(run.result, run.candles, spec.color),
@@ -177,5 +181,5 @@ export function usePineSeries(
     }
     st.sig = sig;
     st.epoch = epochRef.current;
-  }, [chart, indicators, pineRuns, epochRef]);
+  }, [chart, indicators, pineRuns, epochRef, lastVisibleTime]);
 }

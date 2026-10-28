@@ -1,14 +1,13 @@
 import { RangeIcon } from './Icons';
 import { useState } from 'react';
-import { useStore } from '../state/store';
+import { selectDataCandles, useStore } from '../state/store';
 import { FULL_RANGE, type TimeRange } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
 
 /** Range button and its draft panel, in the chart bar (and the More menu on narrow top bars); the store changes only on Apply. */
 export function ChartRangeControl() {
   const chartRange = useStore((s) => s.chartRange);
-  const fullCandles = useStore((s) => s.fullCandles);
-  const candles = useStore((s) => s.candles);
+  const full = useStore(selectDataCandles);
   const timeZone = useStore((s) => s.timeZone);
   const loading = useStore((s) => s.loadState === 'loading');
   const setChartRange = useStore((s) => s.setChartRange);
@@ -16,7 +15,6 @@ export function ChartRangeControl() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<TimeRange>(FULL_RANGE);
 
-  const full = fullCandles ?? candles;
   const bounds = full.length > 0 ? { first: full[0].time, last: full[full.length - 1].time } : undefined;
   const active = chartRange != null;
 
