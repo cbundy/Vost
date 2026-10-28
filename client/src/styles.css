@@ -654,6 +654,7 @@ button.icon {
   background: var(--bg-2);
   border-right: 1px solid var(--border);
   min-height: 0;
+  overflow-y: auto;
 }
 
 .chart-container {
