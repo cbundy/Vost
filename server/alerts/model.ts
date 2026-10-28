@@ -63,8 +63,9 @@ export function newAlert(input: Required<AlertInput>, id: string, now: number): 
 
 /** Applies an edit and re-arms the alert. */
 export function editAlert(alert: Alert, edit: AlertEdit): Alert {
+  const { telegram: _sent, telegramError: _error, ...rest } = alert;
   return {
-    ...alert,
+    ...rest,
     condition: edit.condition ?? alert.condition,
     level: edit.level ?? alert.level,
     note: edit.note ?? alert.note,
