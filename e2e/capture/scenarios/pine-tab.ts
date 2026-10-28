@@ -1,4 +1,5 @@
 import type { Scenario } from '../scenario.ts';
+import { showSideSection } from '../side-panel.ts';
 
 export const pineTab: Scenario = {
   name: 'pine-tab',
@@ -9,6 +10,7 @@ export const pineTab: Scenario = {
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.step('add a Pine indicator', async () => {
+      await showSideSection(page, 'Indicators', false);
       await page.locator('#add-indicator-select').selectOption('pine');
       await page.locator('.pine-editor .cm-content').waitFor();
     });

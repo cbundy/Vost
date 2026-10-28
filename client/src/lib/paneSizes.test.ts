@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DRAWER_MAX_WIDTH, DRAWER_QUERY, isDrawerWidth, topbarTier,
   CHART_MIN_HEIGHT, DOCK_COLLAPSE_BELOW, DOCK_DEFAULT, DOCK_MIN, SIDEBAR_DEFAULT, TOPBAR_HEIGHT,
-  clamp, dockLimits, resolveDockResize, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
+  clamp, dockLimits, dragDelta, resolveDockResize, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
 } from './paneSizes';
 
 describe('sidebarLimits', () => {
@@ -52,6 +52,38 @@ describe('step', () => {
   });
   it('ignores other keys', () => {
     expect(step(300, 'a', false, l)).toBeNull();
+  });
+});
+
+describe("step with grow 'start'", () => {
+  const l = { min: 200, max: 500 };
+  it('ArrowLeft grows and ArrowRight shrinks, Shift steps 64', () => {
+    expect(step(300, 'ArrowLeft', false, l, 'start')).toBe(316);
+    expect(step(300, 'ArrowRight', false, l, 'start')).toBe(284);
+    expect(step(300, 'ArrowLeft', true, l, 'start')).toBe(364);
+    expect(step(300, 'ArrowRight', true, l, 'start')).toBe(236);
+  });
+  it('keeps vertical arrows, Home and End', () => {
+    expect(step(300, 'ArrowUp', false, l, 'start')).toBe(316);
+    expect(step(300, 'ArrowDown', false, l, 'start')).toBe(284);
+    expect(step(300, 'Home', false, l, 'start')).toBe(200);
+    expect(step(300, 'End', false, l, 'start')).toBe(500);
+  });
+  it("leaves the default 'end' unchanged", () => {
+    expect(step(300, 'ArrowRight', false, l, 'end')).toBe(316);
+  });
+});
+
+describe('dragDelta', () => {
+  it("grow 'start': a drag of -80px grows by 80, +80 shrinks", () => {
+    expect(dragDelta('vertical', 'start', -80, 5)).toBe(80);
+    expect(dragDelta('vertical', 'start', 80, 5)).toBe(-80);
+  });
+  it("grow 'end': follows x", () => {
+    expect(dragDelta('vertical', 'end', 80, 5)).toBe(80);
+  });
+  it('horizontal grows upward whatever the grow', () => {
+    expect(dragDelta('horizontal', 'end', 5, -40)).toBe(40);
   });
 });
 

@@ -124,7 +124,7 @@ open examples/sample-daily.csv
 open examples/sample-mt5-format.csv
 ```
 
-Imported datasets live in your browser's local storage (Library section in the sidebar) and can be exported back to CSV at any time.
+Imported datasets live in your browser's local storage (Library section in the side panel) and can be exported back to CSV at any time.
 
 ## Backtesting
 

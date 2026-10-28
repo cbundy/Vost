@@ -1,5 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
-import { step } from '../lib/paneSizes';
+import { dragDelta, step, type SplitterGrow } from '../lib/paneSizes';
 
 interface Props {
   /** vertical = a column divider (resizes a width); horizontal = a row divider (resizes a height, growing upward). */
@@ -12,13 +12,15 @@ interface Props {
   onReset(): void;
   /** Called when a drag begins. */
   onDragStart?(): void;
+  /** Which side of the pane the splitter sits on: 'end' (default) grows to the right, 'start' grows to the left. */
+  grow?: SplitterGrow;
   label: string;
   className?: string;
 }
 
-export function Splitter({ orientation, value, min, max, onChange, onReset, onDragStart, label, className }: Props) {
-  const latest = useRef({ value, min, max, onChange, orientation, onDragStart });
-  latest.current = { value, min, max, onChange, orientation, onDragStart };
+export function Splitter({ orientation, value, min, max, onChange, onReset, onDragStart, label, grow = 'end', className }: Props) {
+  const latest = useRef({ value, min, max, onChange, orientation, onDragStart, grow });
+  latest.current = { value, min, max, onChange, orientation, onDragStart, grow };
   const cleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => () => cleanup.current?.(), []);
@@ -38,7 +40,7 @@ export function Splitter({ orientation, value, min, max, onChange, onReset, onDr
     app?.classList.add('resizing', orientation === 'vertical' ? 'resizing-col' : 'resizing-row');
 
     const move = (ev: globalThis.PointerEvent) => {
-      const delta = latest.current.orientation === 'vertical' ? ev.clientX - startX : startY - ev.clientY;
+      const delta = dragDelta(latest.current.orientation, latest.current.grow, ev.clientX - startX, ev.clientY - startY);
       latest.current.onChange(startValue + delta, 'drag');
     };
     const stop = () => {
@@ -58,7 +60,7 @@ export function Splitter({ orientation, value, min, max, onChange, onReset, onDr
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const next = step(value, e.key, e.shiftKey, { min, max });
+    const next = step(value, e.key, e.shiftKey, { min, max }, grow);
     if (next === null) return;
     e.preventDefault();
     onChange(next, 'key');
