@@ -15,7 +15,8 @@ npm run -s e2e:capture -- chart-range          # docs/evidence/chart-range/chart
 npm run -s e2e:capture -- drawings           # docs/evidence/drawings/drawings-{rail,drawn,selected,moved,deleted,undone,reloaded,timeframe,panned}-desktop.png + drawings-narrow-narrow.png + drawings-checks-{desktop,narrow}.txt
 npm run -s e2e:capture -- bt-range              # docs/evidence/bt-range/bt-range-{no-range,range,from-after-to}-{desktop,narrow}.png
 npm run -s e2e:capture -- conn-status           # docs/evidence/conn-status/conn-status-{closed,open}-{desktop,narrow}.png (stubbed /api/status)
-npm run -s e2e:capture -- network-audit         # docs/evidence/network-audit/network-audit-{provider-<id>,timeframe,search,watchlist,live,status}-desktop.png + network-audit-requests-desktop.txt
+npm run -s e2e:capture -- network-audit         # docs/evidence/network-audit/network-audit-{provider-<id>,timeframe,search,watchlist,live,status}-desktop.png + network-audit-requests-desktop.txt (also fails if a daily quote URL is requested more than 1 + floor(seconds / 60) times)
+npm run -s e2e:capture -- watchlist             # docs/evidence/watchlist/watchlist-{quotes,card,initial,with-section,after-drag}-desktop.png + a desktop webm (rows with Last, Chg, Chg% and the symbol card)
 npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.webm (+ .gif) and outage-{live,outage,recovered}-desktop.png
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-tab             # docs/evidence/pine-tab/pine-tab-{sidebar-edit,editor,error,collapsed-edit,empty}-{desktop,narrow}.png

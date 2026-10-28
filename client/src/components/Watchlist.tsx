@@ -1,17 +1,82 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { downloadFile, sanitizeFileName } from '../lib/export';
 import { fmtNum } from '../lib/format';
 import { exportList, filterByTag, type WatchItem } from '../lib/watchlist';
+import { quoteFromBars, ROW_BARS } from '../lib/quotes';
+import { quoteKey, useQuotes } from '../state/quotes';
 import { useStore } from '../state/store';
 
 const TAG_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6'];
 type Key = { providerId: string; symbol: string };
 type Menu = { x: number; y: number; item: WatchItem; sectionId: string };
 
+/** Keys of the rows currently on screen, via one IntersectionObserver. */
+function useVisibleRows() {
+  const [visible, setVisible] = useState<ReadonlySet<string>>(new Set());
+  const els = useRef(new Map<string, Element>());
+  const keyOf = useRef(new Map<Element, string>());
+  const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
+  const obs = useRef<IntersectionObserver | null>(null);
+
+  const observer = () => {
+    if (!obs.current && typeof IntersectionObserver !== 'undefined') {
+      obs.current = new IntersectionObserver((entries) => {
+        setVisible((prev) => {
+          const next = new Set(prev);
+          for (const e of entries) {
+            const k = keyOf.current.get(e.target);
+            if (k === undefined) continue;
+            if (e.isIntersecting) next.add(k);
+            else next.delete(k);
+          }
+          return next.size === prev.size && [...next].every((k) => prev.has(k)) ? prev : next;
+        });
+      });
+    }
+    return obs.current;
+  };
+
+  useEffect(() => () => { obs.current?.disconnect(); obs.current = null; }, []);
+
+  const rowRef = useCallback((key: string) => {
+    let fn = refs.current.get(key);
+    if (!fn) {
+      fn = (el) => {
+        const old = els.current.get(key);
+        if (old) {
+          obs.current?.unobserve(old);
+          keyOf.current.delete(old);
+          els.current.delete(key);
+          setVisible((prev) => {
+            if (!prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+        }
+        refs.current.delete(key);
+        if (!el) return;
+        refs.current.set(key, fn!);
+        els.current.set(key, el);
+        keyOf.current.set(el, key);
+        const o = observer();
+        if (o) o.observe(el);
+        else setVisible((prev) => new Set(prev).add(key));
+      };
+      refs.current.set(key, fn);
+    }
+    return fn;
+  }, []);
+  return { visible, rowRef };
+}
+
 export function Watchlist() {
   const providerId = useStore((s) => s.providerId);
   const symbol = useStore((s) => s.symbol);
   const candles = useStore((s) => s.candles);
+  const timeframe = useStore((s) => s.timeframe);
+  const entries = useQuotes((s) => s.entries);
+  const { visible, rowRef } = useVisibleRows();
   const wls = useStore((s) => s.watchlists);
   const st = useStore.getState;
   const [filter, setFilter] = useState('');
@@ -21,17 +86,26 @@ export function Watchlist() {
   const drag = useRef<{ kind: 'item'; key: Key } | { kind: 'section'; id: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const wanted = [...visible].map((k) => {
+      const i = k.indexOf(':');
+      return { providerId: k.slice(0, i), symbol: k.slice(i + 1), bars: ROW_BARS };
+    });
+    useQuotes.getState().setWanted('rows', wanted);
+  }, [visible]);
+  useEffect(() => () => useQuotes.getState().setWanted('rows', []), []);
+
   const list = wls.lists.find((l) => l.id === wls.activeListId) ?? wls.lists[0];
   const shown = useMemo(() => (list && filter ? filterByTag(list, filter) : list), [list, filter]);
   if (!list || !shown) return null;
   const tagOf = (id: string) => wls.tags.find((t) => t.id === id);
 
-  const last = candles[candles.length - 1];
-  const prev = candles[candles.length - 2];
   const quote = (it: WatchItem) => {
-    if (!last || it.providerId !== providerId || it.symbol !== symbol) return null;
-    const pct = prev && prev.close ? ((last.close - prev.close) / prev.close) * 100 : null;
-    return { price: last.close, pct };
+    if (timeframe === '1d' && it.providerId === providerId && it.symbol === symbol) {
+      const q = quoteFromBars(candles);
+      if (q) return q;
+    }
+    return quoteFromBars(entries[quoteKey(it.providerId, it.symbol)]?.bars);
   };
 
   const ask = (label: string, initial = '') => window.prompt(label, initial)?.trim() || null;
@@ -113,6 +187,12 @@ export function Watchlist() {
           </select>
         </div>
       )}
+      <div className="wl-row wl-head" aria-hidden="true">
+        <span>Symbol</span>
+        <span>Last</span>
+        <span>Chg</span>
+        <span>Chg%</span>
+      </div>
       {shown.sections.map((sec, si) => (
         <div
           key={sec.id}
@@ -141,8 +221,9 @@ export function Watchlist() {
             return (
               <div
                 key={`${it.providerId}:${it.symbol}`}
+                ref={rowRef(quoteKey(it.providerId, it.symbol))}
                 className={`wl-row${active ? ' active' : ''}`}
-                title={it.note || it.label}
+                title={`${it.note || it.label} (${it.providerId})`}
                 draggable
                 onDragStart={(e) => { e.stopPropagation(); drag.current = { kind: 'item', key: it }; }}
                 onDragOver={(e) => e.preventDefault()}
@@ -152,15 +233,17 @@ export function Watchlist() {
               >
                 <span className="wl-id">
                   <span className="wl-sym">{it.symbol}</span>
-                  <span className="badge">{it.providerId}</span>
                   {it.tags.map((id) => {
                     const t = tagOf(id);
                     return t ? <span key={id} className="wl-tag" style={{ background: t.color }} title={t.name} /> : null;
                   })}
                 </span>
-                <span className="wl-quote">{q ? fmtNum(q.price) : '-'}</span>
-                <span className={`wl-change${q && q.pct !== null ? (q.pct >= 0 ? ' pos' : ' neg') : ''}`}>
-                  {q && q.pct !== null ? `${q.pct >= 0 ? '+' : ''}${q.pct.toFixed(2)}%` : ''}
+                <span className="wl-quote">{q ? fmtNum(q.last) : '-'}</span>
+                <span className={`wl-change${q ? (q.chg >= 0 ? ' pos' : ' neg') : ''}`}>
+                  {q ? `${q.chg >= 0 ? '+' : ''}${fmtNum(q.chg)}` : '-'}
+                </span>
+                <span className={`wl-change${q ? (q.chgPct >= 0 ? ' pos' : ' neg') : ''}`}>
+                  {q ? `${q.chgPct >= 0 ? '+' : ''}${q.chgPct.toFixed(2)}%` : '-'}
                 </span>
               </div>
             );
