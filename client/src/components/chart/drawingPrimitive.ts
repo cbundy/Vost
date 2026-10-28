@@ -13,6 +13,7 @@ import { HANDLE_HIT_RADIUS, HANDLE_RADIUS, hitsHandle, logicalToTime, timeToLogi
 import type { Anchor, Drawing } from '../../lib/drawings';
 import { theme } from '../../lib/theme';
 import { getTool } from './tools';
+import type { ToolView } from './tools/types';
 
 type RenderTarget = Parameters<IPrimitivePaneRenderer['draw']>[0];
 
@@ -101,19 +102,27 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return pts;
   }
 
-  private width(): number {
-    return this.chart ? this.chart.paneSize(0).width : 0;
+  /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */
+  viewFor(anchors: readonly Anchor[], size?: { width: number; height: number }): ToolView {
+    const series = this.series;
+    const pane = size ?? (this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 });
+    return {
+      width: pane.width,
+      height: pane.height,
+      anchors,
+      priceToY: (price) => series?.priceToCoordinate(price) ?? null,
+      formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
+    };
   }
 
   /** What a press at p would grab: the selected drawing's handles first, then drawings from the top. */
   hit(p: Pt): DrawingHit | null {
-    const width = this.width();
     const sel = this.drawings.find((d) => d.id === this.selectedId);
     if (sel) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
       if (tool && pts) {
-        const hs = tool.handles(pts, width);
+        const hs = tool.handles(pts, this.viewFor(sel.anchors));
         for (let i = 0; i < hs.length; i++) if (hitsHandle(p, hs[i], HANDLE_HIT_RADIUS)) return { id: sel.id, handle: i };
       }
     }
@@ -121,7 +130,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const d = this.drawings[i];
       const tool = getTool(d.tool);
       const pts = tool && this.points(d);
-      if (tool && pts && tool.hit(pts, p, width)) return { id: d.id, handle: null };
+      if (tool && pts && tool.hit(pts, p, this.viewFor(d.anchors))) return { id: d.id, handle: null };
     }
     return null;
   }
@@ -140,9 +149,10 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         if (!tool || !pts) continue;
         const selected = d.id === this.selectedId;
         ctx.save();
-        tool.draw(ctx, pts, { width: mediaSize.width, selected });
+        const view = this.viewFor(d.anchors, mediaSize);
+        tool.draw(ctx, pts, view, { selected });
         if (selected) {
-          for (const h of tool.handles(pts, mediaSize.width)) {
+          for (const h of tool.handles(pts, view)) {
             ctx.beginPath();
             ctx.arc(h.x, h.y, HANDLE_RADIUS, 0, Math.PI * 2);
             ctx.fillStyle = theme.bg;
