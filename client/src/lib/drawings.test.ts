@@ -17,6 +17,7 @@ import {
   type Drawing,
 } from './drawings';
 
+const COUNTS = { trendLine: 2, horizontalLine: 1 };
 const store = new Map<string, string>();
 beforeEach(() => {
   store.clear();
@@ -115,16 +116,16 @@ describe('source key', () => {
 describe('storage', () => {
   it('round trips', () => {
     saveDrawings({ 'demo:DEMO': [trend('a'), hline('b')], 'local:x': [] });
-    const got = loadDrawings();
+    const got = loadDrawings(COUNTS);
     expect(got.sources).toEqual({ 'demo:DEMO': [trend('a'), hline('b')] });
     expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!).version).toBe(1);
   });
   it('loads none when missing, unparsable or the wrong shape', () => {
-    expect(loadDrawings().sources).toEqual({});
+    expect(loadDrawings(COUNTS).sources).toEqual({});
     store.set('vost.' + STORAGE_KEY, '{nope');
-    expect(loadDrawings().sources).toEqual({});
+    expect(loadDrawings(COUNTS).sources).toEqual({});
     for (const bad of [null, 5, [], { version: 1 }, { version: 1, sources: [] }, { version: 'x', sources: {} }, { sources: {} }]) {
-      expect(parseStore(bad)).toEqual({ sources: {}, newer: false });
+      expect(parseStore(bad, COUNTS)).toEqual({ sources: {}, newer: false });
     }
   });
   it('drops a bad item alone', () => {
@@ -143,12 +144,12 @@ describe('storage', () => {
         t: 'not a list',
       },
     };
-    expect(parseStore(JSON.parse(JSON.stringify(raw))).sources).toEqual({ s: [trend('a'), hline('b')] });
+    expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS).sources).toEqual({ s: [trend('a'), hline('b')] });
   });
   it('treats a newer version as none and leaves it in storage until the user saves', () => {
     const newer = JSON.stringify({ version: 2, sources: { s: [trend('a')] } });
     store.set('vost.' + STORAGE_KEY, newer);
-    const got = loadDrawings();
+    const got = loadDrawings(COUNTS);
     expect(got).toEqual({ sources: {}, newer: true });
     expect(store.get('vost.' + STORAGE_KEY)).toBe(newer);
     saveDrawings({ s: [hline('z')] });

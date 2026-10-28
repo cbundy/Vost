@@ -17,5 +17,6 @@ ok   undo brings it back
 ok   redo removes it again
 ok   undo again
 ok   two drawings in storage after reload
+ok   pointer cursor over the reloaded trend line - pointer
 ok   drawings unchanged by the change
 ok   chart panned

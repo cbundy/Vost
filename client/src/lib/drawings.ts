@@ -6,11 +6,8 @@ import { debounce, loadJson, saveJson } from './storage';
 
 export type Anchor = { time: number; price: number };
 
-/** Anchors a tool needs. A new tool adds one entry here and one module under components/chart/tools. */
-export const TOOL_ANCHORS: Readonly<Record<string, number>> = {
-  trendLine: 2,
-  horizontalLine: 1,
-};
+/** Anchors each known tool id needs; the registry (components/chart/tools) is the one source of it. */
+export type AnchorCounts = Readonly<Record<string, number>>;
 
 export type Drawing = { id: string; tool: string; anchors: Anchor[] };
 
@@ -88,11 +85,11 @@ export type DrawingStore = {
 
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 
-function sanitizeDrawing(raw: unknown): Drawing | null {
+function sanitizeDrawing(raw: unknown, counts: AnchorCounts): Drawing | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.id !== 'string' || !r.id || typeof r.tool !== 'string') return null;
-  const need = Object.prototype.hasOwnProperty.call(TOOL_ANCHORS, r.tool) ? TOOL_ANCHORS[r.tool] : 0;
+  const need = Object.prototype.hasOwnProperty.call(counts, r.tool) ? counts[r.tool] : 0;
   if (!need || !Array.isArray(r.anchors) || r.anchors.length !== need) return null;
   const anchors: Anchor[] = [];
   for (const a of r.anchors) {
@@ -105,7 +102,7 @@ function sanitizeDrawing(raw: unknown): Drawing | null {
 }
 
 /** Parses a stored payload; anything unusable gives no drawings and a bad item is dropped alone. */
-export function parseStore(raw: unknown): DrawingStore {
+export function parseStore(raw: unknown, counts: AnchorCounts): DrawingStore {
   const none: DrawingStore = { sources: {}, newer: false };
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return none;
   const r = raw as Record<string, unknown>;
@@ -118,7 +115,7 @@ export function parseStore(raw: unknown): DrawingStore {
     const seen = new Set<string>();
     const ok: Drawing[] = [];
     for (const item of list) {
-      const d = sanitizeDrawing(item);
+      const d = sanitizeDrawing(item, counts);
       if (d && !seen.has(d.id)) {
         seen.add(d.id);
         ok.push(d);
@@ -129,8 +126,8 @@ export function parseStore(raw: unknown): DrawingStore {
   return { sources, newer: false };
 }
 
-export function loadDrawings(): DrawingStore {
-  return parseStore(loadJson<unknown>(STORAGE_KEY, null));
+export function loadDrawings(counts: AnchorCounts): DrawingStore {
+  return parseStore(loadJson<unknown>(STORAGE_KEY, null), counts);
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */

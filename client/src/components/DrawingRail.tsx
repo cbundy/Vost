@@ -1,8 +1,8 @@
 import { CURSOR } from './chart/useDrawings';
 import { TOOLS } from './chart/tools';
-import { DRAWING_ICONS } from './DrawingIcons';
+import { CursorIcon } from './DrawingIcons';
 
-const ENTRIES = [{ id: CURSOR, label: 'Cursor' }, ...TOOLS.map((t) => ({ id: t.id, label: t.label }))];
+const ENTRIES = [{ id: CURSOR, label: 'Cursor', icon: <CursorIcon /> }, ...TOOLS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))];
 
 /** The vertical tool rail at the chart's left edge: Cursor plus one button per drawing tool. */
 export function DrawingRail({ tool, onPick, disabled }: { tool: string; onPick: (id: string) => void; disabled: boolean }) {
@@ -21,7 +21,7 @@ export function DrawingRail({ tool, onPick, disabled }: { tool: string; onPick: 
             disabled={disabled && t.id !== CURSOR}
             onClick={() => onPick(t.id)}
           >
-            {DRAWING_ICONS[t.id]}
+            {t.icon}
           </button>
         );
       })}

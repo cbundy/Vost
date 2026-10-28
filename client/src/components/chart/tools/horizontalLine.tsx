@@ -1,10 +1,17 @@
 import { HANDLE_RADIUS, HIT_TOLERANCE } from '../../../lib/drawingGeometry';
 import { theme } from '../../../lib/theme';
+import { Svg } from '../../DrawingIcons';
 import type { DrawingTool } from './types';
 
 export const horizontalLine: DrawingTool = {
   id: 'horizontalLine',
   label: 'Horizontal line',
+  icon: (
+    <Svg>
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <circle cx="12" cy="12" r="2" />
+    </Svg>
+  ),
   anchors: 1,
   priceOnly: true,
   draw(ctx, [a], { width, selected }) {

@@ -19,7 +19,7 @@ import {
 } from '../../lib/drawings';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
-import { getTool } from './tools';
+import { ANCHOR_COUNTS, getTool } from './tools';
 
 export const CURSOR = 'cursor';
 /** Pixels a press must travel to count as a drag (a trend line press-drag-release rather than click, click). */
@@ -68,7 +68,7 @@ export function useDrawings(
     const k = keyRef.current;
     let st = statesRef.current.get(k);
     if (!st) {
-      sourcesRef.current ??= loadDrawings().sources;
+      sourcesRef.current ??= loadDrawings(ANCHOR_COUNTS).sources;
       st = emptyState(sourcesRef.current[k] ?? []);
       statesRef.current.set(k, st);
     }
@@ -83,7 +83,7 @@ export function useDrawings(
     (next: DrawingsState, persist: boolean) => {
       statesRef.current.set(keyRef.current, next);
       if (persist) {
-        sourcesRef.current = { ...(sourcesRef.current ?? loadDrawings().sources), [keyRef.current]: next.drawings };
+        sourcesRef.current = { ...(sourcesRef.current ?? loadDrawings(ANCHOR_COUNTS).sources), [keyRef.current]: next.drawings };
         saverRef.current ??= createDrawingSaver();
         saverRef.current(sourcesRef.current);
       }

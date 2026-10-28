@@ -1,10 +1,18 @@
 import { HIT_TOLERANCE, distToSegment } from '../../../lib/drawingGeometry';
 import { theme } from '../../../lib/theme';
+import { Svg } from '../../DrawingIcons';
 import type { DrawingTool } from './types';
 
 export const trendLine: DrawingTool = {
   id: 'trendLine',
   label: 'Trend line',
+  icon: (
+    <Svg>
+      <line x1="5" y1="19" x2="19" y2="5" />
+      <circle cx="5" cy="19" r="2" />
+      <circle cx="19" cy="5" r="2" />
+    </Svg>
+  ),
   anchors: 2,
   draw(ctx, [a, b], { selected }) {
     ctx.beginPath();

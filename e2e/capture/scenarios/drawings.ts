@@ -61,6 +61,7 @@ export const drawings: Scenario = {
     });
     await ctx.screenshot('rail');
 
+    let movedMid = { x: 0, y: 0 };
     const at = async (fx: number, fy: number) => {
       const b = await box();
       return { x: b.x + b.width * fx, y: b.y + b.height * fy };
@@ -126,6 +127,7 @@ export const drawings: Scenario = {
       await page.mouse.down();
       await page.mouse.move(mx - 30, my + 50, { steps: 10 });
       await page.mouse.up();
+      movedMid = { x: mx - 30, y: my + 50 };
       const after = (await stored()).find((d) => d.tool === 'trendLine')!;
       const dt = after.anchors.map((a, i) => a.time - before.anchors[i].time);
       check('both anchors moved by the same time', dt[0] !== 0 && Math.abs(dt[0] - dt[1]) < 1, `${dt.join(',')}`);
@@ -150,6 +152,11 @@ export const drawings: Scenario = {
       await ctx.waitForChart();
       await page.waitForTimeout(500);
       check('two drawings in storage after reload', (await stored()).length === 2);
+      const mid = movedMid; // where the trend line sits after the body drag
+      await page.mouse.move(mid.x - 20, mid.y - 20);
+      await page.mouse.move(mid.x, mid.y, { steps: 5 });
+      const cursor = await page.locator('.chart-container').evaluate((el) => (el as HTMLElement).style.cursor);
+      check('pointer cursor over the reloaded trend line', cursor === 'pointer', cursor);
     });
     await ctx.screenshot('reloaded');
 
