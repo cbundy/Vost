@@ -1,0 +1,2 @@
+ok   rail hidden
+ok   chart starts at the left edge - x=0
