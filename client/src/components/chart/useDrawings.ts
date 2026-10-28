@@ -1,4 +1,5 @@
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
+import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { MOUSE_HIT, TOUCH_HIT, snapToBar, type Pt } from '../../lib/drawingGeometry';
 import {
@@ -12,6 +13,8 @@ import {
   redo,
   remove,
   removeAll,
+  cleanText,
+  setText,
   sourceKey,
   undo,
   type Anchor,
@@ -20,19 +23,33 @@ import {
 } from '../../lib/drawings';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
-import { ANCHOR_COUNTS, getTool, type DrawingTool } from './tools';
+import { ANCHOR_COUNTS, TEXT_TOOLS, getTool, type DrawingTool } from './tools';
 
 export const CURSOR = 'cursor';
 /** Pixels a press must travel to count as a drag (a trend line press-drag-release rather than click, click). */
 const DRAG_PX = 4;
 
+/** Two taps on the same note within this many ms open its editor. */
+const DOUBLE_TAP_MS = 350;
+
+export type DrawingEditor = {
+  /** Changes with every opening, so the input is made new. */
+  key: number;
+  left: number;
+  top: number;
+  text: string;
+  onCommit(text: string): void;
+  onCancel(): void;
+};
+type EditorTarget = { id: string | null; anchor: Anchor; text: string; key: number };
+
 /** Where a dragged handle now is: its starting pixel moved by the drag. */
 function handleTarget(def: DrawingTool, drag: Drag, prim: DrawingPrimitive, dx: number, dy: number): Pt {
-  const h = def.handles(drag.origPts, prim.viewFor(drag.origAnchors))[drag.handle as number];
+  const h = def.handles(drag.origPts, prim.viewFor({ anchors: drag.origAnchors, text: drag.origText }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
 }
 
-type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origPts: Pt[]; before: Drawing[] };
+type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origPts: Pt[]; before: Drawing[] };
 type Draft = { drawing: Drawing; start: Pt; /** pressing: the button is down; waiting: the first anchor is placed, the next click ends it. */ phase: 'pressing' | 'waiting' };
 
 function isEditable(t: EventTarget | null): boolean {
@@ -71,6 +88,10 @@ export function useDrawings(
   const selectedRef = useRef<string | null>(null);
   const draftRef = useRef<Draft | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const measureRef = useRef<Drawing | null>(null);
+  const editTargetRef = useRef<EditorTarget | null>(null);
+  const editorKeyRef = useRef(0);
+  const [editor, setEditor] = useState<DrawingEditor | null>(null);
   const magnetRef = useRef(magnet);
   const hiddenRef = useRef(hidden);
   magnetRef.current = magnet;
@@ -82,7 +103,7 @@ export function useDrawings(
     const k = keyRef.current;
     let st = statesRef.current.get(k);
     if (!st) {
-      sourcesRef.current ??= loadDrawings(ANCHOR_COUNTS).sources;
+      sourcesRef.current ??= loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS).sources;
       st = emptyState(sourcesRef.current[k] ?? []);
       statesRef.current.set(k, st);
     }
@@ -91,7 +112,15 @@ export function useDrawings(
 
   const sync = useCallback(() => {
     if (hiddenRef.current) primRef.current?.set([], null, null);
-    else primRef.current?.set(getState().drawings, selectedRef.current, draftRef.current?.drawing ?? null);
+    else {
+      primRef.current?.set(
+        getState().drawings,
+        selectedRef.current,
+        draftRef.current?.drawing ?? null,
+        measureRef.current,
+        editTargetRef.current?.id ?? null,
+      );
+    }
   }, [getState]);
 
   const setState = useCallback(
@@ -99,7 +128,7 @@ export function useDrawings(
       statesRef.current.set(keyRef.current, next);
       setDrawingCount(next.drawings.length);
       if (persist) {
-        sourcesRef.current = { ...(sourcesRef.current ?? loadDrawings(ANCHOR_COUNTS).sources), [keyRef.current]: next.drawings };
+        sourcesRef.current = { ...(sourcesRef.current ?? loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS).sources), [keyRef.current]: next.drawings };
         saverRef.current ??= createDrawingSaver();
         saverRef.current(sourcesRef.current);
       }
@@ -119,6 +148,101 @@ export function useDrawings(
     },
     [sync],
   );
+
+  /** The rail's pick: any tool, Cursor too, clears a measure left on the chart. */
+  const pickTool = useCallback(
+    (id: string) => {
+      measureRef.current = null;
+      setTool(id);
+    },
+    [setTool],
+  );
+
+  /** Pixel position of the editor's note: the container's offset in the chart area plus the anchor's pixel. */
+  const editorPos = useCallback(
+    (anchor: Anchor): { left: number; top: number } | null => {
+      const pt = primRef.current?.toPoint(anchor);
+      const el = containerRef.current;
+      return pt && el ? { left: el.offsetLeft + pt.x, top: el.offsetTop + pt.y } : null;
+    },
+    [containerRef],
+  );
+
+  const closeEditor = useCallback(() => {
+    if (!editTargetRef.current) return;
+    editTargetRef.current = null;
+    setEditor(null);
+    sync();
+  }, [sync]);
+
+  const commitEditor = useCallback(
+    (target: EditorTarget, raw: string) => {
+      if (editTargetRef.current?.key !== target.key) return;
+      const text = cleanText(raw);
+      editTargetRef.current = null;
+      setEditor(null);
+      if (target.id === null) {
+        if (text) {
+          const id = newDrawingId();
+          setState(add(getState(), { id, tool: 'text', anchors: [target.anchor], text }), true);
+          selectedRef.current = id;
+        }
+      } else if (!text) {
+        setState(remove(getState(), target.id), true);
+        if (selectedRef.current === target.id) selectedRef.current = null;
+      } else {
+        setState(setText(getState(), target.id, text), true);
+        selectedRef.current = target.id;
+      }
+      sync();
+    },
+    [getState, setState, sync],
+  );
+
+  /** Opens the note input at an anchor; for an existing note pass its id and text. Renders at once so it can take focus. */
+  const openEditor = useCallback(
+    (id: string | null, anchor: Anchor, text: string) => {
+      if (editTargetRef.current && editTargetRef.current.id === id && id !== null) return;
+      const pos = editorPos(anchor);
+      if (!pos) return;
+      const target: EditorTarget = { id, anchor, text, key: ++editorKeyRef.current };
+      editTargetRef.current = target;
+      flushSync(() =>
+        setEditor({
+          key: target.key,
+          ...pos,
+          text,
+          onCommit: (t) => commitEditor(target, t),
+          onCancel: closeEditor,
+        }),
+      );
+      sync();
+    },
+    [closeEditor, commitEditor, editorPos, sync],
+  );
+
+  /* The input follows its anchor when the chart pans, zooms or resizes. */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!chart || !el) return;
+    const place = () => {
+      const target = editTargetRef.current;
+      const pos = target && editorPos(target.anchor);
+      if (!pos) return;
+      setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top) ? { ...cur, ...pos } : cur));
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(place);
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    return () => {
+      try {
+        chart.timeScale().unsubscribeVisibleLogicalRangeChange(place);
+      } catch {
+        /* the chart is already gone */
+      }
+      ro.disconnect();
+    };
+  }, [chart, containerRef, editorPos]);
 
   /* Primitive on the candle series. */
   useEffect(() => {
@@ -151,6 +275,9 @@ export function useDrawings(
     selectedRef.current = null;
     draftRef.current = null;
     dragRef.current = null;
+    measureRef.current = null;
+    editTargetRef.current = null;
+    setEditor(null);
     setDrawingCount(getState().drawings.length);
     sync();
   }, [key, sync, getState]);
@@ -161,6 +288,9 @@ export function useDrawings(
       selectedRef.current = null;
       draftRef.current = null;
       dragRef.current = null;
+      measureRef.current = null;
+      editTargetRef.current = null;
+      setEditor(null);
       toolRef.current = CURSOR;
       setToolState(CURSOR);
     }
@@ -189,6 +319,7 @@ export function useDrawings(
     let swallow = false;
     let idle: { p: Pt; hit: boolean } | null = null;
     let touch = false;
+    let lastTap: { id: string; t: number; p: Pt } | null = null;
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
     const snap = (a: Anchor, priceOnly = false): Anchor =>
@@ -227,6 +358,13 @@ export function useDrawings(
       }
     };
     const finish = (anchors: Anchor[], id: string) => {
+      if (getTool(id)?.transient) {
+        // A measure is shown, never stored: it stays until the next press, Escape or a rail pick.
+        measureRef.current = { id: 'measure', tool: id, anchors };
+        draftRef.current = null;
+        setTool(CURSOR);
+        return;
+      }
       setState(add(getState(), { id: newDrawingId(), tool: id, anchors }), true);
       const created = getState().drawings.at(-1)!;
       draftRef.current = null;
@@ -247,6 +385,10 @@ export function useDrawings(
         return;
       }
       touch = e.pointerType === 'touch';
+      if (measureRef.current) {
+        measureRef.current = null;
+        sync();
+      }
       const p = point(e);
       if (!inPlot(p)) return;
       const prim = primRef.current;
@@ -261,6 +403,12 @@ export function useDrawings(
         const draft = draftRef.current;
         if (draft) {
           finish([draft.drawing.anchors[0], anchor], toolId);
+          return; // the pointerup releases
+        }
+        if (def.text) {
+          draftRef.current = null;
+          setTool(CURSOR);
+          openEditor(null, anchor, '');
           return; // the pointerup releases
         }
         if (def.anchors === 1) {
@@ -288,6 +436,7 @@ export function useDrawings(
         handle: hit.handle,
         start: p,
         origAnchors: d.anchors,
+        origText: d.text,
         origPts: origPts as Pt[],
         before: st.drawings,
       };
@@ -359,6 +508,16 @@ export function useDrawings(
         dragRef.current = null;
         setState(commit(getState(), drag.before), true);
         release(e);
+        const p = point(e);
+        if (touch && Math.hypot(p.x - drag.start.x, p.y - drag.start.y) < DRAG_PX) {
+          const prev = lastTap;
+          lastTap = { id: drag.id, t: e.timeStamp, p };
+          const note = getState().drawings.find((x) => x.id === drag.id);
+          if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === drag.id && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
+            lastTap = null;
+            openEditor(note.id, note.anchors[0], note.text ?? '');
+          }
+        } else lastTap = null;
         return;
       }
       if (idle) {
@@ -372,6 +531,20 @@ export function useDrawings(
       if (swallow) release(e);
     };
 
+    const onDblClick = (e: MouseEvent) => {
+      const prim = primRef.current;
+      if (!prim || toolRef.current !== CURSOR || hiddenRef.current) return;
+      const r = el.getBoundingClientRect();
+      const p = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (!inPlot(p)) return;
+      const hit = prim.hit(p);
+      const note = hit && getState().drawings.find((x) => x.id === hit.id);
+      if (!note || !TEXT_TOOLS.has(note.tool)) return;
+      e.stopPropagation();
+      e.preventDefault();
+      openEditor(note.id, note.anchors[0], note.text ?? '');
+    };
+
     const eat = (e: Event) => {
       if (swallow) e.stopPropagation();
     };
@@ -380,6 +553,7 @@ export function useDrawings(
     el.addEventListener('pointermove', onMove, true);
     el.addEventListener('pointerup', onUp, true);
     el.addEventListener('pointercancel', onUp, true);
+    el.addEventListener('dblclick', onDblClick, true);
     el.addEventListener('mousedown', eat, true);
     el.addEventListener('touchstart', eat, true);
     return () => {
@@ -387,11 +561,12 @@ export function useDrawings(
       el.removeEventListener('pointermove', onMove, true);
       el.removeEventListener('pointerup', onUp, true);
       el.removeEventListener('pointercancel', onUp, true);
+      el.removeEventListener('dblclick', onDblClick, true);
       el.removeEventListener('mousedown', eat, true);
       el.removeEventListener('touchstart', eat, true);
       el.style.cursor = '';
     };
-  }, [chart, containerRef, getState, setState, setTool, sync]);
+  }, [chart, containerRef, getState, setState, setTool, sync, openEditor]);
 
   /* Keyboard. */
   useEffect(() => {
@@ -400,7 +575,8 @@ export function useDrawings(
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
       if (e.key === 'Escape') {
-        if (draftRef.current || toolRef.current !== CURSOR) {
+        if (draftRef.current || toolRef.current !== CURSOR || measureRef.current) {
+          measureRef.current = null;
           setTool(CURSOR);
           e.preventDefault();
         }
@@ -439,6 +615,8 @@ export function useDrawings(
   return {
     tool,
     setTool,
+    pickTool,
+    editor,
     hasData,
     magnet,
     hidden,

@@ -1,12 +1,14 @@
 import { fibRetracement } from './fibRetracement';
 import { horizontalLine } from './horizontalLine';
 import { ray } from './ray';
+import { measure } from './measure';
 import { rectangle } from './rectangle';
+import { text } from './text';
 import { trendLine } from './trendLine';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, horizontalLine, ray, rectangle, fibRetracement];
+export const TOOLS: readonly DrawingTool[] = [trendLine, horizontalLine, ray, rectangle, fibRetracement, text, measure];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);
@@ -15,4 +17,9 @@ export function getTool(id: string): DrawingTool | undefined {
 export type { DrawingTool } from './types';
 
 /** Anchors each tool needs, for validating stored drawings. */
-export const ANCHOR_COUNTS: Readonly<Record<string, number>> = Object.fromEntries(TOOLS.map((t) => [t.id, t.anchors]));
+export const ANCHOR_COUNTS: Readonly<Record<string, number>> = Object.fromEntries(
+  TOOLS.filter((t) => !t.transient).map((t) => [t.id, t.anchors]),
+);
+
+/** Ids of the tools that store text. */
+export const TEXT_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.text).map((t) => t.id));

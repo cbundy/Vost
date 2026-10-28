@@ -26,6 +26,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private requestUpdate: (() => void) | null = null;
   private drawings: Drawing[] = [];
   private draft: Drawing | null = null;
+  private measure: Drawing | null = null;
+  private skipId: string | null = null;
   private selectedId: string | null = null;
   private axisViews: ISeriesPrimitiveAxisView[] = [];
   private readonly view: IPrimitivePaneView;
@@ -50,10 +52,19 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.requestUpdate = null;
   }
 
-  set(drawings: Drawing[], selectedId: string | null, draft: Drawing | null): void {
+  /** `measure` is the finished temporary measure; `skipId` is a note not painted because its text is being edited. */
+  set(
+    drawings: Drawing[],
+    selectedId: string | null,
+    draft: Drawing | null,
+    measure: Drawing | null = null,
+    skipId: string | null = null,
+  ): void {
     this.drawings = drawings;
     this.selectedId = selectedId;
     this.draft = draft;
+    this.measure = measure;
+    this.skipId = skipId;
     this.rebuildAxisViews();
     this.requestUpdate?.();
   }
@@ -103,13 +114,15 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   }
 
   /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */
-  viewFor(anchors: readonly Anchor[], size?: { width: number; height: number }): ToolView {
+  viewFor(d: Pick<Drawing, 'anchors' | 'text'>, size?: { width: number; height: number }): ToolView {
     const series = this.series;
     const pane = size ?? (this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 });
     return {
       width: pane.width,
       height: pane.height,
-      anchors,
+      anchors: d.anchors,
+      text: d.text ?? '',
+      times: this.getTimes(),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,
       formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
     };
@@ -122,7 +135,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
       if (tool && pts) {
-        const hs = tool.handles(pts, this.viewFor(sel.anchors));
+        const hs = tool.handles(pts, this.viewFor(sel));
         for (let i = 0; i < hs.length; i++) if (hitsHandle(p, hs[i], opts.handleRadius)) return { id: sel.id, handle: i };
       }
     }
@@ -130,7 +143,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const d = this.drawings[i];
       const tool = getTool(d.tool);
       const pts = tool && this.points(d);
-      if (tool && pts && tool.hit(pts, p, this.viewFor(d.anchors), opts.tolerance)) return { id: d.id, handle: null };
+      if (tool && pts && tool.hit(pts, p, this.viewFor(d), opts.tolerance)) return { id: d.id, handle: null };
     }
     return null;
   }
@@ -142,14 +155,15 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
 
   private paint(target: RenderTarget): void {
     target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
-      const all = this.draft ? [...this.drawings, this.draft] : this.drawings;
+      const all = [...this.drawings, ...(this.measure ? [this.measure] : []), ...(this.draft ? [this.draft] : [])];
       for (const d of all) {
+        if (d.id === this.skipId) continue;
         const tool = getTool(d.tool);
         const pts = tool && this.points(d);
         if (!tool || !pts) continue;
         const selected = d.id === this.selectedId;
         ctx.save();
-        const view = this.viewFor(d.anchors, mediaSize);
+        const view = this.viewFor(d, mediaSize);
         tool.draw(ctx, pts, view, { selected });
         if (selected) {
           for (const h of tool.handles(pts, view)) {

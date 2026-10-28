@@ -54,6 +54,18 @@ export function fmtDurationBarCount(bars: number): string {
   return bars === 1 ? '1 bar' : `${fmtNum(bars, 0)} bars`;
 }
 
+/** An elapsed time as its two largest non-zero units of d, h, m, s: "3d 4h", "2h 15m", "45m", "30s"; "0m" for 0. */
+export function fmtElapsed(seconds: number): string {
+  let rest = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const parts: string[] = [];
+  for (const [unit, size] of [['d', 86400], ['h', 3600], ['m', 60], ['s', 1]] as const) {
+    const n = Math.floor(rest / size);
+    rest -= n * size;
+    if (n > 0 && parts.length < 2) parts.push(`${n}${unit}`);
+  }
+  return parts.length ? parts.join(' ') : '0m';
+}
+
 /** Loaded data span, e.g. "12 Dec 2012, 14:00 → 04 Feb 2020, 19:00 · 4,987 bars". Empty when there is no data. */
 export function fmtDataRange(
   firstSec: number | null | undefined,

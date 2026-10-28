@@ -29,6 +29,7 @@ import { getProvider } from '../lib/providers';
 import { selectDataCandles, useStore } from '../state/store';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
+import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { useMediaQuery } from '../lib/useMediaQuery';
 
@@ -440,7 +441,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
 
   const drawingControls: DrawingControls = {
     tool: drawings.tool,
-    onPick: drawings.setTool,
+    onPick: drawings.pickTool,
     disabled: !drawings.hasData,
     magnet: drawings.magnet,
     onMagnet: drawings.toggleMagnet,
@@ -456,6 +457,16 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
       <div className="chart-main">
       <div className="chart-legend" ref={legendRef} />
       <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
+      {drawings.editor && (
+        <DrawingTextEditor
+          key={drawings.editor.key}
+          left={drawings.editor.left}
+          top={drawings.editor.top}
+          initialText={drawings.editor.text}
+          onCommit={drawings.editor.onCommit}
+          onCancel={drawings.editor.onCancel}
+        />
+      )}
       <ChartRangeBar chartApi={chartApi} />
       <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} />
       <div className="chart-toolbar">

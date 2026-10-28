@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIB_LEVELS, distToSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, snapToBar, timeToLogical } from './drawingGeometry';
+import { FIB_LEVELS, distToSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -141,5 +141,40 @@ describe('ray, rectangle and fibonacci geometry', () => {
         expect(after.some((c) => c.x === n1.x && c.y === n1.y)).toBe(true);
       }
     }
+  });
+});
+
+describe('wrapText', () => {
+  const m = (s: string) => s.length * 7;
+  it('breaks at words', () => {
+    expect(wrapText('aaa bbb ccc', 7 * 7, m)).toEqual(['aaa bbb', 'ccc']);
+    expect(wrapText('short', 100, m)).toEqual(['short']);
+  });
+  it('breaks a single long word by characters', () => {
+    expect(wrapText('abcdefghij', 4 * 7, m)).toEqual(['abcd', 'efgh', 'ij']);
+  });
+  it('always returns a line', () => {
+    expect(wrapText('', 100, m)).toEqual(['']);
+  });
+});
+
+describe('measureSummary', () => {
+  // Hourly bars with a weekend-style gap of 40 hours between bar 3 and bar 4.
+  const times = [0, 1, 2, 3].map((i) => i * H).concat([4, 5, 6].map((i) => 3 * H + 40 * H + (i - 4) * H));
+  it('measures an up move across the gap', () => {
+    const s = measureSummary({ time: times[1], price: 100 }, { time: times[5], price: 110 }, times);
+    expect(s).toEqual({ change: 10, pct: 10, bars: 4, seconds: times[5] - times[1], direction: 'up' });
+  });
+  it('measures a down move backwards in time with absolute bars and seconds', () => {
+    const s = measureSummary({ time: times[5], price: 200 }, { time: times[2], price: 150 }, times);
+    expect(s.change).toBe(-50);
+    expect(s.pct).toBe(-25);
+    expect(s.bars).toBe(3);
+    expect(s.seconds).toBe(times[5] - times[2]);
+    expect(s.direction).toBe('down');
+  });
+  it('is flat when price is unchanged and has no percent from a zero start', () => {
+    expect(measureSummary({ time: 0, price: 5 }, { time: H, price: 5 }, times).direction).toBe('flat');
+    expect(measureSummary({ time: 0, price: 0 }, { time: H, price: 3 }, times).pct).toBeNull();
   });
 });

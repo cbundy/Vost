@@ -205,7 +205,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 
 ## Roadmap
 
-- [x] Drawing tools: trend line, horizontal line, ray, rectangle and Fibonacci retracement (select, move, resize, delete, undo/redo, saved per symbol), magnet, hide all, delete all and touch drawing with a phone menu
+- [x] Drawing tools: trend line, horizontal line, ray, rectangle, Fibonacci retracement and text notes (select, move, resize, delete, undo/redo, saved per symbol), magnet, hide all, delete all and touch drawing with a phone menu, plus a temporary measure tool (price change, percent, bars and time)
 - [ ] Alerts on price/indicator conditions
 - [ ] Multiple chart layouts & compare mode
 - [ ] More providers: keyless crypto exchanges (Coinbase, Kraken, Bybit, OKX) then free-key Twelve Data and Alpha Vantage - see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)

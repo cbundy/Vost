@@ -627,6 +627,21 @@ button.icon {
   flex-direction: column;
 }
 
+.drawing-text-editor {
+  position: absolute;
+  z-index: 5;
+  box-sizing: border-box;
+  width: 240px;
+  height: 28px;
+  padding: 5px 6px;
+  font: 12px/16px sans-serif;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--accent-2);
+  border-radius: 4px;
+  outline: none;
+}
+
 .drawing-rail {
   display: flex;
   flex-direction: column;
@@ -639,6 +654,7 @@ button.icon {
   background: var(--bg-2);
   border-right: 1px solid var(--border);
   min-height: 0;
+  overflow-y: auto;
 }
 
 .chart-container {

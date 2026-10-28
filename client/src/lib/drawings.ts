@@ -9,7 +9,16 @@ export type Anchor = { time: number; price: number };
 /** Anchors each known tool id needs; the registry (components/chart/tools) is the one source of it. */
 export type AnchorCounts = Readonly<Record<string, number>>;
 
-export type Drawing = { id: string; tool: string; anchors: Anchor[] };
+/** `text` is only set by tools that store text (a note). */
+export type Drawing = { id: string; tool: string; anchors: Anchor[]; text?: string };
+
+/** Longest stored text of a note. */
+export const TEXT_MAX = 500;
+
+/** A note's text as stored: trimmed and cut to {@link TEXT_MAX} characters. */
+export function cleanText(text: string): string {
+  return text.trim().slice(0, TEXT_MAX);
+}
 
 export const HISTORY_LIMIT = 100;
 export const STORAGE_KEY = 'drawings.v1';
@@ -45,6 +54,14 @@ export function add(s: DrawingsState, d: Drawing): DrawingsState {
 export function update(s: DrawingsState, id: string, anchors: Anchor[]): DrawingsState {
   if (!s.drawings.some((d) => d.id === id)) return s;
   return record(s, s.drawings, s.drawings.map((d) => (d.id === id ? { ...d, anchors } : d)));
+}
+
+/** Replaces one drawing's text as an undoable step; the same state when it is unchanged. */
+export function setText(s: DrawingsState, id: string, text: string): DrawingsState {
+  const clean = cleanText(text);
+  const d = s.drawings.find((x) => x.id === id);
+  if (!d || d.text === clean) return s;
+  return record(s, s.drawings, s.drawings.map((x) => (x.id === id ? { ...x, text: clean } : x)));
 }
 
 export function remove(s: DrawingsState, id: string): DrawingsState {
@@ -89,9 +106,11 @@ export type DrawingStore = {
   newer: boolean;
 };
 
+const NO_TEXT_TOOLS: ReadonlySet<string> = new Set();
+
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 
-function sanitizeDrawing(raw: unknown, counts: AnchorCounts): Drawing | null {
+function sanitizeDrawing(raw: unknown, counts: AnchorCounts, textTools: ReadonlySet<string>): Drawing | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.id !== 'string' || !r.id || typeof r.tool !== 'string') return null;
@@ -104,11 +123,14 @@ function sanitizeDrawing(raw: unknown, counts: AnchorCounts): Drawing | null {
     if (!finite(time) || !finite(price)) return null;
     anchors.push({ time, price });
   }
-  return { id: r.id, tool: r.tool, anchors };
+  if (!textTools.has(r.tool)) return { id: r.id, tool: r.tool, anchors };
+  const text = typeof r.text === 'string' ? cleanText(r.text) : '';
+  if (!text) return null;
+  return { id: r.id, tool: r.tool, anchors, text };
 }
 
 /** Parses a stored payload; anything unusable gives no drawings and a bad item is dropped alone. */
-export function parseStore(raw: unknown, counts: AnchorCounts): DrawingStore {
+export function parseStore(raw: unknown, counts: AnchorCounts, textTools: ReadonlySet<string> = NO_TEXT_TOOLS): DrawingStore {
   const none: DrawingStore = { sources: {}, newer: false };
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return none;
   const r = raw as Record<string, unknown>;
@@ -121,7 +143,7 @@ export function parseStore(raw: unknown, counts: AnchorCounts): DrawingStore {
     const seen = new Set<string>();
     const ok: Drawing[] = [];
     for (const item of list) {
-      const d = sanitizeDrawing(item, counts);
+      const d = sanitizeDrawing(item, counts, textTools);
       if (d && !seen.has(d.id)) {
         seen.add(d.id);
         ok.push(d);
@@ -132,8 +154,8 @@ export function parseStore(raw: unknown, counts: AnchorCounts): DrawingStore {
   return { sources, newer: false };
 }
 
-export function loadDrawings(counts: AnchorCounts): DrawingStore {
-  return parseStore(loadJson<unknown>(STORAGE_KEY, null), counts);
+export function loadDrawings(counts: AnchorCounts, textTools: ReadonlySet<string> = NO_TEXT_TOOLS): DrawingStore {
+  return parseStore(loadJson<unknown>(STORAGE_KEY, null), counts, textTools);
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */
