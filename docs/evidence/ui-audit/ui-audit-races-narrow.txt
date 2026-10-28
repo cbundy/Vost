@@ -1,0 +1,9 @@
+timeframes 1d>1h>15m>5m>1m>1h>4h>15m: select=15m legend="Binance · BTCUSDT · 15m" -> consistent
+  expected bar spacing of 15m: 900s
+timeframes 5m>15m>5m>15m>5m>1h: select=1h legend="Binance · BTCUSDT · 1h" -> consistent
+  expected bar spacing of 1h: 3600s
+requests cancelled by the browser during the rapid switches (net::ERR_ABORTED): 0 (0 means every superseded /api/history call ran to the end)
+history requests fired by the rapid switches: 16 for 14 selections
+providers coinbase>kraken>okx>bybit>binance (narrow goes through the More menu): select=n/a legend="Binance · BTCUSDT · 1h"
+live button after a timeframe change while live: "Live" (live was on before the change)
+live open streams after a timeframe change while live: 0 (was 1); a leak shows as 2+

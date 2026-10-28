@@ -1,0 +1,64 @@
+73 requests; slow (> 1000 ms): 0; failed or status >= 400: 8
+
+failed or status >= 400 (action, status, failure, url):
+  [live on #1] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+  [live on #2] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+  [live on #3] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+  [live on (final)] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+  [load with the upstream down] 502  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
+  [switch provider with the upstream down] 502  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
+  [search with the upstream down] 502  GET /api/search?provider=kraken&q=XBTUSD
+  [search with the upstream down] 502  GET /api/search?provider=kraken&q=ETH
+
+slowest 12 (ms, action, url):
+    451 ms  [slow history] /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
+     55 ms  [pine remove] /assets/index-BTG3ZAS9.js
+     50 ms  [backtest] /assets/backtest.worker-BYa6uQX1.js
+     49 ms  [startup] /assets/index-BF-2wL08.css
+     48 ms  [startup] /assets/index-BTG3ZAS9.js
+     47 ms  [pine remove] /assets/index-BTG3ZAS9.js
+     46 ms  [slow history] /assets/index-BF-2wL08.css
+     45 ms  [slow history] /assets/index-BTG3ZAS9.js
+     44 ms  [provider binance] /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
+     43 ms  [startup] /api/status
+     40 ms  [rapid providers] /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=5000
+     36 ms  [slow history] /api/status
+
+identical /api requests (excluding /api/live) inside one user action:
+  rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
+  rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
+  rapid timeframes 5m>15m>5m>15m>5m>1h: 3x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=5m&bars=5000
+  rapid timeframes 5m>15m>5m>15m>5m>1h: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
+
+count per distinct request (time bounds masked):
+    4  GET /
+    4  GET /assets/index-BTG3ZAS9.js
+    4  GET /assets/index-BF-2wL08.css
+    5  GET /api/status
+    1  GET /api/providers
+   12  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
+    2  GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1h&bars=5000
+    4  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
+    2  GET /api/history?provider=bybit&symbol=BTCUSDT&timeframe=1h&bars=5000
+    2  GET /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=5000
+    1  GET /api/history?provider=yahoo&symbol=AAPL&timeframe=1d&bars=5000
+    1  GET /api/history?provider=stooq&symbol=aapl.us&timeframe=1d&bars=5000
+    1  GET /api/symbols?provider=binance
+    3  GET /api/search?provider=binance&q=BTCUSDT
+    1  GET /api/search?provider=binance&q=ETH
+    1  GET /api/history?provider=binance&symbol=ETHUSDT&timeframe=1h&bars=5000
+    1  GET /api/search?provider=binance&q=SOL
+    1  GET /api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=5000
+    1  GET /api/search?provider=binance&q=ZZZZNOPE
+    1  GET /api/history?provider=binance&symbol=ZZZZNOPE&timeframe=1h&bars=5000
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=5000
+    5  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
+    4  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=5m&bars=5000
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=5000
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=4h&bars=5000
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=3
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=3
+    4  GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+    1  GET /assets/backtest.worker-BYa6uQX1.js
+    1  GET /api/search?provider=kraken&q=XBTUSD
+    1  GET /api/search?provider=kraken&q=ETH

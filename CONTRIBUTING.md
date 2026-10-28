@@ -26,7 +26,7 @@ Useful scripts:
 
 | Path | Contents |
 |---|---|
-| `client/src/components/` | React UI (chart panel, top bar, dock, CSV modal, …) |
+| `client/src/components/` | React UI (chart panel, top bar, dock, CSV modal, …); every pane and who owns its data: [UI audit](docs/spikes/ui-audit/README.md) |
 | `client/src/state/store.ts` | zustand store — owns data, indicators, datasets, backtest lifecycle |
 | `client/src/lib/providers/` | Provider registry (built from the catalog), `/api` client, demo |
 | `client/src/lib/csv.ts` | The CSV dialect-detection engine |

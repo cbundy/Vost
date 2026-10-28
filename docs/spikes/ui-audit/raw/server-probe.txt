@@ -1,0 +1,290 @@
+Vost server probe, 2026-10-28, node v24.21.0
+server http://127.0.0.1:42317 -> fake upstream http://127.0.0.1:46833; the real network is never used
+
+## API: provider and symbol parameters
+unknown provider
+    GET /api/history?provider=nope&symbol=X&timeframe=1h&bars=10
+    -> 400 application/json; charset=utf-8 6 ms  { "error": "Unknown provider \"nope\". Use one of: binance, coinbase, kraken, bybit, okx, yahoo, stooq." }
+no provider
+    GET /api/history?symbol=X&timeframe=1h&bars=10
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "Unknown provider \"\". Use one of: binance, coinbase, kraken, bybit, okx, yahoo, stooq." }
+provider in another case
+    GET /api/history?provider=BINANCE&symbol=BTCUSDT&timeframe=1h&bars=10
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "Unknown provider \"BINANCE\". Use one of: binance, coinbase, kraken, bybit, okx, yahoo, stooq." }
+missing symbol
+    GET /api/history?provider=binance&timeframe=1h&bars=10
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "Missing symbol" }
+blank symbol
+    GET /api/history?provider=binance&symbol=%20%20&timeframe=1h&bars=10
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "Missing symbol" }
+symbol that no exchange lists (the fake upstream answers any symbol)
+    GET /api/history?provider=binance&symbol=ZZZZNOPE&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 16 ms  [ { "time": 1793142000, "open": 374.7933, "high": 376.42084, "low": 374.04371, "close": 375.6695, "volume": 62.107942 }, { "time": 179314560
+symbol with path characters
+    GET /api/history?provider=binance&symbol=..%2F..%2Fetc%2Fpasswd&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 3 ms  [ { "time": 1793142000, "open": 109.67234, "high": 110.14859, "low": 109.45299, "close": 109.92874, "volume": 62.107942 }, { "time": 1793145
+    the upstream was asked for: /api/v3/klines?symbol=..%2F..%2FETC%2FPASSWD&interval=1h&limit=3
+symbol with a query-string injection
+    GET /api/history?provider=binance&symbol=BTCUSDT%26limit%3D1&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 3 ms  [ { "time": 1793142000, "open": 57220.351, "high": 57468.831, "low": 57105.91, "close": 57354.123, "volume": 62.107942 }, { "time": 17931456
+    the upstream was asked for: /api/v3/klines?symbol=BTCUSDT%26LIMIT%3D1&interval=1h&limit=3
+symbol with a NUL byte
+    GET /api/history?provider=binance&symbol=BTC%00USDT&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 3 ms  [ { "time": 1793142000, "open": 57220.351, "high": 57468.831, "low": 57105.91, "close": 57354.123, "volume": 62.107942 }, { "time": 17931456
+    the upstream was asked for: /api/v3/klines?symbol=BTC%00USDT&interval=1h&limit=3
+symbol of 5000 characters
+    GET /api/history?provider=binance&symbol=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA... (5057 chars)
+    -> 200 application/json; charset=utf-8 5 ms  [ { "time": 1793142000, "open": 255.58423, "high": 256.69411, "low": 255.07307, "close": 256.18175, "volume": 62.107942 }, { "time": 1793145
+symbol of 20000 characters (header size)
+    GET /api/history?provider=binance&symbol=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA... (20057 chars)
+    -> 431  1 ms  
+unicode symbol
+    GET /api/history?provider=binance&symbol=%E6%AF%94%E7%89%B9%E5%B8%81&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 3 ms  [ { "time": 1793142000, "open": 25.749158, "high": 25.860974, "low": 25.69766, "close": 25.809355, "volume": 62.107942 }, { "time": 17931456
+symbol given twice
+    GET /api/history?provider=binance&symbol=BTCUSDT&symbol=ETHUSDT&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 2 ms  [ { "time": 1793142000, "open": 57220.351, "high": 57468.831, "low": 57105.91, "close": 57354.123, "volume": 62.107942 }, { "time": 17931456
+stooq symbol with a space
+    GET /api/history?provider=stooq&symbol=a%20b&timeframe=1d&bars=3
+    -> 200 application/json; charset=utf-8 19 ms  [ { "time": 1792972800, "open": 182.01754, "high": 182.38158, "low": 181.61033, "close": 181.97428, "volume": 90.085745 }, { "time": 1793059
+    the upstream was asked for: /q/d/l/?s=a%20b&i=d
+yahoo symbol with a slash
+    GET /api/history?provider=yahoo&symbol=A%2FB&timeframe=1d&bars=3
+    -> 200 application/json; charset=utf-8 11 ms  [ { "time": 1792972800, "open": 182.01754, "high": 182.38158, "low": 181.61033, "close": 181.97428, "volume": 90.085745 }, { "time": 1793059
+    the upstream was asked for: /v8/finance/chart/A%2FB?interval=1d&range=5d&includePrePost=false&events=div%2Csplit
+
+## API: timeframe, bars, from and to
+bad timeframe
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=7x&bars=10
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "Binance does not support timeframe 7x" }
+no timeframe
+    GET /api/history?provider=binance&symbol=BTCUSDT&bars=10
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "Binance does not support timeframe (none)" }
+timeframe the provider lacks (stooq 1m)
+    GET /api/history?provider=stooq&symbol=aapl.us&timeframe=1m&bars=10
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "Stooq only supports daily, weekly and monthly data (got 1m)" }
+no bars and no from
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=0
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=0
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=-5
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=-5
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=abc
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=abc
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=1e3
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1e3
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=2.5
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=2.5
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=1000000000 (over the limit)
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000000000
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars of 400 digits
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=99999999999999999999999999999999999999999999999... (463 chars)
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=50000 (at the limit?)
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=50000
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "bars must be an integer from 1 to 20000" }
+bars=50001
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=50001
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "bars must be an integer from 1 to 20000" }
+from after to
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=2000000000&to=1000000000
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "from must not be after to (or in the future)" }
+from in the future
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=4102444800
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "from must not be after to (or in the future)" }
+from=0 on 1m (huge span)
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&from=0
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "That span is about 29885844 1m bars, above the limit of 20000; pick a shorter span or a larger timeframe" }
+from as a float
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=1.5
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "from must be a unix time in seconds (a non-negative integer)" }
+from in milliseconds by mistake
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=1793064180352
+    -> 400 application/json; charset=utf-8 1 ms  { "error": "from must not be after to (or in the future)" }
+to without from
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5&to=1793146980
+    -> 200 application/json; charset=utf-8 2 ms  [ { "time": 1793131200, "open": 56886.97, "high": 57099.244, "low": 56773.196, "close": 56985.273, "volume": 79.28009 }, { "time": 179313480
+valid range
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&from=1793114580
+    -> 200 application/json; charset=utf-8 10 ms  [ { "time": 1793116800, "open": 56645.673, "high": 56795.362, "low": 56532.382, "close": 56681.998, "volume": 137.08897 }, { "time": 1793120
+
+## API: other routes and methods
+providers
+    GET /api/providers
+    -> 200 application/json; charset=utf-8 0 ms  [ { "id": "binance", "name": "Binance", "description": "Free public crypto market data — REST klines + live websocket. No key needed.", "tim
+unknown route
+    GET /api/nope
+    -> 404 application/json; charset=utf-8 1 ms  { "error": "Unknown API route. Try /api/health, /api/providers, /api/history, /api/symbols, /api/search, /api/live, /api/status" }
+/api/ alone
+    GET /api/
+    -> 404 application/json; charset=utf-8 0 ms  { "error": "Unknown API route. Try /api/health, /api/providers, /api/history, /api/symbols, /api/search, /api/live, /api/status" }
+POST /api/history
+    POST /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=3
+    -> 405 application/json; charset=utf-8 0 ms  { "error": "Only GET is supported" }
+HEAD /api/history
+    HEAD /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=3
+    -> 200 application/json; charset=utf-8 1 ms  
+OPTIONS /api/history
+    OPTIONS /api/history
+    -> 204  1 ms  
+DELETE /api/status
+    DELETE /api/status
+    -> 405 application/json; charset=utf-8 1 ms  { "error": "Only GET is supported" }
+search without q
+    GET /api/search?provider=binance
+    -> 200 application/json; charset=utf-8 0 ms  [ { "symbol": "BTCUSDT", "label": "BTC / USDT", "exchange": "Binance", "type": "crypto" }, { "symbol": "ETHUSDT", "label": "ETH / USDT", "ex
+search q of 3000 characters
+    GET /api/search?provider=binance&q=EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE... (3031 chars)
+    -> 200 application/json; charset=utf-8 6 ms  []
+search with regex characters
+    GET /api/search?provider=binance&q=%28%5B%2A%2B
+    -> 200 application/json; charset=utf-8 2 ms  []
+search on a provider with no list (coinbase symbols)
+    GET /api/symbols?provider=coinbase
+    -> 400 application/json; charset=utf-8 0 ms  { "error": "Coinbase has no symbol list; use /api/search" }
+symbols for binance
+    GET /api/symbols?provider=binance
+    -> 200 application/json; charset=utf-8 0 ms  [ { "symbol": "BNBUSDT", "label": "BNB / USDT", "exchange": "Binance", "type": "crypto" }, { "symbol": "BTCUSDT", "label": "BTC / USDT", "ex
+malformed percent-encoding in the query
+    GET /api/search?provider=binance&q=%E0%A4%A
+    -> 200 application/json; charset=utf-8 1 ms  []
+malformed percent-encoding in the path
+    GET /api/%E0%A4%A
+    -> 404 application/json; charset=utf-8 0 ms  { "error": "Unknown API route. Try /api/health, /api/providers, /api/history, /api/symbols, /api/search, /api/live, /api/status" }
+health
+    GET /api/health
+    -> 200 application/json; charset=utf-8 0 ms  { "ok": true, "name": "vost", "version": "0.4.0", "uptimeSeconds": 0, "node": "v24.21.0", "clientsBuilt": true }
+
+## static files and path traversal
+index
+    GET /
+    -> 200 text/html; charset=utf-8 2 ms  (html page)
+unknown route (SPA fallback)
+    GET /some/client/route
+    -> 200 text/html; charset=utf-8 0 ms  (html page)
+missing asset
+    GET /assets/nope.js
+    -> 404 text/plain; charset=utf-8 1 ms  Not found
+dot segments (the URL parser removes them)
+    GET /../package.json
+    -> 404 text/plain; charset=utf-8 0 ms  Not found
+encoded dot segments
+    GET /%2e%2e/package.json
+    -> 404 text/plain; charset=utf-8 0 ms  Not found
+encoded slash
+    GET /..%2f..%2fpackage.json
+    -> 403  0 ms  Forbidden
+encoded slash, deeper
+    GET /..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd
+    -> 403  0 ms  Forbidden
+backslashes
+    GET /..%5c..%5cpackage.json
+    -> 404 text/plain; charset=utf-8 1 ms  Not found
+NUL byte in the path
+    GET /index.html%00.png
+    -> 404 text/plain; charset=utf-8 0 ms  Not found
+double encoding
+    GET /%252e%252e%252fpackage.json
+    -> 404 text/plain; charset=utf-8 0 ms  Not found
+a directory
+    GET /assets/
+    -> 404 text/plain 0 ms  Not found
+path of 8000 characters
+    GET /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa... (8001 chars)
+    -> 200 text/html; charset=utf-8 1 ms  (html page)
+sibling folder client/dist-probe reached through an encoded slash (a temporary file the probe creates and removes)
+    GET /..%2fdist-probe%2fsecret.txt
+    -> 200 text/plain; charset=utf-8 1 ms  SIBLING-OF-DIST-READ
+    => sibling file WAS SERVED (the 403 guard is a prefix check)
+same request after removing the folder
+    GET /..%2fdist-probe%2fsecret.txt
+    -> 404 text/plain; charset=utf-8 0 ms  Not found
+gzip request on a directory: 404
+CORS: static files and API replies carry access-control-allow-origin: * (read from main.ts and respond.ts; see the README)
+
+## /api/live (a server-sent event stream; there is no subscribe message to corrupt)
+valid feed
+    GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+    -> 200, 849 bytes in 1.5 s; first events: status {"status":"connecting"} | status {"status":"live"} | kline {"candle":{"time":1793149200,"open":57496.392,"high":57685.254,"low":57381.399,"close":574 | kline {"candle":{"time":1793149200,"open":57496.392,"high":57759.842,"low":57381.399,"close":576
+no parameters
+    GET /api/live
+    -> 200, 79 bytes in 1.5 s; first events: status {"status":"error","detail":"Missing symbol","fatal":true}
+unknown provider
+    GET /api/live?provider=nope&symbol=BTCUSDT&timeframe=1h
+    -> 200, 90 bytes in 1.5 s; first events: status {"status":"error","detail":"Unknown provider \"nope\"","fatal":true}
+provider with no live feed (yahoo)
+    GET /api/live?provider=yahoo&symbol=AAPL&timeframe=1d
+    -> 200, 103 bytes in 1.5 s; first events: status {"status":"error","detail":"Yahoo Finance does not offer live data","fatal":true}
+missing symbol
+    GET /api/live?provider=binance&timeframe=1h
+    -> 200, 79 bytes in 1.5 s; first events: status {"status":"error","detail":"Missing symbol","fatal":true}
+symbol with spaces and quotes
+    GET /api/live?provider=binance&symbol=BTC%22USDT%201&timeframe=1h
+    -> 200, 849 bytes in 1.5 s; first events: status {"status":"connecting"} | status {"status":"live"} | kline {"candle":{"time":1793149200,"open":57496.392,"high":57765.684,"low":57381.399,"close":576 | kline {"candle":{"time":1793149200,"open":57496.392,"high":57839.666,"low":57381.399,"close":577
+symbol of 5000 characters
+    GET /api/live?provider=binance&symbol=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...
+    -> 200, 691 bytes in 1.5 s; first events: status {"status":"connecting"} | status {"status":"live"} | kline {"candle":{"time":1793149200,"open":256.81722,"high":257.6608,"low":255.91188,"close":256. | kline {"candle":{"time":1793149200,"open":256.81722,"high":257.6608,"low":255.39364,"close":255.
+bad timeframe
+    GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=9z
+    -> 200, 94 bytes in 1.5 s; first events: status {"status":"error","detail":"Live data does not support 9z","fatal":true}
+timeframe the exchange lacks (1w on kraken)
+    GET /api/live?provider=kraken&symbol=XBTUSD&timeframe=1w
+    -> 200, 847 bytes in 1.5 s; first events: status {"status":"connecting"} | status {"status":"live"} | kline {"candle":{"time":1792627200,"open":57567.081,"high":57875.255,"low":57421.418,"close":577 | kline {"candle":{"time":1792627200,"open":57567.081,"high":57748.446,"low":57421.418,"close":576
+POST /api/live -> 405
+40 browser streams on one feed -> upstream websockets opened: 1 (the relay shares one per feed)
+60 streams on 60 different symbols -> upstream websockets opened: 60 (no limit on feeds per caller, no auth on /api/live)
+
+## /api/status
+status
+    GET /api/status
+    -> 200 application/json; charset=utf-8 1 ms  { "server": { "state": "ok", "version": "0.4.0", "uptimeSeconds": 21 }, "intervalSeconds": 0, "checks": [ { "provider": "binance", "provider
+status with a refresh (runs a round of upstream probes)
+    GET /api/status?refresh=1
+    -> 200 application/json; charset=utf-8 4016 ms  { "server": { "state": "ok", "version": "0.4.0", "uptimeSeconds": 25 }, "intervalSeconds": 0, "checks": [ { "provider": "binance", "provider
+status refresh twice quickly
+    GET /api/status?refresh=1
+    -> 200 application/json; charset=utf-8 1 ms  { "server": { "state": "ok", "version": "0.4.0", "uptimeSeconds": 25 }, "intervalSeconds": 0, "checks": [ { "provider": "binance", "provider
+status with refresh=2
+    GET /api/status?refresh=2
+    -> 200 application/json; charset=utf-8 0 ms  { "server": { "state": "ok", "version": "0.4.0", "uptimeSeconds": 25 }, "intervalSeconds": 0, "checks": [ { "provider": "binance", "provider
+
+## the market-data service goes away
+history with the upstream down (connection refused)
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5
+    -> 502 application/json; charset=utf-8 4 ms  { "error": "Binance: upstream fetch failed: fetch failed" }
+search with the upstream down
+    GET /api/search?provider=binance&q=ETH
+    -> 200 application/json; charset=utf-8 0 ms  [ { "symbol": "ETHUSDT", "label": "ETH / USDT", "exchange": "Binance", "type": "crypto" }, { "symbol": "ETHBTC", "label": "ETH / BTC", "exch
+symbols with the upstream down (a cached list may still answer)
+    GET /api/symbols?provider=binance
+    -> 200 application/json; charset=utf-8 1 ms  [ { "symbol": "BNBUSDT", "label": "BNB / USDT", "exchange": "Binance", "type": "crypto" }, { "symbol": "BTCUSDT", "label": "BTC / USDT", "ex
+live with the upstream down: 200, events: status {"status":"connecting"} | log {"severity":"warning","text":"Live connection to wss://stream.binance.com:9443/ws/btcusdt@ | status {"status":"reconnecting"} | log {"severity":"warning","text":"Live connection to wss://stream.binance.com:9443/ws/btcusdt@
+status after the failures (should show them)
+    GET /api/status
+    -> 200 application/json; charset=utf-8 1 ms  { "server": { "state": "ok", "version": "0.4.0", "uptimeSeconds": 27 }, "intervalSeconds": 0, "checks": [ { "provider": "binance", "provider
+history after the upstream came back
+    GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5
+    -> 200 application/json; charset=utf-8 2 ms  [ { "time": 1793134800, "open": 56985.273, "high": 57211.059, "low": 56871.302, "close": 57096.865, "volume": 68.759942 }, { "time": 1793138
+
+## an upstream that accepts the connection and never answers (the timeout)
+coinbase history (one host), upstream silent: -> 502 application/json; charset=utf-8 after 25007 ms  { "error": "Coinbase: upstream timed out after 25s" }
+binance history (two hosts: api.binance.com then the data-api.binance.vision mirror), upstream silent: -> 502 application/json; charset=utf-8 after 50002 ms  { "error": "Binance: upstream timed out after 25s" }
+   (the limit is 25 s per host in server/providers/upstream.ts, so the browser can wait hosts x 25 s)
+upstream connections open on the silent service: before=0, while the browser waits=1, 1.5 s after the browser left=1, 6.5 s after=1
+   (a count that stays above "before" means the server keeps waiting on an upstream call nobody wants until its own 25 s limit)
+health after that: 200 in 2 ms
+status after the timeout: { "server": { "state": "ok", "version": "0.4.0", "uptimeSeconds": 83 }, "intervalSeconds": 0, "checks": [ { "provider": "binance", "providerName": "Binance", "feed": "history", "state": "degraded", "latencyMs": 50001, "checkedAt": 1793150682692, "lastOkAt": null, "error": "Binance: upstream timed out after 25s", "source": "traffic" }, { "provider": "binance", "providerName": "Binance", "feed": "sy
+
+## server log (warnings and errors only)
+    [api] 502 /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5: Binance: upstream fetch failed: fetch failed
+    [live] binance BTCUSDT 1h warning: Live connection to wss://stream.binance.com:9443/ws/btcusdt@kline_1h failed (attempt 1): close code 1006, reason (none), wasClean false.
+    [live] binance BTCUSDT 1h warning: Live connection to wss://stream.binance.com:9443/ws/btcusdt@kline_1h failed (attempt 2): close code 1006, reason (none), wasClean false.
+    [live] binance BTCUSDT 1h warning: Live connection to wss://stream.binance.com:9443/ws/btcusdt@kline_1h failed (attempt 3): close code 1006, reason (none), wasClean false.
+    [live] binance BTCUSDT 1h warning: Switching to the fallback stream host data-stream.binance.vision.

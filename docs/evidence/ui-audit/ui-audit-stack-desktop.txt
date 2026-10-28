@@ -1,0 +1,4 @@
+Inbox open: centre -> div.inbox-empty; top bar button area (20,24) -> div.modal-overlay; dock tab area -> div.modal-overlay; chart area (720,120) -> div.modal-overlay
+CSV modal open with a toast showing: toast centre -> span (toast above the modal overlay if it says .toast)
+status popover: centre -> span.conn-title; box 799,41 380x666 in 1440
+symbol list open: bottom=384 right=863 of 1440x900; point inside it -> div.symbol-group

@@ -1,0 +1,153 @@
+Inbox modal: focus moved into the dialog on open=false (active=button), dialog has an accessible name=false, aria-modal="true"
+Inbox modal: Tab leaves the dialog after 1 presses; focus now on button "More" focus-ring=yes border=rgba(0, 0, 0, 0) box=344,9 38x31
+Inbox closed with Esc: focus returns to the opener=yes
+status popover: closes with Esc=yes
+Tab walk (140 stops from the page start):
+first stop inside the bottom dock or its splitter: 16
+   1  button "Toggle sidebar" focus-ring=yes border=rgba(0, 0, 0, 0) box=8,10 31x29
+   2  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(42, 51, 72) box=45,11 69x27
+   3  button "Add DEMO to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,87 22x22
+   4  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,123 22x22
+   5  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,160 22x22
+   6  select "Timeframe" focus-ring=NO border=rgb(42, 51, 72) box=5,9 70x30
+   7  button "Reload data" focus-ring=yes border=rgb(47, 111, 224) box=81,10 60x28
+   8  button "Connections: 8 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=147,11 40x26
+   9  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=193,9 32x30
+  10  button "More" focus-ring=yes border=rgba(0, 0, 0, 0) box=229,9 38x31
+  11  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=10,466 35x19
+  12  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=256,61 27x26
+  13  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=287,61 26x26
+  14  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=317,61 28x26
+  15  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=348,61 28x26
+  16  div "Resize bottom panel" focus-ring=yes border=rgb(230, 235, 245) box=0,525 390x6
+  17  button#dock-tab-backtest "⚙ Backtest" focus-ring=yes border=rgb(230, 235, 245) box=8,527 32x37
+  18  button#dock-tab-pine "{ } Pine" focus-ring=yes border=rgb(139, 148, 167) box=42,527 41x37
+  19  button#dock-tab-optimizer "⛭ Optimizer" focus-ring=yes border=rgb(139, 148, 167) box=84,527 30x38
+  20  button#dock-tab-results "📊 Results" focus-ring=yes border=rgb(139, 148, 167) box=116,527 36x37
+  21  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=273,534 80x24
+  22  button "Collapse" focus-ring=yes border=rgba(0, 0, 0, 0) box=355,533 27x26
+  23  select "SMA crossoverEMA crossoverMA" focus-ring=NO border=rgb(42, 51, 72) box=16,598 358x30
+  24  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,655 190x28
+  25  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,655 154x28
+  26  select "Long onlyShort onlyBoth" focus-ring=NO border=rgb(42, 51, 72) box=16,710 190x30
+  27  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,712 154x28
+  28  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,767 190x28
+  29  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,767 154x28
+  30  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,816 190x28
+  31  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,816 154x28
+  32  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,691 190x28
+  33  select "DisabledEnabled" focus-ring=NO border=rgb(42, 51, 72) box=220,689 154x30
+  34  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  35  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  36  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  37  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  38  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  39  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  40  input "Time range From" focus-ring=NO border=rgb(133, 133, 133) box=16,772 200x22
+  41  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  42  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  43  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  44  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  45  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  46  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  47  input "Time range To" focus-ring=NO border=rgb(133, 133, 133) box=16,820 200x22
+  48  button "▶ Run backtest" focus-ring=yes border=rgb(47, 111, 224) box=16,737 142x28
+  49  body
+  50  button "Toggle sidebar" focus-ring=yes border=rgba(0, 0, 0, 0) box=8,10 31x29
+  51  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(42, 51, 72) box=45,11 69x27
+  52  button "Add DEMO to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,87 22x22
+  53  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,123 22x22
+  54  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,160 22x22
+  55  select "Timeframe" focus-ring=NO border=rgb(42, 51, 72) box=5,9 70x30
+  56  button "Reload data" focus-ring=yes border=rgb(47, 111, 224) box=81,10 60x28
+  57  button "Connections: 8 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=147,11 40x26
+  58  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=193,9 32x30
+  59  button "More" focus-ring=yes border=rgba(0, 0, 0, 0) box=229,9 38x31
+  60  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=10,466 35x19
+  61  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=256,61 27x26
+  62  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=287,61 26x26
+  63  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=317,61 28x26
+  64  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=348,61 28x26
+  65  div "Resize bottom panel" focus-ring=yes border=rgb(230, 235, 245) box=0,525 390x6
+  66  button#dock-tab-backtest "⚙ Backtest" focus-ring=yes border=rgb(230, 235, 245) box=8,527 32x37
+  67  button#dock-tab-pine "{ } Pine" focus-ring=yes border=rgb(139, 148, 167) box=42,527 41x37
+  68  button#dock-tab-optimizer "⛭ Optimizer" focus-ring=yes border=rgb(139, 148, 167) box=84,527 30x38
+  69  button#dock-tab-results "📊 Results" focus-ring=yes border=rgb(139, 148, 167) box=116,527 36x37
+  70  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=273,534 80x24
+  71  button "Collapse" focus-ring=yes border=rgba(0, 0, 0, 0) box=355,533 27x26
+  72  select "SMA crossoverEMA crossoverMA" focus-ring=NO border=rgb(42, 51, 72) box=16,598 358x30
+  73  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,655 190x28
+  74  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,655 154x28
+  75  select "Long onlyShort onlyBoth" focus-ring=NO border=rgb(42, 51, 72) box=16,710 190x30
+  76  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,712 154x28
+  77  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,767 190x28
+  78  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,767 154x28
+  79  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,816 190x28
+  80  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,816 154x28
+  81  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,691 190x28
+  82  select "DisabledEnabled" focus-ring=NO border=rgb(42, 51, 72) box=220,689 154x30
+  83  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  84  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  85  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  86  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  87  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  88  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  89  input "Time range From" focus-ring=NO border=rgb(133, 133, 133) box=16,772 200x22
+  90  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  91  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  92  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  93  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  94  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  95  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  96  input "Time range To" focus-ring=NO border=rgb(133, 133, 133) box=16,820 200x22
+  97  button "▶ Run backtest" focus-ring=yes border=rgb(47, 111, 224) box=16,737 142x28
+  98  body
+  99  button "Toggle sidebar" focus-ring=yes border=rgba(0, 0, 0, 0) box=8,10 31x29
+  100  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(42, 51, 72) box=45,11 69x27
+  101  button "Add DEMO to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,87 22x22
+  102  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,123 22x22
+  103  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=357,160 22x22
+  104  select "Timeframe" focus-ring=NO border=rgb(42, 51, 72) box=5,9 70x30
+  105  button "Reload data" focus-ring=yes border=rgb(47, 111, 224) box=81,10 60x28
+  106  button "Connections: 8 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=147,11 40x26
+  107  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=193,9 32x30
+  108  button "More" focus-ring=yes border=rgba(0, 0, 0, 0) box=229,9 38x31
+  109  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=10,466 35x19
+  110  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=256,61 27x26
+  111  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=287,61 26x26
+  112  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=317,61 28x26
+  113  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=348,61 28x26
+  114  div "Resize bottom panel" focus-ring=yes border=rgb(230, 235, 245) box=0,525 390x6
+  115  button#dock-tab-backtest "⚙ Backtest" focus-ring=yes border=rgb(230, 235, 245) box=8,527 32x37
+  116  button#dock-tab-pine "{ } Pine" focus-ring=yes border=rgb(139, 148, 167) box=42,527 41x37
+  117  button#dock-tab-optimizer "⛭ Optimizer" focus-ring=yes border=rgb(139, 148, 167) box=84,527 30x38
+  118  button#dock-tab-results "📊 Results" focus-ring=yes border=rgb(139, 148, 167) box=116,527 36x37
+  119  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=273,534 80x24
+  120  button "Collapse" focus-ring=yes border=rgba(0, 0, 0, 0) box=355,533 27x26
+  121  select "SMA crossoverEMA crossoverMA" focus-ring=NO border=rgb(42, 51, 72) box=16,598 358x30
+  122  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,655 190x28
+  123  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,655 154x28
+  124  select "Long onlyShort onlyBoth" focus-ring=NO border=rgb(42, 51, 72) box=16,710 190x30
+  125  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,712 154x28
+  126  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,767 190x28
+  127  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,767 154x28
+  128  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,816 190x28
+  129  input "" focus-ring=NO border=rgb(42, 51, 72) box=220,816 154x28
+  130  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,691 190x28
+  131  select "DisabledEnabled" focus-ring=NO border=rgb(42, 51, 72) box=220,689 154x30
+  132  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  133  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  134  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  135  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  136  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  137  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,772 200x22
+  138  input "Time range From" focus-ring=NO border=rgb(133, 133, 133) box=16,772 200x22
+  139  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+  140  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=16,820 200x22
+stops without a visible focus ring: 44 of 140
+controls without a proper accessible name:
+  - select "Timeframe" is named only by its title attribute
+dock tablist: ArrowRight from the Backtest tab moves focus to "dock-tab-backtest" (a tablist should move to dock-tab-pine)
+aria-live / role=status / role=alert regions on the page: 0 (toasts and loading states are announced only if > 0)
+splitters with role=separator: 1
+landmarks: {"main":1,"header":1,"h1":0,"lang":"en"}

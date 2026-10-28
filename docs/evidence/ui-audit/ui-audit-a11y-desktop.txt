@@ -1,0 +1,154 @@
+Inbox modal: focus moved into the dialog on open=false (active=button), dialog has an accessible name=false, aria-modal="true"
+Inbox modal: Tab leaves the dialog after 1 presses; focus now on button "Import OHLCV CSV — works fully offline" focus-ring=yes border=rgb(42, 51, 72) box=1229,10 117x28
+Inbox closed with Esc: focus returns to the opener=yes
+status popover: closes with Esc=yes
+Tab walk (140 stops from the page start):
+first stop inside the bottom dock or its splitter: 56
+   1  button "Toggle sidebar" focus-ring=yes border=rgba(0, 0, 0, 0) box=12,10 31x29
+   2  select "Provider" focus-ring=NO border=rgb(42, 51, 72) box=286,9 139x30
+   3  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(54, 107, 195) box=435,11 150x27
+   4  button "Add DEMO to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=862,87 22x22
+   5  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=862,123 22x22
+   6  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=862,160 22x22
+   7  select "Timeframe" focus-ring=NO border=rgb(50, 88, 153) box=595,9 70x30
+   8  select "Number of bars" focus-ring=NO border=rgb(42, 51, 72) box=675,9 100x30
+   9  button "Show a time window of the chart" focus-ring=yes border=rgb(42, 51, 72) box=785,10 66x28
+  10  button "Reload data" focus-ring=yes border=rgb(47, 111, 224) box=1070,10 60x28
+  11  button "Connections: 9 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=1140,11 40x26
+  12  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=1189,9 32x30
+  13  button "Import OHLCV CSV — works fully offline" focus-ring=yes border=rgb(42, 51, 72) box=1229,10 117x28
+  14  a "Star Vost on GitHub" focus-ring=yes border=rgb(42, 51, 72) box=1355,12 73x25
+  15  button "Keep these candles in the local library (stored in your browser)" focus-ring=yes border=rgb(42, 51, 72) box=12,140 124x28
+  16  button "Export these candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=144,140 101x28
+  17  button "+ Import CSV file" focus-ring=yes border=rgba(0, 0, 0, 0) box=12,310 143x28
+  18  button "Add current symbol" focus-ring=yes border=rgba(0, 0, 0, 0) box=148,361 25x23
+  19  button "Add section" focus-ring=yes border=rgba(0, 0, 0, 0) box=175,361 22x23
+  20  button "Export list as JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,361 25x23
+  21  button "Import list from JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,361 25x23
+  22  select "Watchlist" focus-ring=NO border=rgb(42, 51, 72) box=12,392 90x30
+  23  button "New list" focus-ring=yes border=rgba(0, 0, 0, 0) box=110,394 30x26
+  24  button "Rename list" focus-ring=yes border=rgba(0, 0, 0, 0) box=148,394 28x26
+  25  button "Duplicate list" focus-ring=yes border=rgba(0, 0, 0, 0) box=184,394 26x26
+  26  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,428 25x23
+  27  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,428 25x23
+  28  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  29  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  30  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,459 25x23
+  31  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,459 25x23
+  32  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  33  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  34  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,459 25x23
+  35  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,459 25x23
+  36  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  37  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  38  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  39  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  40  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  41  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  42  button "Change colour" focus-ring=yes border=rgba(255, 255, 255, 0.15) box=21,469 10x10
+  43  button "Hide" focus-ring=yes border=rgba(0, 0, 0, 0) box=179,461 28x26
+  44  button "Remove" focus-ring=yes border=rgba(0, 0, 0, 0) box=214,461 28x26
+  45  button "Change colour" focus-ring=yes border=rgba(255, 255, 255, 0.15) box=21,517 10x10
+  46  button "Hide" focus-ring=yes border=rgba(0, 0, 0, 0) box=179,509 28x26
+  47  button "Remove" focus-ring=yes border=rgba(0, 0, 0, 0) box=214,509 28x26
+  48  input "" focus-ring=NO border=rgb(42, 51, 72) box=63,542 58x22
+  49  select#add-indicator-select "Add indicator…Simple moving " focus-ring=NO border=rgb(42, 51, 72) box=12,538 240x30
+  50  div "Resize sidebar" focus-ring=yes border=rgb(230, 235, 245) box=261,49 6x531
+  51  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=274,522 35x19
+  52  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=1306,61 27x26
+  53  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=1337,61 26x26
+  54  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=1367,61 28x26
+  55  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=1398,61 28x26
+  56  div "Resize bottom panel" focus-ring=yes border=rgb(230, 235, 245) box=0,581 1440x6
+  57  button#dock-tab-backtest "⚙ Backtest" focus-ring=yes border=rgb(230, 235, 245) box=8,583 103x37
+  58  button#dock-tab-pine "{ } Pine" focus-ring=yes border=rgb(139, 148, 167) box=113,583 83x37
+  59  button#dock-tab-optimizer "⛭ Optimizer" focus-ring=yes border=rgb(139, 148, 167) box=198,583 109x38
+  60  button#dock-tab-results "📊 Results" focus-ring=yes border=rgb(139, 148, 167) box=309,583 98x37
+  61  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=1323,590 80x24
+  62  button "Collapse" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,589 27x26
+  63  select "SMA crossoverEMA crossoverMA" focus-ring=NO border=rgb(42, 51, 72) box=16,654 460x30
+  64  input "" focus-ring=NO border=rgb(42, 51, 72) box=490,656 223x28
+  65  input "" focus-ring=NO border=rgb(42, 51, 72) box=727,656 223x28
+  66  select "Long onlyShort onlyBoth" focus-ring=NO border=rgb(42, 51, 72) box=964,654 223x30
+  67  input "" focus-ring=NO border=rgb(42, 51, 72) box=1201,656 223x28
+  68  input "" focus-ring=NO border=rgb(42, 51, 72) box=16,713 223x28
+  69  input "" focus-ring=NO border=rgb(42, 51, 72) box=253,713 223x28
+  70  input "" focus-ring=NO border=rgb(42, 51, 72) box=490,713 223x28
+  71  input "" focus-ring=NO border=rgb(42, 51, 72) box=727,713 223x28
+  72  input "" focus-ring=NO border=rgb(42, 51, 72) box=964,713 223x28
+  73  select "DisabledEnabled" focus-ring=NO border=rgb(42, 51, 72) box=1201,711 223x30
+  74  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  75  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  76  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  77  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  78  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  79  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  80  input "Time range From" focus-ring=NO border=rgb(133, 133, 133) box=16,794 200x22
+  81  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  82  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  83  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  84  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  85  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  86  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  87  input "Time range To" focus-ring=NO border=rgb(133, 133, 133) box=230,794 200x22
+  88  button "▶ Run backtest" focus-ring=yes border=rgb(47, 111, 224) box=16,828 142x28
+  89  body
+  90  button "Toggle sidebar" focus-ring=yes border=rgba(0, 0, 0, 0) box=12,10 31x29
+  91  select "Provider" focus-ring=NO border=rgb(42, 51, 72) box=286,9 139x30
+  92  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(42, 51, 72) box=435,11 150x27
+  93  button "Add DEMO to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=862,87 22x22
+  94  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=862,123 22x22
+  95  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(42, 51, 72) box=862,160 22x22
+  96  select "Timeframe" focus-ring=NO border=rgb(42, 51, 72) box=595,9 70x30
+  97  select "Number of bars" focus-ring=NO border=rgb(42, 51, 72) box=675,9 100x30
+  98  button "Show a time window of the chart" focus-ring=yes border=rgb(42, 51, 72) box=785,10 66x28
+  99  button "Reload data" focus-ring=yes border=rgb(47, 111, 224) box=1070,10 60x28
+  100  button "Connections: 9 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=1140,11 40x26
+  101  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=1189,9 32x30
+  102  button "Import OHLCV CSV — works fully offline" focus-ring=yes border=rgb(42, 51, 72) box=1229,10 117x28
+  103  a "Star Vost on GitHub" focus-ring=yes border=rgb(42, 51, 72) box=1355,12 73x25
+  104  button "Keep these candles in the local library (stored in your browser)" focus-ring=yes border=rgb(42, 51, 72) box=12,140 124x28
+  105  button "Export these candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=144,140 101x28
+  106  button "+ Import CSV file" focus-ring=yes border=rgba(0, 0, 0, 0) box=12,310 143x28
+  107  button "Add current symbol" focus-ring=yes border=rgba(0, 0, 0, 0) box=148,361 25x23
+  108  button "Add section" focus-ring=yes border=rgba(0, 0, 0, 0) box=175,361 22x23
+  109  button "Export list as JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,361 25x23
+  110  button "Import list from JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,361 25x23
+  111  select "Watchlist" focus-ring=NO border=rgb(42, 51, 72) box=12,392 90x30
+  112  button "New list" focus-ring=yes border=rgba(0, 0, 0, 0) box=110,394 30x26
+  113  button "Rename list" focus-ring=yes border=rgba(0, 0, 0, 0) box=148,394 28x26
+  114  button "Duplicate list" focus-ring=yes border=rgba(0, 0, 0, 0) box=184,394 26x26
+  115  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,428 25x23
+  116  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,428 25x23
+  117  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  118  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  119  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,459 25x23
+  120  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,459 25x23
+  121  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  122  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  123  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,459 25x23
+  124  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,459 25x23
+  125  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  126  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  127  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  128  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  129  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=199,303 25x23
+  130  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=226,303 25x23
+  131  button "Change colour" focus-ring=yes border=rgba(255, 255, 255, 0.15) box=21,469 10x10
+  132  button "Hide" focus-ring=yes border=rgba(0, 0, 0, 0) box=179,461 28x26
+  133  button "Remove" focus-ring=yes border=rgba(0, 0, 0, 0) box=214,461 28x26
+  134  button "Change colour" focus-ring=yes border=rgba(255, 255, 255, 0.15) box=21,517 10x10
+  135  button "Hide" focus-ring=yes border=rgba(0, 0, 0, 0) box=179,509 28x26
+  136  button "Remove" focus-ring=yes border=rgba(0, 0, 0, 0) box=214,509 28x26
+  137  input "" focus-ring=NO border=rgb(42, 51, 72) box=63,542 58x22
+  138  select#add-indicator-select "Add indicator…Simple moving " focus-ring=NO border=rgb(42, 51, 72) box=12,538 240x30
+  139  div "Resize sidebar" focus-ring=yes border=rgb(230, 235, 245) box=261,49 6x531
+  140  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=274,522 35x19
+stops without a visible focus ring: 27 of 140
+controls without a proper accessible name:
+  - select "Timeframe" is named only by its title attribute
+  - select "null" is named only by its title attribute
+dock tablist: ArrowRight from the Backtest tab moves focus to "dock-tab-backtest" (a tablist should move to dock-tab-pine)
+aria-live / role=status / role=alert regions on the page: 0 (toasts and loading states are announced only if > 0)
+splitters with role=separator: 2
+landmarks: {"main":1,"header":1,"h1":0,"lang":"en"}

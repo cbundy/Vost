@@ -11,10 +11,11 @@ import { paneResize } from './pane-resize.ts';
 import { pineTab } from './pine-tab.ts';
 import { responsive } from './responsive.ts';
 import { outage } from './outage.ts';
+import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [btRange, chart, chartPan, chartRange, chartReset, connStatus, networkAudit, outage, paneResize, pineTab, responsive, watchlist, zoneClock];
+const all: Scenario[] = [btRange, chart, chartPan, chartRange, chartReset, connStatus, networkAudit, outage, paneResize, pineTab, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();

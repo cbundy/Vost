@@ -1,0 +1,28 @@
+start: no overflow
+provider binance: no overflow
+provider coinbase: no overflow
+provider kraken: no overflow
+provider bybit: no overflow
+provider okx: no overflow
+provider yahoo: no overflow
+provider stooq: no overflow
+csv modal: no overflow
+backtest tab: no overflow
+results tab: no overflow
+optimizer tab: 
+  - div scrollWidth=1767 clientWidth=1408 overflow-x=visible "Grid-search strategy parameters in your "
+  - div.mt-3 scrollWidth=1767 clientWidth=1408 overflow-x=visible "Top results · Sharpe176 combos#fastslowd"
+  - div scrollWidth=1767 clientWidth=1408 overflow-x=visible "#fastslowdirectionSharpeReturnMax DDTrad"
+  - div scrollWidth=916 clientWidth=557 overflow-x=visible "Rows: fast · Columns: slow · colour = Sh"
+  - div.heatmap scrollWidth=916 clientWidth=557 overflow-x=visible "151719212325272931333537394143455-2.29-1"
+pine tab: no overflow
+status popover: no overflow
+zone clock popover: no overflow
+symbol list: 
+  - div.symbol-search scrollWidth=460 clientWidth=150 overflow-x=visible "USDTBNBUSDTBNB / USDTBinancecrypto+BTCUS"
+dock collapsed: no overflow
+settled app: no overflow
+dock tab Backtest: no overflow
+dock tab Pine: no overflow
+dock tab Optimizer: no overflow
+dock tab Results: no overflow

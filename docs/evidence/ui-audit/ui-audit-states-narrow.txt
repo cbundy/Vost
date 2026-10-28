@@ -1,0 +1,10 @@
+symbol search "ZZZZNOPE": suggestions=0, dropdown visible=0 (empty result shows nothing, no "no results" text)
+unknown symbol ZZZZNOPE on binance: legend="Binance · ZZZZNOPE · 1h", toasts=0, load button text="Load"
+after CSV import: legend="Local · sample-daily", toasts=["✓\nImported 200 bars — chart & backtest are fully offline-ready.\n✕"]
+broken CSV: modal text="DELIMITER Auto-detect Comma , Semicolon ; Tab Pipe | Space HEADER ROW Auto (detected: yes) Yes No DATE ORDER mm/dd/yyyy dd/mm/yyyy ← Choose another file — ignor"
+results tab: equity canvases=11, trade rows=3
+empty Results / Optimizer states are covered by code-read (see README)
+Load with the market-data service down: toasts=["⚠\nCould not load data: Binance: upstream fetch failed: fetch failed\n✕"], load button="Load", chart legend="Binance · BTCUSDT · 1h", sidebar says: (none)
+provider switched to Kraken with the upstream down: chart legend="Binance · BTCUSDT · 1h", symbol box="XBTUSD", timeframe select="1h", toasts=["⚠\nCould not load data: Binance: upstream fetch failed: fetch failed\n✕","⚠\nCould not load data: Kraken: upstream fetch failed: fetch failed\n✕"] (a legend that still names the old provider means old candles sit under the new selection)
+symbol search with the upstream down: suggestions=5, toasts=2
+while every request takes 1.5 s extra: load button="(spinner only)", spinner shown=true, "Loading data" overlay on the chart=true
