@@ -27,6 +27,8 @@ import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicat
 import { getProvider } from '../lib/providers';
 import { selectDataCandles, useStore } from '../state/store';
 import { usePineSeries } from './usePineSeries';
+import { useDrawings } from './chart/useDrawings';
+import { DrawingRail } from './DrawingRail';
 
 type IndEntry = {
   series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
@@ -246,6 +248,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
   }, [chartApi, indicators]);
 
   usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff);
+  const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef);
 
   /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */
   useEffect(() => {
@@ -434,6 +437,8 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
 
   return (
     <div className="chart-wrap">
+      <DrawingRail tool={drawings.tool} onPick={drawings.setTool} disabled={!drawings.hasData} />
+      <div className="chart-main">
       <div className="chart-legend" ref={legendRef} />
       <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
       <ChartRangeBar chartApi={chartApi} />
@@ -510,6 +515,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
