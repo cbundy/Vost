@@ -37,7 +37,7 @@ import {
   replayVisible,
   stepReplay as stepPosition,
 } from '../lib/replay';
-import { DOCK_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
+import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
 import { nextPineSelection } from '../lib/pineSelection';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
@@ -52,7 +52,7 @@ function toastSource(text: string): string {
   return 'Data';
 }
 
-export type DockTab = 'backtest' | 'pine' | 'optimizer' | 'results';
+export type DockTab = 'backtest' | 'optimizer' | 'results';
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
 export interface PineRunState {
@@ -76,6 +76,7 @@ interface Prefs {
   timeZone?: string;
   btRange?: TimeRange;
   sidebarWidth?: number;
+  pineWidth?: number;
   dockHeight?: number;
   sidePanel?: SidePanelSection;
   sidePanelCollapsed?: boolean;
@@ -138,8 +139,11 @@ export interface AppState {
   /** Bottom dock UI state (not persisted). */
   dockTab: DockTab;
   dockCollapsed: boolean;
+  /** Whether the Pine editor pane is open (not persisted). */
+  pineOpen: boolean;
   /** Pane sizes in px as the user last set them (persisted); the layout clamps them to the viewport. */
   sidebarWidth: number;
+  pineWidth: number;
   dockHeight: number;
   /** The side panel's visible section and whether it is collapsed to its rail (persisted). */
   sidePanel: SidePanelSection;
@@ -244,12 +248,15 @@ export interface AppState {
   setDockTab(tab: DockTab): void;
   setDockCollapsed(collapsed: boolean): void;
   setSidebarWidth(px: number): void;
+  setPineWidth(px: number): void;
   setSidePanel(section: SidePanelSection): void;
   setSidePanelCollapsed(collapsed: boolean): void;
   /** Sets the expanded dock height; the collapsed state is untouched. */
   setDockHeight(px: number): void;
-  /** Opens the bottom dock on the Pine tab with this indicator selected. */
+  /** Opens the Pine editor pane with this indicator selected. */
   openPineEditor(id: string): void;
+  closePineEditor(): void;
+  togglePineEditor(): void;
   updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
   setShowTrades(v: boolean): void;
   setDrawingMagnet(v: boolean): void;
@@ -398,6 +405,7 @@ export const useStore = create<AppState>()((set, get) => {
       timeZone: s.timeZone,
       btRange: s.btRange,
       sidebarWidth: s.sidebarWidth,
+      pineWidth: s.pineWidth,
       dockHeight: s.dockHeight,
       sidePanel: s.sidePanel,
       sidePanelCollapsed: s.sidePanelCollapsed,
@@ -523,6 +531,8 @@ export const useStore = create<AppState>()((set, get) => {
     dockTab: 'backtest',
     dockCollapsed: false,
     sidebarWidth: SIDEBAR_DEFAULT,
+    pineWidth: PINE_DEFAULT,
+    pineOpen: false,
     dockHeight: DOCK_DEFAULT,
     sidePanel: 'watchlist',
     sidePanelCollapsed: false,
@@ -612,6 +622,7 @@ export const useStore = create<AppState>()((set, get) => {
         timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
         btRange: sanitizeTimeRange(prefs.btRange),
         sidebarWidth: sanitizeStoredSize(prefs.sidebarWidth, SIDEBAR_DEFAULT),
+        pineWidth: sanitizeStoredSize(prefs.pineWidth, PINE_DEFAULT),
         dockHeight: sanitizeStoredSize(prefs.dockHeight, DOCK_DEFAULT),
         sidePanel: SIDE_PANEL_SECTIONS.includes(prefs.sidePanel as SidePanelSection) ? (prefs.sidePanel as SidePanelSection) : 'watchlist',
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
@@ -788,6 +799,11 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
     },
 
+    setPineWidth(px) {
+      set({ pineWidth: sanitizeStoredSize(px, PINE_DEFAULT) });
+      persistPrefs();
+    },
+
     setSidePanel(section) {
       if (!SIDE_PANEL_SECTIONS.includes(section)) return;
       set({ sidePanel: section });
@@ -805,7 +821,15 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     openPineEditor(id) {
-      set({ dockTab: 'pine', selectedPineId: id, dockCollapsed: false });
+      set({ pineOpen: true, selectedPineId: id });
+    },
+
+    closePineEditor() {
+      set({ pineOpen: false });
+    },
+
+    togglePineEditor() {
+      set((s) => ({ pineOpen: !s.pineOpen }));
     },
 
     updateIndicator(id, patch) {

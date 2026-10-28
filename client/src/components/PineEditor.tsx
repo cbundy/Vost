@@ -45,14 +45,18 @@ interface Props {
   error?: PineEditorError | null;
   ariaLabel?: string;
   minHeight?: number;
+  /** Called with the 1-based line and column of the cursor on every change of the selection or document. */
+  onCursor?: (line: number, col: number) => void;
 }
 
 /** CodeMirror 6 editor for Pine Script with highlighting, autocomplete and inline error markers. */
-export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200 }: Props) {
+export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200, onCursor }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onCursorRef = useRef(onCursor);
+  onCursorRef.current = onCursor;
   const sizing = useRef(new Compartment());
 
   useEffect(() => {
@@ -79,6 +83,11 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
           EditorView.contentAttributes.of({ 'aria-label': ariaLabel, spellcheck: 'false' }),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) onChangeRef.current(u.state.doc.toString());
+            if (u.docChanged || u.selectionSet) {
+              const head = u.state.selection.main.head;
+              const line = u.state.doc.lineAt(head);
+              onCursorRef.current?.(line.number, head - line.from + 1);
+            }
           }),
         ],
       }),

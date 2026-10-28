@@ -20,11 +20,17 @@ import {
 } from '../../lib/drawings';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
-import { ANCHOR_COUNTS, getTool } from './tools';
+import { ANCHOR_COUNTS, getTool, type DrawingTool } from './tools';
 
 export const CURSOR = 'cursor';
 /** Pixels a press must travel to count as a drag (a trend line press-drag-release rather than click, click). */
 const DRAG_PX = 4;
+
+/** Where a dragged handle now is: its starting pixel moved by the drag. */
+function handleTarget(def: DrawingTool, drag: Drag, prim: DrawingPrimitive, dx: number, dy: number): Pt {
+  const h = def.handles(drag.origPts, prim.viewFor(drag.origAnchors))[drag.handle as number];
+  return { x: h.x + dx, y: h.y + dy };
+}
 
 type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origPts: Pt[]; before: Drawing[] };
 type Draft = { drawing: Drawing; start: Pt; /** pressing: the button is down; waiting: the first anchor is placed, the next click ends it. */ phase: 'pressing' | 'waiting' };
@@ -309,7 +315,15 @@ export function useDrawings(
         if (!def) return;
         const dx = p.x - drag.start.x;
         const dy = p.y - drag.start.y;
+        const dragged =
+          drag.handle !== null && def.dragHandle
+            ? def.dragHandle(drag.origPts, drag.handle, handleTarget(def, drag, prim, dx, dy))
+            : null;
         const next = drag.origAnchors.map((orig, i) => {
+          if (dragged) {
+            const a = prim.toAnchor(dragged[i]);
+            return a ?? orig;
+          }
           if (drag.handle !== null && drag.handle !== i) return orig;
           const q = drag.origPts[i];
           const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy });

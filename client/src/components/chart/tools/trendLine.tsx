@@ -14,7 +14,7 @@ export const trendLine: DrawingTool = {
     </Svg>
   ),
   anchors: 2,
-  draw(ctx, [a, b], { selected }) {
+  draw(ctx, [a, b], _view, { selected }) {
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
@@ -22,6 +22,6 @@ export const trendLine: DrawingTool = {
     ctx.lineWidth = selected ? 2 : 1.5;
     ctx.stroke();
   },
-  hit: ([a, b], p, _width, tolerance = HIT_TOLERANCE) => distToSegment(p, a, b) <= tolerance,
+  hit: ([a, b], p, _view, tolerance = HIT_TOLERANCE) => distToSegment(p, a, b) <= tolerance,
   handles: (pts) => pts,
 };

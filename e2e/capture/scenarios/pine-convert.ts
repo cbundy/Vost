@@ -19,11 +19,9 @@ export const pineConvert: Scenario = {
       }
       await showSideSection(page, 'Indicators', viewport === 'narrow');
       await page.locator('#add-indicator-select').selectOption('pine');
-      if (viewport === 'narrow') {
-        await page.keyboard.press('Escape');
-        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
-      }
-      await page.locator('.pine-editor .cm-content').waitFor();
+      // the add closes the narrow drawer and opens the editor pane (a dialog on narrow)
+      await page.getByRole(viewport === 'narrow' ? 'dialog' : 'region', { name: 'Pine editor' }).waitFor();
+      await page.locator('.pine-pane .pine-editor .cm-content').waitFor();
     });
     await ctx.step('paste the old script', async () => {
       await page.locator('.pine-editor .cm-content').click();

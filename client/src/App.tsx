@@ -5,12 +5,13 @@ import { AlertPopup } from './components/AlertPopup';
 import { AlertsPanel } from './components/AlertsPanel';
 import { Inbox } from './components/Inbox';
 import { CsvImportModal } from './components/CsvImportModal';
+import { PinePane } from './components/PinePane';
 import { Sidebar } from './components/Sidebar';
 import { Toasts } from './components/Toasts';
 import { TopBar } from './components/TopBar';
 import { SideRail } from './components/SideRail';
 import { Splitter } from './components/Splitter';
-import { DRAWER_QUERY, SIDEBAR_DEFAULT, clamp, sidebarLimits } from './lib/paneSizes';
+import { DRAWER_QUERY, PINE_DEFAULT, SIDEBAR_DEFAULT, clamp, pineLimits, sidebarLimits } from './lib/paneSizes';
 import { useMediaQuery } from './lib/useMediaQuery';
 import { useViewportSize } from './lib/useViewportSize';
 import { useAlerts } from './state/alerts';
@@ -37,6 +38,18 @@ export default function App() {
   const limits = sidebarLimits(viewport.width);
   const effectiveSidebar = clamp(sidebarWidth, limits.min, limits.max);
 
+  const pineOpen = useStore((s) => s.pineOpen);
+  const pineWidth = useStore((s) => s.pineWidth);
+  const setPineWidth = useStore((s) => s.setPineWidth);
+  const closePineEditor = useStore((s) => s.closePineEditor);
+  const pineToggleRef = useRef<HTMLButtonElement>(null);
+  const pineLim = pineLimits(viewport.width, !isDrawer && desktopSidebarOpen ? effectiveSidebar : 0);
+  const effectivePine = clamp(pineWidth, pineLim.min, pineLim.max);
+  const closePine = useCallback(() => {
+    closePineEditor();
+    if (isDrawer) pineToggleRef.current?.focus();
+  }, [closePineEditor, isDrawer]);
+
   useEffect(() => {
     if (!isDrawer) setDrawerOpen(false);
   }, [isDrawer]);
@@ -56,11 +69,12 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px` }}>
+    <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px`, ['--pine-width' as string]: `${effectivePine}px` }}>
       <TopBar onImportCsv={() => setCsvOpen(true)}
         onToggleSidebar={() => (isDrawer ? setDrawerOpen((v) => !v) : setPanelCollapsed(desktopSidebarOpen))}
         sidebarExpanded={isDrawer ? drawerShown : desktopSidebarOpen}
         toggleRef={toggleRef}
+        pineToggleRef={pineToggleRef}
         onOpenInbox={() => setInboxOpen(true)}
         onOpenAlerts={() => setAlertsPanel({})}
       />
@@ -77,7 +91,21 @@ export default function App() {
         )}
         <main className="chart-area">
           <ChartPanel onImportCsv={() => setCsvOpen(true)} onAddAlert={(level) => setAlertsPanel({ level })} />
+          {isDrawer && pineOpen && <PinePane dialog onClose={closePine} />}
         </main>
+        {!isDrawer && pineOpen && (
+          <Splitter
+            orientation="vertical"
+            grow="start"
+            label="Resize Pine editor"
+            value={effectivePine}
+            min={pineLim.min}
+            max={pineLim.max}
+            onChange={(n) => setPineWidth(clamp(n, pineLim.min, pineLim.max))}
+            onReset={() => setPineWidth(PINE_DEFAULT)}
+          />
+        )}
+        {!isDrawer && pineOpen && <PinePane dialog={false} onClose={closePine} />}
         {!isDrawer && desktopSidebarOpen && (
           <Splitter
             orientation="vertical"

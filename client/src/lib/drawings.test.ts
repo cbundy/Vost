@@ -18,7 +18,7 @@ import {
   type Drawing,
 } from './drawings';
 
-const COUNTS = { trendLine: 2, horizontalLine: 1 };
+const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2 };
 const store = new Map<string, string>();
 beforeEach(() => {
   store.clear();
@@ -146,6 +146,18 @@ describe('storage', () => {
       },
     };
     expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS).sources).toEqual({ s: [trend('a'), hline('b')] });
+  });
+  it('keeps ray, rectangle and fibRetracement with 2 anchors and drops other counts', () => {
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ok = ['ray', 'rectangle', 'fibRetracement'].map((tool) => ({ id: tool, tool, anchors: an(2) }));
+    const bad = ['ray', 'rectangle', 'fibRetracement'].flatMap((tool) => [1, 3].map((n) => ({ id: `${tool}${n}`, tool, anchors: an(n) })));
+    expect(parseStore({ version: 1, sources: { s: [...ok, ...bad] } }, COUNTS).sources).toEqual({ s: ok });
+  });
+  it('loads a payload saved before the new tools unchanged', () => {
+    const saved = { version: 1, sources: { s: [trend('a'), hline('b')] } };
+    store.set('vost.' + STORAGE_KEY, JSON.stringify(saved));
+    expect(loadDrawings({ trendLine: 2, horizontalLine: 1 }).sources).toEqual(saved.sources);
+    expect(loadDrawings(COUNTS).sources).toEqual(saved.sources);
   });
   it('treats a newer version as none and leaves it in storage until the user saves', () => {
     const newer = JSON.stringify({ version: 2, sources: { s: [trend('a')] } });

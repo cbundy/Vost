@@ -12,14 +12,14 @@ npm run -s e2e:capture -- chart                 # docs/evidence/chart/chart-desk
 npm run -s e2e:capture -- chart-pan             # docs/evidence/chart-pan/chart-pan.webm (+ .gif if ffmpeg is on PATH)
 npm run -s e2e:capture -- chart-reset           # docs/evidence/chart-reset/{fresh,moved,reset}.png + chart-reset.webm
 npm run -s e2e:capture -- chart-range          # docs/evidence/chart-range/chart-range-{before,quick,applied,refused,fetched,cleared}-{desktop,narrow}.png
-npm run -s e2e:capture -- drawings           # docs/evidence/drawings/drawings-{rail,magnet,hidden,drawn,selected,moved,deleted,undone,reloaded,timeframe,panned}-desktop.png + drawings-{narrow,menu,first-tap,touch-drawn,touch-selected,touch-zoomed}-narrow.png + drawings-checks-{desktop,narrow}.txt
+npm run -s e2e:capture -- drawings           # docs/evidence/drawings/drawings-{rail,magnet,hidden,ray,rectangle,fib,drawn,selected,moved,rectangle-resized,deleted,undone,reloaded,timeframe,panned}-desktop.png + drawings-{narrow,menu,first-tap,touch-drawn,touch-selected,touch-zoomed}-narrow.png + drawings-checks-{desktop,narrow}.txt
 npm run -s e2e:capture -- bt-range              # docs/evidence/bt-range/bt-range-{no-range,range,from-after-to}-{desktop,narrow}.png
 npm run -s e2e:capture -- conn-status           # docs/evidence/conn-status/conn-status-{closed,open}-{desktop,narrow}.png (stubbed /api/status)
 npm run -s e2e:capture -- network-audit         # docs/evidence/network-audit/network-audit-{provider-<id>,timeframe,search,watchlist,live,status}-desktop.png + network-audit-requests-desktop.txt (also fails if a daily quote URL is requested more than 1 + floor(seconds / 60) times)
 npm run -s e2e:capture -- watchlist             # docs/evidence/watchlist/watchlist-{quotes,card,initial,with-section,after-drag}-desktop.png + a desktop webm (rows with Last, Chg, Chg% and the symbol card)
 npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.webm (+ .gif) and outage-{live,outage,recovered}-desktop.png
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
-npm run -s e2e:capture -- pine-tab             # docs/evidence/pine-tab/pine-tab-{sidebar-edit,editor,error,collapsed-edit,empty}-{desktop,narrow}.png
+npm run -s e2e:capture -- pine-pane            # docs/evidence/pine-pane/pine-pane-{editor,error,reopened,resized,empty}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-convert        # docs/evidence/pine-convert/pine-convert-{legacy,converted}-{desktop,narrow}.png
 npm run -s e2e:capture -- replay              # docs/evidence/replay/replay-{before,picking,start,stepped,played,exited}-{desktop,narrow}.png + a desktop webm
 npm run -s e2e:capture -- pane-resize         # docs/evidence/pane-resize/pane-resize-{seeded,dragged,sidebar-focus,sidebar-max,dock-max,dock-collapsed,reset,small-window,small-window-max}-desktop.png + pane-resize-checks-desktop.txt + pane-resize.webm
