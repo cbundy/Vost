@@ -23,7 +23,7 @@ export interface ScenarioContext {
   /** Waits for the chart canvas, the demo legend title and the web fonts. */
   waitForChart(): Promise<void>;
   /** The fake market-data service the server is pointed at; `stop()` and `start()` take it down and bring it back. */
-  upstream: Pick<FakeUpstream, 'stop' | 'start'>;
+  upstream: Pick<FakeUpstream, 'stop' | 'start' | 'requests'>;
   /** Every URL the browser requested so far (http, https, ws and wss; not data: or blob:), in order, repeats included. */
   requests: readonly string[];
   /** Writes `<scenario>-<name>-<viewport>.txt` and returns its path. */

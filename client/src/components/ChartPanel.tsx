@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { candlesToCsv, downloadDataUrl, downloadFile, sanitizeFileName } from '../lib/export';
 import { fmtTime } from '../lib/format';
 import { legendHtml } from '../lib/legend';
+import { ChartContextMenu } from './ChartContextMenu';
 import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
 import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
@@ -55,7 +56,7 @@ function mapIndicatorPoint(cs: ComputedSeries, point: { time: number; value: num
   return { time, value: point.value };
 }
 
-export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
+export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => void; onAddAlert: (level: number) => void }) {
   const candles = useStore((s) => s.candles);
   const dataKey = useStore((s) => s.dataKey);
   const dataLabel = useStore((s) => s.dataLabel);
@@ -442,6 +443,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
       <div className="chart-legend" ref={legendRef} />
       <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
       <ChartRangeBar chartApi={chartApi} />
+      <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} />
       <div className="chart-toolbar">
         <button
           className="ghost icon"
