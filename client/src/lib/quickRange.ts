@@ -1,0 +1,65 @@
+import type { Candle } from '../types';
+import { MIN_RANGE_BARS, sliceByTimeRange, toZonedInputValue } from './timeRange';
+import { zonedTimeToUtc } from './time';
+
+export type QuickRangeKey = '1D' | '5D' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | '5Y' | 'All';
+
+export const QUICK_RANGES: { key: QuickRangeKey; label: string; title: string }[] = [
+  { key: '1D', label: '1D', title: 'Show the last day' },
+  { key: '5D', label: '5D', title: 'Show the last 5 days' },
+  { key: '1M', label: '1M', title: 'Show the last month' },
+  { key: '3M', label: '3M', title: 'Show the last 3 months' },
+  { key: '6M', label: '6M', title: 'Show the last 6 months' },
+  { key: 'YTD', label: 'YTD', title: 'Show the year to date' },
+  { key: '1Y', label: '1Y', title: 'Show the last year' },
+  { key: '5Y', label: '5Y', title: 'Show the last 5 years' },
+  { key: 'All', label: 'All', title: 'Show all loaded bars' },
+];
+
+const MONTHS_BACK: Partial<Record<QuickRangeKey, number>> = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12, '5Y': 60 };
+const DAYS_BACK: Partial<Record<QuickRangeKey, number>> = { '1D': 1, '5D': 5 };
+
+/** The window of a quick range ending at the last bar; from is null for All. Anchored on the wall clock in the zone. */
+export function quickRangeWindow(
+  key: QuickRangeKey,
+  lastTime: number,
+  timeZone: string,
+): { from: number | null; to: number } {
+  if (key === 'All') return { from: null, to: lastTime };
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(toZonedInputValue(lastTime, timeZone));
+  if (!m) return { from: null, to: lastTime };
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  if (key === 'YTD') return { from: zonedTimeToUtc(y, 1, 1, 0, 0, timeZone), to: lastTime };
+  const days = DAYS_BACK[key];
+  if (days != null) {
+    const t = new Date(Date.UTC(y, mo - 1, d - days));
+    return {
+      from: zonedTimeToUtc(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate(), h, mi, timeZone),
+      to: lastTime,
+    };
+  }
+  const months = MONTHS_BACK[key] ?? 0;
+  const total = y * 12 + (mo - 1) - months;
+  const ty = Math.floor(total / 12);
+  const tm = total % 12;
+  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  return { from: zonedTimeToUtc(ty, tm + 1, Math.min(d, lastDay), h, mi, timeZone), to: lastTime };
+}
+
+export interface QuickRangeState {
+  enabled: boolean;
+  /** The window starts at or before the first bar, so the whole loaded series shows. */
+  showAll: boolean;
+  from: number | null;
+  to: number | null;
+}
+
+export function quickRangeState(key: QuickRangeKey, candles: Candle[], timeZone: string): QuickRangeState {
+  if (candles.length === 0) return { enabled: false, showAll: false, from: null, to: null };
+  const last = candles[candles.length - 1].time;
+  const { from, to } = quickRangeWindow(key, last, timeZone);
+  if (from == null) return { enabled: candles.length >= MIN_RANGE_BARS, showAll: true, from, to };
+  const showAll = from <= candles[0].time;
+  const count = showAll ? candles.length : sliceByTimeRange(candles, { from, to }).length;
+  return { enabled: count >= MIN_RANGE_BARS, showAll, from, to };
+}

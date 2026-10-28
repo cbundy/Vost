@@ -22,7 +22,7 @@ async function layout(page: Page): Promise<Layout> {
   return page.evaluate(() => {
     const W = innerWidth;
     const clipped: string[] = [];
-    for (const sel of ['.topbar', '.dock-tabs', '.app-body', '.dock', '.modal', '.sidebar.drawer', '.topbar-more-pop']) {
+    for (const sel of ['.topbar', '.dock-tabs', '.chart-range-bar', '.app-body', '.dock', '.modal', '.sidebar.drawer', '.topbar-more-pop']) {
       for (const root of document.querySelectorAll(sel)) {
         for (const e of [root, ...root.querySelectorAll('*')]) {
           // a scroller's content may extend past its own box; only boxes that are not inside one count

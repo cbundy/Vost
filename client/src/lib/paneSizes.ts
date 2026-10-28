@@ -14,6 +14,8 @@ export const DOCK_COLLAPSE_BELOW = DOCK_MIN + 24;
 export const CHART_MIN_HEIGHT = 200;
 /** Top bar plus the 1px border above the app body. */
 export const TOPBAR_HEIGHT = 41;
+/** The quick range bar under the chart: 28px plus its 1px top border. */
+export const CHART_BAR_HEIGHT = 29;
 
 /** At this viewport width and below the sidebar is a slide-in drawer (the CSS uses the same number). */
 export const DRAWER_MAX_WIDTH = 900;
@@ -58,7 +60,7 @@ export function sidebarLimits(viewportW: number): Limits {
 }
 
 export function dockLimits(viewportH: number): Limits {
-  return { min: DOCK_MIN, max: Math.max(DOCK_MIN, Math.floor(viewportH - TOPBAR_HEIGHT - CHART_MIN_HEIGHT)) };
+  return { min: DOCK_MIN, max: Math.max(DOCK_MIN, Math.floor(viewportH - TOPBAR_HEIGHT - CHART_BAR_HEIGHT - CHART_MIN_HEIGHT)) };
 }
 
 /**

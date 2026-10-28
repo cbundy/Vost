@@ -7,7 +7,6 @@ import { BacktestTab } from './BacktestTab';
 import { PineTab } from './PineTab';
 import { OptimizerTab } from './OptimizerTab';
 import { ResultsTab } from './ResultsTab';
-import { ZoneClock } from './ZoneClock';
 
 export function BottomDock() {
   const tab = useStore((s) => s.dockTab);
@@ -94,7 +93,6 @@ export function BottomDock() {
           </button>
         </div>
         <div className="dock-spacer" />
-        <ZoneClock />
         <button className="ghost icon" title={collapsed ? 'Expand' : 'Collapse'} onClick={() => setDockCollapsed(!collapsed)}>
           {collapsed ? '▲' : '▼'}
         </button>

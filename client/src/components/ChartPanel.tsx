@@ -19,7 +19,9 @@ import {
 } from 'lightweight-charts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { candlesToCsv, downloadDataUrl, downloadFile, sanitizeFileName } from '../lib/export';
-import { fmtCompact, fmtPct, fmtPrice, fmtTime } from '../lib/format';
+import { fmtTime } from '../lib/format';
+import { legendHtml } from '../lib/legend';
+import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
 import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { getProvider } from '../lib/providers';
@@ -293,15 +295,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     if (!el || !c) return;
     cancelAnimationFrame(legendRaf.current);
     legendRaf.current = requestAnimationFrame(() => {
-      const chg = c.open !== 0 ? ((c.close - c.open) / c.open) * 100 : 0;
-      const cls = chg >= 0 ? 'pos' : 'neg';
-      el.innerHTML =
-        `<div class="legend-title">${escapeHtml(dataLabel)}</div>` +
-        `<div class="legend-ohlc">` +
-        `O <b>${fmtPrice(c.open)}</b> H <b>${fmtPrice(c.high)}</b> L <b>${fmtPrice(c.low)}</b> C <b>${fmtPrice(c.close)}</b> ` +
-        `<span class="${cls}">${fmtPct(chg)}</span> V <b>${fmtCompact(c.volume)}</b> ` +
-        `<span class="muted-2">${fmtTime(c.time, { timeZone: useStore.getState().timeZone })}</span>` +
-        `</div>`;
+      el.innerHTML = legendHtml(c, dataLabel, useStore.getState().timeZone);
     });
   }
 
@@ -394,6 +388,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     <div className="chart-wrap">
       <div className="chart-legend" ref={legendRef} />
       <div className="chart-container" ref={containerRef} />
+      <ChartRangeBar chartApi={chartApi} />
       <div className="chart-toolbar">
         <button
           className="ghost icon"
@@ -469,8 +464,4 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
       )}
     </div>
   );
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] as string);
 }
