@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const zoneClock: Scenario = {
   name: 'zone-clock',
-  description: 'Dock clock, the open and filtered zone list, then every date after switching to Asia/Tehran',
+  description: 'Chart bar clock, the open and filtered zone list, then every date after switching to Asia/Tehran',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;

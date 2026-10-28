@@ -32,7 +32,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 **Charting**
 - Candlestick chart with volume, powered by TradingView's open-source *lightweight-charts* (v5, panes supported)
 - Indicators: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD — configurable periods & colors, live editing
-- Crosshair legend with OHLC + change + volume, fit-to-screen, PNG screenshot, CSV export
+- Coloured crosshair legend (label, OHLC, change, volume), a bar under the chart with quick ranges (1D to All), the Range picker and the time-zone clock, fit-to-screen, PNG screenshot, CSV export
 - Live streaming candles (the server keeps one exchange websocket per feed, shared by all tabs, with auto-reconnect and a Binance fallback host)
 - Connection health light in the top bar: whether each exchange's price history, symbol lookup and live stream is working right now, with a "Test now" button (the server checks about once a minute; `VOST_STATUS_INTERVAL=0` turns that off)
 
