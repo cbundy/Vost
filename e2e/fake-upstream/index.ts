@@ -25,6 +25,10 @@ export interface RecordedRequest {
   host: string;
   /** Path and query as the server asked for them. */
   path: string;
+  /** Set for HTTP requests other than GET. */
+  method?: string;
+  /** The request body, when there was one. */
+  body?: string;
 }
 
 export interface FakeUpstream {
@@ -66,6 +70,12 @@ function newSubscription(host: string, path: string, msg: unknown): Subscription
   }
 }
 
+/** The one POST the app makes: a Telegram send. */
+function postReply(host: string, path: string, n: number): { status: number; body: unknown } {
+  if (host === 'api.telegram.org' && /^\/bot[^/]+\/sendMessage$/.test(path)) return { status: 200, body: { ok: true, result: { message_id: n } } };
+  return { status: 404, body: { error: `the fake upstream has no POST ${host}${path}` } };
+}
+
 export async function startFakeUpstream(): Promise<FakeUpstream> {
   const requests: RecordedRequest[] = [];
   let server: http.Server | null = null;
@@ -80,7 +90,19 @@ export async function startFakeUpstream(): Promise<FakeUpstream> {
       res.writeHead(404, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'expected /<scheme>/<host>/<path>' }));
       return;
     }
-    requests.push({ kind: 'http', scheme: parts.scheme, host: parts.host, path: parts.path });
+    const recorded: RecordedRequest = { kind: 'http', scheme: parts.scheme, host: parts.host, path: parts.path };
+    requests.push(recorded);
+    if (req.method === 'POST') {
+      const chunks: Buffer[] = [];
+      req.on('data', (c: Buffer) => chunks.push(c));
+      req.on('end', () => {
+        recorded.method = 'POST';
+        recorded.body = Buffer.concat(chunks).toString('utf8');
+        const reply = postReply(hostName(parts.host), parts.path, requests.length);
+        res.writeHead(reply.status, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(reply.body));
+      });
+      return;
+    }
     const handler = REST_HOSTS[hostName(parts.host)];
     if (!handler) {
       res.writeHead(404, { 'content-type': 'application/json' }).end(JSON.stringify({ error: `the fake upstream does not know ${parts.host}` }));

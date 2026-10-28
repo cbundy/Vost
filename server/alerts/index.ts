@@ -15,6 +15,7 @@ import { createEvaluator } from './evaluator.ts';
 import { editAlert, evaluate, newAlert, parseAlertEdit, parseAlertInput } from './model.ts';
 import { handleAlerts } from './route.ts';
 import { createAlertStore, type AlertStore } from './store.ts';
+import { alertMessage, createTelegram, type Telegram } from './telegram.ts';
 
 export { isAlertsPath } from './route.ts';
 
@@ -32,6 +33,13 @@ export interface AlertsService {
   remove(id: string): Promise<boolean>;
   /** Stream listener; returns the function that removes it. */
   subscribe(sub: AlertSubscriber): () => void;
+  /** Whether fired alerts are sent to Telegram. */
+  readonly telegram: Telegram;
+  /**
+   * Records how the Telegram message of a firing went. Saves and announces but
+   * never re-arms, and does nothing when the alert was deleted or edited since.
+   */
+  recordDelivery(id: string, triggeredAt: number | null, patch: Pick<Alert, 'telegram' | 'telegramError'>): Promise<void>;
 }
 
 export interface AlertsDeps {
@@ -45,6 +53,8 @@ export interface AlertsDeps {
   now?: () => number;
   log?: (line: string) => void;
   store?: AlertStore;
+  /** The Telegram sender; default: off. */
+  telegram?: Telegram;
   /** Called once per firing, after the trigger is persisted. */
   onTriggered?: (alert: Alert) => void;
   heartbeatMs?: number;
@@ -53,7 +63,7 @@ export interface AlertsDeps {
 export interface Alerts {
   handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void>;
   service: AlertsService;
-  /** Adds a firing listener (the Telegram notifier plugs in here). */
+  /** Adds a firing listener (the Telegram notifier is registered through `AlertsDeps.telegram`). */
   onTriggered(listener: (alert: Alert) => void): void;
   /** Stops watching, ends the streams and writes held price changes. */
   stop(): Promise<void>;
@@ -72,6 +82,7 @@ export async function createAlerts(deps: AlertsDeps): Promise<Alerts> {
   const store = deps.store ?? createAlertStore({ dir: deps.dataDir, now, log });
   const listeners: ((alert: Alert) => void)[] = deps.onTriggered ? [deps.onTriggered] : [];
   const subscribers = new Set<AlertSubscriber>();
+  const telegram = deps.telegram ?? createTelegram({ config: null });
 
   const symbols = createSymbolCache();
   let alerts: Alert[] = await store.load();
@@ -176,7 +187,41 @@ export async function createAlerts(deps: AlertsDeps): Promise<Alerts> {
       sub.onAlerts([...alerts]);
       return () => void subscribers.delete(sub);
     },
+    telegram,
+    async recordDelivery(id, triggeredAt, patch) {
+      const before = alerts.find((a) => a.id === id);
+      if (!before || before.status !== 'triggered' || before.triggeredAt !== triggeredAt) return;
+      const after: Alert = { ...before, telegram: patch.telegram };
+      if (patch.telegramError) after.telegramError = patch.telegramError;
+      else delete after.telegramError;
+      await change(() => {
+        alerts = alerts.map((a) => (a.id === id ? after : a));
+        return { value: undefined, undo: () => void (alerts = alerts.map((a) => (a.id === id ? before : a))) };
+      });
+    },
   };
+
+  /** One message per firing, sent after the trigger is saved and announced; never throws. */
+  const notify = async (a: Alert): Promise<void> => {
+    try {
+      let patch: Pick<Alert, 'telegram' | 'telegramError'>;
+      if (!telegram.configured) patch = { telegram: 'off' };
+      else {
+        const result = await telegram.send(alertMessage(a));
+        if (result.ok) {
+          log(`[alerts] ${a.id} telegram sent`);
+          patch = { telegram: 'sent' };
+        } else {
+          log(`[alerts] ${a.id} telegram failed: ${result.reason}`);
+          patch = { telegram: 'failed', telegramError: result.reason };
+        }
+      }
+      await service.recordDelivery(a.id, a.triggeredAt, patch);
+    } catch (err) {
+      log(`[alerts] ${a.id} telegram result not saved: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+  listeners.push((a) => void notify(a));
 
   evaluator.sync();
 

@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Relay, Subscriber } from '../live/relay.ts';
-import { createAlerts, isAlertsPath, type Alerts } from './index.ts';
+import { createTelegram } from './telegram.ts';
+import { createAlerts, isAlertsPath, type Alerts, type AlertsDeps } from './index.ts';
 
 type Reply = Omit<Response, 'json'> & { json(): Promise<any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 const fetch = (...args: Parameters<typeof globalThis.fetch>): Promise<Reply> => globalThis.fetch(...args) as Promise<Reply>;
@@ -29,8 +30,8 @@ const price = (close: number) => {
   for (const s of [...subs]) s.onKline({ candle: { time: 0, open: close, high: close, low: close, close, volume: 0 }, closed: false });
 };
 
-async function boot(dataDir = dir) {
-  alerts = await createAlerts({ dataDir, relay, adapters: new Map(), log: (l) => logs.push(l) });
+async function boot(dataDir = dir, extra: Partial<AlertsDeps> = {}) {
+  alerts = await createAlerts({ dataDir, relay, adapters: new Map(), log: (l) => logs.push(l), ...extra });
   server = http.createServer((req, res) => {
     const url = new URL(req.url!, `http://${req.headers.host}`);
     if (isAlertsPath(url.pathname)) void alerts.handle(req, res, url);
@@ -60,7 +61,7 @@ describe('alerts routes', () => {
   beforeEach(() => boot());
 
   it('lists, creates, edits and deletes', async () => {
-    expect(await (await fetch(`${base}/api/alerts`)).json()).toEqual({ alerts: [] });
+    expect(await (await fetch(`${base}/api/alerts`)).json()).toEqual({ alerts: [], telegram: { configured: false } });
     const res = await create({ note: 'hi' });
     expect(res.status).toBe(201);
     const made = await res.json();
@@ -173,5 +174,150 @@ describe('unwritable data dir', () => {
     expect((await res.json()).error).toContain('VOST_DATA_DIR');
     expect(logs.some((l) => l.includes('not writable'))).toBe(true);
     expect(logs.some((l) => l.startsWith('[alerts] 503 POST'))).toBe(true);
+  });
+});
+
+describe('alerts and Telegram', () => {
+  const TOKEN = '123456:SECRET-tok_en';
+  type Call = { url: string; body: { chat_id: string; text: string } };
+  let calls: Call[] = [];
+  let plan: () => Promise<Response> = async () => Response.json({ ok: true, result: { message_id: 1 } });
+  const fakeFetch = (async (url: string, init: RequestInit) => {
+    calls.push({ url, body: JSON.parse(String(init.body)) });
+    return plan();
+  }) as unknown as typeof globalThis.fetch;
+  const withTelegram = () => boot(dir, { telegram: createTelegram({ config: { token: TOKEN, chatId: '42' }, fetch: fakeFetch, log: (l) => logs.push(l), sleep: async () => undefined }) });
+  const until = async (fn: () => boolean) => {
+    for (let i = 0; i < 200 && !fn(); i++) await new Promise((r) => setTimeout(r, 10));
+    expect(fn()).toBe(true);
+  };
+  const list = async () => (await (await fetch(`${base}/api/alerts`)).json()).alerts as { id: string; status: string; telegram?: string; telegramError?: string }[];
+  const fire = async () => {
+    const made = await (await create()).json();
+    price(90);
+    price(110);
+    return made.id as string;
+  };
+
+  beforeEach(() => {
+    calls = [];
+    plan = async () => Response.json({ ok: true, result: { message_id: 1 } });
+  });
+
+  it('reports configured: true and sends exactly one message per firing', async () => {
+    await withTelegram();
+    expect(await (await fetch(`${base}/api/alerts`)).json()).toEqual({ alerts: [], telegram: { configured: true } });
+    const id = await fire();
+    await until(() => logs.some((l) => l.includes('telegram sent')));
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.chat_id).toBe('42');
+    expect(calls[0].body.text).toContain('BTCUSDT (Binance) crossed up 100 - now 110');
+    expect((await list()).find((a) => a.id === id)!.telegram).toBe('sent');
+    expect(logs).toContain(`[alerts] ${id} telegram sent`);
+  });
+
+  it('records off when not configured and sends nothing', async () => {
+    await boot();
+    const id = await fire();
+    await new Promise((r) => setTimeout(r, 50));
+    const a = (await list()).find((x) => x.id === id)!;
+    expect(a).toMatchObject({ status: 'triggered', telegram: 'off' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('records failed with a redacted reason, and nothing leaks', async () => {
+    plan = async () => Response.json({ ok: false, description: `Forbidden: bot ${TOKEN} was blocked` }, { status: 403 });
+    await withTelegram();
+    const id = await fire();
+    await until(() => logs.some((l) => l.includes('telegram failed')));
+    await new Promise((r) => setTimeout(r, 50));
+    const a = (await list()).find((x) => x.id === id)!;
+    expect(a).toMatchObject({ status: 'triggered', telegram: 'failed', telegramError: 'Forbidden: bot <token> was blocked' });
+    const all = JSON.stringify([logs, await (await fetch(`${base}/api/alerts`)).text()]);
+    expect(all).not.toContain('SECRET-tok_en');
+  });
+
+  it('the stream carries the delivery state and no token', async () => {
+    await withTelegram();
+    const res = await fetch(`${base}/api/alerts/events`);
+    const reader = res.body!.getReader();
+    let text = '';
+    void (async () => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) return;
+        text += new TextDecoder().decode(value);
+      }
+    })();
+    await fire();
+    await until(() => text.includes('"telegram": "sent"') || text.includes('"telegram":"sent"'));
+    expect(text).not.toContain('SECRET-tok_en');
+    await reader.cancel();
+  });
+
+  it('deleting or editing the alert during a slow send leaves it as the user left it', async () => {
+    let release: () => void = () => undefined;
+    plan = () => new Promise((resolve) => (release = () => resolve(Response.json({ ok: true, result: {} }))));
+    await withTelegram();
+    const a = await fire();
+    await until(() => calls.length === 1);
+    expect((await fetch(`${base}/api/alerts/${a}`, { method: 'DELETE', headers: JSON_H })).status).toBe(204);
+    release();
+    await until(() => logs.some((l) => l.includes('telegram sent')));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await list()).toEqual([]);
+
+    calls = [];
+    const b = await fire();
+    await until(() => calls.length === 1);
+    const put = await fetch(`${base}/api/alerts/${b}`, { method: 'PUT', headers: JSON_H, body: JSON.stringify({ level: 500 }) });
+    expect(put.status).toBe(200);
+    release();
+    await new Promise((r) => setTimeout(r, 80));
+    const after = (await list()).find((x) => x.id === b)!;
+    expect(after.status).toBe('active');
+    expect(after.telegram).toBeUndefined();
+  });
+
+  describe('POST /api/alerts/telegram-test', () => {
+    const post = (headers: Record<string, string> = JSON_H) => fetch(`${base}/api/alerts/telegram-test`, { method: 'POST', headers, body: '{}' });
+
+    it('answers 503 naming the variables when not configured', async () => {
+      await boot();
+      const res = await post();
+      expect(res.status).toBe(503);
+      const { error } = await res.json();
+      expect(error).toContain('VOST_TELEGRAM_BOT_TOKEN');
+      expect(error).toContain('VOST_TELEGRAM_CHAT_ID');
+    });
+
+    it('answers 200 and sends the test text', async () => {
+      await withTelegram();
+      const res = await post();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(calls.map((c) => c.body.text)).toEqual(['Vost: test message']);
+    });
+
+    it('answers 502 with a redacted reason on a refusal', async () => {
+      plan = async () => Response.json({ ok: false, description: `chat not found for ${TOKEN}` }, { status: 400 });
+      await withTelegram();
+      const res = await post();
+      expect(res.status).toBe(502);
+      const text = await res.text();
+      expect(text).toContain('chat not found for <token>');
+      expect(text).not.toContain('SECRET-tok_en');
+      expect(logs.join('\n')).not.toContain('SECRET-tok_en');
+    });
+
+    it('refuses cross-origin, wrong content type and other methods', async () => {
+      await withTelegram();
+      expect((await post({ ...JSON_H, origin: 'http://evil.example' })).status).toBe(403);
+      expect((await post({ 'content-type': 'text/plain' })).status).toBe(415);
+      const get = await fetch(`${base}/api/alerts/telegram-test`);
+      expect(get.status).toBe(405);
+      expect(get.headers.get('allow')).toBe('POST');
+      expect(calls).toHaveLength(0);
+    });
   });
 });
