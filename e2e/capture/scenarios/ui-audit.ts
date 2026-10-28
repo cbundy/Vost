@@ -524,8 +524,8 @@ export const uiAudit: Scenario = {
       notes.states.push('empty Results / Optimizer states are covered by code-read (see README)');
     });
 
-    // ---- Pine tab ------------------------------------------------------------------------------------------------
-    await ctx.step('Pine tab: add, type an error, remove', async () => {
+    // ---- Pine pane -----------------------------------------------------------------------------------------------
+    await ctx.step('Pine pane: add, type an error, remove', async () => {
       await snap('before Pine');
       await act('pine add', async () => {
         if (narrow) {
@@ -534,12 +534,8 @@ export const uiAudit: Scenario = {
         }
         await showSideSection(page, 'Indicators', narrow);
         await page.locator('#add-indicator-select').selectOption('pine');
-        if (narrow) {
-          // the add closes nothing: the editor opens in the dock behind the drawer
-          await page.keyboard.press('Escape');
-          await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
-        }
-        await page.locator('.pine-editor .cm-content').waitFor();
+        // the add closes the narrow drawer and opens the Pine editor pane (a dialog on narrow)
+        await page.locator('.pine-pane .pine-editor .cm-content').waitFor();
       });
       await ctx.screenshot('pine');
       await act('pine error', async () => {
@@ -548,7 +544,7 @@ export const uiAudit: Scenario = {
         await page.keyboard.type('\nplot(1 +');
         await page.locator('.pine-error').waitFor();
       });
-      await scan('pine tab');
+      await scan('pine pane');
       await act('pine remove', async () => {
         if (narrow) {
           await page.getByRole('button', { name: 'Toggle sidebar' }).click();
@@ -742,7 +738,7 @@ export const uiAudit: Scenario = {
       await dockTab('Backtest').focus();
       await page.keyboard.press('ArrowRight');
       const afterArrow = await page.evaluate(() => document.activeElement?.id ?? '');
-      notes.a11y.push(`dock tablist: ArrowRight from the Backtest tab moves focus to "${afterArrow || '(nothing)'}" (a tablist should move to dock-tab-pine)`);
+      notes.a11y.push(`dock tablist: ArrowRight from the Backtest tab moves focus to "${afterArrow || '(nothing)'}" (a tablist should move to dock-tab-optimizer)`);
       const live = await page.locator('[aria-live], [role=status], [role=alert]').count();
       notes.a11y.push(`aria-live / role=status / role=alert regions on the page: ${live} (toasts and loading states are announced only if > 0)`);
       const splitter = await page.locator('[role=separator]').count();
@@ -812,7 +808,7 @@ export const uiAudit: Scenario = {
       await ctx.waitForChart();
       await settle(400);
       await scan('settled app');
-      for (const t of ['Backtest', 'Pine', 'Optimizer', 'Results']) {
+      for (const t of ['Backtest', 'Optimizer', 'Results']) {
         await dockTab(t).click();
         await settle(250);
         await scan(`dock tab ${t}`);
