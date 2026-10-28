@@ -11,6 +11,15 @@ export const watchlist: Scenario = {
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.step('show watchlist', () => panel.waitFor({ state: 'visible' }));
+    await ctx.step('quotes load for rows other than the chart symbol and in the card', async () => {
+      const priced = panel.locator('.wl-row:not(.wl-head):not(.active) .wl-quote', { hasText: /\d/ });
+      await priced.first().waitFor({ state: 'visible' });
+      await page.locator('.symbol-card .sc-last').waitFor({ state: 'visible' });
+    });
+    await ctx.screenshot('quotes');
+    await page.locator('.symbol-card').scrollIntoViewIfNeeded();
+    await ctx.screenshot('card');
+    await panel.scrollIntoViewIfNeeded();
     await ctx.screenshot('initial');
     await ctx.step('add current symbol', async () => {
       await panel.getByTitle('Add current symbol').click();
