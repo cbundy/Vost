@@ -3,7 +3,7 @@ import { INDICATOR_META, type IndicatorKind } from '../lib/indicatorCompute';
 import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
 import { Watchlist } from './Watchlist';
-import { useStore } from '../state/store';
+import { selectBars, useStore } from '../state/store';
 import { SIDE_SECTIONS } from './SideRail';
 
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
@@ -48,7 +48,7 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
   }, [isDrawer, onClose]);
 
   const symbol = useStore((s) => s.symbol);
-  const candles = useStore((s) => s.candles);
+  const candles = useStore(selectBars);
   const timeZone = useStore((s) => s.timeZone);
   const dataLabel = useStore((s) => s.dataLabel);
   const datasets = useStore((s) => s.datasets);

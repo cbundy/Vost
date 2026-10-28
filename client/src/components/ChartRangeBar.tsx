@@ -4,13 +4,15 @@ import { useStore } from '../state/store';
 import { topbarTier } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { QUICK_RANGES, quickRangeState, type QuickRangeKey } from '../lib/quickRange';
+import { ReplayControls } from './ReplayControls';
 import { ChartRangeControl } from './ChartRangeControl';
 import { ZoneClock } from './ZoneClock';
 
-/** The slim bar under the chart: quick ranges, the Range picker and the time-zone clock. */
+/** The slim bar under the chart: quick ranges, the Range picker (the replay strip during replay) and the time-zone clock. */
 export function ChartRangeBar({ chartApi }: { chartApi: IChartApi | null }) {
   const candles = useStore((s) => s.candles);
   const timeZone = useStore((s) => s.timeZone);
+  const replaying = useStore((s) => s.replay != null);
   const tier = topbarTier(useViewportSize().width);
   const states = useMemo(
     () => QUICK_RANGES.map((q) => ({ ...q, state: quickRangeState(q.key, candles, timeZone) })),
@@ -26,14 +28,20 @@ export function ChartRangeBar({ chartApi }: { chartApi: IChartApi | null }) {
 
   return (
     <div className="chart-range-bar">
-      <div className="quick-ranges" role="toolbar" aria-label="Quick ranges">
-        {states.map((q) => (
-          <button key={q.key} className="ghost" title={q.title} disabled={!chartApi || !q.state.enabled} onClick={() => apply(q.key)}>
-            {q.label}
-          </button>
-        ))}
-      </div>
-      {(tier === 'full' || tier === 'compact') && <ChartRangeControl />}
+      {replaying ? (
+        <ReplayControls />
+      ) : (
+        <>
+          <div className="quick-ranges" role="toolbar" aria-label="Quick ranges">
+            {states.map((q) => (
+              <button key={q.key} className="ghost" title={q.title} disabled={!chartApi || !q.state.enabled} onClick={() => apply(q.key)}>
+                {q.label}
+              </button>
+            ))}
+          </div>
+          {(tier === 'full' || tier === 'compact') && <ChartRangeControl />}
+        </>
+      )}
       <ZoneClock />
     </div>
   );

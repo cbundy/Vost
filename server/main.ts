@@ -17,6 +17,8 @@
  *                  (default <repo>/data; /data in the Docker image)
  *   VOST_ALERT_POLL  seconds between price polls for alerts on providers
  *                    without a live feed (default 60; minimum 10)
+ *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
+ *                       fires is also sent to that Telegram chat (the token is a secret)
  *   VOST_TEST_UPSTREAM  test only: http://127.0.0.1:<port> of a fake market-data
  *                       service that every outbound call is rewritten to (see
  *                       docs/e2e-visual-verification.md). Refused when
@@ -28,6 +30,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { createAlerts, isAlertsPath } from './alerts/index.ts';
+import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
 import { createApiDeps, handleApi } from './api.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
@@ -173,8 +176,12 @@ const apiDeps = createApiDeps({ onOutcome: (provider, feed, result) => status.re
 
 const DATA_DIR = path.resolve(process.env.VOST_DATA_DIR || path.join(ROOT, 'data'));
 const pollEnv = Number(process.env.VOST_ALERT_POLL ?? 60);
+const telegramConfig = readTelegramConfig(process.env, (line) => console.warn(line));
+const telegram = createTelegram({ config: telegramConfig, fetch: apiDeps.fetch, log: (line) => console.log(line) });
+console.log(telegramConfig ? `[alerts] telegram on (chat ${telegramConfig.chatId})` : '[alerts] telegram off');
 const alerts = await createAlerts({
   dataDir: DATA_DIR,
+  telegram,
   pollSeconds: Number.isFinite(pollEnv) ? pollEnv : 60,
   relay,
   ctx: () => ({ fetch: apiDeps.fetch, symbols: apiDeps.symbols }),
@@ -228,7 +235,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → http://localhost:${PORT}`);
   console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search, /api/status`);
   console.log(`  → live candles: /api/live`);
-  console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR})`);
+  console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
   console.log('');
   status.scheduler.start();
 });

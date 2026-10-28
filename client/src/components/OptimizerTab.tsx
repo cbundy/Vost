@@ -3,7 +3,7 @@ import { METRIC_LABELS, paramValues, type MetricKey, type OptimizeRow } from '..
 import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtPct, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
-import { useStore } from '../state/store';
+import { selectBars, useStore } from '../state/store';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
 
@@ -13,7 +13,7 @@ export function OptimizerTab() {
   const optRunning = useStore((s) => s.optRunning);
   const optProgress = useStore((s) => s.optProgress);
   const optResult = useStore((s) => s.optResult);
-  const candles = useStore((s) => s.candles);
+  const candles = useStore(selectBars);
   const btRange = useStore((s) => s.btRange);
   const timeZone = useStore((s) => s.timeZone);
   const setOptConfig = useStore((s) => s.setOptConfig);

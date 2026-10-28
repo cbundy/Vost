@@ -749,6 +749,66 @@ button.icon {
   right: 6px;
 }
 
+.chart-container.picking {
+  cursor: pointer;
+}
+
+.replay-strip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.replay-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.replay-strip > * {
+  flex: none;
+}
+
+.replay-strip button {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.replay-strip button.icon {
+  width: 26px;
+  padding: 0;
+}
+
+.replay-strip .replay-speed,
+.replay-strip .replay-date {
+  height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.replay-hint {
+  margin-right: 6px;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+.replay-date-text {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.replay-spacer {
+  flex: 1 1 0 !important;
+}
+
 .chart-toolbar {
   position: absolute;
   top: 8px;

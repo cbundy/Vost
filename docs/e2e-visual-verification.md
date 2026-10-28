@@ -19,6 +19,7 @@ npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.we
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-tab             # docs/evidence/pine-tab/pine-tab-{sidebar-edit,editor,error,collapsed-edit,empty}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-convert        # docs/evidence/pine-convert/pine-convert-{legacy,converted}-{desktop,narrow}.png
+npm run -s e2e:capture -- replay              # docs/evidence/replay/replay-{before,picking,start,stepped,played,exited}-{desktop,narrow}.png + a desktop webm
 npm run -s e2e:capture -- pane-resize         # docs/evidence/pane-resize/pane-resize-{seeded,dragged,sidebar-focus,sidebar-max,dock-max,dock-collapsed,reset,small-window,small-window-max}-desktop.png + pane-resize-checks-desktop.txt + pane-resize.webm
 npm run -s e2e:capture -- responsive        # docs/evidence/responsive/responsive-{360x740,768x1024,1024x768,1920x1080,740x360,drawer-360,drawer-768,more-360,csv-360,inbox-360}-desktop.png + responsive-checks-desktop.txt
 npm run -s e2e:capture -- ui-audit           # docs/evidence/ui-audit/ui-audit-{console,requests,leaks,layout,a11y,stack,races,states}-{desktop,narrow}.txt + screenshots of each state (research audit, see docs/spikes/ui-audit/README.md; about 2.5 minutes)
@@ -57,7 +58,8 @@ and `wss://stream.binance.com:9443/ws/a` becomes `ws://127.0.0.1:<port>/wss/stre
 
 - The fake answers in each provider's real format: history, symbols and search for all 7 providers (Binance on both
   hosts, Coinbase, Kraken, Bybit, OKX, Yahoo, Stooq) and a new live kline at least every second (a changing close) on
-  the four live feeds, including their subscribe and ping messages. It records every request it served.
+  the four live feeds, including their subscribe and ping messages. It records every request it served (with method and body for a POST). It also answers Telegram's
+  `sendMessage`, and the capture runner turns Telegram on with a test token, so a fired alert sends to the fake only.
 - `stop()` closes the listener and terminates every open socket, so new connects are refused; `start()` listens again
   on the same port. A scenario reaches both through `ctx.upstream` (see `outage`).
 - The setting is for tests only. With `NODE_ENV=production` (the Docker image sets it) the server prints an error naming

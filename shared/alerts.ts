@@ -19,6 +19,16 @@ export interface Alert {
   lastPrice: number | null;
   triggeredAt: number | null;
   triggerPrice: number | null;
+  /** How the Telegram message of the firing went; absent until it fired. */
+  telegram?: 'sent' | 'failed' | 'off';
+  /** Why it failed (Telegram's reason, token removed, at most 200 characters). */
+  telegramError?: string;
+}
+
+/** Answer of `GET /api/alerts`. */
+export interface AlertList {
+  alerts: Alert[];
+  telegram: { configured: boolean };
 }
 
 /** Body of `POST /api/alerts`. */

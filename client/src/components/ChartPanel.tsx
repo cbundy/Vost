@@ -25,7 +25,7 @@ import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
 import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { getProvider } from '../lib/providers';
-import { useStore } from '../state/store';
+import { selectDataCandles, useStore } from '../state/store';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingRail } from './DrawingRail';
@@ -68,6 +68,9 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
   const providerId = useStore((s) => s.providerId);
   const setProvider = useStore((s) => s.setProvider);
   const timeZone = useStore((s) => s.timeZone);
+  const replayPhase = useStore((s) => s.replay?.phase ?? null);
+  /** During replay: the last visible bar's time, the cut-off for trade markers and Pine output. */
+  const replayCutoff = replayPhase === 'active' ? (candles[candles.length - 1]?.time ?? null) : null;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const legendRef = useRef<HTMLDivElement | null>(null);
@@ -77,6 +80,8 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
   const indMapRef = useRef(new Map<string, IndEntry>());
   const lastDataKeyRef = useRef('');
   const lastIndicatorsRef = useRef<unknown>(null);
+  const lastCandlesRef = useRef<typeof candles | null>(null);
+  const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
   const paneEpochRef = useRef(0);
 
@@ -242,8 +247,15 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     }
   }, [chartApi, indicators]);
 
-  usePineSeries(chartApi, indicators, pineRuns, paneEpochRef);
+  usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff);
   const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef);
+
+  /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */
+  useEffect(() => {
+    if (replayPhase !== 'active' || !chartApi) return;
+    const r = chartApi.timeScale().getVisibleLogicalRange();
+    savedRangeRef.current = r ? { from: r.from, to: r.to } : null;
+  }, [chartApi, replayPhase === 'active']);
 
   /* ---------------- push data (full or incremental) ---------------- */
   useEffect(() => {
@@ -254,15 +266,29 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     const dataChanged = lastDataKeyRef.current !== dataKey;
     const indChanged = lastIndicatorsRef.current !== indicators;
 
+    // One bar appended or the last bar changed: send just that bar. Any other change to the same data
+    // (replay entering, stepping back, exiting, a merged backfill) replaces the bars without refitting.
+    const prev = lastCandlesRef.current;
+    const incremental =
+      !dataChanged &&
+      prev != null &&
+      prev.length > 0 &&
+      candles.length - prev.length >= 0 &&
+      candles.length - prev.length <= 1 &&
+      candles[prev.length - 1].time === prev[prev.length - 1].time;
+    lastCandlesRef.current = candles;
+
     if (dataChanged) {
       candleSeries.setData(candles.map(toCandleData));
       lastDataKeyRef.current = dataKey;
       chart.timeScale().fitContent();
-    } else {
+    } else if (incremental) {
       candleSeries.update(toCandleData(candles[candles.length - 1]));
+    } else {
+      candleSeries.setData(candles.map(toCandleData));
     }
 
-    if (dataChanged || indChanged) {
+    if (dataChanged || indChanged || !incremental) {
       for (const spec of indicators) {
         if (!spec.visible) continue;
         for (const cs of computeIndicator(spec, candles)) {
@@ -290,6 +316,26 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     updateLegend(candles[candles.length - 1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, candles, dataKey, indicators]);
+
+  /* Leaving replay: put the view back as it was (no refetch, no fitContent). */
+  useEffect(() => {
+    if (replayPhase === 'active' || !chartApi) return;
+    const saved = savedRangeRef.current;
+    savedRangeRef.current = null;
+    if (saved) chartApi.timeScale().setVisibleLogicalRange(saved);
+  }, [chartApi, replayPhase]);
+
+  /* Picking a replay start: the next click on a bar starts the replay there. */
+  useEffect(() => {
+    const chart = chartApi;
+    if (!chart || replayPhase !== 'picking') return;
+    const onClick = (param: MouseEventParams<Time>) => {
+      if (param.time == null) return;
+      useStore.getState().startReplayAt(param.time as number);
+    };
+    chart.subscribeClick(onClick);
+    return () => chart.unsubscribeClick(onClick);
+  }, [chartApi, replayPhase]);
 
   /* ---------------- legend (imperative, rAF-throttled) ---------------- */
   const legendRaf = useRef(0);
@@ -348,6 +394,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     }
     const markers: SeriesMarker<Time>[] = [];
     for (const t of btResult.trades) {
+      if (replayCutoff != null && t.entryTime > replayCutoff) continue; // not yet happened at the replay point
       markers.push({
         time: t.entryTime as UTCTimestamp,
         position: t.side === 'long' ? 'belowBar' : 'aboveBar',
@@ -356,6 +403,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
         text: t.side === 'long' ? 'L' : 'S',
         size: 1,
       });
+      if (replayCutoff != null && t.exitTime > replayCutoff) continue;
       markers.push({
         time: t.exitTime as UTCTimestamp,
         position: t.side === 'long' ? 'aboveBar' : 'belowBar',
@@ -366,7 +414,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
     }
     markers.sort((a, b) => (a.time as number) - (b.time as number));
     plugin.setMarkers(markers);
-  }, [btResult, showTrades, chartApi]);
+  }, [btResult, showTrades, chartApi, replayCutoff]);
 
   const provider = getProvider(providerId);
 
@@ -392,7 +440,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
       <DrawingRail tool={drawings.tool} onPick={drawings.setTool} disabled={!drawings.hasData} />
       <div className="chart-main">
       <div className="chart-legend" ref={legendRef} />
-      <div className="chart-container" ref={containerRef} />
+      <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
       <ChartRangeBar chartApi={chartApi} />
       <div className="chart-toolbar">
         <button
@@ -418,7 +466,7 @@ export function ChartPanel({ onImportCsv }: { onImportCsv: () => void }) {
           className="ghost icon"
           title="Export candles as CSV"
           disabled={candles.length === 0}
-          onClick={() => downloadFile(`vost_${sanitizeFileName(dataLabel || 'candles')}.csv`, candlesToCsv(candles, { isoDates: false }))}
+          onClick={() => downloadFile(`vost_${sanitizeFileName(dataLabel || 'candles')}.csv`, candlesToCsv(selectDataCandles(useStore.getState()), { isoDates: false }))}
         >
           ⬇
         </button>

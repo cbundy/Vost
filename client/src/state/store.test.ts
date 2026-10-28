@@ -866,3 +866,242 @@ describe('pane size prefs', () => {
     expect(b.getState().sidePanelCollapsed).toBe(true);
   });
 });
+
+describe('replay', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  async function setup() {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const text = readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8');
+    const candles = candlesFromCsvText(text).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.setState({ candles });
+    return { useStore, candles };
+  }
+  type Store = Awaited<ReturnType<typeof setup>>['useStore'];
+
+  const start = (useStore: Store, index: number, candles: { time: number }[]) => {
+    useStore.getState().startReplayPick();
+    expect(useStore.getState().replay?.phase).toBe('picking');
+    expect(useStore.getState().startReplayAt(candles[index].time)).toBe(true);
+  };
+
+  it('shows only the bars up to the picked time and keeps the source', async () => {
+    const { useStore, candles } = await setup();
+    start(useStore, 40, candles);
+    const s = useStore.getState();
+    expect(s.replay).toMatchObject({ phase: 'active', cursor: 40, playing: false, speed: 1 });
+    expect(s.replay!.source).toBe(candles);
+    expect(s.candles).toEqual(candles.slice(0, 41));
+    expect(s.candles.at(-1)!.time).toBeLessThanOrEqual(candles[40].time + 1);
+  });
+
+  it('picks the last bar at or before a time between bars and refuses one outside the data', async () => {
+    const { useStore, candles } = await setup();
+    useStore.getState().startReplayPick();
+    expect(useStore.getState().startReplayAt(candles[0].time - 1)).toBe(false);
+    expect(useStore.getState().replay?.phase).toBe('picking');
+    expect(useStore.getState().toasts.some((t) => t.kind === 'error')).toBe(true);
+    expect(useStore.getState().startReplayAt(candles[10].time + 5)).toBe(true);
+    expect(useStore.getState().replay!.cursor).toBe(10);
+  });
+
+  it('cancelReplay leaves the picking phase and does nothing once active', async () => {
+    const { useStore, candles } = await setup();
+    useStore.getState().startReplayPick();
+    useStore.getState().cancelReplay();
+    expect(useStore.getState().replay).toBeNull();
+    start(useStore, 10, candles);
+    useStore.getState().cancelReplay();
+    expect(useStore.getState().replay?.phase).toBe('active');
+  });
+
+  it('steps within the bounds and pauses play', async () => {
+    const { useStore, candles } = await setup();
+    start(useStore, 20, candles);
+    useStore.getState().stepReplay(1);
+    expect(useStore.getState().candles).toHaveLength(22);
+    useStore.getState().stepReplay(-3);
+    expect(useStore.getState().candles).toHaveLength(19);
+    useStore.getState().stepReplay(-1000);
+    expect(useStore.getState().candles).toHaveLength(2);
+    useStore.getState().stepReplay(100000);
+    expect(useStore.getState().candles).toHaveLength(candles.length);
+  });
+
+  it('plays at the chosen speed, takes a speed change on the next tick and stops at the last bar', async () => {
+    vi.useFakeTimers();
+    const { useStore, candles } = await setup();
+    start(useStore, candles.length - 20, candles);
+    const base = useStore.getState().candles.length;
+    useStore.getState().setReplaySpeed(3);
+    useStore.getState().playReplay();
+    expect(useStore.getState().replay!.playing).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(useStore.getState().candles).toHaveLength(base + 3);
+    useStore.getState().setReplaySpeed(10);
+    vi.advanceTimersByTime(334); // the pending 3x tick, then 10x ticks follow
+    const after = useStore.getState().candles.length;
+    expect(after).toBeGreaterThanOrEqual(base + 4);
+    vi.advanceTimersByTime(1000);
+    expect(useStore.getState().candles.length).toBeGreaterThan(after + 8);
+    vi.advanceTimersByTime(10_000);
+    expect(useStore.getState().candles).toHaveLength(candles.length);
+    expect(useStore.getState().replay!.playing).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('pause stops the timer and a step pauses play', async () => {
+    vi.useFakeTimers();
+    const { useStore, candles } = await setup();
+    start(useStore, 20, candles);
+    useStore.getState().playReplay();
+    vi.advanceTimersByTime(1000);
+    expect(useStore.getState().candles).toHaveLength(22);
+    useStore.getState().pauseReplay();
+    vi.advanceTimersByTime(5000);
+    expect(useStore.getState().candles).toHaveLength(22);
+    useStore.getState().playReplay();
+    useStore.getState().stepReplay(1);
+    expect(useStore.getState().replay!.playing).toBe(false);
+    vi.advanceTimersByTime(5000);
+    expect(useStore.getState().candles).toHaveLength(23);
+  });
+
+  it('runs Pine on the visible bars only, on every step', async () => {
+    const { useStore, candles } = await setup();
+    useStore.getState().addIndicator('pine');
+    const id = useStore.getState().indicators.find((i) => i.kind === 'pine')!.id;
+    await vi.waitFor(() => expect(useStore.getState().pineRuns[id]?.candles).toHaveLength(candles.length), { timeout: 20000 });
+    start(useStore, 30, candles);
+    await vi.waitFor(() => expect(useStore.getState().pineRuns[id]?.candles).toHaveLength(31), { timeout: 20000 });
+    useStore.getState().stepReplay(1);
+    await vi.waitFor(() => expect(useStore.getState().pineRuns[id]?.candles).toHaveLength(32), { timeout: 20000 });
+    expect(useStore.getState().pineRuns[id].result!.plots[0].values).toHaveLength(32);
+  });
+
+  it('backtests, optimizes, saves and reads Pine inputs on the full bars, and a step keeps the results', async () => {
+    const { useStore, candles } = await setup();
+    await useStore.getState().runBacktest();
+    const result = useStore.getState().btResult;
+    expect(result).not.toBeNull();
+    start(useStore, 30, candles);
+    useStore.getState().stepReplay(1);
+    expect(useStore.getState().btResult).toBe(result);
+    await useStore.getState().runBacktest();
+    const rerun = useStore.getState().btResult!;
+    expect(rerun.equity[rerun.equity.length - 1].time).toBe(candles.at(-1)!.time);
+    expect(useStore.getState().candles).toHaveLength(32);
+    useStore.getState().saveCurrentDataset('full');
+    expect(useStore.getState().datasets.at(-1)!.candles).toHaveLength(candles.length);
+  });
+
+  it('applies live bars to the source while replaying and shows them after exit', async () => {
+    const { useStore, candles } = await setup();
+    const { getProvider } = await import('../lib/providers');
+    const provider = getProvider('binance');
+    const orig = provider.startLive;
+    let opts: Parameters<NonNullable<typeof provider.startLive>>[0] | undefined;
+    provider.startLive = (o) => {
+      opts = o;
+      return { stop() {} };
+    };
+    try {
+      useStore.getState().setLive(true);
+      start(useStore, 30, candles);
+      const shown = useStore.getState().candles;
+      const last = candles.at(-1)!;
+      const next = { ...last, time: last.time + 86400, close: 123 };
+      opts!.onKline(next, true);
+      expect(useStore.getState().candles).toBe(shown);
+      expect(useStore.getState().replay!.source).toHaveLength(candles.length + 1);
+      useStore.getState().exitReplay();
+      expect(useStore.getState().candles).toHaveLength(candles.length + 1);
+      expect(useStore.getState().candles.at(-1)).toEqual(next);
+      useStore.getState().setLive(false);
+    } finally {
+      provider.startLive = orig;
+    }
+  });
+
+  it('exitReplay restores the same candles array', async () => {
+    const { useStore, candles } = await setup();
+    start(useStore, 30, candles);
+    useStore.getState().stepReplay(5);
+    useStore.getState().exitReplay();
+    expect(useStore.getState().replay).toBeNull();
+    expect(useStore.getState().candles).toBe(candles);
+  });
+
+  it('exit leaves the chart range, full bars and data key untouched', async () => {
+    const { useStore, candles } = await setup();
+    await useStore.getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    const before = useStore.getState();
+    const key = before.dataKey;
+    start(useStore, 20, before.candles);
+    expect(useStore.getState().fullCandles).toBe(before.fullCandles);
+    expect(useStore.getState().dataKey).toBe(key);
+    useStore.getState().stepReplay(4);
+    useStore.getState().exitReplay();
+    const s = useStore.getState();
+    expect(s.candles).toBe(before.candles);
+    expect(s.fullCandles).toBe(before.fullCandles);
+    expect(s.chartRange).toBe(before.chartRange);
+    expect(s.chartRangeFetched).toBe(before.chartRangeFetched);
+    expect(s.dataKey).toBe(key);
+  });
+
+  it.each([
+    ['setChartRange', (s: Store['getState'] extends () => infer T ? T : never, c: { time: number }[]) => void s.setChartRange({ from: c[5].time, to: c[60].time })],
+    ['clearData', (s: Store['getState'] extends () => infer T ? T : never) => s.clearData()],
+    ['activateDataset', (s: Store['getState'] extends () => infer T ? T : never, c: { time: number }[]) => {
+      const id = s.addDataset({ name: 'd', candles: c as never, source: 'csv', description: 'd', barSeconds: 86400, barLabel: '1d' });
+      s.activateDataset(id);
+    }],
+  ])('%s ends replay and stops the timer', async (_name, act) => {
+    vi.useFakeTimers();
+    const { useStore, candles } = await setup();
+    start(useStore, 30, candles);
+    useStore.getState().playReplay();
+    await act(useStore.getState(), candles);
+    expect(useStore.getState().replay).toBeNull();
+    const len = useStore.getState().candles.length;
+    vi.advanceTimersByTime(5000);
+    expect(useStore.getState().candles).toHaveLength(len);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('loadData ends replay and restores the chart first', async () => {
+    const { useStore, candles } = await setup();
+    useStore.setState({ providerId: 'demo', bars: 200 });
+    start(useStore, 30, candles);
+    const p = useStore.getState().loadData();
+    expect(useStore.getState().replay).toBeNull();
+    expect(useStore.getState().candles).toBe(candles);
+    await p;
+    expect(useStore.getState().replay).toBeNull();
+  });
+
+  it('setLive(true) exits replay first', async () => {
+    const { useStore, candles } = await setup();
+    const { getProvider } = await import('../lib/providers');
+    const provider = getProvider('binance');
+    const orig = provider.startLive;
+    provider.startLive = () => ({ stop() {} });
+    try {
+      start(useStore, 30, candles);
+      useStore.getState().setLive(true);
+      expect(useStore.getState().replay).toBeNull();
+      expect(useStore.getState().candles).toBe(candles);
+      useStore.getState().setLive(false);
+    } finally {
+      provider.startLive = orig;
+    }
+  });
+});

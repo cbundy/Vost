@@ -70,6 +70,16 @@ describe('evaluate', () => {
   });
 });
 
+describe('editAlert and delivery', () => {
+  it('clears the Telegram delivery fields', () => {
+    const { alert } = run(make('crossing-up'), [90, 110]);
+    const sent: Alert = { ...alert, telegram: 'failed', telegramError: 'nope' };
+    const again = editAlert(sent, { level: 200 });
+    expect(again).not.toHaveProperty('telegram');
+    expect(again).not.toHaveProperty('telegramError');
+  });
+});
+
 describe('parseAlertInput', () => {
   const ok = { provider: 'binance', symbol: ' btcusdt ', condition: 'crossing-up', level: 5, note: 'x' };
   it('trims and upper-cases the symbol and ignores unknown fields', () => {
