@@ -4,6 +4,7 @@ import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
 import { Watchlist } from './Watchlist';
 import { useStore } from '../state/store';
+import { SIDE_SECTIONS } from './SideRail';
 
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
@@ -60,6 +61,8 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
   const openPineEditor = useStore((s) => s.openPineEditor);
   const removeIndicator = useStore((s) => s.removeIndicator);
   const updateIndicator = useStore((s) => s.updateIndicator);
+  const section = useStore((s) => s.sidePanel);
+  const setSidePanel = useStore((s) => s.setSidePanel);
 
   const first = candles[0];
   const last = candles[candles.length - 1];
@@ -73,12 +76,27 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
     >
       {drawer && (
         <div className="drawer-head">
-          <span>Sidebar</span>
+          <span className="drawer-sections" role="group" aria-label="Section">
+            {SIDE_SECTIONS.map((sec) => (
+              <button
+                key={sec.id}
+                type="button"
+                className={`ghost icon rail-btn${section === sec.id ? ' active' : ''}`}
+                title={sec.name}
+                aria-label={sec.name}
+                aria-pressed={section === sec.id}
+                onClick={() => setSidePanel(sec.id)}
+              >
+                {sec.icon}
+              </button>
+            ))}
+          </span>
           <button ref={closeRef} className="ghost icon" onClick={drawer.onClose} aria-label="Close sidebar" title="Close (Esc)">
             ✕
           </button>
         </div>
       )}
+      {section === 'data' && (<>
       <section className="sidebar-section">
         <div className="sidebar-title">
           <span>Data</span>
@@ -175,11 +193,15 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
           </button>
         </div>
       </section>
+      </>)}
 
-      <section className="sidebar-section">
-        <Watchlist />
-      </section>
+      {section === 'watchlist' && (
+        <section className="sidebar-section">
+          <Watchlist />
+        </section>
+      )}
 
+      {section === 'indicators' && (
       <section className="sidebar-section" style={{ borderBottom: 'none' }}>
         <div className="sidebar-title">
           <span>Indicators</span>
@@ -255,6 +277,7 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
           }}
         />
       </section>
+      )}
     </aside>
   );
 }

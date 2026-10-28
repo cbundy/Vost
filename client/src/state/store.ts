@@ -68,7 +68,14 @@ interface Prefs {
   btRange?: TimeRange;
   sidebarWidth?: number;
   dockHeight?: number;
+  sidePanel?: SidePanelSection;
+  sidePanelCollapsed?: boolean;
 }
+
+/** The sections of the right-hand side panel; one shows at a time. */
+export type SidePanelSection = 'watchlist' | 'data' | 'indicators';
+const SIDE_PANEL_SECTIONS: readonly SidePanelSection[] = ['watchlist', 'data', 'indicators'];
+
 
 const PREFS_KEY = 'prefs.v1';
 const DATASETS_KEY = 'datasets.v1';
@@ -105,6 +112,9 @@ export interface AppState {
   /** Pane sizes in px as the user last set them (persisted); the layout clamps them to the viewport. */
   sidebarWidth: number;
   dockHeight: number;
+  /** The side panel's visible section and whether it is collapsed to its rail (persisted). */
+  sidePanel: SidePanelSection;
+  sidePanelCollapsed: boolean;
   selectedPineId: string | null;
 
   /* market data */
@@ -198,6 +208,8 @@ export interface AppState {
   setDockTab(tab: DockTab): void;
   setDockCollapsed(collapsed: boolean): void;
   setSidebarWidth(px: number): void;
+  setSidePanel(section: SidePanelSection): void;
+  setSidePanelCollapsed(collapsed: boolean): void;
   /** Sets the expanded dock height; the collapsed state is untouched. */
   setDockHeight(px: number): void;
   /** Opens the bottom dock on the Pine tab with this indicator selected. */
@@ -334,6 +346,8 @@ export const useStore = create<AppState>()((set, get) => {
       btRange: s.btRange,
       sidebarWidth: s.sidebarWidth,
       dockHeight: s.dockHeight,
+      sidePanel: s.sidePanel,
+      sidePanelCollapsed: s.sidePanelCollapsed,
     } satisfies Prefs);
   }, 400);
 
@@ -449,6 +463,8 @@ export const useStore = create<AppState>()((set, get) => {
     dockCollapsed: false,
     sidebarWidth: SIDEBAR_DEFAULT,
     dockHeight: DOCK_DEFAULT,
+    sidePanel: 'watchlist',
+    sidePanelCollapsed: false,
     selectedPineId: null,
     candles: [],
     dataKey: '',
@@ -533,6 +549,8 @@ export const useStore = create<AppState>()((set, get) => {
         btRange: sanitizeTimeRange(prefs.btRange),
         sidebarWidth: sanitizeStoredSize(prefs.sidebarWidth, SIDEBAR_DEFAULT),
         dockHeight: sanitizeStoredSize(prefs.dockHeight, DOCK_DEFAULT),
+        sidePanel: SIDE_PANEL_SECTIONS.includes(prefs.sidePanel as SidePanelSection) ? (prefs.sidePanel as SidePanelSection) : 'watchlist',
+        sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
         datasets: Array.isArray(datasets) ? datasets : [],
         optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
       });
@@ -698,6 +716,17 @@ export const useStore = create<AppState>()((set, get) => {
 
     setSidebarWidth(px) {
       set({ sidebarWidth: sanitizeStoredSize(px, SIDEBAR_DEFAULT) });
+      persistPrefs();
+    },
+
+    setSidePanel(section) {
+      if (!SIDE_PANEL_SECTIONS.includes(section)) return;
+      set({ sidePanel: section });
+      persistPrefs();
+    },
+
+    setSidePanelCollapsed(collapsed) {
+      set({ sidePanelCollapsed: collapsed === true });
       persistPrefs();
     },
 

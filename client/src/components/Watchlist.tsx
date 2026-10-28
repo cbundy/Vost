@@ -150,17 +150,17 @@ export function Watchlist() {
                 onClick={() => st().openWatchItem(it.providerId, it.symbol)}
                 onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, item: it, sectionId: sec.id }); }}
               >
-                <span className="wl-sym">{it.symbol}</span>
-                <span className="badge">{it.providerId}</span>
-                {it.tags.map((id) => {
-                  const t = tagOf(id);
-                  return t ? <span key={id} className="wl-tag" style={{ background: t.color }} title={t.name} /> : null;
-                })}
-                <span className="wl-quote">
-                  {q ? fmtNum(q.price) : '-'}
-                  {q && q.pct !== null && (
-                    <span className={q.pct >= 0 ? 'pos' : 'neg'}> {q.pct >= 0 ? '+' : ''}{q.pct.toFixed(2)}%</span>
-                  )}
+                <span className="wl-id">
+                  <span className="wl-sym">{it.symbol}</span>
+                  <span className="badge">{it.providerId}</span>
+                  {it.tags.map((id) => {
+                    const t = tagOf(id);
+                    return t ? <span key={id} className="wl-tag" style={{ background: t.color }} title={t.name} /> : null;
+                  })}
+                </span>
+                <span className="wl-quote">{q ? fmtNum(q.price) : '-'}</span>
+                <span className={`wl-change${q && q.pct !== null ? (q.pct >= 0 ? ' pos' : ' neg') : ''}`}>
+                  {q && q.pct !== null ? `${q.pct >= 0 ? '+' : ''}${q.pct.toFixed(2)}%` : ''}
                 </span>
               </div>
             );

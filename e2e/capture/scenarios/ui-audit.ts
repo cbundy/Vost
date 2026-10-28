@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Locator, Page } from 'playwright';
 import type { Scenario } from '../scenario.ts';
+import { showSideSection } from '../side-panel.ts';
 
 /**
  * The UI audit (docs/spikes/ui-audit/README.md). It drives every pane, records what it sees and writes the
@@ -531,6 +532,7 @@ export const uiAudit: Scenario = {
           await page.getByRole('button', { name: 'Toggle sidebar' }).click();
           await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
         }
+        await showSideSection(page, 'Indicators', narrow);
         await page.locator('#add-indicator-select').selectOption('pine');
         if (narrow) {
           // the add closes nothing: the editor opens in the dock behind the drawer
@@ -552,6 +554,7 @@ export const uiAudit: Scenario = {
           await page.getByRole('button', { name: 'Toggle sidebar' }).click();
           await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
         }
+        await showSideSection(page, 'Indicators', narrow);
         await page.getByTitle('Remove').last().click();
         if (narrow) {
           await page.keyboard.press('Escape');
@@ -760,7 +763,19 @@ export const uiAudit: Scenario = {
         await page.getByTitle('Reload data').click();
         await settle(1500);
       });
-      notes.states.push(`Load with the market-data service down: toasts=${JSON.stringify(await page.locator('.toast').allInnerTexts())}, load button="${(await text(page.getByTitle('Reload data'))).trim()}", chart legend="${(await text(page.locator('.chart-legend .legend-title'))).trim()}", sidebar says: ${((await text(page.locator('.sidebar-section').first())) || '').replace(/\s+/g, ' ').slice(0, 100)}`);
+      if (narrow) {
+        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
+      }
+      await showSideSection(page, 'Data and library', narrow);
+      const dataSection = ((await text(page.locator('.sidebar-section').first())) || '').replace(/\s+/g, ' ').slice(0, 100);
+      if (narrow) {
+        await page.keyboard.press('Escape');
+        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
+      } else {
+        await showSideSection(page, 'Watchlist', false);
+      }
+      notes.states.push(`Load with the market-data service down: toasts=${JSON.stringify(await page.locator('.toast').allInnerTexts())}, load button="${(await text(page.getByTitle('Reload data'))).trim()}", chart legend="${(await text(page.locator('.chart-legend .legend-title'))).trim()}", sidebar says: ${dataSection}`);
       await ctx.screenshot('upstream-down');
       await act('switch provider with the upstream down', async () => {
         await selectProvider('kraken');

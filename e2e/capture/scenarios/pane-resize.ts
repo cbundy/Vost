@@ -57,6 +57,11 @@ export const paneResize: Scenario = {
       await page.goto('/');
     });
     await ctx.waitForChart();
+    const width = async () => Number((await probe(page)).sidebar);
+    const expectWidth = (label: string, got: number, ok: boolean) => {
+      if (!ok) throw new Error(`${label}: sidebar width is ${got}`);
+    };
+    await ctx.step('the seeded 340 applies', async () => expectWidth('seeded', await width(), (await width()) === 340));
     await shot('seeded');
 
     const sidebar = page.getByRole('separator', { name: 'Resize sidebar' });
@@ -71,14 +76,27 @@ export const paneResize: Scenario = {
       await page.mouse.move(x + dx, y + dy, { steps: 15 });
       await page.mouse.up();
     };
-    await ctx.step('drag the sidebar splitter', () => drag(sidebar, -80, 0));
+    await ctx.step('drag the sidebar splitter right: the right-hand panel narrows', async () => {
+      await drag(sidebar, 80, 0);
+      const w = await width();
+      expectWidth('drag right', w, w === 260);
+    });
+    await ctx.step('drag the sidebar splitter left: it widens', async () => {
+      const before = await width();
+      await drag(sidebar, -40, 0);
+      const w = await width();
+      expectWidth('drag left', w, w === before + 40);
+    });
     await ctx.step('drag the dock splitter', () => drag(dock, 0, 90));
     await shot('dragged');
 
     await ctx.step('keyboard on the sidebar', async () => {
       await sidebar.focus();
-      await page.keyboard.press('ArrowLeft');
-      await page.keyboard.press('Shift+ArrowRight');
+      const before = await width();
+      await page.keyboard.press('ArrowRight');
+      expectWidth('ArrowRight', await width(), (await width()) === before - 16);
+      await page.keyboard.press('Shift+ArrowLeft');
+      expectWidth('Shift+ArrowLeft', await width(), (await width()) === before - 16 + 64);
     });
     await shot('sidebar-focus');
     await ctx.step('End on the sidebar', () => page.keyboard.press('End'));

@@ -17,7 +17,7 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 
 ## Editing
 
-Pine indicators are edited in the bottom dock's Pine tab. The sidebar's Edit button on a Pine indicator opens it.
+Pine indicators are edited in the bottom dock's Pine tab. The Edit button on a Pine indicator in the side panel's Indicators section opens it.
 
 ## Old scripts (v1 to v4)
 
