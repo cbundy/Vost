@@ -763,6 +763,20 @@ describe('pine editor selection', () => {
     expect(st.dockCollapsed).toBe(false);
   });
 
+  it('collapsing then expanding keeps dockHeight, and openPineEditor keeps it too', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().setDockHeight(410);
+    useStore.getState().setDockCollapsed(true);
+    expect(useStore.getState().dockHeight).toBe(410);
+    useStore.getState().setDockCollapsed(false);
+    expect(useStore.getState().dockHeight).toBe(410);
+    useStore.getState().setDockCollapsed(true);
+    useStore.getState().openPineEditor(useStore.getState().addIndicator('pine'));
+    expect(useStore.getState().dockCollapsed).toBe(false);
+    expect(useStore.getState().dockHeight).toBe(410);
+  });
+
   it('removing the selected Pine indicator moves the selection', async () => {
     const { useStore } = await import('./store');
     track(useStore);
@@ -773,5 +787,51 @@ describe('pine editor selection', () => {
     expect(useStore.getState().selectedPineId).toBe(a);
     useStore.getState().removeIndicator(a);
     expect(useStore.getState().selectedPineId).toBeNull();
+  });
+});
+
+describe('pane size prefs', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+  });
+
+  const fresh = async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    return useStore;
+  };
+  const base = { providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100 };
+
+  it('prefs without sizes load the defaults', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify(base));
+    const useStore = await fresh();
+    useStore.getState().init();
+    expect(useStore.getState().sidebarWidth).toBe(264);
+    expect(useStore.getState().dockHeight).toBe(320);
+  });
+
+  it('non-numeric and non-finite stored sizes load the defaults', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, sidebarWidth: 'wide', dockHeight: -3 }));
+    const useStore = await fresh();
+    useStore.getState().init();
+    expect(useStore.getState().sidebarWidth).toBe(264);
+    expect(useStore.getState().dockHeight).toBe(320);
+  });
+
+  it('persists the sizes and a fresh store reads them back, unclamped', async () => {
+    const a = await fresh();
+    a.getState().setSidebarWidth(900);
+    a.getState().setDockHeight(410);
+    a.getState().flushPersist();
+    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    expect(saved.sidebarWidth).toBe(900);
+    expect(saved.dockHeight).toBe(410);
+    vi.resetModules();
+    const b = await fresh();
+    b.getState().init();
+    expect(b.getState().sidebarWidth).toBe(900);
+    expect(b.getState().dockHeight).toBe(410);
   });
 });

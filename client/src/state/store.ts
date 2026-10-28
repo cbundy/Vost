@@ -28,6 +28,7 @@ import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import { CHART_MIN_BARS, chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, sliceByTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
+import { DOCK_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
 import { nextPineSelection } from '../lib/pineSelection';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 
@@ -65,6 +66,8 @@ interface Prefs {
   showTrades: boolean;
   timeZone?: string;
   btRange?: TimeRange;
+  sidebarWidth?: number;
+  dockHeight?: number;
 }
 
 const PREFS_KEY = 'prefs.v1';
@@ -99,6 +102,9 @@ export interface AppState {
   /** Bottom dock UI state (not persisted). */
   dockTab: DockTab;
   dockCollapsed: boolean;
+  /** Pane sizes in px as the user last set them (persisted); the layout clamps them to the viewport. */
+  sidebarWidth: number;
+  dockHeight: number;
   selectedPineId: string | null;
 
   /* market data */
@@ -191,6 +197,9 @@ export interface AppState {
   removeIndicator(id: string): void;
   setDockTab(tab: DockTab): void;
   setDockCollapsed(collapsed: boolean): void;
+  setSidebarWidth(px: number): void;
+  /** Sets the expanded dock height; the collapsed state is untouched. */
+  setDockHeight(px: number): void;
   /** Opens the bottom dock on the Pine tab with this indicator selected. */
   openPineEditor(id: string): void;
   updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
@@ -323,6 +332,8 @@ export const useStore = create<AppState>()((set, get) => {
       showTrades: s.showTrades,
       timeZone: s.timeZone,
       btRange: s.btRange,
+      sidebarWidth: s.sidebarWidth,
+      dockHeight: s.dockHeight,
     } satisfies Prefs);
   }, 400);
 
@@ -436,6 +447,8 @@ export const useStore = create<AppState>()((set, get) => {
     pineRuns: {},
     dockTab: 'backtest',
     dockCollapsed: false,
+    sidebarWidth: SIDEBAR_DEFAULT,
+    dockHeight: DOCK_DEFAULT,
     selectedPineId: null,
     candles: [],
     dataKey: '',
@@ -518,6 +531,8 @@ export const useStore = create<AppState>()((set, get) => {
         showTrades: prefs.showTrades ?? true,
         timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
         btRange: sanitizeTimeRange(prefs.btRange),
+        sidebarWidth: sanitizeStoredSize(prefs.sidebarWidth, SIDEBAR_DEFAULT),
+        dockHeight: sanitizeStoredSize(prefs.dockHeight, DOCK_DEFAULT),
         datasets: Array.isArray(datasets) ? datasets : [],
         optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
       });
@@ -679,6 +694,16 @@ export const useStore = create<AppState>()((set, get) => {
 
     setDockCollapsed(collapsed) {
       set({ dockCollapsed: collapsed });
+    },
+
+    setSidebarWidth(px) {
+      set({ sidebarWidth: sanitizeStoredSize(px, SIDEBAR_DEFAULT) });
+      persistPrefs();
+    },
+
+    setDockHeight(px) {
+      set({ dockHeight: sanitizeStoredSize(px, DOCK_DEFAULT) });
+      persistPrefs();
     },
 
     openPineEditor(id) {

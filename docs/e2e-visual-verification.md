@@ -17,6 +17,7 @@ npm run -s e2e:capture -- network-audit         # docs/evidence/network-audit/ne
 npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.webm (+ .gif) and outage-{live,outage,recovered}-desktop.png
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-tab             # docs/evidence/pine-tab/pine-tab-{sidebar-edit,editor,error,collapsed-edit,empty}-{desktop,narrow}.png
+npm run -s e2e:capture -- pane-resize         # docs/evidence/pane-resize/pane-resize-{seeded,dragged,sidebar-focus,sidebar-max,dock-max,dock-collapsed,reset,small-window,small-window-max}-desktop.png + pane-resize-checks-desktop.txt + pane-resize.webm
 npm run -s e2e:capture -- chart --slug my-fix   # everything goes to docs/evidence/my-fix/
 ```
 

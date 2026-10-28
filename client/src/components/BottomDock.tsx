@@ -1,4 +1,8 @@
+import { useRef } from 'react';
+import { DOCK_DEFAULT, DOCK_MIN, clamp, dockLimits, resolveDockResize } from '../lib/paneSizes';
+import { useViewportSize } from '../lib/useViewportSize';
 import { useStore, type DockTab } from '../state/store';
+import { Splitter } from './Splitter';
 import { BacktestTab } from './BacktestTab';
 import { PineTab } from './PineTab';
 import { OptimizerTab } from './OptimizerTab';
@@ -16,6 +20,21 @@ export function BottomDock() {
   const btRunning = useStore((s) => s.btRunning);
   const optResult = useStore((s) => s.optResult);
 
+  const dockHeight = useStore((s) => s.dockHeight);
+  const setDockHeight = useStore((s) => s.setDockHeight);
+  const viewport = useViewportSize();
+  const limits = dockLimits(viewport.height);
+  const effective = clamp(dockHeight, limits.min, limits.max);
+
+  // The height the current drag started from, so collapsing by drag keeps the last expanded height.
+  const dragStartHeight = useRef(dockHeight);
+
+  const onResize = (raw: number, via: 'drag' | 'key') => {
+    const r = resolveDockResize(raw, via, collapsed, dragStartHeight.current, limits);
+    if (r.height !== null) setDockHeight(r.height);
+    if (r.collapsed !== collapsed) setDockCollapsed(r.collapsed);
+  };
+
   const select = (t: DockTab) => setDockTab(t);
   const tabProps = (t: DockTab) => ({
     role: 'tab' as const,
@@ -27,7 +46,22 @@ export function BottomDock() {
   });
 
   return (
-    <section className={`dock${collapsed ? ' collapsed' : ''}`}>
+    <section className={`dock${collapsed ? ' collapsed' : ''}`} style={{ ['--dock-height' as string]: `${effective}px` }}>
+      <Splitter
+        orientation="horizontal"
+        label="Resize bottom panel"
+        value={collapsed ? DOCK_MIN : effective}
+        min={limits.min}
+        max={limits.max}
+        onChange={onResize}
+        onDragStart={() => {
+          dragStartHeight.current = effective;
+        }}
+        onReset={() => {
+          setDockHeight(DOCK_DEFAULT);
+          setDockCollapsed(false);
+        }}
+      />
       <div className="dock-tabs" role="tablist" aria-label="Dock">
         <button {...tabProps('backtest')}>
           <span>⚙</span> Backtest

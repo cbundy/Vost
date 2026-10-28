@@ -70,13 +70,14 @@ textarea {
 
 .app {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 48px minmax(0, 1fr) auto;
   height: 100%;
 }
 
 .app-body {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   min-height: 0;
   border-top: 1px solid var(--border);
 }
@@ -408,7 +409,7 @@ button.icon {
 /* ------------------------------ sidebar ----------------------------- */
 
 .sidebar {
-  width: 264px;
+  width: var(--sidebar-width, 264px);
   background: var(--bg-2);
   border-right: 1px solid var(--border);
   overflow-y: auto;
@@ -418,7 +419,8 @@ button.icon {
 }
 
 @media (max-width: 900px) {
-  .sidebar {
+  .sidebar,
+  .sidebar + .splitter {
     display: none;
   }
 }
@@ -687,6 +689,56 @@ button.icon {
   margin-top: 16px;
 }
 
+/* ----------------------------- splitters ---------------------------- */
+
+.splitter {
+  position: relative;
+  z-index: 5;
+  flex-shrink: 0;
+  background: transparent;
+  touch-action: none;
+  transition: background 0.12s;
+}
+
+.splitter:hover,
+.app.resizing .splitter:active {
+  background: var(--accent, #3b82f6);
+}
+
+.splitter:focus-visible {
+  outline: 2px solid var(--accent, #3b82f6);
+  outline-offset: -2px;
+}
+
+.splitter.vertical {
+  width: 6px;
+  margin: 0 -3px;
+  cursor: col-resize;
+}
+
+.splitter.horizontal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+
+.app.resizing {
+  user-select: none;
+}
+
+.app.resizing-col,
+.app.resizing-col * {
+  cursor: col-resize !important;
+}
+
+.app.resizing-row,
+.app.resizing-row * {
+  cursor: row-resize !important;
+}
+
 /* ------------------------------- dock ------------------------------- */
 
 .dock {
@@ -694,8 +746,9 @@ button.icon {
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  height: 320px;
+  height: var(--dock-height, 320px);
   min-height: 44px;
+  position: relative;
 }
 
 .dock.collapsed {
