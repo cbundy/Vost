@@ -177,4 +177,17 @@ describe('fake upstream live feeds, through the real socket and WebSocket', () =
       w.socket.close();
     }
   });
+
+  it('answers a Telegram sendMessage POST and records its method and body', async () => {
+    const before = fake.requests.length;
+    const body = JSON.stringify({ chat_id: '1', text: 'hello' });
+    const res = await fetch(`${fake.url}/https/api.telegram.org/bottest-token/sendMessage`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+    expect(res.status).toBe(200);
+    const reply = (await res.json()) as { ok: boolean; result: { message_id: number } };
+    expect(reply.ok).toBe(true);
+    expect(typeof reply.result.message_id).toBe('number');
+    expect(fake.requests.slice(before)).toEqual([{ kind: 'http', scheme: 'https', host: 'api.telegram.org', path: '/bottest-token/sendMessage', method: 'POST', body }]);
+    const other = await fetch(`${fake.url}/https/api.telegram.org/bottest-token/getMe`, { method: 'POST', body: '{}' });
+    expect(other.status).toBe(404);
+  });
 });

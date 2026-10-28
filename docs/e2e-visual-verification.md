@@ -57,7 +57,8 @@ and `wss://stream.binance.com:9443/ws/a` becomes `ws://127.0.0.1:<port>/wss/stre
 
 - The fake answers in each provider's real format: history, symbols and search for all 7 providers (Binance on both
   hosts, Coinbase, Kraken, Bybit, OKX, Yahoo, Stooq) and a new live kline at least every second (a changing close) on
-  the four live feeds, including their subscribe and ping messages. It records every request it served.
+  the four live feeds, including their subscribe and ping messages. It records every request it served (with method and body for a POST). It also answers Telegram's
+  `sendMessage`, and the capture runner turns Telegram on with a test token, so a fired alert sends to the fake only.
 - `stop()` closes the listener and terminates every open socket, so new connects are refused; `start()` listens again
   on the same port. A scenario reaches both through `ctx.upstream` (see `outage`).
 - The setting is for tests only. With `NODE_ENV=production` (the Docker image sets it) the server prints an error naming

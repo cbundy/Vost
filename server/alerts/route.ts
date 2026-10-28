@@ -4,10 +4,12 @@
  * and every write must be JSON from the Vost page itself.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { AlertList } from '../../shared/alerts.ts';
 import type { ApiError } from '../../shared/market.ts';
 import { HEARTBEAT_MS } from '../live/route.ts';
 import { InputError } from '../providers/errors.ts';
 import type { AlertsService } from './index.ts';
+import { CHAT_VAR, TOKEN_VAR } from './telegram.ts';
 
 export const MAX_BODY_BYTES = 16 * 1024;
 
@@ -85,6 +87,20 @@ export async function handleAlerts(req: IncomingMessage, res: ServerResponse, ur
     return;
   }
 
+  if (url.pathname === '/api/alerts/telegram-test') {
+    if (method !== 'POST') {
+      res.setHeader('allow', 'POST');
+      return refuse(405, 'Use POST');
+    }
+    req.resume();
+    const why = crossSiteReason(req);
+    if (why) return refuse(403, `Alert changes are only accepted from the Vost page itself (${why})`);
+    if (!/^application\/json\s*(;|$)/i.test(req.headers['content-type'] ?? '')) return refuse(415, 'Send content-type: application/json');
+    if (!alerts.telegram.configured) return refuse(503, `Telegram is not set up: set ${TOKEN_VAR} and ${CHAT_VAR} on the server`);
+    const result = await alerts.telegram.send('Vost: test message');
+    return result.ok ? reply(res, 200, { ok: true }) : refuse(502, `Telegram did not accept the message: ${result.reason}`);
+  }
+
   let id: string | null = null;
   if (url.pathname !== '/api/alerts') {
     try {
@@ -98,7 +114,7 @@ export async function handleAlerts(req: IncomingMessage, res: ServerResponse, ur
     res.setHeader('allow', allowed.join(', '));
     return refuse(405, `Use ${allowed.join(' or ')}`);
   }
-  if (method === 'GET') return reply(res, 200, { alerts: alerts.list() });
+  if (method === 'GET') return reply(res, 200, { alerts: alerts.list(), telegram: { configured: alerts.telegram.configured } } satisfies AlertList);
 
   // Writes.
   const reason = crossSiteReason(req);

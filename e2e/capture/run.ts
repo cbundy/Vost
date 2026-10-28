@@ -141,6 +141,9 @@ async function main(): Promise<string[]> {
         VOST_STATUS_INTERVAL: '0',
         VOST_DATA_DIR: dataDir,
         VOST_TEST_UPSTREAM: upstream.url,
+        // Telegram on, but only ever the fake service's sendMessage.
+        VOST_TELEGRAM_BOT_TOKEN: 'test-token',
+        VOST_TELEGRAM_CHAT_ID: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
