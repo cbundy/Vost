@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { INDICATOR_META, type IndicatorKind } from '../lib/indicatorCompute';
 import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
+import { SymbolCard } from './SymbolCard';
 import { Watchlist } from './Watchlist';
 import { selectBars, useStore } from '../state/store';
 import { SIDE_SECTIONS } from './SideRail';
@@ -198,6 +199,7 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
       {section === 'watchlist' && (
         <section className="sidebar-section">
           <Watchlist />
+          <SymbolCard />
         </section>
       )}
 
