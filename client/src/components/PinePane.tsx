@@ -1,61 +1,82 @@
+import { useEffect, useRef, useState } from 'react';
+import { useDialogKeys } from '../lib/useDialogKeys';
+import { detectPineVersion } from '../lib/pine/version';
 import { resolvePineSelection } from '../lib/pineSelection';
 import type { PineInput, PineInputValue } from '../lib/pine/types';
 import { useStore, type PineRunState } from '../state/store';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
 
-/** The dock's Pine tab: one Pine indicator at a time in a full-height editor. */
-export function PineTab() {
+/**
+ * The Pine editor pane beside the chart: one Pine indicator at a time in a full-height editor.
+ * `dialog` is the narrow-window form: a modal dialog covering the chart area.
+ */
+export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => void }) {
   const indicators = useStore((s) => s.indicators);
   const selectedPineId = useStore((s) => s.selectedPineId);
   const pineRuns = useStore((s) => s.pineRuns);
   const updateIndicator = useStore((s) => s.updateIndicator);
   const addIndicator = useStore((s) => s.addIndicator);
   const openPineEditor = useStore((s) => s.openPineEditor);
+  const rootRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (dialog) closeRef.current?.focus();
+  }, [dialog]);
+  useDialogKeys(rootRef, dialog, onClose);
 
   const pines = indicators.filter((i) => i.kind === 'pine');
   const activeId = resolvePineSelection(indicators, selectedPineId);
   const active = pines.find((i) => i.id === activeId);
 
-  if (!active) {
-    return (
-      <div className="pine-empty">
-        <div className="muted-2">No Pine indicators on this chart.</div>
-        <button className="primary" onClick={() => openPineEditor(addIndicator('pine'))}>
-          Add Pine indicator
-        </button>
-      </div>
-    );
-  }
-
   const label = (i: (typeof pines)[number], n: number) =>
     `${n + 1}. ${pineRuns[i.id]?.result?.declaration.title || 'Pine indicator'} (${i.color})`;
 
   return (
-    <div className="pine-tab">
-      <div className="pine-tab-head">
-        <span className="pine-swatch" style={{ background: active.color }} aria-hidden="true" />
-        <select
-          aria-label="Pine indicator"
-          value={active.id}
-          onChange={(ev) => openPineEditor(ev.target.value)}
-        >
-          {pines.map((i, n) => (
-            <option key={i.id} value={i.id}>
-              {label(i, n)}
-            </option>
-          ))}
-        </select>
+    <section
+      ref={rootRef}
+      className={`pine-pane${dialog ? ' dialog' : ''}`}
+      aria-label="Pine editor"
+      {...(dialog ? { role: 'dialog', 'aria-modal': true } : {})}
+    >
+      <div className="pine-pane-head">
+        <span className="pine-pane-title">Pine Editor</span>
+        {active && (
+          <>
+            <span className="pine-swatch" style={{ background: active.color }} aria-hidden="true" />
+            <select aria-label="Pine indicator" value={active.id} onChange={(ev) => openPineEditor(ev.target.value)}>
+              {pines.map((i, n) => (
+                <option key={i.id} value={i.id}>
+                  {label(i, n)}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+        <span className="pine-pane-spacer" />
+        <button ref={closeRef} className="ghost icon" aria-label="Close Pine editor" title="Close (Esc)" onClick={onClose}>
+          ✕
+        </button>
       </div>
-      <PineEntry
-        key={active.id}
-        source={active.source ?? ''}
-        overrides={active.inputs ?? {}}
-        run={pineRuns[active.id]}
-        onSource={(source) => updateIndicator(active.id, { source })}
-        onInput={(name, v) => updateIndicator(active.id, { inputs: { [name]: v } })}
-      />
-    </div>
+      {active ? (
+        <PineEntry
+          key={active.id}
+          source={active.source ?? ''}
+          overrides={active.inputs ?? {}}
+          run={pineRuns[active.id]}
+          onSource={(source) => updateIndicator(active.id, { source })}
+          onInput={(name, v) => updateIndicator(active.id, { inputs: { [name]: v } })}
+        />
+      ) : (
+        <div className="pine-empty">
+          <div className="muted-2">No Pine indicators on this chart.</div>
+          <button className="primary" onClick={() => openPineEditor(addIndicator('pine'))}>
+            Add Pine indicator
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -72,12 +93,14 @@ function PineEntry({
   onSource: (source: string) => void;
   onInput: (name: string, v: PineInputValue) => void;
 }) {
+  const [cursor, setCursor] = useState({ line: 1, col: 1 });
+  const { version } = detectPineVersion(source);
   const error = run?.error;
   const inputs = run?.result?.inputs ?? [];
   return (
     <div className="pine-entry">
       <div className="pine-entry-editor">
-        <PineEditor value={source} onChange={onSource} error={error} ariaLabel="Pine source" minHeight={60} />
+        <PineEditor value={source} onChange={onSource} error={error} ariaLabel="Pine source" minHeight={60} onCursor={(line, col) => setCursor({ line, col })} />
       </div>
       {run?.running && <div className="muted-2" style={{ fontSize: 11.5 }}>Running…</div>}
       <PineConvert source={source} error={error} onChange={onSource} />
@@ -91,6 +114,12 @@ function PineEntry({
           ))}
         </div>
       )}
+      <div className="pine-status">
+        <span>
+          Ln {cursor.line}, Col {cursor.col}
+        </span>
+        <span>{version === null ? 'no version' : `Pine v${version}`}</span>
+      </div>
     </div>
   );
 }

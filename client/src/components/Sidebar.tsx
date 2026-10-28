@@ -5,8 +5,7 @@ import { fmtNum, fmtTime } from '../lib/format';
 import { Watchlist } from './Watchlist';
 import { selectBars, useStore } from '../state/store';
 import { SIDE_SECTIONS } from './SideRail';
-
-const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+import { useDialogKeys } from '../lib/useDialogKeys';
 
 export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; drawer?: { onClose: () => void } }) {
   const asideRef = useRef<HTMLElement>(null);
@@ -16,36 +15,9 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
 
   // Drawer: focus the close button on open, keep Tab inside, close on Escape.
   useEffect(() => {
-    if (!isDrawer) return;
-    closeRef.current?.focus();
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') {
-        ev.preventDefault();
-        onClose?.();
-        return;
-      }
-      if (ev.key !== 'Tab') return;
-      const root = asideRef.current;
-      if (!root) return;
-      const items = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((e) => e.getClientRects().length > 0);
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      const active = document.activeElement;
-      if (!active || !root.contains(active)) {
-        ev.preventDefault();
-        (ev.shiftKey ? last : first).focus();
-      } else if (ev.shiftKey && active === first) {
-        ev.preventDefault();
-        last.focus();
-      } else if (!ev.shiftKey && active === last) {
-        ev.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isDrawer, onClose]);
+    if (isDrawer) closeRef.current?.focus();
+  }, [isDrawer]);
+  useDialogKeys(asideRef, isDrawer, onClose);
 
   const symbol = useStore((s) => s.symbol);
   const candles = useStore(selectBars);
@@ -228,9 +200,12 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
                 {spec.kind === 'pine' && (
                   <button
                     className="ghost"
-                    title="Edit in the Pine tab"
+                    title="Open in the Pine editor"
                     aria-label={`Edit ${meta.name} source`}
-                    onClick={() => openPineEditor(spec.id)}
+                    onClick={() => {
+                      drawer?.onClose();
+                      openPineEditor(spec.id);
+                    }}
                   >
                     Edit
                   </button>
@@ -273,7 +248,10 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
         <AddIndicator
           onAdd={(kind) => {
             const id = addIndicator(kind);
-            if (kind === 'pine') openPineEditor(id);
+            if (kind === 'pine') {
+              drawer?.onClose();
+              openPineEditor(id);
+            }
           }}
         />
       </section>

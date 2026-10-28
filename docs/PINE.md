@@ -17,13 +17,13 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 
 ## Editing
 
-Pine indicators are edited in the bottom dock's Pine tab. The Edit button on a Pine indicator in the side panel's Indicators section opens it.
+Pine indicators are edited in the Pine editor pane to the right of the chart, with its own resize handle and close button. The Pine Editor button in the top bar opens it, and so does the Edit button on a Pine indicator in the side panel's Indicators section. On a narrow window (900px and below) the pane is a dialog that covers the chart area and closes with Escape. A status line shows the cursor position and the Pine version.
 
 ## Old scripts (v1 to v4)
 
 PineTS reads a script with no `//@version` line as raw JavaScript, so old Pine used to fail with a confusing parser error. `runPine` now checks the version first (`version.ts`, the same marker PineTS looks for). A script with no version line, or a version below 5, resolves to a plain message instead: "This is a Pine v4 script. Vost runs Pine v5 and v6: use Convert to v6." (a script with no version line is read as v1, and the message also says to add `//@version=6` if it is already v6 code).
 
-The Pine tab and the Backtest tab's Pine editor then show a **Convert to v6** button. It rewrites the source in the editor as one edit, so Ctrl+Z restores the original, and says "Converted from Pine v<N> to v6." until the next edit.
+The Pine editor pane and the Backtest tab's Pine editor then show a **Convert to v6** button. It rewrites the source in the editor as one edit, so Ctrl+Z restores the original, and says "Converted from Pine v<N> to v6." until the next edit.
 
 `convertToV6` (`convert.ts`) is pure, best-effort and runs only on that click. It works on a tokenizer, so it never changes strings, comments, a member after `.`, or a name the script assigns itself. It converts:
 

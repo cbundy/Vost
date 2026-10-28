@@ -5,6 +5,13 @@ export const SIDEBAR_MIN = 200;
 /** The sidebar may take at most this share of the viewport width (never below SIDEBAR_MIN). */
 export const SIDEBAR_MAX_RATIO = 0.4;
 
+export const PINE_DEFAULT = 440;
+export const PINE_MIN = 320;
+/** The chart keeps at least this much width beside the Pine pane. */
+export const CHART_MIN_WIDTH = 360;
+/** The side rail's width (the CSS uses the same number). */
+export const RAIL_WIDTH = 40;
+
 export const DOCK_DEFAULT = 320;
 /** The dock's tab strip: the smallest the dock can be. */
 export const DOCK_MIN = 42;
@@ -57,6 +64,11 @@ export function clamp(value: number, min: number, max: number): number {
 
 export function sidebarLimits(viewportW: number): Limits {
   return { min: SIDEBAR_MIN, max: Math.max(SIDEBAR_MIN, Math.floor(viewportW * SIDEBAR_MAX_RATIO)) };
+}
+
+/** The Pine pane may grow until the chart is down to CHART_MIN_WIDTH beside the sidebar (0 when hidden) and rail (splitters take no layout width); never below PINE_MIN. */
+export function pineLimits(viewportW: number, sidebarShownWidth: number): Limits {
+  return { min: PINE_MIN, max: Math.max(PINE_MIN, Math.floor(viewportW - sidebarShownWidth - RAIL_WIDTH - CHART_MIN_WIDTH)) };
 }
 
 export function dockLimits(viewportH: number): Limits {

@@ -751,29 +751,39 @@ describe('pine editor selection', () => {
     stubStorage();
   });
 
-  it('openPineEditor opens the Pine tab on the indicator and expands the dock', async () => {
+  it('openPineEditor opens the pane on the indicator and leaves the dock alone', async () => {
     const { useStore } = await import('./store');
     track(useStore);
     const id = useStore.getState().addIndicator('pine');
     useStore.getState().setDockCollapsed(true);
+    useStore.getState().setDockTab('results');
+    useStore.getState().setDockCollapsed(true);
+    expect(useStore.getState().pineOpen).toBe(false);
     useStore.getState().openPineEditor(id);
     const st = useStore.getState();
-    expect(st.dockTab).toBe('pine');
+    expect(st.pineOpen).toBe(true);
     expect(st.selectedPineId).toBe(id);
-    expect(st.dockCollapsed).toBe(false);
+    expect(st.dockCollapsed).toBe(true);
+    expect(st.dockTab).toBe('results');
   });
 
-  it('collapsing then expanding keeps dockHeight, and openPineEditor keeps it too', async () => {
+  it('closePineEditor and togglePineEditor close and flip the pane', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().openPineEditor(useStore.getState().addIndicator('pine'));
+    useStore.getState().closePineEditor();
+    expect(useStore.getState().pineOpen).toBe(false);
+    useStore.getState().togglePineEditor();
+    expect(useStore.getState().pineOpen).toBe(true);
+    useStore.getState().togglePineEditor();
+    expect(useStore.getState().pineOpen).toBe(false);
+  });
+
+  it('openPineEditor keeps dockHeight', async () => {
     const { useStore } = await import('./store');
     track(useStore);
     useStore.getState().setDockHeight(410);
-    useStore.getState().setDockCollapsed(true);
-    expect(useStore.getState().dockHeight).toBe(410);
-    useStore.getState().setDockCollapsed(false);
-    expect(useStore.getState().dockHeight).toBe(410);
-    useStore.getState().setDockCollapsed(true);
     useStore.getState().openPineEditor(useStore.getState().addIndicator('pine'));
-    expect(useStore.getState().dockCollapsed).toBe(false);
     expect(useStore.getState().dockHeight).toBe(410);
   });
 
@@ -810,6 +820,26 @@ describe('pane size prefs', () => {
     useStore.getState().init();
     expect(useStore.getState().sidebarWidth).toBe(264);
     expect(useStore.getState().dockHeight).toBe(320);
+    expect(useStore.getState().pineWidth).toBe(440);
+  });
+
+  it('a garbage pineWidth loads the default', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, pineWidth: 'wide' }));
+    const useStore = await fresh();
+    useStore.getState().init();
+    expect(useStore.getState().pineWidth).toBe(440);
+  });
+
+  it('persists pineWidth and a fresh store reads it back', async () => {
+    const a = await fresh();
+    a.getState().setPineWidth(500);
+    a.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).pineWidth).toBe(500);
+    vi.resetModules();
+    const b = await fresh();
+    b.getState().init();
+    expect(b.getState().pineWidth).toBe(500);
+    expect(b.getState().pineOpen).toBe(false);
   });
 
   it('non-numeric and non-finite stored sizes load the defaults', async () => {

@@ -21,12 +21,14 @@ export function TopBar({
   onOpenInbox,
   sidebarExpanded,
   toggleRef,
+  pineToggleRef,
 }: {
   onImportCsv: () => void;
   onToggleSidebar: () => void;
   onOpenInbox: () => void;
   sidebarExpanded: boolean;
   toggleRef?: Ref<HTMLButtonElement>;
+  pineToggleRef?: Ref<HTMLButtonElement>;
 }) {
   const tier = topbarTier(useViewportSize().width);
   const providerInMore = tier === 'narrow' || tier === 'tiny';
@@ -37,6 +39,10 @@ export function TopBar({
   const bars = useStore((s) => s.bars);
   const loadState = useStore((s) => s.loadState);
   const unread = useStore((s) => unreadCount(s.messages));
+  const pineOpen = useStore((s) => s.pineOpen);
+  const pineCount = useStore((s) => s.indicators.filter((i) => i.kind === 'pine').length);
+  const pineRunning = useStore((s) => Object.values(s.pineRuns).some((r) => r.running));
+  const togglePineEditor = useStore((s) => s.togglePineEditor);
   const live = useStore((s) => s.live);
   const candles = useStore(selectDataCandles);
   const replayOn = useStore((s) => s.replay != null);
@@ -213,6 +219,19 @@ export function TopBar({
         <button className="ghost icon inbox-btn" onClick={onOpenInbox} title="Inbox (messages and errors)" aria-label="Inbox">
           <InboxIcon />
           {unread > 0 && <span className="inbox-badge">{unread > 99 ? '99+' : unread}</span>}
+        </button>
+        <button
+          ref={pineToggleRef}
+          className={`pine-toggle${pineOpen ? ' active' : ''}`}
+          aria-pressed={pineOpen}
+          aria-label="Pine Editor"
+          title="Pine Editor"
+          onClick={togglePineEditor}
+        >
+          <span aria-hidden="true">{'{ }'}</span>
+          {tier === 'full' && <span className="btn-label">Pine Editor</span>}
+          {pineRunning && <span className="spinner" />}
+          {pineCount > 0 && <span className="badge">{pineCount}</span>}
         </button>
         {!importInMore && importButton()}
         {!importInMore && githubLink}
