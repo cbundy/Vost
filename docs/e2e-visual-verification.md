@@ -17,6 +17,7 @@ npm run -s e2e:capture -- network-audit         # docs/evidence/network-audit/ne
 npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.webm (+ .gif) and outage-{live,outage,recovered}-desktop.png
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-tab             # docs/evidence/pine-tab/pine-tab-{sidebar-edit,editor,error,collapsed-edit,empty}-{desktop,narrow}.png
+npm run -s e2e:capture -- pine-convert        # docs/evidence/pine-convert/pine-convert-{legacy,converted}-{desktop,narrow}.png
 npm run -s e2e:capture -- pane-resize         # docs/evidence/pane-resize/pane-resize-{seeded,dragged,sidebar-focus,sidebar-max,dock-max,dock-collapsed,reset,small-window,small-window-max}-desktop.png + pane-resize-checks-desktop.txt + pane-resize.webm
 npm run -s e2e:capture -- responsive        # docs/evidence/responsive/responsive-{360x740,768x1024,1024x768,1920x1080,740x360,drawer-360,drawer-768,more-360,csv-360,inbox-360}-desktop.png + responsive-checks-desktop.txt
 npm run -s e2e:capture -- ui-audit           # docs/evidence/ui-audit/ui-audit-{console,requests,leaks,layout,a11y,stack,races,states}-{desktop,narrow}.txt + screenshots of each state (research audit, see docs/spikes/ui-audit/README.md; about 2.5 minutes)

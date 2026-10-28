@@ -1,0 +1,35 @@
+//@version=6
+//
+// @author LazyBear
+//
+// If you use this code in its original/modified form, do drop me a note. 
+//
+indicator(title="WaveTrend with Crosses [LazyBear]", shorttitle="WT_CROSS_LB")
+n1 = input.int(10, "Channel Length")
+n2 = input.int(21, "Average Length")
+obLevel1 = input.int(60, "Over Bought Level 1")
+obLevel2 = input.int(53, "Over Bought Level 2")
+osLevel1 = input.int(-60, "Over Sold Level 1")
+osLevel2 = input.int(-53, "Over Sold Level 2")
+
+ap = hlc3
+esa = ta.ema(ap, n1)
+d = ta.ema(math.abs(ap - esa), n1)
+ci = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+plot(0, color=color.gray)
+plot(obLevel1, color=#ff0000)
+plot(osLevel1, color=#00ec0c)
+plot(obLevel2, color=#cc3300)
+plot(osLevel2, color=color.green)
+
+plot(wt1, color=#66cc00)
+plot(wt2, color=#ff0066)
+plot(wt1 - wt2, color=color.new(#498eac, 73), style=plot.style_area)
+plot(ta.cross(wt1, wt2) ? wt2 : na, color=color.black, style=plot.style_circles, linewidth=3)
+plot(ta.cross(wt1, wt2) ? wt2 : na, color=(wt2 - wt1 > 0 ? color.red : color.lime), style=plot.style_circles, linewidth=2)
+barcolor(ta.cross(wt1, wt2) ? (wt2 - wt1 > 0 ? color.purple : color.yellow) : na)

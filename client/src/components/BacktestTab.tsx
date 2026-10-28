@@ -3,6 +3,7 @@ import { CUSTOM_STRATEGY_EXAMPLES, DEFAULT_CUSTOM_CODE } from '../lib/backtest/c
 import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import { getStrategy, strategies } from '../lib/backtest/strategies';
+import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
 import { messageToError } from '../lib/pine/language';
 import { fmtNum, fmtTime } from '../lib/format';
@@ -367,6 +368,7 @@ function PineCodeEditor({
     <div>
       <div className="section-title">Pine Script strategy</div>
       <PineEditor value={code} onChange={onChange} error={error} ariaLabel="Pine strategy source" />
+      <PineConvert source={code} error={error} onChange={onChange} legacyOnly />
       <div className="form-row mt-2">
         <span className="hint">Examples:</span>
         {PINE_STRATEGY_EXAMPLES.map((ex) => (

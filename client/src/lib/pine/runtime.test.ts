@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { candlesFromCsvText } from '../csv';
 import { bollinger, ema, macd, rsi } from '../indicators';
+import { convertToV6 } from './convert';
 import { runPine } from './runtime';
 import type { PineResult } from './types';
 
@@ -135,7 +136,44 @@ describe('runPine errors', () => {
     expect(r.ok).toBe(false);
   });
 
+  it('a script with no version line gets a plain message, not a parser error', async () => {
+    const r = await runPine(fixture('legacy-wavetrend'), candles);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/no \/\/@version line/);
+    expect(r.error.message).not.toMatch(/Unexpected token/);
+    expect(r.error.line).toBeUndefined();
+  });
+
+  it('versions 1 to 4 name the version', async () => {
+    const r = await runPine(`//@version=4\n${fixture('legacy-wavetrend')}`, candles);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toBe('This is a Pine v4 script. Vost runs Pine v5 and v6: use Convert to v6.');
+    expect(r.error.line).toBeUndefined();
+  });
+
+  it('versions 5 and 6 still run', async () => {
+    expect((await runPine('//@version=5\nindicator("a")\nplot(close)', candles)).ok).toBe(true);
+    expect((await runPine('//@version=6\nindicator("a")\nplot(close)', candles)).ok).toBe(true);
+  });
+
   it('empty candles resolve to ok:false', async () => {
     expect((await runPine(fixture('rsi'), [])).ok).toBe(false);
+  });
+});
+
+describe('convertToV6 end to end', () => {
+  it('the converted legacy script runs and draws the same lines as the hand-written v6 one', async () => {
+    const converted = convertToV6(fixture('legacy-wavetrend'));
+    expect(converted.notes).toEqual([]);
+    const a = await runPine(converted.code, candles);
+    const b = await ok('wavetrend-v6');
+    if (!a.ok) throw new Error(a.error.message);
+    expect(a.plots).toHaveLength(b.plots.length);
+    const lines = a.plots.map((p, i) => [p, b.plots[i]] as const).filter(([p]) => p.style !== 'barcolor'); // PineTS reports barcolor() as a plot
+    expect(lines).toHaveLength(10);
+    for (const [p, q] of lines) expectParity(p.values, q.values, 1);
+    expectParity(a.plots[5].values, b.plots[5].values, 100);
   });
 });

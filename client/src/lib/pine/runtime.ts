@@ -5,6 +5,7 @@
  */
 import { Indicator, PineTS } from 'pinets';
 import type { Candle } from '../../types';
+import { detectPineVersion, legacyMessage } from './version';
 import type {
   PineInput,
   PineInputValue,
@@ -146,6 +147,9 @@ export async function runPine(
   inputs: Record<string, PineInputValue> = {},
 ): Promise<PineRunOutcome> {
   try {
+    // PineTS reads a script with no //@version line as raw JavaScript and fails with a parser error.
+    const { version, legacy } = detectPineVersion(source);
+    if (legacy) return { ok: false, error: { message: legacyMessage(version) } };
     if (candles.length === 0) return { ok: false, error: { message: 'No candles to run the script on' } };
     const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();

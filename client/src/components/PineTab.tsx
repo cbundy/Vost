@@ -1,6 +1,7 @@
 import { resolvePineSelection } from '../lib/pineSelection';
 import type { PineInput, PineInputValue } from '../lib/pine/types';
 import { useStore, type PineRunState } from '../state/store';
+import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
 
 /** The dock's Pine tab: one Pine indicator at a time in a full-height editor. */
@@ -79,12 +80,7 @@ function PineEntry({
         <PineEditor value={source} onChange={onSource} error={error} ariaLabel="Pine source" minHeight={60} />
       </div>
       {run?.running && <div className="muted-2" style={{ fontSize: 11.5 }}>Running…</div>}
-      {error && (
-        <div className="pine-error" role="alert" style={{ color: 'var(--neg, #ef4444)', fontSize: 11.5, whiteSpace: 'pre-wrap' }}>
-          {error.line !== undefined ? `Line ${error.line}: ` : ''}
-          {error.message}
-        </div>
-      )}
+      <PineConvert source={source} error={error} onChange={onSource} />
       {inputs.length > 0 && (
         <div className="indicator-params">
           {inputs.map((inp) => (
