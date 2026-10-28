@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useTopKeydown } from '../lib/useDialogKeys';
 
 export function Modal({
   title,
@@ -13,13 +14,9 @@ export function Modal({
   footer?: ReactNode;
   width?: number;
 }) {
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useTopKeydown(true, (ev) => {
+    if (ev.key === 'Escape') onClose();
+  });
 
   return (
     <div className="modal-overlay" onMouseDown={(ev) => ev.target === ev.currentTarget && onClose()}>

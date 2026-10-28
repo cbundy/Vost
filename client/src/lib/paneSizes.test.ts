@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DRAWER_MAX_WIDTH, DRAWER_QUERY, isDrawerWidth, topbarTier,
   CHART_BAR_HEIGHT, CHART_MIN_HEIGHT, DOCK_COLLAPSE_BELOW, DOCK_DEFAULT, DOCK_MIN, SIDEBAR_DEFAULT, TOPBAR_HEIGHT,
+  CHART_MIN_WIDTH, PINE_MIN, RAIL_WIDTH, pineLimits,
   clamp, dockLimits, dragDelta, resolveDockResize, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
 } from './paneSizes';
 
@@ -17,6 +18,20 @@ describe('sidebarLimits', () => {
     const l = sidebarLimits(1280);
     expect(clamp(900, l.min, l.max)).toBe(512);
     expect(clamp(50, l.min, l.max)).toBe(200);
+  });
+});
+
+describe('pineLimits', () => {
+  it('keeps the chart at CHART_MIN_WIDTH at 1280px with and without the sidebar', () => {
+    for (const sb of [0, 264, 512]) {
+      const l = pineLimits(1280, sb);
+      expect(1280 - sb - RAIL_WIDTH - l.max).toBeGreaterThanOrEqual(CHART_MIN_WIDTH);
+    }
+    expect(pineLimits(1280, 264).max).toBe(616);
+    expect(pineLimits(1280, 0).max).toBe(880);
+  });
+  it('never goes below PINE_MIN on a small viewport', () => {
+    expect(pineLimits(500, 264)).toEqual({ min: PINE_MIN, max: PINE_MIN });
   });
 });
 
