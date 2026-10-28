@@ -15,6 +15,32 @@ export const CHART_MIN_HEIGHT = 200;
 /** Top bar plus the 1px border above the app body. */
 export const TOPBAR_HEIGHT = 49;
 
+/** At this viewport width and below the sidebar is a slide-in drawer (the CSS uses the same number). */
+export const DRAWER_MAX_WIDTH = 900;
+export const DRAWER_QUERY = `(max-width: ${DRAWER_MAX_WIDTH}px)`;
+
+export function isDrawerWidth(viewportW: number): boolean {
+  return viewportW <= DRAWER_MAX_WIDTH;
+}
+
+/**
+ * Top bar tiers: the widest viewport (inclusive) of each tier below 'full'. The row holds about 1100px of controls
+ * before the brand tag, so 'full' starts well above that and 'narrow' covers the whole drawer range.
+ */
+export const TOPBAR_COMPACT_MAX = 1280;
+export const TOPBAR_NARROW_MAX = 960;
+export const TOPBAR_TINY_MAX = 600;
+
+export type TopbarTier = 'full' | 'compact' | 'narrow' | 'tiny';
+
+/** Which top bar controls fit: 'compact' moves Import CSV, GitHub and the bars select into the More menu, 'narrow' also the provider, Range and Live. */
+export function topbarTier(viewportW: number): TopbarTier {
+  if (viewportW <= TOPBAR_TINY_MAX) return 'tiny';
+  if (viewportW <= TOPBAR_NARROW_MAX) return 'narrow';
+  if (viewportW <= TOPBAR_COMPACT_MAX) return 'compact';
+  return 'full';
+}
+
 export const STEP = 16;
 export const STEP_SHIFT = 64;
 

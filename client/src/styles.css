@@ -110,6 +110,7 @@ textarea {
   letter-spacing: 0.2px;
   user-select: none;
   margin-right: 4px;
+  min-width: 0;
 }
 
 .brand-logo {
@@ -143,6 +144,10 @@ textarea {
   font-size: 11px;
   font-weight: 500;
   display: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 @media (min-width: 1100px) {
   .brand-tag {
@@ -418,10 +423,40 @@ button.icon {
   min-height: 0;
 }
 
+/* Drawer mode: at 900px and below (DRAWER_MAX_WIDTH) the sidebar slides over the page. */
+.drawer-head {
+  display: none;
+}
+
 @media (max-width: 900px) {
-  .sidebar,
-  .sidebar + .splitter {
-    display: none;
+  .sidebar.drawer {
+    position: fixed;
+    top: 49px;
+    bottom: 0;
+    left: 0;
+    width: min(300px, calc(100vw - 48px));
+    z-index: 40;
+    box-shadow: 8px 0 28px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar.drawer .drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 6px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    flex: none;
+  }
+
+  .drawer-backdrop {
+    position: fixed;
+    top: 49px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 39;
+    background: rgba(4, 6, 10, 0.6);
   }
 }
 
@@ -766,7 +801,27 @@ button.icon {
   flex-shrink: 0;
 }
 
+.dock-tablist {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  align-self: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.dock-tablist::-webkit-scrollbar {
+  display: none;
+}
+
+.dock-tabs > :not(.dock-tablist) {
+  flex: none;
+}
+
 .dock-tab {
+  flex: none;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -800,6 +855,22 @@ button.icon {
 
 .dock-spacer {
   margin-left: auto;
+}
+
+@media (max-width: 700px) {
+  .dock-tab {
+    padding: 10px 10px;
+  }
+
+  .dock-tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* --------------------------- forms & panels -------------------------- */
@@ -1016,6 +1087,18 @@ table.data-table td.side-short {
   place-items: center;
   z-index: 100;
   padding: 20px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: 8px;
+  }
+
+  .modal {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
 }
 
 .modal {
@@ -1050,6 +1133,7 @@ table.data-table td.side-short {
 }
 
 .modal-foot {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1730,4 +1814,117 @@ a:hover {
   justify-content: center;
   gap: 12px;
   height: 100%;
+}
+
+/* ------------------------------ top bar: More ------------------------------ */
+
+.topbar-more {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.topbar-more-pop {
+  position: fixed;
+  top: 52px;
+  right: 8px;
+  z-index: 60;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 60px);
+  max-height: calc(100dvh - 60px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--panel, #11151e);
+  border: 1px solid var(--border-2, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+.more-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.more-label {
+  color: var(--muted-2);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.more-version {
+  justify-content: flex-start;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.topbar-more-pop .more-row:has(.chart-range-panel) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.topbar-more-pop .chart-range {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.topbar-more-pop .chart-range-panel {
+  position: static;
+  flex: 1 0 100%;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  box-shadow: none;
+}
+
+@media (max-width: 1024px) {
+  .topbar {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .topbar-right {
+    gap: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .brand-name,
+  .brand-version {
+    display: none;
+  }
+
+  .symbol-search {
+    flex: 1 1 90px;
+    min-width: 0;
+    max-width: 240px;
+  }
+
+  .symbol-search input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand,
+  .topbar-sep {
+    display: none;
+  }
 }

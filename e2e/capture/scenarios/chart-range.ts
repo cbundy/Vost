@@ -6,10 +6,20 @@ export const chartRange: Scenario = {
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
+    // Where the top bar is narrow the Range control lives in the More menu.
+    const more = page.getByRole('button', { name: 'More', exact: true });
+    const menuOpen = async () => (await more.count()) > 0 && (await more.getAttribute('aria-expanded')) === 'true';
+    const openMenu = async () => {
+      if ((await more.count()) > 0 && !(await menuOpen())) await more.click();
+    };
+    const closeMenu = async () => {
+      if (await menuOpen()) await more.click();
+    };
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.screenshot('before');
     await ctx.step('apply a range', async () => {
+      await openMenu();
       await page.getByRole('button', { name: 'Range', exact: true }).click();
       await page.getByLabel('Chart range From').fill('2022-03-01T00:00');
       await page.getByLabel('Chart range To').fill('2022-09-30T00:00');
@@ -17,8 +27,10 @@ export const chartRange: Scenario = {
       await page.getByRole('button', { name: 'Clear range' }).waitFor();
       await page.waitForTimeout(600);
     });
+    await ctx.step('close the menu', closeMenu);
     await ctx.screenshot('applied');
     await ctx.step('refuse a range after the last bar', async () => {
+      await openMenu();
       await page.getByRole('button', { name: 'Range on' }).click();
       await page.getByLabel('Chart range From').fill('2099-01-01T00:00');
       await page.getByLabel('Chart range To').fill('2022-09-30T00:00');
@@ -36,10 +48,12 @@ export const chartRange: Scenario = {
     });
     await ctx.screenshot('fetched');
     await ctx.step('clear the range', async () => {
+      await openMenu();
       await page.getByRole('button', { name: 'Clear range' }).click();
       await page.getByRole('button', { name: 'Clear range' }).waitFor({ state: 'detached' });
       await page.waitForTimeout(600);
     });
+    await ctx.step('close the menu again', closeMenu);
     await ctx.screenshot('cleared');
   },
 };

@@ -329,7 +329,7 @@ export function CsvImportModal({ onClose }: { onClose: () => void }) {
           )}
 
           <div className="form-row mt-3">
-            <label className="form-field" style={{ minWidth: 280 }}>
+            <label className="form-field" style={{ minWidth: 'min(280px, 100%)' }}>
               <span>Dataset name</span>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="My dataset" />
             </label>

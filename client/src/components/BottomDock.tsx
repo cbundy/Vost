@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { DOCK_DEFAULT, DOCK_MIN, clamp, dockLimits, resolveDockResize } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { useStore, type DockTab } from '../state/store';
@@ -35,6 +35,17 @@ export function BottomDock() {
     if (r.collapsed !== collapsed) setDockCollapsed(r.collapsed);
   };
 
+  // Keep the selected tab inside the scrolling tab strip.
+  const tablistRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = tablistRef.current;
+    const el = list?.querySelector<HTMLElement>(`#dock-tab-${tab}`);
+    if (!list || !el) return;
+    const left = el.offsetLeft - list.offsetLeft;
+    if (left < list.scrollLeft) list.scrollLeft = left;
+    else if (left + el.offsetWidth > list.scrollLeft + list.clientWidth) list.scrollLeft = left + el.offsetWidth - list.clientWidth;
+  }, [tab, collapsed]);
+
   const select = (t: DockTab) => setDockTab(t);
   const tabProps = (t: DockTab) => ({
     role: 'tab' as const,
@@ -62,24 +73,26 @@ export function BottomDock() {
           setDockCollapsed(false);
         }}
       />
-      <div className="dock-tabs" role="tablist" aria-label="Dock">
-        <button {...tabProps('backtest')}>
-          <span>⚙</span> Backtest
-          {btRunning && <span className="spinner" />}
-        </button>
-        <button {...tabProps('pine')}>
-          <span>{'{ }'}</span> Pine
-          {pineRunning && <span className="spinner" />}
-          {pineCount > 0 && <span className="badge">{pineCount}</span>}
-        </button>
-        <button {...tabProps('optimizer')}>
-          <span>⛭</span> Optimizer
-          {optResult && <span className="badge">{optResult.combos}</span>}
-        </button>
-        <button {...tabProps('results')}>
-          <span>📊</span> Results
-          {btResult && <span className="badge blue">{btResult.trades.length} trades</span>}
-        </button>
+      <div className="dock-tabs">
+        <div className="dock-tablist" role="tablist" aria-label="Dock" ref={tablistRef}>
+          <button {...tabProps('backtest')}>
+            <span>⚙</span> <span className="dock-tab-label">Backtest</span>
+            {btRunning && <span className="spinner" />}
+          </button>
+          <button {...tabProps('pine')}>
+            <span>{'{ }'}</span> <span className="dock-tab-label">Pine</span>
+            {pineRunning && <span className="spinner" />}
+            {pineCount > 0 && <span className="badge">{pineCount}</span>}
+          </button>
+          <button {...tabProps('optimizer')}>
+            <span>⛭</span> <span className="dock-tab-label">Optimizer</span>
+            {optResult && <span className="badge">{optResult.combos}</span>}
+          </button>
+          <button {...tabProps('results')}>
+            <span>📊</span> <span className="dock-tab-label">Results</span>
+            {btResult && <span className="badge blue">{btResult.trades.length} trades</span>}
+          </button>
+        </div>
         <div className="dock-spacer" />
         <ZoneClock />
         <button className="ghost icon" title={collapsed ? 'Expand' : 'Collapse'} onClick={() => setDockCollapsed(!collapsed)}>

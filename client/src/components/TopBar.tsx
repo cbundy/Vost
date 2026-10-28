@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Ref } from 'react';
 import { APP_VERSION, PROVIDER_GITHUB_URL } from '../lib/constants';
 import { fmtDataRange } from '../lib/format';
+import { topbarTier } from '../lib/paneSizes';
+import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
 import { unreadCount } from '../lib/messages';
@@ -8,6 +10,7 @@ import { useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
+import { TopBarMore } from './TopBarMore';
 
 const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
 
@@ -15,11 +18,19 @@ export function TopBar({
   onImportCsv,
   onToggleSidebar,
   onOpenInbox,
+  sidebarExpanded,
+  toggleRef,
 }: {
   onImportCsv: () => void;
   onToggleSidebar: () => void;
   onOpenInbox: () => void;
+  sidebarExpanded: boolean;
+  toggleRef?: Ref<HTMLButtonElement>;
 }) {
+  const tier = topbarTier(useViewportSize().width);
+  const providerInMore = tier === 'narrow' || tier === 'tiny';
+  const importInMore = tier !== 'full';
+
   const providerId = useStore((s) => s.providerId);
   const timeframe = useStore((s) => s.timeframe);
   const bars = useStore((s) => s.bars);
@@ -52,9 +63,67 @@ export function TopBar({
 
   const liveClass = liveStatus === 'live' ? '' : liveStatus === 'connecting' || liveStatus === 'reconnecting' ? 'connecting' : 'error';
 
+  const providerSelect = (
+    <div className="field">
+      <select value={providerId} onChange={(e) => setProvider(e.target.value)} title={provider.description} aria-label="Provider">
+        {providers.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+  const barsSelect = (
+    <div className="field">
+      <select value={bars} onChange={(e) => setBars(Number(e.target.value))} title="Number of bars to request" aria-label="Number of bars">
+        {BAR_OPTIONS.map((b) => (
+          <option key={b} value={b}>
+            {b >= 1000 ? `${b / 1000}k bars` : `${b} bars`}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+  const liveButton = provider.supportsLive && (
+    <button
+      className={live ? 'badge green' : 'badge'}
+      style={{ cursor: 'pointer' }}
+      onClick={() => (liveStatus === 'error' ? onOpenInbox() : setLive(!live))}
+      title={liveStatus === 'error' ? `${liveDetail} - click to open the inbox` : liveDetail || 'Stream live candles from Binance'}
+    >
+      <span className={`live-dot ${liveClass}`} style={{ marginRight: 6 }} />
+      {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
+    </button>
+  );
+  const importButton = (after?: () => void) => (
+    <button
+      onClick={() => {
+        after?.();
+        onImportCsv();
+      }}
+      title="Import OHLCV CSV — works fully offline"
+    >
+      ⬆ Import CSV
+    </button>
+  );
+  const githubLink = (
+    <a className="badge" href={PROVIDER_GITHUB_URL} target="_blank" rel="noreferrer" title="Star Vost on GitHub" style={{ padding: '5px 10px' }}>
+      ★ GitHub
+    </a>
+  );
+
   return (
     <header className="topbar">
-      <button className="ghost icon" title="Toggle sidebar" onClick={onToggleSidebar}>
+      <button
+        ref={toggleRef}
+        className="ghost icon"
+        title="Toggle sidebar"
+        aria-label="Toggle sidebar"
+        aria-expanded={sidebarExpanded}
+        aria-controls="sidebar"
+        onClick={onToggleSidebar}
+      >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="3" y="4" width="18" height="16" rx="2" />
           <line x1="9" y1="4" x2="9" y2="20" />
@@ -79,15 +148,7 @@ export function TopBar({
 
       <div className="topbar-sep" />
 
-      <div className="field">
-        <select value={providerId} onChange={(e) => setProvider(e.target.value)} title={provider.description}>
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!providerInMore && providerSelect}
 
       <SymbolSearch />
 
@@ -105,17 +166,9 @@ export function TopBar({
         </select>
       </div>
 
-      <div className="field">
-        <select value={bars} onChange={(e) => setBars(Number(e.target.value))} title="Number of bars to request">
-          {BAR_OPTIONS.map((b) => (
-            <option key={b} value={b}>
-              {b >= 1000 ? `${b / 1000}k bars` : `${b} bars`}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!importInMore && barsSelect}
 
-      <ChartRangeControl />
+      {!providerInMore && <ChartRangeControl />}
 
       {rangeText && (
         <span className="topbar-range" title={rangeText}>
@@ -127,17 +180,7 @@ export function TopBar({
         {loadState === 'loading' ? <span className="spinner" /> : 'Load'}
       </button>
 
-      {provider.supportsLive && (
-        <button
-          className={live ? 'badge green' : 'badge'}
-          style={{ cursor: 'pointer' }}
-          onClick={() => (liveStatus === 'error' ? onOpenInbox() : setLive(!live))}
-          title={liveStatus === 'error' ? `${liveDetail} - click to open the inbox` : liveDetail || 'Stream live candles from Binance'}
-        >
-          <span className={`live-dot ${liveClass}`} style={{ marginRight: 6 }} />
-          {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
-        </button>
-      )}
+      {!providerInMore && liveButton}
 
       <ConnectionStatus />
 
@@ -149,19 +192,45 @@ export function TopBar({
           </svg>
           {unread > 0 && <span className="inbox-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
-        <button onClick={onImportCsv} title="Import OHLCV CSV — works fully offline">
-          ⬆ Import CSV
-        </button>
-        <a
-          className="badge"
-          href={PROVIDER_GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          title="Star Vost on GitHub"
-          style={{ padding: '5px 10px' }}
-        >
-          ★ GitHub
-        </a>
+        {!importInMore && importButton()}
+        {!importInMore && githubLink}
+        {importInMore && (
+          <TopBarMore>
+            {(close) => (
+              <>
+                {tier === 'tiny' && (
+                  <div className="more-row more-version">
+                    <span className="brand-name-plain">Vost</span> <span className="muted-2">v{APP_VERSION}</span>
+                  </div>
+                )}
+                {providerInMore && (
+                  <div className="more-row">
+                    <span className="more-label">Provider</span>
+                    {providerSelect}
+                  </div>
+                )}
+                <div className="more-row">
+                  <span className="more-label">Bars</span>
+                  {barsSelect}
+                </div>
+                {providerInMore && (
+                  <div className="more-row">
+                    <span className="more-label">Range</span>
+                    <ChartRangeControl />
+                  </div>
+                )}
+                {providerInMore && liveButton && (
+                  <div className="more-row">
+                    <span className="more-label">Live</span>
+                    {liveButton}
+                  </div>
+                )}
+                <div className="more-row">{importButton(close)}</div>
+                <div className="more-row">{githubLink}</div>
+              </>
+            )}
+          </TopBarMore>
+        )}
       </div>
     </header>
   );

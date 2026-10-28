@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DRAWER_MAX_WIDTH, DRAWER_QUERY, isDrawerWidth, topbarTier,
   CHART_MIN_HEIGHT, DOCK_COLLAPSE_BELOW, DOCK_DEFAULT, DOCK_MIN, SIDEBAR_DEFAULT, TOPBAR_HEIGHT,
   clamp, dockLimits, resolveDockResize, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
 } from './paneSizes';
@@ -96,5 +97,32 @@ describe('resolveDockResize', () => {
   });
   it('clamps the stored height', () => {
     expect(resolveDockResize(5000, 'drag', false, 400, limits)).toEqual({ height: limits.max, collapsed: false });
+  });
+});
+
+describe('drawer breakpoint', () => {
+  it('is on at 900px and below and off above', () => {
+    expect(isDrawerWidth(899)).toBe(true);
+    expect(isDrawerWidth(900)).toBe(true);
+    expect(isDrawerWidth(901)).toBe(false);
+  });
+  it('builds the media query from the same number', () => {
+    expect(DRAWER_MAX_WIDTH).toBe(900);
+    expect(DRAWER_QUERY).toBe('(max-width: 900px)');
+  });
+});
+
+describe('topbarTier', () => {
+  it('switches at each boundary (inclusive on the narrower side)', () => {
+    expect(topbarTier(1920)).toBe('full');
+    expect(topbarTier(1281)).toBe('full');
+    expect(topbarTier(1280)).toBe('compact');
+    expect(topbarTier(1024)).toBe('compact');
+    expect(topbarTier(961)).toBe('compact');
+    expect(topbarTier(960)).toBe('narrow');
+    expect(topbarTier(768)).toBe('narrow');
+    expect(topbarTier(601)).toBe('narrow');
+    expect(topbarTier(600)).toBe('tiny');
+    expect(topbarTier(360)).toBe('tiny');
   });
 });

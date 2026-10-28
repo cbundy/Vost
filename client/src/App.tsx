@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BottomDock } from './components/BottomDock';
 import { ChartPanel } from './components/ChartPanel';
 import { Inbox } from './components/Inbox';
@@ -7,7 +7,8 @@ import { Sidebar } from './components/Sidebar';
 import { Toasts } from './components/Toasts';
 import { TopBar } from './components/TopBar';
 import { Splitter } from './components/Splitter';
-import { SIDEBAR_DEFAULT, clamp, sidebarLimits } from './lib/paneSizes';
+import { DRAWER_QUERY, SIDEBAR_DEFAULT, clamp, sidebarLimits } from './lib/paneSizes';
+import { useMediaQuery } from './lib/useMediaQuery';
 import { useViewportSize } from './lib/useViewportSize';
 import { useStore } from './state/store';
 
@@ -15,7 +16,12 @@ export default function App() {
   const init = useStore((s) => s.init);
   const [csvOpen, setCsvOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // The desktop sidebar and the narrow-screen drawer keep separate open states.
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const isDrawer = useMediaQuery(DRAWER_QUERY);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const drawerShown = isDrawer && drawerOpen;
 
   const sidebarWidth = useStore((s) => s.sidebarWidth);
   const setSidebarWidth = useStore((s) => s.setSidebarWidth);
@@ -24,17 +30,39 @@ export default function App() {
   const effectiveSidebar = clamp(sidebarWidth, limits.min, limits.max);
 
   useEffect(() => {
+    if (!isDrawer) setDrawerOpen(false);
+  }, [isDrawer]);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    toggleRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     init();
   }, [init]);
 
   return (
     <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px` }}>
-      <TopBar onImportCsv={() => setCsvOpen(true)} onToggleSidebar={() => setSidebarOpen((v) => !v)}
+      <TopBar onImportCsv={() => setCsvOpen(true)}
+        onToggleSidebar={() => (isDrawer ? setDrawerOpen((v) => !v) : setDesktopSidebarOpen((v) => !v))}
+        sidebarExpanded={isDrawer ? drawerShown : desktopSidebarOpen}
+        toggleRef={toggleRef}
         onOpenInbox={() => setInboxOpen(true)}
       />
       <div className="app-body">
-        {sidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
-        {sidebarOpen && (
+        {drawerShown && <div className="drawer-backdrop" onMouseDown={closeDrawer} />}
+        {drawerShown && (
+          <Sidebar
+            drawer={{ onClose: closeDrawer }}
+            onImportCsv={() => {
+              setDrawerOpen(false);
+              setCsvOpen(true);
+            }}
+          />
+        )}
+        {!isDrawer && desktopSidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
+        {!isDrawer && desktopSidebarOpen && (
           <Splitter
             orientation="vertical"
             label="Resize sidebar"

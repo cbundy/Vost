@@ -12,8 +12,7 @@ interface Probe {
 async function probe(page: Page): Promise<Probe> {
   return page.evaluate(() => {
     const el = document.documentElement;
-    // The topbar is wider than a 1440 px viewport on its own (not a pane matter), so judge the panes' own boxes.
-    const out = [...document.querySelectorAll('.app-body, .sidebar, .chart-area, .dock')].some((e) => {
+    const out = [...document.querySelectorAll('.topbar, .app-body, .sidebar, .chart-area, .dock')].some((e) => {
       const r = e.getBoundingClientRect();
       return r.right > innerWidth + 1 || r.bottom > innerHeight + 1;
     });

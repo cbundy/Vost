@@ -1,10 +1,51 @@
+import { useEffect, useRef } from 'react';
 import { INDICATOR_META, type IndicatorKind } from '../lib/indicatorCompute';
 import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
 import { Watchlist } from './Watchlist';
 import { useStore } from '../state/store';
 
-export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
+export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; drawer?: { onClose: () => void } }) {
+  const asideRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const onClose = drawer?.onClose;
+  const isDrawer = drawer != null;
+
+  // Drawer: focus the close button on open, keep Tab inside, close on Escape.
+  useEffect(() => {
+    if (!isDrawer) return;
+    closeRef.current?.focus();
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        onClose?.();
+        return;
+      }
+      if (ev.key !== 'Tab') return;
+      const root = asideRef.current;
+      if (!root) return;
+      const items = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((e) => e.getClientRects().length > 0);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!active || !root.contains(active)) {
+        ev.preventDefault();
+        (ev.shiftKey ? last : first).focus();
+      } else if (ev.shiftKey && active === first) {
+        ev.preventDefault();
+        last.focus();
+      } else if (!ev.shiftKey && active === last) {
+        ev.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isDrawer, onClose]);
+
   const symbol = useStore((s) => s.symbol);
   const candles = useStore((s) => s.candles);
   const timeZone = useStore((s) => s.timeZone);
@@ -24,7 +65,20 @@ export function Sidebar({ onImportCsv }: { onImportCsv: () => void }) {
   const last = candles[candles.length - 1];
 
   return (
-    <aside className="sidebar">
+    <aside
+      className={drawer ? 'sidebar drawer' : 'sidebar'}
+      id="sidebar"
+      ref={asideRef}
+      {...(drawer ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Sidebar' } : {})}
+    >
+      {drawer && (
+        <div className="drawer-head">
+          <span>Sidebar</span>
+          <button ref={closeRef} className="ghost icon" onClick={drawer.onClose} aria-label="Close sidebar" title="Close (Esc)">
+            ✕
+          </button>
+        </div>
+      )}
       <section className="sidebar-section">
         <div className="sidebar-title">
           <span>Data</span>
