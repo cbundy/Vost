@@ -86,14 +86,21 @@ export const drawings: Scenario = {
         check('two distinct anchors', list[0].anchors.length === 2 && list[0].anchors[0].time !== list[0].anchors[1].time);
         await ctx.screenshot('touch-drawn');
       });
-      await ctx.step('tap the line to select it, tap empty chart to clear', async () => {
-        const mid = await at(0.525, 0.45);
-        await page.touchscreen.tap(mid.x, mid.y);
-        await page.waitForTimeout(200);
-        await ctx.screenshot('touch-selected');
+      await ctx.step('tap empty chart to clear the selection, tap the line to select it again', async () => {
+        const shot = () => page.locator('.chart-container').screenshot();
+        const drawn = await shot(); // finish() leaves the new line selected: handles showing
         const empty = await at(0.2, 0.15);
         await page.touchscreen.tap(empty.x, empty.y);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(300);
+        const cleared = await shot();
+        check('tap on empty chart cleared the selection (handles gone)', !drawn.equals(cleared));
+        await ctx.screenshot('touch-cleared');
+        const mid = await at(0.525, 0.45);
+        await page.touchscreen.tap(mid.x, mid.y);
+        await page.waitForTimeout(300);
+        const selected = await shot();
+        check('tap on the line selected it (handles back)', !cleared.equals(selected));
+        await ctx.screenshot('touch-selected');
         check('still one drawing', (await stored()).length === 1);
       });
       const cdp = await page.context().newCDPSession(page);

@@ -15,6 +15,8 @@ ok   focus is back on the button
 ok   menu closed after picking
 ok   one trend line stored - trendLine
 ok   two distinct anchors
+ok   tap on empty chart cleared the selection (handles gone)
+ok   tap on the line selected it (handles back)
 ok   still one drawing
 ok   swipe panned the chart
 ok   pinch zoomed the chart

@@ -1,3 +1,4 @@
+import { flushSync } from 'react-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CURSOR } from './chart/useDrawings';
 import { TOOLS } from './chart/tools';
@@ -64,7 +65,7 @@ function renderItems(items: Item[], c: DrawingControls, after?: (item: Item) => 
         aria-pressed={pressed}
         disabled={it.disabled}
         onClick={() => {
-          after?.(it);
+          if (after) flushSync(() => after(it)); // the popover leaves the DOM before a confirm() opens
           if (it.kind === 'tool') c.onPick(it.id);
           else it.onClick();
         }}
