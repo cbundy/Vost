@@ -34,6 +34,7 @@ Useful scripts:
 | `client/src/lib/backtest/` | Engine, metrics, strategies, optimizer, custom-code runner |
 | `client/src/lib/workers/` | Web Worker entry point for backtests/optimization |
 | `server/index.mjs`, `server/main.ts` | Zero-dependency Node server (static files + the `/api` routes) |
+| `server/alerts/` | Price alerts: stored list, price watching, `/api/alerts` |
 | `server/providers/` | One REST adapter per data provider (runs on the server) |
 | `shared/` | Wire types and the provider catalog, imported by both server and client |
 | `examples/` | Sample CSVs for the importer |
