@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const chartRange: Scenario = {
   name: 'chart-range',
-  description: 'Top bar Range control on demo data: normal label, a range applied, a refused range, a span fetched from before the loaded data, then cleared',
+  description: 'Chart bar quick ranges and Range control on demo data: normal label, a quick range (1M), a range applied, a refused range, a span fetched from before the loaded data, then cleared',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -18,6 +18,11 @@ export const chartRange: Scenario = {
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.screenshot('before');
+    await ctx.step('click the 1M quick range', async () => {
+      await page.getByRole('toolbar', { name: 'Quick ranges' }).getByRole('button', { name: '1M', exact: true }).click();
+      await page.waitForTimeout(600);
+    });
+    await ctx.screenshot('quick');
     await ctx.step('apply a range', async () => {
       await openMenu();
       await page.getByRole('button', { name: 'Range', exact: true }).click();

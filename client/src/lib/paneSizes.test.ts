@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DRAWER_MAX_WIDTH, DRAWER_QUERY, isDrawerWidth, topbarTier,
-  CHART_MIN_HEIGHT, DOCK_COLLAPSE_BELOW, DOCK_DEFAULT, DOCK_MIN, SIDEBAR_DEFAULT, TOPBAR_HEIGHT,
+  CHART_BAR_HEIGHT, CHART_MIN_HEIGHT, DOCK_COLLAPSE_BELOW, DOCK_DEFAULT, DOCK_MIN, SIDEBAR_DEFAULT, TOPBAR_HEIGHT,
   clamp, dockLimits, resolveDockResize, sanitizeStoredSize, shouldCollapseDock, sidebarLimits, step,
 } from './paneSizes';
 
@@ -24,10 +24,10 @@ describe('dockLimits', () => {
   it('keeps 200px of chart on 720px and 600px viewports', () => {
     for (const h of [720, 600, 900]) {
       const l = dockLimits(h);
-      expect(h - TOPBAR_HEIGHT - l.max).toBeGreaterThanOrEqual(CHART_MIN_HEIGHT);
+      expect(h - TOPBAR_HEIGHT - CHART_BAR_HEIGHT - l.max).toBeGreaterThanOrEqual(CHART_MIN_HEIGHT);
     }
-    expect(dockLimits(720).max).toBe(479);
-    expect(dockLimits(600).max).toBe(359);
+    expect(dockLimits(720).max).toBe(450);
+    expect(dockLimits(600).max).toBe(330);
   });
   it('never goes below the tab strip', () => {
     expect(dockLimits(100)).toEqual({ min: DOCK_MIN, max: DOCK_MIN });
