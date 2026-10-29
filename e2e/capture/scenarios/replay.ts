@@ -3,7 +3,7 @@ import { showSideSection } from '../side-panel.ts';
 
 export const replay: Scenario = {
   name: 'replay',
-  description: 'Bar replay on demo data: before, Replay clicked (start-bar hint), a bar clicked, stepped forward and back, an oscillator Pine indicator in its own pane filling while played at 10x, paused, then exited back to the same chart',
+  description: 'Bar replay on demo data: before, Replay clicked (start-bar hint), a bar clicked, stepped forward and back, an oscillator Pine indicator in its own pane filling while played at 10x, paused, a new start bar picked (Select bar, then a click earlier in the chart), then exited back to the same chart',
   video: true,
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
@@ -64,6 +64,20 @@ export const replay: Scenario = {
       await page.waitForTimeout(400);
     });
     await ctx.screenshot('played');
+    await ctx.step('select a new start bar', async () => {
+      await strip.getByRole('button', { name: 'Select a new start bar' }).click();
+      await strip.getByText('Click a bar to start replay').waitFor();
+      await page.waitForTimeout(600);
+    });
+    await ctx.screenshot('repick');
+    await ctx.step('click a bar at 30% of the chart', async () => {
+      const box = await page.locator('.chart-container canvas').first().boundingBox();
+      if (!box) throw new Error('no chart canvas');
+      await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.5);
+      await strip.getByRole('button', { name: 'Exit replay' }).waitFor();
+      await page.waitForTimeout(600);
+    });
+    await ctx.screenshot('restarted');
     await ctx.step('exit replay', async () => {
       await strip.getByRole('button', { name: 'Exit replay' }).click();
       await page.getByRole('toolbar', { name: 'Quick ranges' }).waitFor();

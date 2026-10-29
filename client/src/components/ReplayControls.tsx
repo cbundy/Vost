@@ -59,6 +59,10 @@ export function ReplayControls() {
       <button className="ghost" aria-label="Exit replay" title="Exit replay" onClick={() => st.exitReplay()}>
         Exit
       </button>
+      <button className="ghost" aria-label="Select a new start bar" title="Pick a new bar to replay from" onClick={() => st.reselectReplayStart()}>
+        <span className="replay-label-long">Select bar</span>
+        <span className="replay-label-short">Bar</span>
+      </button>
       <button className="ghost icon" aria-label="Step back" title="Step back one bar" disabled={atStart} onClick={() => st.stepReplay(-1)}>
         <StepBackIcon />
       </button>
