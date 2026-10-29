@@ -20,6 +20,7 @@ export function fetchHistoryApi(provider: string, req: HistoryRequest, signal?: 
   const params: Record<string, string | number> = { provider, symbol: req.symbol, timeframe: req.timeframe, bars: req.bars };
   if (req.from != null) params.from = req.from;
   if (req.to != null) params.to = req.to;
+  if (req.source === 'built') params.source = 'built';
   return getJson<Candle[]>('history', params, signal);
 }
 

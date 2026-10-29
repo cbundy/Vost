@@ -5,7 +5,7 @@ import { topbarTier } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
-import { baseTimeframe } from '../../../shared/timeframes.ts';
+import { sourceBase } from '../../../shared/timeframes.ts';
 import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { selectDataCandles, useStore } from '../state/store';
@@ -53,6 +53,8 @@ export function TopBar({
   const liveDetail = useStore((s) => s.liveDetail);
   const setProvider = useStore((s) => s.setProvider);
   const setTimeframe = useStore((s) => s.setTimeframe);
+  const buildTimeframes = useStore((s) => s.buildTimeframes);
+  const setBuildTimeframes = useStore((s) => s.setBuildTimeframes);
   const setBars = useStore((s) => s.setBars);
   const loadData = useStore((s) => s.loadData);
   const setLive = useStore((s) => s.setLive);
@@ -69,6 +71,8 @@ export function TopBar({
   const provider = getProvider(providerId);
   const timeframes = TIMEFRAMES.filter((tf) => provider.timeframes.includes(tf));
   const nativeTimeframes = timeframes.filter((tf) => !provider.builtTimeframes?.includes(tf));
+  const source = buildTimeframes && !provider.offline ? 'built' : 'native';
+  const builtFrom = (tf: (typeof timeframes)[number]) => sourceBase(nativeTimeframes, tf, source);
 
   const liveClass = liveStatus === 'live' ? '' : liveStatus === 'connecting' || liveStatus === 'reconnecting' ? 'connecting' : 'error';
 
@@ -103,6 +107,18 @@ export function TopBar({
     >
       <span className={`live-dot ${liveClass}`} />
       {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
+    </button>
+  );
+  const buildButton = (
+    <button
+      className={buildTimeframes ? 'build-toggle blue' : 'build-toggle'}
+      style={{ cursor: 'pointer' }}
+      aria-pressed={buildTimeframes}
+      aria-label="Build higher timeframes from lower ones"
+      title="Build higher timeframes from lower ones instead of the exchange's own bars"
+      onClick={() => setBuildTimeframes(!buildTimeframes)}
+    >
+      Build
     </button>
   );
   const replayButton = (after?: () => void) => (
@@ -171,12 +187,14 @@ export function TopBar({
           title="Timeframe"
         >
           {timeframes.map((tf) => (
-            <option key={tf} value={tf} title={provider.builtTimeframes?.includes(tf) ? `Built from ${baseTimeframe(nativeTimeframes, tf) ?? 'a lower timeframe'}` : undefined}>
-              {provider.builtTimeframes?.includes(tf) ? `${tf} *` : tf}
+            <option key={tf} value={tf} title={builtFrom(tf) ? `Built from ${builtFrom(tf)}` : undefined}>
+              {builtFrom(tf) ? `${tf} *` : tf}
             </option>
           ))}
         </select>
       </div>
+
+      {!importInMore && !provider.offline && buildButton}
 
       {!importInMore && barsSelect}
 
@@ -240,6 +258,12 @@ export function TopBar({
                   <div className="more-row">
                     <span className="more-label">Provider</span>
                     {providerSelect}
+                  </div>
+                )}
+                {!provider.offline && (
+                  <div className="more-row">
+                    <span className="more-label">Timeframes</span>
+                    {buildButton}
                   </div>
                 )}
                 <div className="more-row">

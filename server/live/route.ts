@@ -6,6 +6,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ApiError } from '../../shared/market.ts';
 import { sendJson } from '../respond.ts';
+import { parseSource } from '../../shared/timeframes.ts';
 import type { Relay } from './relay.ts';
 
 export const HEARTBEAT_MS = 15_000;
@@ -13,6 +14,10 @@ export const HEARTBEAT_MS = 15_000;
 export function handleLive(req: IncomingMessage, res: ServerResponse, url: URL, relay: Relay, heartbeatMs = HEARTBEAT_MS): void {
   if (req.method !== 'GET') {
     return sendJson(res, 405, { error: 'Only GET is supported' } satisfies ApiError);
+  }
+  const source = parseSource(url.searchParams.get('source'));
+  if (source === null) {
+    return sendJson(res, 400, { error: 'source must be native or built' } satisfies ApiError);
   }
   res.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -37,6 +42,7 @@ export function handleLive(req: IncomingMessage, res: ServerResponse, url: URL, 
       onLog: (ev) => send('log', ev),
       onEnd: () => res.end(),
     },
+    { source },
   );
   if ('error' in result) {
     send('status', { status: 'error', detail: result.error, fatal: true });

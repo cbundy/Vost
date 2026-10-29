@@ -1380,3 +1380,76 @@ describe('init with saved prefs', () => {
     expect([st.providerId, st.symbol, st.timeframe]).toEqual(['demo', 'DEMO', '1d']);
   });
 });
+
+describe('buildTimeframes setting', () => {
+  const bars = Array.from({ length: 5 }, (_, i) => ({ time: 1_700_000_000 + i * 3600, open: 1, high: 2, low: 1, close: 2, volume: 1 }));
+
+  async function setup(timeframe: '1m' | '4h' = '4h', providerId = 'binance') {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const { useStore } = await import('./store');
+    track(useStore);
+    const { getProvider } = await import('../lib/providers');
+    const provider = getProvider(providerId);
+    const history = vi.spyOn(provider, 'fetchHistory').mockImplementation(async () => bars);
+    const live: Array<{ source?: string; timeframe: string }> = [];
+    provider.startLive = (o) => {
+      live.push({ source: o.source, timeframe: o.timeframe });
+      return { stop() {} };
+    };
+    useStore.setState({ providerId, symbol: 'BTCUSDT', timeframe, bars: 100, activeDatasetId: null });
+    return { useStore, history, live };
+  }
+
+  it('defaults off, is persisted, and a non-boolean reads as off', async () => {
+    const { useStore } = await setup();
+    expect(useStore.getState().buildTimeframes).toBe(false);
+    useStore.getState().setBuildTimeframes(true);
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).buildTimeframes).toBe(true);
+    vi.resetModules();
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, buildTimeframes: 'yes' }));
+    const fresh = track((await import('./store')).useStore);
+    fresh.getState().init();
+    expect(fresh.getState().buildTimeframes).toBe(false);
+  });
+
+  it('flipping on a non-lowest timeframe reloads once, with source built, and keeps Live on', async () => {
+    const { useStore, history, live } = await setup('4h');
+    await useStore.getState().loadData();
+    useStore.getState().setLive(true);
+    history.mockClear();
+    live.length = 0;
+    useStore.getState().setBuildTimeframes(true);
+    await vi.waitFor(() => expect(live).toHaveLength(1));
+    expect(history).toHaveBeenCalledTimes(1);
+    expect(history.mock.calls[0][0]).toMatchObject({ timeframe: '4h', source: 'built' });
+    expect(live[0]).toEqual({ source: 'built', timeframe: '4h' });
+    expect(useStore.getState().live).toBe(true);
+    useStore.getState().setLive(false);
+  });
+
+  it('flipping on the lowest timeframe only persists', async () => {
+    const { useStore, history } = await setup('1m');
+    useStore.getState().setBuildTimeframes(true);
+    expect(history).not.toHaveBeenCalled();
+    expect(useStore.getState().buildTimeframes).toBe(true);
+  });
+
+  it('flipping on the demo provider or with a CSV dataset only persists', async () => {
+    const demo = await setup('4h', 'demo');
+    demo.useStore.getState().setBuildTimeframes(true);
+    expect(demo.history).not.toHaveBeenCalled();
+    const csv = await setup('4h');
+    csv.useStore.setState({ activeDatasetId: 'ds_1' });
+    csv.useStore.getState().setBuildTimeframes(true);
+    expect(csv.history).not.toHaveBeenCalled();
+  });
+
+  it('sends no source with the setting off', async () => {
+    const { useStore, history } = await setup('4h');
+    await useStore.getState().loadData();
+    expect(history.mock.calls[0][0]).not.toHaveProperty('source');
+  });
+});

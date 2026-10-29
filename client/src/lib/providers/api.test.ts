@@ -68,6 +68,19 @@ describe('REST client', () => {
   });
 });
 
+describe('history source', () => {
+  it('puts source=built in the query only when set', async () => {
+    const urls = stubFetch(() => json([]));
+    const p = remote[0];
+    await p.fetchHistory({ symbol: 'A', timeframe: '4h', bars: 10 });
+    await p.fetchHistory({ symbol: 'A', timeframe: '4h', bars: 10, source: 'native' });
+    await p.fetchHistory({ symbol: 'A', timeframe: '4h', bars: 10, source: 'built' });
+    expect(urls[0]).toBe('/api/history?provider=binance&symbol=A&timeframe=4h&bars=10');
+    expect(urls[1]).toBe(urls[0]);
+    expect(urls[2]).toBe(`${urls[0]}&source=built`);
+  });
+});
+
 describe('history from/to', () => {
   it('puts from and to in the query only when set', async () => {
     const urls = stubFetch(() => json([]));
