@@ -33,7 +33,7 @@ const IND = '//@version=6\nindicator("c", overlay=true)\n';
 const STRAT = '//@version=6\nstrategy("c", overlay=true, initial_capital=10000)\n';
 const ENTRY = 'if ta.crossover(close, ta.sma(close, 10))\n    strategy.entry("L", strategy.long)\nif ta.crossunder(close, ta.sma(close, 10))\n    strategy.close("L")\n';
 
-interface Case { row: string; id: string; src: string }
+interface Case { row: string; id: string; src: string; libs?: Record<string, string> }
 const cases: Case[] = [];
 const ind = (row: string, id: string, body: string) => cases.push({ row, id, src: IND + body });
 const strat = (row: string, id: string, body: string) => cases.push({ row, id, src: STRAT + body });
@@ -46,7 +46,8 @@ ind('language', 'enum', 'enum Mode\n    a\n    b\nm = Mode.a\nplot(m == Mode.a ?
 ind('language', 'function-switch-for', 'f(x) =>\n    switch\n        x > 110 => 1\n        => 0\ns = 0\nfor i = 0 to 4\n    s += i\nplot(f(close) + s)');
 ind('language', 'varip', 'varip int n = 0\nn += 1\nplot(n)');
 ind('language', 'var-persist', 'var int n = 0\nn += 1\nplot(n)');
-ind('language', 'import-library', 'import TradingView/ta/7 as tvta\nplot(tvta.ema(close, 5))');
+// An inline library through a resolver (no network): what the Vost server's /api/pine/libraries gives runPine by default.
+cases.push({ row: 'language', id: 'import-library', src: IND + 'import probe/Lib/1 as lib\nplot(lib.double(close))', libs: { 'probe/Lib/1': '//@version=6\nlibrary("Lib")\nexport double(float x) => x * 2\n' } });
 ind('language', 'tuple-return', 'f() => [close, open]\n[a, b] = f()\nplot(a - b)');
 ind('language', 'while-break', 'i = 0\nwhile i < 5\n    i += 1\nplot(i)');
 // ta
@@ -187,10 +188,12 @@ function mute(): { lines: () => number; restore: () => void } {
   return { lines: () => n, restore: () => METHODS.forEach((m, i) => { console[m] = saved[i]; }) };
 }
 
-async function rawRun(src: string): Promise<string> {
+async function rawRun(src: string, libs?: Record<string, string>): Promise<string> {
   const quiet = mute();
   try {
-    const ctx: any = await new PineTS(pineData, 'VOST', 'D').run(src);
+    const pine = new PineTS(pineData, 'VOST', 'D');
+    if (libs) pine.setImportResolver((p) => libs[p] ?? null);
+    const ctx: any = await pine.run(src);
     const plots = ctx.plots ?? {};
     const keys = Object.keys(plots).filter((k) => !k.startsWith('__'));
     const drawings = Object.keys(plots)
@@ -218,10 +221,10 @@ async function rawRun(src: string): Promise<string> {
   }
 }
 
-async function vostRun(src: string): Promise<string> {
+async function vostRun(src: string, libs?: Record<string, string>): Promise<string> {
   const quiet = mute();
   try {
-    const r = await runPine(src, candles);
+    const r = await runPine(src, candles, {}, libs ? { resolver: (p) => libs[p] ?? null } : undefined);
     if (!r.ok) return 'ERR ' + short(r.error.message);
     const plots = r.plots.map((p) => `${p.name}:${p.kind}/${p.style}/${p.pane}=${fmt(p.values[p.values.length - 1])}`);
     const allNull = r.plots.filter((p) => p.values.every((v) => v === null)).map((p) => p.name);
@@ -242,8 +245,8 @@ async function vostRun(src: string): Promise<string> {
 console.log(`Pine v6 coverage probe: ${cases.length} cases, ${candles.length} synthetic daily candles from ${new Date(candles[0].time * 1000).toISOString().slice(0, 10)}, PineTS ticker VOST timeframe D`);
 for (const c of cases) {
   console.log(`\n## ${c.row} / ${c.id}`);
-  console.log(`  pinets : ${await rawRun(c.src)}`);
-  console.log(`  runPine: ${await vostRun(c.src)}`);
+  console.log(`  pinets : ${await rawRun(c.src, c.libs)}`);
+  console.log(`  runPine: ${await vostRun(c.src, c.libs)}`);
 }
 
 // Vost always passes timeframe 'D' to PineTS, whatever the chart shows: feed hourly candles to runPine.

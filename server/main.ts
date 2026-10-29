@@ -13,8 +13,8 @@
  *   HOST  (default 0.0.0.0)
  *   VOST_STATUS_INTERVAL  seconds between background health checks of the
  *                         exchanges (default 60; 0 turns them off)
- *   VOST_DATA_DIR  folder for the one file the server writes, alerts.json
- *                  (default <repo>/data; /data in the Docker image)
+ *   VOST_DATA_DIR  folder for the files the server writes, alerts.json and
+ *                  pine-libraries.json (default <repo>/data; /data in the Docker image)
  *   VOST_ALERT_POLL  seconds between price polls for alerts on providers
  *                    without a live feed (default 60; minimum 10)
  *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
@@ -39,6 +39,8 @@ import zlib from 'node:zlib';
 import { createAlerts, isAlertsPath } from './alerts/index.ts';
 import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
 import { createApiDeps, handleApi, providerHistory } from './api.ts';
+import { createLibraries } from './pine/libraries.ts';
+import { handlePineLibraries, isPineLibrariesPath } from './pine/route.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
 import { describeRecord, readRecordConfig, recordedFilter } from './candles/recordConfig.ts';
@@ -210,11 +212,17 @@ const alerts = await createAlerts({
   ctx: () => ({ fetch: apiDeps.fetch, symbols: apiDeps.symbols }),
 });
 
+const pineLibraries = createLibraries({ dir: DATA_DIR, fetch: apiDeps.fetch, log: (line) => console.log(line) });
+await pineLibraries.load();
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 
   // Alerts are same-origin only: no CORS grant, not even on the preflight.
   if (isAlertsPath(url.pathname)) return void alerts.handle(req, res, url);
+
+  // Pine libraries: reads get the usual CORS grant, writes are same-origin only.
+  if (isPineLibrariesPath(url.pathname)) return void handlePineLibraries(req, res, url, pineLibraries, (line) => console.log(line));
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
@@ -259,6 +267,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search, /api/status`);
   console.log(`  → live candles: /api/live`);
   console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
+  console.log(`  → pine libraries: /api/pine/libraries (${pineLibraries.count} stored in ${DATA_DIR})`);
   console.log(`  → candle store: ${`${candles.on ? 'on' : 'off'} (${candles.file})`}`);
   console.log(`  → ${describeRecord(recordConfig, candles.on)}`);
   console.log('');
