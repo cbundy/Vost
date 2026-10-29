@@ -103,7 +103,7 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 
 For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
-The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. About once a minute it also makes a small test request to each provider's history, symbol-search and live feeds (about 17 checks, spread out, with the full symbol lists only every 10th round) to power the connection health light at `/api/status`; set `VOST_STATUS_INTERVAL=0` to switch that off. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. The server also keeps your price alerts in a small file and watches prices for them around the clock, so an alert fires once when the price crosses its level even with every browser tab closed. A static-only deployment (no Node server) supports only CSV import and Demo.
+The Vost server fetches all remote market data for the browser (`/api/history`, `/api/search`, `/api/symbols`, `/api/providers`) and only talks to a fixed set of providers. About once a minute it also makes a small test request to each provider's history, symbol-search and live feeds (about 17 checks, spread out, with the full symbol lists only every 10th round) to power the connection health light at `/api/status`; set `VOST_STATUS_INTERVAL=0` to switch that off. Your browser never calls those third parties for history or symbol search. Live candles also come from the server: it keeps one websocket per exchange feed, shared by every open tab, and streams the updates to the browser over a same-origin `/api/live` event stream, so the browser talks to no exchange at all. It also records a list of markets around the clock (BTC and ETH on Binance, Coinbase and Hyperliquid by default, up to 20000 bars on every timeframe), keeping their live connections open and their history on disk. The server also keeps your price alerts in a small file and watches prices for them around the clock, so an alert fires once when the price crosses its level even with every browser tab closed. A static-only deployment (no Node server) supports only CSV import and Demo.
 
 > **Bring your own API:** add a server adapter in `server/providers/` and a catalog entry in `shared/providerCatalog.ts` — the UI picks it up automatically in the provider dropdown. See [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-data-provider).
 
@@ -201,6 +201,8 @@ Vost/
 |---|---|---|---|
 | `PORT` | server | `8787` | HTTP port |
 | `HOST` | server | `0.0.0.0` | Bind address (use `127.0.0.1` behind a reverse proxy) |
+| `VOST_RECORD` | server | BTC and ETH on Binance, Coinbase and Hyperliquid | Markets recorded at all times: `provider:SYMBOL` or `provider:SYMBOL:tf/tf`, separated by commas or spaces; `off` records nothing |
+| `VOST_RECORD_BARS` | server | `20000` | Bars kept per recorded series (at least 100) |
 | `VOST_SERVER_URL` | dev | `http://localhost:8787` | Target for the Vite dev proxy |
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS examples and static-hosting notes.

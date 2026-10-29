@@ -38,6 +38,19 @@ describe('GET /api/status candles', () => {
   });
 });
 
+describe('GET /api/status recorder', () => {
+  it('is absent without stats and present with them', async () => {
+    const base = { version: '1', intervalSeconds: 0, log: () => undefined };
+    expect(createStatusService(base).response()).not.toHaveProperty('recorder');
+    const stats = {
+      on: true,
+      depthBars: 20000,
+      series: [{ provider: 'binance', symbol: 'BTCUSDT', timeframe: '1h', live: 'live', lastCandleTime: 1700000000, missingBars: 0, refills: 3, lastRefillAt: 1700000100000, lastError: null }],
+    };
+    expect(createStatusService({ ...base, recorderStats: () => stats }).response().recorder).toEqual(stats);
+  });
+});
+
 describe('GET /api/status', () => {
   it('answers the server block and one check per provider and feed, without refreshed', async () => {
     const res = await fetch(`${base}/api/status`);

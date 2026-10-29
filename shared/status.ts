@@ -35,6 +35,31 @@ export interface StatusResponse {
   refreshed?: boolean;
   /** The server's on-disk candle store; absent when the server has none. */
   candles?: { on: boolean; series: number; rows: number; bytes: number };
+  /** The markets the server records; absent when the server has no recorder. */
+  recorder?: RecorderStatus;
+}
+
+export interface RecorderSeriesStatus {
+  provider: string;
+  symbol: string;
+  timeframe: string;
+  /** The live feed's status: connecting, live, reconnecting or error. */
+  live: string;
+  /** Unix seconds of the newest stored closed bar, or null. */
+  lastCandleTime: number | null;
+  /** Bars in the depth window the store does not cover yet. */
+  missingBars: number;
+  /** Fills done since the server started. */
+  refills: number;
+  /** Unix ms of the last fill, or null. */
+  lastRefillAt: number | null;
+  lastError: string | null;
+}
+
+export interface RecorderStatus {
+  on: boolean;
+  depthBars: number;
+  series: RecorderSeriesStatus[];
 }
 
 /** Providers whose symbol lookup is built in (no remote call to check). */

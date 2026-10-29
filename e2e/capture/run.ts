@@ -139,6 +139,8 @@ async function main(): Promise<string[]> {
         PORT: String(port),
         HOST: '127.0.0.1',
         VOST_STATUS_INTERVAL: '0',
+        // The recorder would contact exchanges and change the fake upstream's request logs.
+        VOST_RECORD: 'off',
         VOST_DATA_DIR: dataDir,
         VOST_TEST_UPSTREAM: upstream.url,
         // Telegram on, but only ever the fake service's sendMessage.
