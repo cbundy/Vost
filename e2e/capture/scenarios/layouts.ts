@@ -193,6 +193,81 @@ export const layouts: Scenario = {
         if (!box || box.x < 0 || box.x + box.width > vp.width + 0.5 || p.overflowX) throw new Error(`the layout menu overflows: ${JSON.stringify(box)}`);
       });
       await ctx.screenshot('menu');
+      // On a narrow screen the layout name lives in the More menu.
+      const openNarrowMenu = async () => {
+        await page.keyboard.press('Escape');
+        await page.getByRole('button', { name: 'More', exact: true }).click();
+        await openMenu();
+      };
+      await ctx.step('Rename on the narrow screen: the dialog fits, OK renames the layout', async () => {
+        await menu.getByRole('menuitem', { name: 'Rename...' }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByLabel('Layout name').fill('Narrow');
+        await page.waitForTimeout(150);
+        const box = await dialog.boundingBox();
+        const vp = page.viewportSize()!;
+        if (!box || box.x < 0 || box.x + box.width > vp.width + 0.5) throw new Error(`the rename dialog overflows: ${JSON.stringify(box)}`);
+      });
+      await ctx.screenshot('rename');
+      await ctx.step('OK renames it; Create new layout adds a second one', async () => {
+        await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await openNarrowMenu();
+        await menu.getByRole('menuitem', { name: 'Create new layout...' }).click();
+        await page.getByRole('dialog').getByLabel('Layout name').fill('Fresh');
+        await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await page.waitForTimeout(300);
+        log.push(`narrow created: ${JSON.stringify(await savedState())}`);
+      });
+      await ctx.step('Open layout lists both layouts and fits the narrow screen', async () => {
+        await openNarrowMenu();
+        await menu.getByRole('menuitem', { name: /^Open layout/ }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.waitFor();
+        const rows = await dialog.locator('.lm-open-row').count();
+        await page.waitForTimeout(150);
+        const box = await dialog.boundingBox();
+        const vp = page.viewportSize()!;
+        log.push(`narrow open dialog: rows=${rows} box=${JSON.stringify(box)}`);
+        if (rows !== 2) throw new Error(`rows ${rows}`);
+        if (!box || box.x < 0 || box.x + box.width > vp.width + 0.5) throw new Error(`the open dialog overflows: ${JSON.stringify(box)}`);
+      });
+      await ctx.screenshot('open-dialog');
+      await ctx.step('opening Narrow from the list switches to it', async () => {
+        await page.getByRole('dialog').getByRole('button', { name: /^Narrow/ }).first().click();
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await page.waitForTimeout(300);
+        await openNarrowMenu();
+        const recent = (await menu.getByRole('menuitem').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+        log.push(`narrow switched: name=${await nameText()} items=${recent.join(' | ')}`);
+        if ((await nameText()) !== 'Narrow') throw new Error(`name is ${await nameText()}`);
+      });
+      await ctx.screenshot('switched');
+      await ctx.step('autosave off: a change shows the unsaved marker on the narrow screen', async () => {
+        await menu.getByRole('switch', { name: 'Autosave' }).click();
+        await page.keyboard.press('Escape');
+        await page.locator('.topbar select[title="Timeframe"]').selectOption('4h');
+        await openNarrowMenu();
+        await page.waitForFunction(() => document.querySelector('.layout-unsaved') != null);
+        const p = await probe(page);
+        log.push(`narrow unsaved: overflowX=${p.overflowX}`);
+        if (p.overflowX) throw new Error('horizontal overflow');
+      });
+      await ctx.screenshot('unsaved');
+      await ctx.step('after a reload the last open layout is back with autosave off', async () => {
+        await page.waitForTimeout(800);
+        await page.reload();
+        await page.locator('.chart-switcher').waitFor();
+        await waitLoaded(4);
+        await page.getByRole('button', { name: 'More', exact: true }).click();
+        await openMenu();
+        const auto = await menu.getByRole('switch', { name: 'Autosave' }).getAttribute('aria-checked');
+        const p = await probe(page);
+        log.push(`narrow named reloaded: name=${await nameText()} autosave=${auto} overflowX=${p.overflowX}`);
+        if ((await nameText()) !== 'Narrow' || auto !== 'false' || p.overflowX) throw new Error('the last open layout did not come back');
+      });
+      await ctx.screenshot('named-reloaded');
       await ctx.writeText('checks', `${log.join('\n')}\n`);
       return;
     }

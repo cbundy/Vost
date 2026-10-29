@@ -579,9 +579,10 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     copyLayout(name) {
+      // Flush first: a pending autosave writes into the saved layouts, and the copy must build on that.
+      writeLayout.flush();
       const next = sl.copyLayout(get().savedLayouts, name, layoutSnapshot(get()));
       if (next === get().savedLayouts) return false;
-      writeLayout.flush();
       commitSaved(next);
       return true;
     },

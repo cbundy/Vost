@@ -161,4 +161,15 @@ describe('named layouts in the app store', () => {
     expect(app.getState().deleteLayout(firstId)).toBe(true);
     expect(stored('savedLayouts.v1').layouts.map((l: { name: string }) => l.name)).toEqual(['Copy']);
   });
+
+  it('copying keeps a pending autosave of the layout being copied from', async () => {
+    const app = await fresh();
+    app.getState().init();
+    const firstId = app.getState().savedLayouts.currentId;
+    chartOf(app).getState().setTimeframe('1h');
+    expect(app.getState().copyLayout('Copy')).toBe(true);
+    const layouts = stored('savedLayouts.v1').layouts as Array<{ id: string; layout: { charts: Array<{ timeframe: string }> } }>;
+    expect(layouts.find((l) => l.id === firstId)!.layout.charts[0].timeframe).toBe('1h');
+    expect(app.getState().savedLayouts.layouts.find((l) => l.id === firstId)!.layout.charts[0].timeframe).toBe('1h');
+  });
 });

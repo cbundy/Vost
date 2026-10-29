@@ -26,8 +26,13 @@ export function LayoutDialogs() {
   /** Ctrl/Cmd+S saves anywhere (also in a text field); "." opens the list. Neither acts while a modal dialog is open. */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const action = layoutKeyAction(e, { editable: isEditable(e.target), dialogOpen: document.querySelector('.modal-overlay') != null, mac: IS_MAC });
-      if (!action) return;
+      const dialogOpen = document.querySelector('.modal-overlay') != null;
+      const action = layoutKeyAction(e, { editable: isEditable(e.target), dialogOpen, mac: IS_MAC });
+      if (!action) {
+        // Save does nothing behind a dialog, but the browser's own save dialog must still not open.
+        if (dialogOpen && layoutKeyAction(e, { editable: true, dialogOpen: false, mac: IS_MAC }) === 'save') e.preventDefault();
+        return;
+      }
       e.preventDefault();
       if (action === 'save') saveLayout();
       else setDialog({ kind: 'open' });
