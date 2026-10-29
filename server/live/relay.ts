@@ -4,7 +4,7 @@
  * gets the current status and the last kline at once; the socket closes when
  * the last subscriber leaves.
  */
-import type { Candle, LiveKlineEvent, LiveLogEvent, LiveStatusEvent, Timeframe } from '../../shared/market.ts';
+import { canonicalInterval, type Candle, type Interval, type LiveKlineEvent, type LiveLogEvent, type LiveStatusEvent, type Timeframe } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { sourceBase, type Source } from '../../shared/timeframes.ts';
 import type { HistoryRequest } from '../providers/types.ts';
@@ -98,7 +98,7 @@ export function createRelay(deps: RelayDeps = {}): Relay {
     entries.delete(key);
   };
 
-  const subscribeBuilt = (provider: string, symbol: string, timeframe: string, base: Timeframe, sub: Subscriber, subscribeBase: Relay['subscribe']): SubscribeResult => {
+  const subscribeBuilt = (provider: string, symbol: string, timeframe: Interval, base: Timeframe, sub: Subscriber, subscribeBase: Relay['subscribe']): SubscribeResult => {
     const key = `${provider}|${symbol}|${timeframe}<${base}`;
     let entry = builtEntries.get(key);
     if (!entry) {
@@ -114,7 +114,7 @@ export function createRelay(deps: RelayDeps = {}): Relay {
       };
       created.folder = createBuiltFolder({
         symbol,
-        target: timeframe as Timeframe,
+        target: timeframe,
         base,
         history: (req) => deps.history!(provider, req),
         timers: deps.timers ?? realTimers,
@@ -172,9 +172,9 @@ export function createRelay(deps: RelayDeps = {}): Relay {
       const symbol = rawSymbol.trim().toUpperCase();
       if (!symbol) return { error: 'Missing symbol' };
       const info = catalogEntry(provider);
-      if (deps.history && info?.supportsLive && ((info.builtTimeframes as string[]).includes(timeframe) || (info.timeframes as string[]).includes(timeframe))) {
-        const base = sourceBase(info.timeframes, timeframe as Timeframe, opts?.source ?? 'native');
-        if (base) return subscribeBuilt(provider, symbol, timeframe, base, sub, relay.subscribe);
+      if (deps.history && info?.supportsLive && canonicalInterval(timeframe) === timeframe) {
+        const base = sourceBase(info.timeframes, timeframe as Interval, opts?.source ?? 'native');
+        if (base) return subscribeBuilt(provider, symbol, timeframe as Interval, base, sub, relay.subscribe);
       }
       const key = `${provider}|${symbol}|${timeframe}`;
       let entry = entries.get(key);

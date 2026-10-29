@@ -120,4 +120,27 @@ describe('Yahoo calendar', () => {
     await expect(yahooAdapter.history(ctxFor(fake), { symbol: 'AAPL', timeframe: '1h', bars: 10, to: now - 800 * 86400 })).rejects.toBeInstanceOf(NotFoundError);
     expect(fake.urls).toHaveLength(1);
   });
+
+  it('builds a 7h series from 1h bars across midnight and drops the oldest partial bucket', async () => {
+    const t0 = Date.UTC(2024, 2, 5) / 1000;
+    const hours = Array.from({ length: 50 }, (_, i) => bar(t0 + (i + 3) * 3600)); // starts 03:00, mid-bucket
+    const fetchBase = async (req: HistoryRequest): Promise<Candle[]> => hours.filter((c) => c.time <= (req.to ?? Infinity)).slice(-req.bars);
+    const out = await builtHistory({ fetchBase, now: () => (t0 + 60 * 3600) * 1000 }, ['1h'], { symbol: 'X', timeframe: '7h', bars: 100 });
+    expect(out.map((c) => c.time)).toEqual([7, 14, 21, 24, 31, 38, 45, 48].map((h) => t0 + h * 3600));
+  });
+
+  it('builds a 2h series and crops a range', async () => {
+    const hours = Array.from({ length: 12 }, (_, i) => bar(i * 3600));
+    const fetchBase = async (): Promise<Candle[]> => hours;
+    const out = await builtHistory({ fetchBase, now: () => 20 * 3600 * 1000 }, ['1h'], { symbol: 'X', timeframe: '2h', bars: 0, from: 4 * 3600, to: 9 * 3600 });
+    expect(out.map((c) => c.time)).toEqual([4, 6, 8].map((h) => h * 3600));
+  });
+
+  it('builds a 3M series from 1M bars', async () => {
+    const months = Array.from({ length: 12 }, (_, i) => bar(Date.UTC(2023, i, 1) / 1000));
+    const fetchBase = async (): Promise<Candle[]> => months;
+    const out = await builtHistory({ fetchBase }, ['1M'], { symbol: 'X', timeframe: '3M', bars: 10 });
+    expect(out.map((c) => c.time)).toEqual([0, 3, 6, 9].map((m) => Date.UTC(2023, m, 1) / 1000));
+    expect(out[0].volume).toBe(3);
+  });
 });
