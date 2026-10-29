@@ -80,6 +80,37 @@ const NATIVE_CATALOG: Array<Omit<ProviderInfo, 'builtTimeframes'>> = [
     hasSearch: true,
   },
   {
+    id: 'hyperliquid-perps',
+    name: 'Hyperliquid Perps',
+    description:
+      'Free public perpetual futures data from Hyperliquid - REST candles + live websocket. Only the latest 5000 candles per timeframe are kept. No key needed.',
+    timeframes: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'],
+    defaultTimeframe: '1h',
+    defaultSymbol: 'BTC',
+    popularSymbols: crypto('Hyperliquid', (b) => b, 'USDC perp', ['BTC', 'ETH', 'SOL', 'HYPE', 'XRP']),
+    supportsLive: true,
+    hasSymbolList: false,
+    hasSearch: true,
+  },
+  {
+    id: 'hyperliquid-spot',
+    name: 'Hyperliquid Spot',
+    description:
+      'Free public spot data from Hyperliquid - REST candles + live websocket. Only the latest 5000 candles per timeframe are kept. No key needed.',
+    timeframes: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'],
+    defaultTimeframe: '1h',
+    defaultSymbol: 'HYPE/USDC',
+    popularSymbols: ['HYPE', 'UBTC', 'UETH', 'USOL', 'PURR'].map((b) => ({
+      symbol: `${b}/USDC`,
+      label: `${b} / USDC`,
+      exchange: 'Hyperliquid',
+      type: 'crypto',
+    })),
+    supportsLive: true,
+    hasSymbolList: false,
+    hasSearch: true,
+  },
+  {
     id: 'yahoo',
     name: 'Yahoo Finance',
     description: 'Free delayed data for stocks, ETFs, indices, forex and crypto. No key needed.',

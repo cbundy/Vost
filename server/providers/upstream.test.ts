@@ -18,6 +18,31 @@ function sequence(...statuses: Array<number | Error>): { fetch: FetchFn; calls: 
   return { fetch, calls };
 }
 
+describe('upstreamJson POST', () => {
+  it('sends the method, the JSON body and content-type, and still retries a 503', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { fetch, calls } = sequence(503, 200);
+    const p = upstreamJson<{ ok: boolean }>('Hyperliquid', 'https://api.hyperliquid.xyz/info', { fetch }, { method: 'POST', body: { type: 'meta' } });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(await p).toEqual({ ok: true });
+    expect(calls).toHaveLength(2);
+    for (const c of calls) {
+      expect(c.init.method).toBe('POST');
+      expect(c.init.body).toBe('{"type":"meta"}');
+      expect((c.init.headers as Record<string, string>)['content-type']).toBe('application/json');
+    }
+  });
+
+  it('leaves a GET call without a method, body or content-type', async () => {
+    const { fetch, calls } = sequence(200);
+    await upstreamJson('Kraken', 'https://api.kraken.com/x', { fetch });
+    expect(calls[0].init.method).toBeUndefined();
+    expect(calls[0].init.body).toBeUndefined();
+    expect((calls[0].init.headers as Record<string, string>)['content-type']).toBeUndefined();
+  });
+});
+
 describe('upstreamFetch', () => {
   it('retries a 503 once and sends the browser-like headers', async () => {
     vi.useFakeTimers();

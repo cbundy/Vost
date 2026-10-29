@@ -8,6 +8,7 @@ import type { Candle, LiveLogEvent } from '../../shared/market.ts';
 import { COINBASE_GRANULARITY } from '../providers/coinbase.ts';
 import type { FetchFn } from '../providers/upstream.ts';
 import { coinbaseCandleFeed } from './coinbaseCandles.ts';
+import { hyperliquidFeed } from './hyperliquidFeed.ts';
 import type { Timers } from './socket.ts';
 
 export interface ParsedKline {
@@ -30,8 +31,12 @@ export interface LiveFeed {
   /** Mirror host tried after `fallbackAfter` failed attempts. */
   fallbackUrl?: string;
   fallbackAfter?: number;
-  /** Sent on every (re)connect once the socket is open. */
-  subscribe?: string;
+  /**
+   * Sent on every (re)connect once the socket is open. A function is awaited
+   * on each open and its result sent if that socket is still current (for
+   * feeds whose subscribe needs a lookup first).
+   */
+  subscribe?: string | (() => Promise<string>);
   /** Keepalive: send `ping` every `pingMs` while open. */
   pingMs?: number;
   ping?: string;
@@ -254,6 +259,11 @@ export function liveFeed(provider: string, symbol: string, timeframe: string, de
           ...coinbaseCandleFeed(symbol, granularity, deps),
         },
       };
+    }
+    case 'hyperliquid-perps':
+    case 'hyperliquid-spot': {
+      const feed = hyperliquidFeed(provider === 'hyperliquid-perps' ? 'perps' : 'spot', symbol, timeframe, deps);
+      return feed ? { feed } : unsupported(timeframe);
     }
     default: {
       const name = catalogEntry(provider)?.name;

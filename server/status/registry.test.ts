@@ -25,15 +25,15 @@ const stat = (provider: string, status: FeedStats['status'], lastError: string |
 });
 
 describe('check list', () => {
-  it('derives 18 checks from the catalog, Stooq without symbols', () => {
+  it('derives 24 checks from the catalog, Stooq without symbols', () => {
     const { registry } = make();
     const checks = registry.snapshot();
-    expect(checks).toHaveLength(18);
+    expect(checks).toHaveLength(24);
     expect(checks.filter((c) => c.feed === 'history').map((c) => c.provider)).toEqual(PROVIDER_CATALOG.map((p) => p.id));
-    expect(checks.filter((c) => c.feed === 'symbols')).toHaveLength(6);
-    expect(checks.filter((c) => c.feed === 'live').map((c) => c.provider)).toEqual(['binance', 'coinbase', 'kraken', 'bybit', 'okx']);
+    expect(checks.filter((c) => c.feed === 'symbols')).toHaveLength(8);
+    expect(checks.filter((c) => c.feed === 'live').map((c) => c.provider)).toEqual(['binance', 'coinbase', 'kraken', 'bybit', 'okx', 'hyperliquid-perps', 'hyperliquid-spot']);
     expect(statusFeeds('stooq')).toEqual(['history']);
-    expect(statusKeys()).toHaveLength(18);
+    expect(statusKeys()).toHaveLength(24);
     expect(checks.every((c) => c.state === 'unknown' && c.latencyMs === null && c.checkedAt === null && c.lastOkAt === null)).toBe(true);
   });
 
@@ -90,7 +90,7 @@ describe('state rules', () => {
   it('ignores a pair that is not checked (Stooq symbols)', () => {
     const { registry } = make();
     registry.record('stooq', 'symbols', { ok: true, latencyMs: 1 });
-    expect(registry.snapshot()).toHaveLength(18);
+    expect(registry.snapshot()).toHaveLength(24);
   });
 
   it('records the source of the latest result', () => {

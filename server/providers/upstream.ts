@@ -42,13 +42,20 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+/** Optional extras for a call: a POST with a JSON body (the default is a GET). */
+export interface RequestInitLite {
+  method?: 'GET' | 'POST';
+  /** Serialised as JSON with `content-type: application/json`. */
+  body?: unknown;
+}
+
 /**
- * GET `url` (retrying, with a 25 s timeout that also covers reading the body
+ * GET (or POST, see `init`) `url` (retrying, with a 25 s timeout that also covers reading the body
  * through `read`) and return what `read` makes of the 2xx response. A non-2xx
  * status raises an `UpstreamError` carrying the provider, host, status and the
  * start of the body. A browser abort is rethrown as is (never wrapped).
  */
-async function request<T>(provider: string, url: string, ctx: UpstreamContext, read: (res: Response) => Promise<T>): Promise<T> {
+async function request<T>(provider: string, url: string, ctx: UpstreamContext, read: (res: Response) => Promise<T>, init: RequestInitLite = {}): Promise<T> {
   const doFetch = ctx.fetch ?? globalThis.fetch;
   const host = new URL(url).hostname;
   const timeout = new AbortController();
@@ -62,7 +69,9 @@ async function request<T>(provider: string, url: string, ctx: UpstreamContext, r
       const res = await doFetch(upstreamUrl(url), {
         signal,
         redirect: 'follow',
+        ...(init.method === 'POST' ? { method: 'POST', body: JSON.stringify(init.body) } : {}),
         headers: {
+          ...(init.method === 'POST' ? { 'content-type': 'application/json' } : {}),
           'user-agent': USER_AGENT,
           accept: 'application/json, text/csv, text/plain, */*',
           'accept-language': 'en-US,en;q=0.9',
@@ -94,15 +103,21 @@ export function upstreamFetch(provider: string, url: string, ctx: UpstreamContex
   return request(provider, url, ctx, async (res) => res);
 }
 
-export function upstreamJson<T>(provider: string, url: string, ctx: UpstreamContext = {}): Promise<T> {
-  return request(provider, url, ctx, async (res) => {
-    try {
-      return (await res.json()) as T;
-    } catch (err) {
-      if (isAbort(err)) throw err;
-      throw new UpstreamError(provider, new URL(url).hostname, res.status, 'upstream answered with invalid JSON');
-    }
-  });
+export function upstreamJson<T>(provider: string, url: string, ctx: UpstreamContext = {}, init: RequestInitLite = {}): Promise<T> {
+  return request(
+    provider,
+    url,
+    ctx,
+    async (res) => {
+      try {
+        return (await res.json()) as T;
+      } catch (err) {
+        if (isAbort(err)) throw err;
+        throw new UpstreamError(provider, new URL(url).hostname, res.status, 'upstream answered with invalid JSON');
+      }
+    },
+    init,
+  );
 }
 
 export function upstreamText(provider: string, url: string, ctx: UpstreamContext = {}): Promise<string> {

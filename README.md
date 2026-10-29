@@ -94,6 +94,8 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 | **Kraken** | Crypto spot | No | ✅ | Public REST + websocket v2. History is limited to the latest 720 candles per timeframe. 1M is built from daily candles (marked `*`). |
 | **Bybit** | Crypto spot | No | ✅ | Public v5 REST (1000 per request) + websocket. |
 | **OKX** | Crypto spot | No | ✅ | Public v5 history candles (100 per request) + websocket. |
+| **Hyperliquid Perps** | Crypto perpetuals | No | ✅ | Public info API (POST) + websocket. Only the latest 5000 candles per timeframe are kept. |
+| **Hyperliquid Spot** | Crypto spot | No | ✅ | Same API; pairs are written `HYPE/USDC`. Only the latest 5000 candles per timeframe are kept. |
 | **Yahoo Finance** | Stocks, ETFs, indices, FX, crypto | No | — | Public chart API (delayed). Intraday history limits apply (1m ≈ 7 days, 1h ≈ 2 years). 4h is built from 1h on the exchange's session calendar (marked `*`). |
 | **Stooq** | Stocks, indices, FX, crypto | No | — | Daily/weekly/monthly CSV downloads. Some cloud/VPS IPs are challenged by Stooq's bot protection — Yahoo or CSV import are good fallbacks there. |
 | **Demo (offline)** | Synthetic | No | — | Deterministic random walk — try the whole app with zero network. |
