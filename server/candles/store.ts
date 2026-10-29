@@ -13,6 +13,11 @@ import path from 'node:path';
 import { TIMEFRAME_SECONDS, type Candle, type Timeframe } from '../../shared/market.ts';
 import { canWrite } from '../fsutil.ts';
 
+/** True when no bar time (a multiple of step) lies strictly between a and b. */
+function noBarBetween(a: number, b: number, step: number): boolean {
+  return (Math.floor(a / step) + 1) * step >= b;
+}
+
 export const SCHEMA_VERSION = 1;
 export const FILE_NAME = 'candles.sqlite';
 
@@ -150,7 +155,7 @@ export async function openCandleStore(deps: CandleStoreDeps): Promise<CandleStor
   const selRange = database.prepare('SELECT time, open, high, low, close, volume FROM candles WHERE provider = ? AND symbol = ? AND timeframe = ? AND time >= ? AND time <= ? ORDER BY time ASC');
   const selLast = database.prepare('SELECT time, open, high, low, close, volume FROM candles WHERE provider = ? AND symbol = ? AND timeframe = ? AND time <= ? ORDER BY time DESC LIMIT ?');
   const selCover = database.prepare('SELECT from_time AS "from", to_time AS "to" FROM coverage WHERE provider = ? AND symbol = ? AND timeframe = ? AND to_time >= ? AND from_time <= ? ORDER BY from_time ASC');
-  const delCover = database.prepare('DELETE FROM coverage WHERE provider = ? AND symbol = ? AND timeframe = ? AND to_time >= ? AND from_time <= ?');
+  const delOne = database.prepare('DELETE FROM coverage WHERE provider = ? AND symbol = ? AND timeframe = ? AND from_time = ? AND to_time = ?');
   const insCover = database.prepare('INSERT INTO coverage (provider, symbol, timeframe, from_time, to_time) VALUES (?, ?, ?, ?, ?)');
 
   const toCandle = (r: Record<string, unknown>): Candle => ({
@@ -193,12 +198,14 @@ export async function openCandleStore(deps: CandleStoreDeps): Promise<CandleStor
         if (coveredFrom > to) return;
         let from = coveredFrom;
         let end = to;
-        const step = tfSeconds(s.timeframe); // intervals on consecutive bars join
+        const step = tfSeconds(s.timeframe); // intervals with no bar time between them join
         for (const row of selCover.all(s.provider, s.symbol, s.timeframe, coveredFrom - step, to + step) as unknown as Interval[]) {
+          const joins = row.to < from ? noBarBetween(row.to, from, step) : row.from > end ? noBarBetween(end, row.from, step) : true;
+          if (!joins) continue;
           from = Math.min(from, row.from);
           end = Math.max(end, row.to);
+          delOne.run(s.provider, s.symbol, s.timeframe, row.from, row.to);
         }
-        delCover.run(s.provider, s.symbol, s.timeframe, coveredFrom - step, to + step);
         insCover.run(s.provider, s.symbol, s.timeframe, from, end);
       });
     },
@@ -218,8 +225,8 @@ export async function openCandleStore(deps: CandleStoreDeps): Promise<CandleStor
       let cursor = from;
       let prevTo: number | undefined; // end of the previous interval: a bar time
       for (const row of selCover.all(s.provider, s.symbol, s.timeframe, from, to) as unknown as Interval[]) {
-        // A gap between two intervals narrower than one bar holds no bar time.
-        if (row.from > cursor && !(prevTo !== undefined && row.from - prevTo <= step)) missing.push({ from: cursor, to: row.from - 1 });
+        // A gap that holds no bar time on the timeframe grid is no gap.
+        if (row.from > cursor && !(prevTo !== undefined && noBarBetween(prevTo, row.from, step))) missing.push({ from: cursor, to: row.from - 1 });
         prevTo = row.to;
         cursor = Math.max(cursor, row.to + 1);
         if (cursor > to) break;

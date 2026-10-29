@@ -66,6 +66,20 @@ describe('candle store', () => {
     store.close();
   });
 
+  it('keeps a gap that holds a bar time when the interval ends are off the bar grid', async () => {
+    const store = await open();
+    store.upsert(S, [], 10 * H, 20 * H + 1200); // ends 20 minutes past a bar
+    store.upsert(S, [], 21 * H + 600, 30 * H); // starts 10 minutes past a bar: bar 21H lies between
+    expect(store.covered(S, 10 * H, 30 * H)).toEqual([{ from: 20 * H + 1201, to: 21 * H + 599 }]);
+    store.upsert(S, [], 20 * H + 1201, 21 * H + 599);
+    expect(store.covered(S, 10 * H, 30 * H)).toEqual([]);
+    // no bar time between 40H+100 and 40H+200: they join
+    store.upsert(S, [], 40 * H, 40 * H + 100);
+    store.upsert(S, [], 40 * H + 200, 41 * H);
+    expect(store.covered(S, 40 * H, 41 * H)).toEqual([]);
+    store.close();
+  });
+
   it('never covers the forming bar', async () => {
     const store = await open();
     store.upsert(S, [candle(NOW - H), candle(NOW)], NOW - 5 * H, NOW + 10 * H);

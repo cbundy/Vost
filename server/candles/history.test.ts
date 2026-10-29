@@ -86,6 +86,17 @@ describe('span mode', () => {
     expect(logs.some((l) => l.startsWith('[candles] Fake BTC 1h span'))).toBe(true);
   });
 
+  it('fetches a bar that lies between two off-grid spans', async () => {
+    const F = FORMING;
+    await readThroughHistory(deps(fakeExchange()), 'Fake', span(F - 50 * H, F - 20 * H + 1200));
+    await readThroughHistory(deps(fakeExchange()), 'Fake', span(F - 19 * H + 600, F - 10 * H));
+    const ex = fakeExchange();
+    const out = await readThroughHistory(deps(ex), 'Fake', span(F - 50 * H, F - 10 * H));
+    expect(out).toEqual(await direct(span(F - 50 * H, F - 10 * H)));
+    expect(out.some((c) => c.time === F - 19 * H)).toBe(true);
+    expect(ex.calls).toHaveLength(1);
+  });
+
   it('gives the exchange 404 for an empty span', async () => {
     const ex = fakeExchange();
     const req = span(GAP, GAP);
