@@ -5,6 +5,7 @@ import { topbarTier } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
 import { TIMEFRAMES } from '../types';
+import { baseTimeframe } from '../../../shared/timeframes.ts';
 import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { selectDataCandles, useStore } from '../state/store';
@@ -67,6 +68,7 @@ export function TopBar({
 
   const provider = getProvider(providerId);
   const timeframes = TIMEFRAMES.filter((tf) => provider.timeframes.includes(tf));
+  const nativeTimeframes = timeframes.filter((tf) => !provider.builtTimeframes?.includes(tf));
 
   const liveClass = liveStatus === 'live' ? '' : liveStatus === 'connecting' || liveStatus === 'reconnecting' ? 'connecting' : 'error';
 
@@ -169,7 +171,7 @@ export function TopBar({
           title="Timeframe"
         >
           {timeframes.map((tf) => (
-            <option key={tf} value={tf} title={provider.builtTimeframes?.includes(tf) ? 'Built from a lower timeframe' : undefined}>
+            <option key={tf} value={tf} title={provider.builtTimeframes?.includes(tf) ? `Built from ${baseTimeframe(nativeTimeframes, tf) ?? 'a lower timeframe'}` : undefined}>
               {provider.builtTimeframes?.includes(tf) ? `${tf} *` : tf}
             </option>
           ))}

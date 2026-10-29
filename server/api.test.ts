@@ -384,9 +384,9 @@ describe('built timeframes', () => {
     const to = (days - 1) * 86400;
     const r = await get(`/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1M&bars=800&to=${to}`);
     expect(r.status).toBe(200);
-    expect(r.body.length).toBeGreaterThan(660); // 56 years of months, minus the dropped oldest and the partial newest
+    expect(r.body.length).toBeGreaterThan(660); // 56 years of months, minus the partial newest
     expect(times(r.body)).toEqual([...new Set(times(r.body))].sort((a, b) => a - b));
-    expect(r.body[0].time).toBe(Date.UTC(1970, 1, 1) / 1000); // January 1970 is the oldest bucket, dropped
+    expect(r.body[0].time).toBe(0); // the series starts at the start of January 1970, so that oldest bucket is complete and kept
     expect(new Date(r.body[r.body.length - 1].time * 1000).getUTCDate()).toBe(1);
   });
 

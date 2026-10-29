@@ -16,6 +16,7 @@ import { sendJson } from './respond.ts';
 import type { CandleStore } from './candles/store.ts';
 import { readThroughHistory } from './candles/history.ts';
 import { builtHistory } from './providers/built.ts';
+import type { Calendar } from '../shared/timeframes.ts';
 
 export interface ApiDeps {
   /** Defaults to `globalThis.fetch`. */
@@ -81,11 +82,19 @@ function history(deps: ApiDeps, id: string, ctx: AdapterContext, adapter: Provid
   );
 }
 
+/** The calendar each built series last reported (`provider:symbol`), for when the base bars come from the candle store and no fetch reports one. */
+const calendars = new Map<string, Calendar>();
+
 /** One history request for `timeframe`: native as it is, built from the provider's lower native timeframe. */
 function timeframeHistory(deps: ApiDeps, info: ProviderInfo, ctx: AdapterContext, adapter: ProviderAdapter, req: HistoryRequest): Promise<Candle[]> {
   if (info.timeframes.includes(req.timeframe)) return history(deps, info.id, ctx, adapter, req);
+  const key = `${info.id}:${req.symbol}`;
   return builtHistory(
-    { fetchBase: (baseReq, onCalendar) => history(deps, info.id, { ...ctx, onCalendar }, adapter, baseReq) },
+    {
+      fetchBase: (baseReq, onCalendar) =>
+        history(deps, info.id, { ...ctx, onCalendar: (c) => { calendars.set(key, c); onCalendar(c); } }, adapter, baseReq),
+      calendar: calendars.get(key),
+    },
     info.timeframes,
     req,
   );

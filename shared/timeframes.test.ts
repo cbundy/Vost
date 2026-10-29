@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROVIDER_CATALOG, catalogEntry } from './providerCatalog.ts';
-import type { Candle, Timeframe } from './market.ts';
+import { TIMEFRAME_SECONDS, type Candle, type Timeframe } from './market.ts';
 import { UTC_CALENDAR, baseTimeframe, bucketStart, buildBars, builtTimeframes, type Calendar } from './timeframes.ts';
 
 const ts = (iso: string): number => Date.parse(iso) / 1000;
@@ -182,4 +183,33 @@ describe('parity with native bars', () => {
     expect(buildBars(daily, '1w')).toEqual(naive(daily, (t) => start + Math.floor((t - start) / 604800) * 604800));
     expect(buildBars(daily, '1M')).toEqual(naive(daily, monthKey));
   });
+});
+
+describe('parity with real Binance bars', () => {
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/binance-btcusdt.json', import.meta.url), 'utf8')) as Record<'hourly' | 'h4' | 'daily' | 'weekly' | 'monthly', number[][]>;
+  const candles = (rows: number[][]): Candle[] => rows.map(([time, open, high, low, close, volume]) => ({ time, open, high, low, close, volume }));
+
+  /** Built bars that cover whole buckets of the base data must equal the exchange's bars exactly. */
+  function expectParity(baseRows: number[][], nativeRows: number[][], target: Timeframe): void {
+    const base = candles(baseRows);
+    const lastBase = base[base.length - 1].time;
+    const lastNative = nativeRows[nativeRows.length - 1][0];
+    // Only the oldest and newest buckets can be partial.
+    const built = buildBars(base, target).slice(1).filter((b) => b.time < lastNative || bucketEnd(b.time, target) <= lastBase + 1);
+    expect(built.length).toBeGreaterThan(3);
+    const nativeByTime = new Map(candles(nativeRows).map((c) => [c.time, c]));
+    for (const b of built) {
+      const n = nativeByTime.get(b.time)!;
+      const at = new Date(b.time * 1000).toISOString();
+      // Prices are exact; the volume is a float sum, equal up to rounding.
+      expect({ ...b, volume: 0 }, at).toEqual({ ...n, volume: 0 });
+      expect(Math.abs(b.volume - n.volume) / n.volume, at).toBeLessThan(1e-12);
+    }
+  }
+  const bucketEnd = (start: number, target: Timeframe): number =>
+    target === '1w' ? start + 7 * 86400 : target === '1M' ? Date.UTC(new Date(start * 1000).getUTCFullYear(), new Date(start * 1000).getUTCMonth() + 1, 1) / 1000 : start + TIMEFRAME_SECONDS[target];
+
+  it('1h built into 4h equals Binance 4h', () => expectParity(fx.hourly, fx.h4, '4h'));
+  it('1d built into 1w equals Binance 1w', () => expectParity(fx.daily, fx.weekly, '1w'));
+  it('1d built into 1M equals Binance 1M', () => expectParity(fx.daily, fx.monthly, '1M'));
 });

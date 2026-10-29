@@ -5,7 +5,7 @@
  * from the candle store), newest chunk first, and are aggregated here.
  *
  * No partial bar passes as complete: the oldest bucket present in the base data
- * is dropped, so every built bar except the newest (the forming bar, as with
+ * is dropped unless the data starts at its start, so every built bar except the newest (the forming bar, as with
  * native bars) covers its whole bucket.
  */
 import { MAX_BARS, TIMEFRAME_SECONDS, type Candle, type Timeframe } from '../../shared/market.ts';
@@ -23,6 +23,8 @@ export interface BuiltDeps {
   /** One base-timeframe history call; the adapter may report its calendar through `onCalendar`. */
   fetchBase(req: HistoryRequest, onCalendar: (calendar: Calendar) => void): Promise<Candle[]>;
   now?: () => number;
+  /** The calendar last reported for this series, used until a fetch reports one (a series served from the store reports none). */
+  calendar?: Calendar;
 }
 
 function merge(chunks: Candle[][]): Candle[] {
@@ -42,7 +44,7 @@ export async function builtHistory(deps: BuiltDeps, native: readonly Timeframe[]
   if (!base) throw new Error(`${target} cannot be built from ${native.join(', ')}`);
   const baseSeconds = TIMEFRAME_SECONDS[base];
   const nowSec = Math.floor((deps.now ?? Date.now)() / 1000);
-  let calendar: Calendar = UTC_CALENDAR;
+  let calendar: Calendar = deps.calendar ?? UTC_CALENDAR;
   const onCalendar = (c: Calendar): void => {
     calendar = c;
   };
@@ -88,8 +90,11 @@ export async function builtHistory(deps: BuiltDeps, native: readonly Timeframe[]
     }
   }
 
-  // The oldest bucket present may be partial: drop it.
-  let built = buildBars(merge(chunks), target, calendar).slice(1);
+  // The oldest bucket present is partial unless the base data starts exactly at its start (the window can cut it
+  // anywhere); a bucket the data starts at is complete, which keeps the first in-span bar after a weekend or holiday gap.
+  const base0 = merge(chunks);
+  let built = buildBars(base0, target, calendar);
+  if (built.length > 0 && base0[0].time !== built[0].time) built = built.slice(1);
   built = req.from !== undefined ? cropToSpan(built, req.from, req.to) : built.slice(-req.bars);
   if (built.length === 0) {
     throw new NotFoundError(`No ${target} bars for ${req.symbol}: not enough ${base} data to build a complete bar.`);

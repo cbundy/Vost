@@ -86,6 +86,30 @@ describe('Yahoo calendar', () => {
     expect(out.map((b) => b.volume)).toEqual([4, 3, 4, 3]); // 9:30-13:30 holds four hourly bars, 13:30-16:00 three
   });
 
+  describe('with a weekend gap before the span', () => {
+    const fri = Date.parse('2024-03-15T13:30:00Z') / 1000;
+    const mon = Date.parse('2024-03-18T13:30:00Z') / 1000;
+    const session = [0, 1, 2, 3, 4, 5, 6].map((i) => i * 3600);
+    const base = [...session.map((o) => bar(fri + o)), ...session.map((o) => bar(mon + o))];
+    const calendar = sessionCalendar(meta)!;
+    const range = { symbol: 'AAPL', timeframe: '4h' as const, bars: 100, from: mon, to: mon + 6.5 * 3600 };
+
+    it('keeps the complete in-span bar of the first session in range mode', async () => {
+      const fetchBase = async (req: HistoryRequest, onCalendar: (c: typeof calendar) => void): Promise<Candle[]> => {
+        onCalendar(calendar);
+        return base.filter((c) => c.time >= req.from! && c.time <= req.to!);
+      };
+      const out = await builtHistory({ fetchBase }, ['1h'], range);
+      expect(out.map((b) => [b.time, b.volume])).toEqual([[mon, 4], [mon + 4 * 3600, 3]]);
+    });
+
+    it('buckets by the session calendar it was given when the base bars report none (served from the store)', async () => {
+      const fetchBase = async (req: HistoryRequest): Promise<Candle[]> => base.filter((c) => c.time >= req.from! && c.time <= req.to!);
+      const out = await builtHistory({ fetchBase, calendar }, ['1h'], range);
+      expect(out.map((b) => [b.time, b.volume])).toEqual([[mon, 4], [mon + 4 * 3600, 3]]);
+    });
+  });
+
   it('starts a bars-with-to hourly window at the edge of Yahoo depth and reports nothing before it', async () => {
     const now = Math.floor(Date.now() / 1000);
     const fake = fakeFetch(() => ({ chart: { result: [{ timestamp: [now - 3600], indicators: { quote: [{ open: [1], high: [2], low: [0], close: [1], volume: [1] }] } }], error: null } }));
