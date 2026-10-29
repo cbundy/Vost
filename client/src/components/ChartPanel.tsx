@@ -60,7 +60,16 @@ function mapIndicatorPoint(cs: ComputedSeries, point: { time: number; value: num
   return { time, value: point.value };
 }
 
-export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => void; onAddAlert: (level: number) => void }) {
+export function ChartPanel({
+  onImportCsv,
+  onAddAlert,
+  active = true,
+}: {
+  onImportCsv: () => void;
+  onAddAlert: (level: number) => void;
+  /** Whether this is the chart the top bar acts on: only that chart takes the drawing keyboard shortcuts. */
+  active?: boolean;
+}) {
   const chartStore = useChartStore();
   const candles = useChart((s) => s.candles);
   const dataKey = useChart((s) => s.dataKey);
@@ -255,7 +264,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
 
   usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff);
   const narrow = useMediaQuery('(max-width: 600px)');
-  const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef);
+  const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef, active);
 
   /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */
   useEffect(() => {

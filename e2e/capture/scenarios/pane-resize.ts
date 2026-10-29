@@ -49,6 +49,7 @@ export const paneResize: Scenario = {
     };
     await ctx.step('seed sizes and open app', async () => {
       await page.addInitScript(() => {
+        localStorage.removeItem('vost.layout.v1');
         localStorage.setItem(
           'vost.prefs.v1',
           JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d', sidebarWidth: 340, dockHeight: 420 }),

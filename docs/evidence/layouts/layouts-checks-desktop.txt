@@ -1,0 +1,11 @@
+start: cells=1 shown=1 active=0 topbar=DEMO titles=DEMO overflowX=false
+picker: options=55 rows=1,2,3,4,5,6,7,8,9,10,12,14,16 box={"x":10,"y":40,"width":372,"height":542} topbar={"scrollWidth":1440,"clientWidth":1440,"moreRight":null,"moreWidth":null}
+2x2: cells=4 shown=4 active=1 topbar=DEMO titles=DEMO|DEMO|DEMO|DEMO overflowX=false
+four markets: cells=4 shown=4 active=1 topbar=DEMO-DOWN titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false
+active=2: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false
+large+3: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false
+dragged: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false large=568->718
+reset: large=568 stack=568x180
+reloaded: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false
+2 charts: cells=2 shown=2 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR overflowX=false
+16 charts: cells=16 shown=16 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR overflowX=false
