@@ -15,6 +15,7 @@ const POPULAR = catalogEntry('yahoo')!.popularSymbols;
 interface YahooChartResponse {
   chart?: {
     result?: Array<{
+      meta?: { dataGranularity?: string };
       timestamp?: number[];
       indicators?: {
         quote?: Array<{
@@ -50,6 +51,18 @@ const YAHOO_INTERVALS: Partial<Record<Timeframe, string>> = {
   '1d': '1d',
   '1w': '1wk',
   '1M': '1mo',
+};
+
+/** The granularity code Yahoo reports in `meta.dataGranularity` for each interval it was asked. */
+const EXPECTED_GRANULARITY: Record<string, string> = {
+  '1m': '1m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '60m': '1h',
+  '1d': '1d',
+  '1wk': '1wk',
+  '1mo': '1mo',
 };
 
 const BAR_SECONDS: Record<string, number> = {
@@ -169,12 +182,17 @@ export const yahooAdapter: ProviderAdapter = {
         throw new InputError(`${PROVIDER} serves ${req.timeframe} data only from ${isoTime(now - depth)}; pick a later start or a larger timeframe`);
       }
       window = `period1=${req.from}&period2=${(req.to ?? now) + 1}`;
-    } else if (req.to !== undefined) {
-      // Bars ending at `to`: ask for the usual range's worth of time before it, then keep the newest `bars`.
-      const seconds = RANGE_STEPS.find((s) => s.range === pickRange(interval, req.bars))?.seconds ?? Number.MAX_SAFE_INTEGER;
-      window = `period1=${Math.max(0, req.to + 1 - seconds)}&period2=${req.to + 1}`;
     } else {
-      window = `range=${pickRange(interval, req.bars)}`;
+      // `range=max` makes Yahoo coarsen daily and up to 1mo/3mo bars, so full history is a dated window from 0.
+      // Bars ending at `to` (default now): ask for the usual range's worth of time before it, keep the newest `bars`.
+      const picked = pickRange(interval, req.bars);
+      if (req.to === undefined && picked !== 'max') {
+        window = `range=${picked}`;
+      } else {
+        const end = req.to ?? now;
+        const seconds = RANGE_STEPS.find((s) => s.range === picked)?.seconds ?? Number.MAX_SAFE_INTEGER;
+        window = `period1=${Math.max(0, end + 1 - seconds)}&period2=${end + 1}`;
+      }
     }
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${window}&includePrePost=false&events=div%2Csplit`;
 
@@ -195,6 +213,10 @@ export const yahooAdapter: ProviderAdapter = {
     const result = data.chart?.result?.[0];
     if (!result?.timestamp || !result.indicators?.quote?.[0]) {
       throw new NotFoundError(`No data for "${symbol}". Try symbols like AAPL, ^GSPC, BTC-USD, EURUSD=X.`);
+    }
+    const got = result.meta?.dataGranularity;
+    if (got && got !== EXPECTED_GRANULARITY[interval]) {
+      throw new UpstreamError(PROVIDER, 'query1.finance.yahoo.com', 200, '', `${PROVIDER} sent ${got} bars for a ${req.timeframe} request`);
     }
     const quote = result.indicators.quote[0];
     const candles: Candle[] = [];

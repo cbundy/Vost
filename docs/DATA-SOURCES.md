@@ -52,7 +52,7 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - Symbol listing: no list; search with `GET /v1/finance/search?q=`.
 - Candles: `GET /v8/finance/chart/<symbol>?interval=&range=`.
 - Timeframes: 1m, 2m, 5m, 15m, 30m, 60m/1h, 1d, 5d, 1wk, 1mo, 3mo. No 4h.
-- History: intraday is capped (1m about 7 days, sub-hour about 60 days, 1h about 2 years); daily and up goes back to listing. Undocumented limits as observed by the community; Yahoo publishes no official API docs. A span uses `period1=from&period2=to+1` instead of `range=`; an intraday `from` older than the depth above is a 400 naming the earliest time served.
+- History: intraday is capped (1m about 7 days, sub-hour about 60 days, 1h about 2 years); daily and up goes back to listing. Undocumented limits as observed by the community; Yahoo publishes no official API docs. A span uses `period1=from&period2=to+1` instead of `range=`; `range=max` makes Yahoo coarsen bars to 1mo/3mo, so full history is asked with `period1=0` and a reply of another granularity than asked is an error; an intraday `from` older than the depth above is a 400 naming the earliest time served.
 - Rate limits: unpublished; HTTP 429 when exceeded, and datacenter IPs are throttled harder.
 - Server hosts: `query1.finance.yahoo.com` (no CORS headers, so only a server can call it).
 - Live: none (quotes are delayed by up to 15 minutes on some exchanges).

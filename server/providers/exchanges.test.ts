@@ -187,10 +187,11 @@ describe('OKX', () => {
 });
 
 describe('Yahoo', () => {
-  const chart = (n: number) => ({
+  const chart = (n: number, dataGranularity?: string) => ({
     chart: {
       result: [
         {
+          ...(dataGranularity ? { meta: { dataGranularity } } : {}),
           timestamp: Array.from({ length: n }, (_, i) => 1000 + i * 86400),
           indicators: { quote: [{ open: Array(n).fill(1), high: Array(n).fill(3), low: Array(n).fill(0.5), close: Array(n).fill(2), volume: Array(n).fill(9) }] },
         },
@@ -209,6 +210,27 @@ describe('Yahoo', () => {
     const out = await yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe: '1d', bars: 4 });
     expect(out).toHaveLength(4);
     expect(f.urls[0]).toContain('/v8/finance/chart/aapl?interval=1d&range=5d');
+  });
+  it.each(['1d', '1w', '1M'] as const)('asks for full %s history by date window, never range=max', async (timeframe) => {
+    const f = fakeFetch(() => chart(10));
+    await yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe, bars: 5000 });
+    expect(f.urls[0]).toContain('period1=0&period2=');
+    expect(f.urls[0]).not.toContain('range=');
+  });
+  it('keeps range= for intraday requests', async () => {
+    const f = fakeFetch(() => chart(10));
+    await yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe: '5m', bars: 100000 });
+    expect(f.urls[0]).toContain('range=1mo');
+  });
+  it('refuses a reply of a coarser granularity than asked', async () => {
+    const f = fakeFetch(() => chart(10, '3mo'));
+    await expect(yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe: '1d', bars: 5000 })).rejects.toThrow(/sent 3mo bars for a 1d request/);
+  });
+  it('accepts matching granularity and replies without meta', async () => {
+    const hourly = fakeFetch(() => chart(10, '1h'));
+    await expect(yahooAdapter.history(ctxFor(hourly), { symbol: 'aapl', timeframe: '1h', bars: 4 })).resolves.toHaveLength(4);
+    const bare = fakeFetch(() => chart(10));
+    await expect(yahooAdapter.history(ctxFor(bare), { symbol: 'aapl', timeframe: '1d', bars: 4 })).resolves.toHaveLength(4);
   });
   it('rejects 4h, which Yahoo lacks', async () => {
     await expect(yahooAdapter.history(ctxFor(fakeFetch(() => chart(1))), { symbol: 'aapl', timeframe: '4h', bars: 4 })).rejects.toThrow(/Yahoo Finance does not support timeframe 4h/);
