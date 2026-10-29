@@ -1,0 +1,88 @@
+ok   rail left of canvas - rail right=40 canvas left=40
+ok   rail about 40px wide - 40
+ok   Cursor button has title and aria-pressed
+ok   Trend line button has title and aria-pressed
+ok   Horizontal line button has title and aria-pressed
+ok   Ray button has title and aria-pressed
+ok   Rectangle button has title and aria-pressed
+ok   Fibonacci retracement button has title and aria-pressed
+ok   Text button has title and aria-pressed
+ok   Measure button has title and aria-pressed
+ok   Cursor pressed at start
+ok   Magnet button has title
+ok   Hide all drawings button has title
+ok   Delete all drawings button has title
+ok   Magnet off at start
+ok   Hide all off at start
+ok   Delete all has no aria-pressed
+ok   Delete all disabled with no drawings
+ok   Magnet pressed
+ok   one drawing saved
+ok   anchor 1 time is a bar time - 1709596800
+ok   anchor 1 price is that bar's open, high, low or close - 125.266881 in 121.831973,125.266881,115.93706,118.663051
+ok   anchor 2 time is a bar time - 1747526400
+ok   anchor 2 price is that bar's open, high, low or close - 54.326344 in 53.812247,54.326344,52.976376,52.979494
+ok   Hide all pressed
+ok   Trend line disabled
+ok   Horizontal line disabled
+ok   title still names the tool
+ok   stored drawings unchanged
+ok   Hide all off again
+ok   Trend line enabled again
+ok   Magnet still pressed
+ok   Hide all still off
+ok   a refused confirm keeps the drawing
+ok   storage is empty
+ok   Delete all disabled again
+ok   Ctrl+Z brings every drawing back
+ok   left empty for the steps below
+ok   Magnet off for the steps below
+ok   Trend line pressed
+ok   one drawing saved
+ok   tool back to Cursor
+ok   two drawings saved - trendLine,horizontalLine
+ok   Ray pressed
+ok   Ray saved with 2 anchors - trendLine,horizontalLine,ray
+ok   stored as ray
+ok   Rectangle pressed
+ok   Rectangle saved with 2 anchors - trendLine,horizontalLine,ray,rectangle
+ok   stored as rectangle
+ok   Fibonacci retracement pressed
+ok   Fibonacci retracement saved with 2 anchors - trendLine,horizontalLine,ray,rectangle,fibRetracement
+ok   stored as fibRetracement
+ok   pointer cursor over a drawing - pointer
+ok   second anchor moved
+ok   first anchor kept
+ok   both anchors moved by the same time - -5184000,-5184000
+ok   rectangle changed
+ok   bottom-left corner unchanged - {"time":1671753600,"price":63.757515673630465} -> {"time":1671753600,"price":63.757515673630465}
+ok   top-right corner moved
+ok   four drawings left
+ok   undo brings it back
+ok   redo removes it again
+ok   undo again
+ok   five drawings in storage after reload
+ok   pointer cursor over the reloaded trend line - pointer
+ok   drawings unchanged by the change
+ok   chart panned
+ok   Text pressed
+ok   the input is focused
+ok   tool back to Cursor
+ok   one text drawing stored with the text - [{"id":"dmvs5nrs61b15l","tool":"text","anchors":[{"time":1790168400,"price":192.92154584576326}],"text":"first note"}]
+ok   exactly one drawing added
+ok   the input is gone
+ok   the input shows the text
+ok   typing edited the input
+ok   typing did not remove a drawing
+ok   Ctrl+Z inside the input did not change storage
+ok   the input is still open
+ok   the text changed - first noed
+ok   no drawing lost
+ok   the input is gone
+ok   nothing added
+ok   the note is stored with its text
+ok   the measure is painted
+ok   stored count unchanged
+ok   Escape cleared it
+ok   a click on the chart cleared it
+ok   no measure drawing is stored

@@ -1,0 +1,10 @@
+seeded: sidebar=340 dock=420 chart=1060x439 overflowX=false overflowY=false
+dragged: sidebar=300 dock=330 chart=1100x529 overflowX=false overflowY=false
+sidebar-focus: sidebar=348 dock=330 chart=1052x529 overflowX=false overflowY=false
+sidebar-max: sidebar=576 dock=330 chart=824x529 overflowX=false overflowY=false
+dock-max: sidebar=576 dock=659 chart=824x200 overflowX=false overflowY=false
+dock-collapsed: sidebar=576 dock=42 chart=824x815 overflowX=false overflowY=false
+dock-expanded: sidebar=576 dock=659 chart=824x200 overflowX=false overflowY=false
+reset: sidebar=264 dock=320 chart=1136x539 overflowX=false overflowY=false
+small-window: sidebar=264 dock=320 chart=976x359 overflowX=false overflowY=false
+small-window-max: sidebar=512 dock=479 chart=728x200 overflowX=false overflowY=false
