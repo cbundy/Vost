@@ -355,9 +355,40 @@ export function seedWatchlists(providers: readonly DataProvider[]): WatchlistSta
   return { version: 1, activeListId: list.id, lists: [list], tags: [] };
 }
 
+/**
+ * Drops items whose provider is not in `providers` (a provider that was removed). A section emptied only by
+ * that is removed; a list left with no section keeps one empty section. Sections already empty stay.
+ * Returns the same object when nothing changed.
+ */
+export function pruneUnknownProviders(s: WatchlistState, providers: readonly DataProvider[]): WatchlistState {
+  const known = new Set(providers.map((p) => p.id));
+  let changed = false;
+  const lists = s.lists.map((l) => {
+    let listChanged = false;
+    const sections: WatchSection[] = [];
+    for (const sec of l.sections) {
+      const items = sec.items.filter((it) => known.has(it.providerId));
+      if (items.length === sec.items.length) {
+        sections.push(sec);
+        continue;
+      }
+      listChanged = true;
+      if (items.length > 0) sections.push({ ...sec, items });
+    }
+    if (!listChanged) return l;
+    changed = true;
+    return { ...l, sections: sections.length > 0 ? sections : [newSection()] };
+  });
+  return changed ? { ...s, lists } : s;
+}
+
+/** Loads the stored watchlists (or seeds them). Items of providers that are gone are dropped and the cleaned state is saved. */
 export function loadWatchlists(providers: readonly DataProvider[]): WatchlistState {
   const stored = parseWatchlistState(loadJson<unknown>(WATCHLISTS_KEY, null));
-  return stored ?? seedWatchlists(providers);
+  if (!stored) return seedWatchlists(providers);
+  const cleaned = pruneUnknownProviders(stored, providers);
+  if (cleaned !== stored) saveWatchlists(cleaned);
+  return cleaned;
 }
 
 export function saveWatchlists(s: WatchlistState): { ok: boolean; error?: string } {
@@ -372,7 +403,7 @@ export function exportList(list: WatchList, tags: TagDef[]): string {
 }
 
 /** Imports an exported list as a new list. Never throws; returns an error string on invalid input. */
-export function importList(json: string, s: WatchlistState): WatchlistState | string {
+export function importList(json: string, s: WatchlistState, providers?: readonly DataProvider[]): WatchlistState | string {
   let data: unknown;
   try {
     data = JSON.parse(json);
@@ -380,8 +411,9 @@ export function importList(json: string, s: WatchlistState): WatchlistState | st
     return 'Invalid JSON';
   }
   if (!isObj(data) || data.version !== 1) return 'Unsupported watchlist version';
-  const parsed = parseList(data.list);
-  if (!parsed) return 'Invalid watchlist';
+  const parsedAll = parseList(data.list);
+  if (!parsedAll) return 'Invalid watchlist';
+  const parsed = providers ? pruneUnknownProviders({ ...s, lists: [parsedAll] }, providers).lists[0] : parsedAll;
   const incomingTags: TagDef[] = [];
   if (data.tags !== undefined) {
     if (!Array.isArray(data.tags)) return 'Invalid tags';

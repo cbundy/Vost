@@ -11,7 +11,6 @@ import { okxAdapter } from './okx.ts';
 import { cropToSpan } from './range.ts';
 import { createSymbolCache } from './symbolCache.ts';
 import { ctxFor, fakeFetch } from './testing.ts';
-import { stooqAdapter } from './stooq.ts';
 import { yahooAdapter } from './yahoo.ts';
 import type { FetchFn } from './upstream.ts';
 
@@ -271,22 +270,5 @@ describe('Yahoo', () => {
   it('404 when no bar is inside the span', async () => {
     const f = fakeFetch(() => chart([0, 86400]));
     await expect(yahooAdapter.history(ctxFor(f), { symbol: 'aapl', timeframe: '1d', bars: 0, from: 5 * 86400, to: 6 * 86400 })).rejects.toThrow(/Yahoo Finance has no aapl 1d data/);
-  });
-});
-
-describe('Stooq', () => {
-  const csv = ['Date,Open,High,Low,Close,Volume', ...[1, 2, 3, 4, 5].map((d) => `2024-01-0${d},1,3,0.5,2,9`)].join('\n');
-  const day = (d: number) => Date.parse(`2024-01-0${d}`) / 1000;
-  const ctx = () => ({ fetch: (async () => new Response(csv, { status: 200 })) as unknown as FetchFn, symbols: createSymbolCache() });
-  it('crops the CSV to the span without a bars cut', async () => {
-    const out = await stooqAdapter.history(ctx(), { symbol: 'aapl.us', timeframe: '1d', bars: 1, from: day(2), to: day(4) });
-    expect(times(out)).toEqual([day(2), day(3), day(4)]);
-  });
-  it('returns partial coverage when the CSV starts after from', async () => {
-    const out = await stooqAdapter.history(ctx(), { symbol: 'aapl.us', timeframe: '1d', bars: 1, from: day(1) - 10 * 86400, to: day(3) });
-    expect(times(out)).toEqual([day(1), day(2), day(3)]);
-  });
-  it('404 when the span holds nothing', async () => {
-    await expect(stooqAdapter.history(ctx(), { symbol: 'aapl.us', timeframe: '1d', bars: 1, from: day(5) + 86400, to: day(5) + 2 * 86400 })).rejects.toThrow(/Stooq has no aapl.us 1d data/);
   });
 });

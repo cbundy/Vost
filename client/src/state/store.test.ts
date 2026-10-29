@@ -1354,3 +1354,29 @@ describe('replay', () => {
     expect(bad.getState().drawingsHidden).toBe(false);
   });
 });
+
+describe('init with saved prefs', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+  });
+
+  const startWith = async (prefs: object) => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify(prefs));
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore.getState();
+  };
+
+  it('opens on the default market when the stored provider is gone', async () => {
+    const st = await startWith({ providerId: 'stooq', symbol: 'aapl.us', timeframe: '1d' });
+    expect([st.providerId, st.symbol, st.timeframe]).toEqual(['binance', 'BTCUSDT', '1h']);
+  });
+
+  it('keeps a stored demo market', async () => {
+    const st = await startWith({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d' });
+    expect([st.providerId, st.symbol, st.timeframe]).toEqual(['demo', 'DEMO', '1d']);
+  });
+});

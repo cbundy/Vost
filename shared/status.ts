@@ -62,15 +62,11 @@ export interface RecorderStatus {
   series: RecorderSeriesStatus[];
 }
 
-/** Providers whose symbol lookup is built in (no remote call to check). */
-const LOCAL_SYMBOLS = new Set(['stooq']);
-
 /** The feeds Vost checks for a provider, derived from the catalog. */
 export function statusFeeds(provider: string): StatusFeed[] {
   const info = PROVIDER_CATALOG.find((p) => p.id === provider);
   if (!info) return [];
-  const feeds: StatusFeed[] = ['history'];
-  if (!LOCAL_SYMBOLS.has(provider)) feeds.push('symbols');
+  const feeds: StatusFeed[] = ['history', 'symbols'];
   if (info.supportsLive) feeds.push('live');
   return feeds;
 }

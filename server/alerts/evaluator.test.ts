@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -199,20 +199,18 @@ describe('live subscriptions', () => {
 describe('polling', () => {
   it('polls the smallest timeframe at the interval, once per symbol', async () => {
     const cb = fakeAdapter('yahoo', () => 90);
-    const st = fakeAdapter('stooq', () => 90);
     const f = fakeRelay();
-    const a = await start(f.relay, [cb.adapter, st.adapter], { pollSeconds: 30 });
+    const a = await start(f.relay, [cb.adapter], { pollSeconds: 30 });
     await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL' }));
     await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL', level: 500 }));
-    await a.service.create(body({ provider: 'stooq', symbol: 'AAPL.US' }));
+    await a.service.create(body({ provider: 'yahoo', symbol: 'MSFT' }));
     expect(f.subs).toHaveLength(0);
-    expect(cb.calls).toHaveLength(1); // first price at once, shared by both alerts
-    expect(cb.calls[0]).toMatchObject({ symbol: 'AAPL', timeframe: '1m' });
-    expect(st.calls[0].timeframe).toBe('1d');
+    expect(cb.calls).toHaveLength(2); // first price of each symbol at once, shared by both AAPL alerts
+    expect(cb.calls.map((c) => c.symbol).sort()).toEqual(['AAPL', 'MSFT']);
+    expect(cb.calls.every((c) => c.timeframe === '1m')).toBe(true);
     expect(timers.delays()).toEqual([30_000]);
     timers.advance(30_000);
-    expect(cb.calls).toHaveLength(2);
-    expect(st.calls).toHaveLength(2);
+    expect(cb.calls).toHaveLength(4);
   });
 
   it('clamps a poll interval below 10 s to 10 s', async () => {
@@ -253,5 +251,26 @@ describe('polling', () => {
     fail = false;
     timers.advance(60_000);
     await vi.waitFor(() => expect(a.service.list()[0].lastPrice).toBe(90));
+  });
+});
+
+describe('a provider that is gone', () => {
+  it('logs an active alert for it once, across poll rounds, and keeps the alert', async () => {
+    const first = await start(fakeRelay().relay);
+    await first.service.create(body({ provider: 'binance', symbol: 'OLD' }));
+    await first.stop();
+    const file = path.join(dir, 'alerts.json');
+    const data = JSON.parse(await readFile(file, 'utf8'));
+    data.alerts[0].provider = 'stooq';
+    data.alerts[0].symbol = 'AAPL.US';
+    await writeFile(file, JSON.stringify(data));
+    const cb = fakeAdapter('yahoo', () => 90);
+    const a = await start(fakeRelay().relay, [cb.adapter]);
+    for (let i = 0; i < 3; i++) {
+      timers.advance(60_000);
+      await new Promise<void>((r) => setImmediate(r));
+    }
+    expect(logs.filter((l) => l.includes('stooq'))).toEqual(['[alerts] stooq AAPL.US stooq is no longer offered']);
+    expect(a.service.list()[0]).toMatchObject({ provider: 'stooq', status: 'active' });
   });
 });

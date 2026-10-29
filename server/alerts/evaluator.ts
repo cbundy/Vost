@@ -65,7 +65,10 @@ export function createEvaluator(deps: EvaluatorDeps): Evaluator {
     if (!target || target.busy || stopped) return;
     const adapter = deps.adapters.get(target.provider);
     const timeframe = catalogEntry(target.provider)?.timeframes[0] as Timeframe | undefined;
-    if (!adapter || !timeframe) return;
+    if (!adapter || !timeframe) {
+      fail(key, target.provider, target.symbol, `${target.provider} is no longer offered`);
+      return;
+    }
     target.busy = true;
     try {
       const candles = await adapter.history(deps.ctx(), { symbol: target.symbol, timeframe, bars: 3 });

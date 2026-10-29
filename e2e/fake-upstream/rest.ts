@@ -174,19 +174,6 @@ const yahoo: Handler = (url, nowSec) => {
   return notFound(url);
 };
 
-/* ---------------------------------- Stooq --------------------------------- */
-
-const STOOQ_STEPS: Record<string, number> = { d: 86400, w: 604800, m: 2592000 };
-
-const stooq: Handler = (url, nowSec) => {
-  if (url.pathname !== '/q/d/l/') return notFound(url);
-  const step = STOOQ_STEPS[url.searchParams.get('i') ?? ''];
-  if (!step) return { type: 'text/plain', body: 'No data' };
-  const rows = bars(url.searchParams.get('s') ?? '', { step, nowSec });
-  const csv = ['Date,Open,High,Low,Close,Volume', ...rows.map((b) => `${new Date(b.time * 1000).toISOString().slice(0, 10)},${b.open},${b.high},${b.low},${b.close},${b.volume}`)];
-  return { type: 'text/csv; charset=utf-8', body: csv.join('\n') + '\n' };
-};
-
 /** Handlers by the original host name (no port). */
 export const REST_HOSTS: Record<string, Handler> = {
   'api.binance.com': binance,
@@ -196,5 +183,4 @@ export const REST_HOSTS: Record<string, Handler> = {
   'api.bybit.com': bybit,
   'www.okx.com': okx,
   'query1.finance.yahoo.com': yahoo,
-  'stooq.com': stooq,
 };

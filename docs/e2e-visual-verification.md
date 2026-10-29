@@ -59,8 +59,8 @@ websocket URL to the fake, keeping the original scheme and host in the path:
 and `wss://stream.binance.com:9443/ws/a` becomes `ws://127.0.0.1:<port>/wss/stream.binance.com:9443/ws/a`
 (`server/testUpstream.ts`). Unset, URLs are untouched, which is the production path.
 
-- The fake answers in each provider's real format: history, symbols and search for all 9 providers (Binance on both
-  hosts, Coinbase, Kraken, Bybit, OKX, Hyperliquid Perps, Hyperliquid Spot, Yahoo, Stooq) and a new live kline at least every second (a changing close) on
+- The fake answers in each provider's real format: history, symbols and search for all 8 providers (Binance on both
+  hosts, Coinbase, Kraken, Bybit, OKX, Hyperliquid Perps, Hyperliquid Spot, Yahoo) and a new live kline at least every second (a changing close) on
   the seven live feeds, including their subscribe and ping messages (Coinbase sends trades, `last_match` then `match`,
   priced at the fake forming bar, and the server builds the candle). It records every request it served (with method and body for a POST). It also answers Telegram's
   `sendMessage`, and the capture runner turns Telegram on with a test token, so a fired alert sends to the fake only.
