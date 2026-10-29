@@ -1,6 +1,7 @@
 import { editorTheme } from '../lib/theme';
 import { useEffect, useRef } from 'react';
-import { Compartment, EditorState } from '@codemirror/state';
+import { ChangeSet, Compartment, EditorState, type Extension } from '@codemirror/state';
+import { getOriginalDoc, unifiedMergeView, updateOriginalDoc } from '@codemirror/merge';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
@@ -35,6 +36,15 @@ const theme = EditorView.theme(
     '.cm-tooltip': { backgroundColor: editorTheme.tooltip, border: '1px solid var(--border-2)', color: editorTheme.text },
     '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'rgba(100,140,255,0.3)', color: editorTheme.text },
     '&.cm-focused .cm-matchingBracket': { backgroundColor: 'rgba(100,140,255,0.35)', outline: 'none' },
+    // compare mode (unifiedMergeView): low-alpha green/red so syntax colours stay readable
+    '.cm-changedLine, .cm-insertedLine': { backgroundColor: 'rgba(34,197,94,0.12)' },
+    '.cm-changedText, ins.cm-insertedLine': { backgroundColor: 'rgba(34,197,94,0.28)', textDecoration: 'none' },
+    '.cm-deletedChunk': { backgroundColor: 'rgba(239,68,68,0.12)', paddingLeft: '6px' },
+    '.cm-deletedChunk .cm-deletedLine, .cm-deletedChunk del': { backgroundColor: 'rgba(239,68,68,0.3)', textDecoration: 'none' },
+    '.cm-deletedChunk .cm-chunkButtons': { display: 'none' },
+    '.cm-changeGutter': { width: '4px', paddingLeft: '1px' },
+    '.cm-changedLineGutter': { backgroundColor: 'var(--green)' },
+    '.cm-deletedLineGutter': { backgroundColor: 'var(--red)' },
   },
   { dark: true },
 );
@@ -47,10 +57,15 @@ interface Props {
   minHeight?: number;
   /** Called with the 1-based line and column of the cursor on every change of the selection or document. */
   onCursor?: (line: number, col: number) => void;
+  /** When set, the editor marks what differs from this text (added, changed and removed lines). */
+  compareTo?: string;
 }
 
+const mergeExtension = (original: string): Extension =>
+  unifiedMergeView({ original, mergeControls: false, highlightChanges: true, gutter: true, syntaxHighlightDeletions: true });
+
 /** CodeMirror 6 editor for Pine Script with highlighting, autocomplete and inline error markers. */
-export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200, onCursor }: Props) {
+export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200, onCursor, compareTo }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -58,6 +73,8 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
   const onCursorRef = useRef(onCursor);
   onCursorRef.current = onCursor;
   const sizing = useRef(new Compartment());
+  const merge = useRef(new Compartment());
+  const compareRef = useRef(compareTo);
 
   useEffect(() => {
     const v = new EditorView({
@@ -79,6 +96,7 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
           keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...completionKeymap, indentWithTab]),
           theme,
           sizing.current.of(EditorView.theme({ '.cm-scroller': { minHeight: `${minHeight}px` } })),
+          merge.current.of(compareTo === undefined ? [] : mergeExtension(compareTo)),
           EditorState.tabSize.of(2),
           EditorView.contentAttributes.of({ 'aria-label': ariaLabel, spellcheck: 'false' }),
           EditorView.updateListener.of((u) => {
@@ -107,6 +125,22 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
     const cur = v.state.doc.toString();
     if (cur !== value) v.dispatch({ changes: { from: 0, to: cur.length, insert: value } });
   }, [value]);
+
+  // Compare mode: switch the diff on or off by reconfiguring; otherwise feed the new original in place.
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+    const was = compareRef.current;
+    compareRef.current = compareTo;
+    if (was === compareTo) return;
+    if (was === undefined || compareTo === undefined) {
+      v.dispatch({ effects: merge.current.reconfigure(compareTo === undefined ? [] : mergeExtension(compareTo)) });
+      return;
+    }
+    const cur = getOriginalDoc(v.state);
+    const changes = ChangeSet.of({ from: 0, to: cur.length, insert: compareTo }, cur.length);
+    v.dispatch({ effects: updateOriginalDoc.of({ doc: changes.apply(cur), changes }) });
+  }, [compareTo]);
 
   useEffect(() => {
     const v = view.current;

@@ -1,0 +1,8 @@
+http://127.0.0.1:46335/compare
+http://127.0.0.1:46335/assets/index-Cy-fh0s8.js
+http://127.0.0.1:46335/assets/index-BOmd896u.css
+http://127.0.0.1:46335/assets/ComparePage-jqcCfbku.js
+http://127.0.0.1:46335/compare
+http://127.0.0.1:46335/assets/index-Cy-fh0s8.js
+http://127.0.0.1:46335/assets/index-BOmd896u.css
+http://127.0.0.1:46335/assets/ComparePage-jqcCfbku.js

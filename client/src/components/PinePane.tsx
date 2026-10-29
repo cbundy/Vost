@@ -54,6 +54,9 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
             </select>
           </>
         )}
+        <a className="pine-compare-link" href="/compare" target="_blank" rel="noopener" title="Compare Pine scripts side by side">
+          Compare
+        </a>
         <span className="pine-pane-spacer" />
         <button ref={closeRef} className="ghost icon" aria-label="Close Pine editor" title="Close (Esc)" onClick={onClose}>
           ✕

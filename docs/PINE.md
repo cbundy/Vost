@@ -19,6 +19,10 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 
 Pine indicators are edited in the Pine editor pane to the right of the chart, with its own resize handle and close button. The Pine Editor button in the top bar opens it, and so does the Edit button on a Pine indicator in the side panel's Indicators section. On a narrow window (900px and below) the pane is a dialog that covers the chart area and closes with Escape. A status line shows the cursor position and the Pine version.
 
+## Compare
+
+The page at `/compare` (also linked as Compare in the Pine editor's head) puts 2, 3 or 4 Pine scripts side by side: Code A to Code D. Paste or type into any pane, load a Pine indicator saved on the chart with Load, open a `.pine` or `.txt` file with Open file, or Clear a pane. Compare against picks the reference pane (Code A by default). Every other pane marks what differs from the reference: green lines and words were added or changed, red lines shown inline were removed. Its header counts the differences ("3 differences: +2 lines, -2 lines vs Code A") or says "Identical to Code A"; texts are compared exactly as written, so a trailing newline or a space counts. Lowering the pane count hides the last panes but keeps their text. Everything is saved in the browser and restored on reload. The page loads no market data and runs no Pine code.
+
 ## Old scripts (v1 to v4)
 
 PineTS reads a script with no `//@version` line as raw JavaScript, so old Pine used to fail with a confusing parser error. `runPine` now checks the version first (`version.ts`, the same marker PineTS looks for). A script with no version line, or a version below 5, resolves to a plain message instead: "This is a Pine v4 script. Vost runs Pine v5 and v6: use Convert to v6." (a script with no version line is read as v1, and the message also says to add `//@version=6` if it is already v6 code).
