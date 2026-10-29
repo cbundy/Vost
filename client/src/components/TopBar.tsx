@@ -13,6 +13,7 @@ import { selectDataCandles } from '../state/chart';
 import { ChartRangeControl } from './ChartRangeControl';
 import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
+import { LayoutPicker } from './LayoutPicker';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
 import { useChart, useChartStore } from '../state/chartContext';
@@ -163,6 +164,7 @@ export function TopBar({
 
   return (
     <header className="topbar">
+      <LayoutPicker />
       <div className="brand" title={`Vost v${APP_VERSION} — self-hosted charts & backtesting`}>
         <span className="brand-logo">
           <svg width="16" height="16" viewBox="0 0 32 32">

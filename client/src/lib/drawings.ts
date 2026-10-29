@@ -165,7 +165,41 @@ export function saveDrawings(sources: Record<string, Drawing[]>): void {
   saveJson(STORAGE_KEY, { version: STORAGE_VERSION, sources: clean });
 }
 
-/** A debounced saver; `flush()` writes a pending save at once (call it on pagehide). */
-export function createDrawingSaver(wait = 400) {
-  return debounce(saveDrawings, wait);
+/* --------------------------- one store per tab --------------------------- */
+
+export type DrawingsStorage = {
+  /** The stored drawings of one source (loaded once, on first use). */
+  get(key: string): Drawing[];
+  /** Replaces a source's drawings, saves (debounced) and tells every subscriber which source changed. */
+  set(key: string, drawings: Drawing[]): void;
+  /** Called with the changed source's key after each `set`; returns the unsubscribe. */
+  subscribe(listener: (key: string) => void): () => void;
+  /** Writes a pending save now (call it on pagehide). */
+  flush(): void;
+};
+
+/**
+ * The one in-memory copy of every chart's drawings and the one saver, shared by all charts on the page, so charts
+ * showing different sources never overwrite each other's save and charts on one source see each other's edits.
+ */
+export function createDrawingsStorage(load: () => Record<string, Drawing[]>, save: (sources: Record<string, Drawing[]>) => void, wait = 400): DrawingsStorage {
+  let sources: Record<string, Drawing[]> | null = null;
+  const saver = debounce(save, wait);
+  const listeners = new Set<(key: string) => void>();
+  return {
+    get(key) {
+      sources ??= load();
+      return sources[key] ?? [];
+    },
+    set(key, drawings) {
+      sources = { ...(sources ?? load()), [key]: drawings };
+      saver(sources);
+      for (const l of [...listeners]) l(key);
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    flush: () => saver.flush(),
+  };
 }

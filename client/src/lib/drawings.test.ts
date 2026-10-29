@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HISTORY_LIMIT,
+  createDrawingsStorage,
   STORAGE_KEY,
   add,
   commit,
@@ -223,5 +224,67 @@ describe('setText', () => {
     const s0 = emptyState([note]);
     expect(setText(s0, 'n', ' old ')).toBe(s0);
     expect(setText(s0, 'zz', 'x')).toBe(s0);
+  });
+});
+
+describe('the shared drawings storage (several charts on one page)', () => {
+  const mk = () => createDrawingsStorage(() => loadDrawings(COUNTS, TEXT).sources, saveDrawings, 400);
+  const saved = () => loadDrawings(COUNTS, TEXT).sources;
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('two charts on different sources lose nothing: the saved payload holds both', () => {
+    const shared = mk();
+    shared.set('binance:BTCUSDT', [trend('a')]);
+    shared.set('demo:DEMO', [hline('b')]);
+    vi.advanceTimersByTime(500);
+    expect(Object.keys(saved()).sort()).toEqual(['binance:BTCUSDT', 'demo:DEMO']);
+  });
+
+  it('why one storage per page: separate copies (one per chart) overwrite each other', () => {
+    const chartA = mk();
+    const chartB = mk();
+    chartA.get('binance:BTCUSDT'); // both read the stored map before either edits
+    chartB.get('demo:DEMO');
+    chartA.set('binance:BTCUSDT', [trend('a')]);
+    chartB.set('demo:DEMO', [hline('b')]);
+    vi.advanceTimersByTime(500);
+    expect(Object.keys(saved())).toEqual(['demo:DEMO']); // chart A's drawing is gone
+  });
+
+  it('tells a chart on the same source about the other chart edit', () => {
+    const shared = mk();
+    const seenByB: string[] = [];
+    shared.subscribe((key) => seenByB.push(`${key}:${shared.get(key).map((d) => d.id).join(',')}`));
+    shared.set('demo:DEMO', [trend('a')]);
+    shared.set('demo:DEMO', [trend('a'), hline('b')]);
+    expect(seenByB).toEqual(['demo:DEMO:a', 'demo:DEMO:a,b']);
+  });
+
+  it('stops telling an unsubscribed listener', () => {
+    const shared = mk();
+    const seen: string[] = [];
+    const off = shared.subscribe((k) => seen.push(k));
+    shared.set('x', [trend('a')]);
+    off();
+    shared.set('x', [trend('b')]);
+    expect(seen).toEqual(['x']);
+  });
+
+  it('a single chart still persists and reloads', () => {
+    const only = mk();
+    only.set('demo:DEMO', [trend('a')]);
+    only.flush();
+    expect(saved()['demo:DEMO'].map((d) => d.id)).toEqual(['a']);
+    expect(mk().get('demo:DEMO').map((d) => d.id)).toEqual(['a']);
+    expect(mk().get('other')).toEqual([]);
+  });
+
+  it('keeps what was stored before for sources nobody touched', () => {
+    saveDrawings({ 'old:SYM': [trend('o')] });
+    const shared = mk();
+    shared.set('demo:DEMO', [hline('b')]);
+    shared.flush();
+    expect(Object.keys(saved()).sort()).toEqual(['demo:DEMO', 'old:SYM']);
   });
 });

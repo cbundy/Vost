@@ -5,9 +5,10 @@ import { MOUSE_HIT, TOUCH_HIT, snapToBar, type Pt } from '../../lib/drawingGeome
 import {
   add,
   commit,
-  createDrawingSaver,
+  createDrawingsStorage,
   emptyState,
   loadDrawings,
+  saveDrawings,
   newDrawingId,
   preview,
   redo,
@@ -20,13 +21,23 @@ import {
   type Anchor,
   type Drawing,
   type DrawingsState,
+  type DrawingsStorage,
 } from '../../lib/drawings';
+import { drawingKeyAction } from '../../lib/drawingKeys';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { ANCHOR_COUNTS, TEXT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export const CURSOR = 'cursor';
+
+/** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
+let storage: DrawingsStorage | null = null;
+function drawingsStorage(): DrawingsStorage {
+  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS).sources, saveDrawings);
+  return storage;
+}
+
 /** Pixels a press must travel to count as a drag (a trend line press-drag-release rather than click, click). */
 const DRAG_PX = 4;
 
@@ -68,6 +79,8 @@ export function useDrawings(
   chart: IChartApi | null,
   series: ISeriesApi<'Candlestick'> | null,
   containerRef: RefObject<HTMLDivElement | null>,
+  /** Whether this chart is the active one: only then do the keyboard shortcuts act on it. */
+  active = true,
 ) {
   const providerId = useChart((s) => s.providerId);
   const chartStore = useChartStore();
@@ -85,8 +98,6 @@ export function useDrawings(
   const hasDataRef = useRef(hasData);
   const primRef = useRef<DrawingPrimitive | null>(null);
   const statesRef = useRef(new Map<string, DrawingsState>());
-  const sourcesRef = useRef<Record<string, Drawing[]> | null>(null);
-  const saverRef = useRef<ReturnType<typeof createDrawingSaver> | null>(null);
   const selectedRef = useRef<string | null>(null);
   const draftRef = useRef<Draft | null>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -105,8 +116,7 @@ export function useDrawings(
     const k = keyRef.current;
     let st = statesRef.current.get(k);
     if (!st) {
-      sourcesRef.current ??= loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS).sources;
-      st = emptyState(sourcesRef.current[k] ?? []);
+      st = emptyState(drawingsStorage().get(k));
       statesRef.current.set(k, st);
     }
     return st;
@@ -130,9 +140,7 @@ export function useDrawings(
       statesRef.current.set(keyRef.current, next);
       setDrawingCount(next.drawings.length);
       if (persist) {
-        sourcesRef.current = { ...(sourcesRef.current ?? loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS).sources), [keyRef.current]: next.drawings };
-        saverRef.current ??= createDrawingSaver();
-        saverRef.current(sourcesRef.current);
+        drawingsStorage().set(keyRef.current, next.drawings);
       }
       sync();
     },
@@ -306,7 +314,7 @@ export function useDrawings(
 
   /* Flush a pending save when the page goes away. */
   useEffect(() => {
-    const flush = () => saverRef.current?.flush();
+    const flush = () => drawingsStorage().flush();
     window.addEventListener('pagehide', flush);
     return () => {
       window.removeEventListener('pagehide', flush);
@@ -570,13 +578,33 @@ export function useDrawings(
     };
   }, [chart, containerRef, getState, setState, setTool, sync, openEditor]);
 
-  /* Keyboard. */
+  /* Another chart changed a source this chart has open: show it, keeping this chart's own undo history. */
+  useEffect(
+    () =>
+      drawingsStorage().subscribe((changed) => {
+        const st = statesRef.current.get(changed);
+        const list = drawingsStorage().get(changed);
+        if (!st || st.drawings === list) return;
+        statesRef.current.set(changed, { ...st, drawings: list });
+        if (changed !== keyRef.current) return;
+        if (selectedRef.current && !list.some((d) => d.id === selectedRef.current)) selectedRef.current = null;
+        setDrawingCount(list.length);
+        sync();
+      }),
+    [sync],
+  );
+
+  /* Keyboard: only the active chart's panel acts on it. */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isEditable(e.target) || dragRef.current) return;
-      const mod = e.ctrlKey || e.metaKey;
-      const k = e.key.toLowerCase();
-      if (e.key === 'Escape') {
+      const action = drawingKeyAction(e, {
+        active,
+        editable: isEditable(e.target),
+        dragging: dragRef.current != null,
+        hasSelection: selectedRef.current != null,
+      });
+      if (!action) return;
+      if (action === 'escape') {
         if (draftRef.current || toolRef.current !== CURSOR || measureRef.current) {
           measureRef.current = null;
           setTool(CURSOR);
@@ -584,26 +612,23 @@ export function useDrawings(
         }
         return;
       }
-      if (mod && !e.altKey && (k === 'z' || k === 'y')) {
-        const wantRedo = k === 'y' || e.shiftKey;
+      if (action === 'undo' || action === 'redo') {
         const st = getState();
-        const next = wantRedo ? redo(st) : undo(st);
+        const next = action === 'redo' ? redo(st) : undo(st);
         e.preventDefault();
         if (next === st) return;
         if (selectedRef.current && !next.drawings.some((d) => d.id === selectedRef.current)) selectedRef.current = null;
         setState(next, true);
         return;
       }
-      if (!mod && (e.key === 'Delete' || e.key === 'Backspace') && selectedRef.current) {
-        e.preventDefault();
-        setState(remove(getState(), selectedRef.current), true);
-        selectedRef.current = null;
-        sync();
-      }
+      e.preventDefault();
+      setState(remove(getState(), selectedRef.current as string), true);
+      selectedRef.current = null;
+      sync();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [getState, setState, setTool, sync]);
+  }, [active, getState, setState, setTool, sync]);
 
   const deleteAll = useCallback(() => {
     if (getState().drawings.length === 0) return;
