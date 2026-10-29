@@ -19,6 +19,13 @@
  *                    without a live feed (default 60; minimum 10)
  *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
  *                       fires is also sent to that Telegram chat (the token is a secret)
+ *   VOST_RECORD  the markets the server records at all times (history filled
+ *                from the exchange, then every closed candle written to the
+ *                candle store): entries separated by commas or spaces, each
+ *                provider:SYMBOL or provider:SYMBOL:tf/tf. Default: BTC and ETH
+ *                on Binance, Coinbase and Hyperliquid, every timeframe. `off`
+ *                records nothing. Keeps one exchange connection open per series.
+ *   VOST_RECORD_BARS  bars kept per recorded series (default 20000; minimum 100)
  *   VOST_TEST_UPSTREAM  test only: http://127.0.0.1:<port> of a fake market-data
  *                       service that every outbound call is rewritten to (see
  *                       docs/e2e-visual-verification.md). Refused when
@@ -34,6 +41,9 @@ import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
 import { createApiDeps, handleApi } from './api.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
+import { describeRecord, readRecordConfig, recordedFilter } from './candles/recordConfig.ts';
+import { createRecorder } from './candles/recorder.ts';
+import { adapters } from './providers/index.ts';
 import { openCandleStore } from './candles/store.ts';
 import { sendJson } from './respond.ts';
 import { handleStatus } from './status/route.ts';
@@ -173,10 +183,20 @@ const status = createStatusService({
   intervalSeconds: Number.isFinite(intervalEnv) && intervalEnv > 0 ? intervalEnv : 0,
   relayStats: () => relay.stats(),
   candleStats: () => candles.stats(),
+  recorderStats: () => recorder.stats(),
 });
 const DATA_DIR = path.resolve(process.env.VOST_DATA_DIR || path.join(ROOT, 'data'));
 const candles = await openCandleStore({ dir: DATA_DIR });
-const apiDeps = createApiDeps({ candles, onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
+const recordConfig = readRecordConfig(process.env, (line) => console.warn(line));
+const apiDeps = createApiDeps({ candles, isRecorded: recordedFilter(recordConfig), onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
+
+const recorder = createRecorder({
+  config: recordConfig,
+  store: candles,
+  relay,
+  adapters,
+  ctx: () => ({ fetch: apiDeps.fetch, symbols: apiDeps.symbols }),
+});
 
 const pollEnv = Number(process.env.VOST_ALERT_POLL ?? 60);
 const telegramConfig = readTelegramConfig(process.env, (line) => console.warn(line));
@@ -240,13 +260,16 @@ server.listen(PORT, HOST, () => {
   console.log(`  → live candles: /api/live`);
   console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
   console.log(`  → candle store: ${`${candles.on ? 'on' : 'off'} (${candles.file})`}`);
+  console.log(`  → ${describeRecord(recordConfig, candles.on)}`);
   console.log('');
   status.scheduler.start();
+  recorder.start();
 });
 
 const shutdown = (): void => {
   status.scheduler.stop();
   const saved = alerts.stop(); // drops its feeds, ends its streams, writes held prices
+  recorder.stop(); // unsubscribes its feeds and aborts its fill, before the relay and the store go
   relay.closeAll(); // ends the streams, so server.close does not wait on them
   candles.close();
   server.close(() => void saved.finally(() => process.exit(0)));

@@ -9,6 +9,8 @@ services:
     environment:
       PORT: "8787"
       HOST: "0.0.0.0"
+      VOST_RECORD: "${VOST_RECORD:-}"
+      VOST_RECORD_BARS: "${VOST_RECORD_BARS:-}"
       VOST_TELEGRAM_BOT_TOKEN: "${VOST_TELEGRAM_BOT_TOKEN:-}"
       VOST_TELEGRAM_CHAT_ID: "${VOST_TELEGRAM_CHAT_ID:-}"
     volumes:

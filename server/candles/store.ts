@@ -53,6 +53,8 @@ export interface CandleStore {
   covered(series: Series, from: number, to: number): Interval[];
   /** Deletes rows older than `olderThan` and trims coverage to match. */
   prune(series: Series | 'all', olderThan: number): void;
+  /** Every series that has rows. */
+  listSeries(): Series[];
   stats(): CandleStats;
   close(): void;
 }
@@ -84,6 +86,7 @@ function offStore(file: string): CandleStore {
     lastN: () => [],
     covered: (_s, from, to) => (from <= to ? [{ from, to }] : []),
     prune() {},
+    listSeries: () => [],
     stats: () => ({ on: false, series: 0, rows: 0, bytes: 0 }),
     close() {},
   };
@@ -243,6 +246,10 @@ export async function openCandleStore(deps: CandleStoreDeps): Promise<CandleStor
         database.prepare(`DELETE FROM coverage WHERE to_time < ?${where}`).run(olderThan, ...args);
         database.prepare(`UPDATE coverage SET from_time = ? WHERE from_time < ?${where}`).run(olderThan, olderThan, ...args);
       });
+    },
+    listSeries() {
+      if (!open) return [];
+      return (database.prepare('SELECT DISTINCT provider, symbol, timeframe FROM candles').all() as unknown as Series[]).map((r) => ({ provider: r.provider, symbol: r.symbol, timeframe: r.timeframe }));
     },
     stats() {
       if (!open) return { on: false, series: 0, rows: 0, bytes: 0 };

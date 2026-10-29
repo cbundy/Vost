@@ -47,7 +47,7 @@ interface Pending {
 }
 
 /** Manual clock: nothing runs until `advance()`. `pending` is what is still scheduled. */
-export function fakeTimers(): Timers & { advance(ms: number): void; readonly pending: number; delays(): number[] } {
+export function fakeTimers(): Timers & { advance(ms: number): void; readonly pending: number; readonly elapsed: number; delays(): number[] } {
   let now = 0;
   let nextId = 1;
   const list: Pending[] = [];
@@ -79,6 +79,9 @@ export function fakeTimers(): Timers & { advance(ms: number): void; readonly pen
     },
     get pending() {
       return list.length;
+    },
+    get elapsed() {
+      return now;
     },
     delays: () => list.map((t) => t.at - now),
   };
