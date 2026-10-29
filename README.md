@@ -179,7 +179,7 @@ Vost/
 │       │   ├── csv.ts         # dialect-tolerant CSV import engine
 │       │   ├── indicators.ts  # SMA/EMA/RSI/MACD/BB/ATR/VWAP…
 │       │   └── workers/       # backtest Web Worker
-│       └── state/             # app store (prefs, datasets, layout) + one chart store per chart (data, runs, live)
+│       └── state/             # app store (prefs, datasets, layout, saved layouts) + one chart store per chart (data, runs, live)
 ├── server/
 │   ├── index.mjs              # entry point: checks the Node version, then loads main.ts
 │   ├── main.ts                # zero-dep Node server: static files + the /api routes
@@ -212,7 +212,8 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 - [x] Drawing tools: trend line, horizontal line, ray, rectangle, Fibonacci retracement and text notes (select, move, resize, delete, undo/redo, saved per symbol), magnet, hide all, delete all and touch drawing with a phone menu, plus a temporary measure tool (price change, percent, bars and time)
 - [x] Price alerts (stored and watched by the server around the clock, optional Telegram message)
 - [ ] Alerts on indicator conditions
-- [ ] Multiple chart layouts & compare mode
+- [x] Multiple chart layouts (named, saved in the browser)
+- [ ] Compare mode
 - [ ] More providers: keyless crypto exchanges (Coinbase, Kraken, Bybit, OKX) then free-key Twelve Data and Alpha Vantage - see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)
 - [ ] Walk-forward & portfolio (multi-asset) backtesting
 - [ ] PWA install for full offline app caching

@@ -48,6 +48,7 @@ export function ChartGrid({ onImportCsv, onAddAlert }: { onImportCsv: () => void
   const order = useStore((s) => s.chartOrder);
   const charts = useStore((s) => s.charts);
   const activeId = useStore((s) => s.activeChartId);
+  const gen = useStore((s) => s.layoutGen);
   const sizes = useStore((s) => s.layoutSizes);
   const setActiveChart = useStore((s) => s.setActiveChart);
   const setLayoutSizes = useStore((s) => s.setLayoutSizes);
@@ -115,7 +116,7 @@ export function ChartGrid({ onImportCsv, onAddAlert }: { onImportCsv: () => void
           const active = id === activeId;
           return (
             <div
-              key={id}
+              key={`${gen}-${id}`}
               className={`chart-cell${multi && active ? ' active' : ''}${narrow && !active ? ' away' : ''}`}
               data-chart-id={id}
               data-active={active ? 'true' : 'false'}

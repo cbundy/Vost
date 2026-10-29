@@ -35,7 +35,7 @@ const SYMBOLS = ['DEMO', 'DEMO-BEAR', 'DEMO-CHOP', 'DEMO-DOWN'];
 
 export const layouts: Scenario = {
   name: 'layouts',
-  description: 'The layout picker (55 arrangements), a 2x2 grid of four markets, a large chart plus three, the active chart, a dragged divider, the layout back after a reload, and the narrow switcher',
+  description: 'The layout picker (55 arrangements), a 2x2 grid of four markets, a large chart plus three, the active chart, a dragged divider, the layout back after a reload, the narrow switcher, and the named layouts menu (save, autosave, copy, rename, download, create, recent, open, unsaved marker, the last layout back after a reload)',
   keepPrefs: true,
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
@@ -49,6 +49,18 @@ export const layouts: Scenario = {
       await page.getByRole('button', { name: 'Select layout' }).click();
       await page.getByRole('dialog', { name: 'Select layout' }).waitFor();
     };
+    const nameBtn = page.locator('.layout-name-btn');
+    const nameText = async () => ((await nameBtn.locator('.layout-name').innerText()) ?? '').trim();
+    const menu = page.getByRole('menu', { name: 'Layout' });
+    const openMenu = async () => {
+      await nameBtn.click();
+      await menu.waitFor();
+    };
+    const savedState = () =>
+      page.evaluate(() => {
+        const raw = JSON.parse(localStorage.getItem('vost.savedLayouts.v1') ?? 'null') as { currentId: string; autosave: boolean; layouts: Array<{ id: string; name: string; updatedAt: number; layout: { charts: unknown[] } }> } | null;
+        return raw && { autosave: raw.autosave, current: raw.layouts.find((l) => l.id === raw.currentId)?.name, names: raw.layouts.map((l) => `${l.name}:${l.layout.charts.length}`), updatedAt: raw.layouts.find((l) => l.id === raw.currentId)?.updatedAt };
+      });
     const syncSwitch = (name: string) => page.getByRole('switch', { name, exact: true });
     const cells = page.locator('.chart-cell');
     const waitLoaded = async (n: number) => {
@@ -92,7 +104,8 @@ export const layouts: Scenario = {
       const topbar = await page.evaluate(() => {
         const bar = document.querySelector('.topbar') as HTMLElement;
         const more = document.querySelector('.topbar-more')?.getBoundingClientRect();
-        return { scrollWidth: bar.scrollWidth, clientWidth: bar.clientWidth, moreRight: more ? Math.round(more.right) : null, moreWidth: more ? Math.round(more.width) : null };
+        const kids = [...bar.children].map((k) => `${k.className.toString().split(' ')[0] || k.tagName}:${Math.round(k.getBoundingClientRect().width)}`).join(',');
+        return { kids, scrollWidth: bar.scrollWidth, clientWidth: bar.clientWidth, moreRight: more ? Math.round(more.right) : null, moreWidth: more ? Math.round(more.width) : null };
       });
       log.push(`picker: options=${n} rows=${rows.join(',')} box=${JSON.stringify(box)} topbar=${JSON.stringify(topbar)}`);
       if (topbar.scrollWidth > topbar.clientWidth) throw new Error(`the top bar overflows with the layout button: ${JSON.stringify(topbar)}`);
@@ -167,6 +180,19 @@ export const layouts: Scenario = {
         log.push(`narrow sync: rows=${rows.join('|')} crosshair=${await syncSwitch('Crosshair').getAttribute('aria-checked')} lastRow=${JSON.stringify(lastRow)}`);
       });
       await ctx.screenshot('picker-open');
+      await ctx.step('the layout name menu fits the narrow screen', async () => {
+        await page.keyboard.press('Escape');
+        await page.getByRole('button', { name: 'More', exact: true }).click();
+        if ((await page.locator('.topbar > .layout-name-wrap').count()) !== 0) throw new Error('the layout name is in the narrow top bar');
+        await openMenu();
+        const box = await menu.boundingBox();
+        const vp = page.viewportSize()!;
+        const p = await probe(page);
+        const name = await nameBtn.boundingBox();
+        log.push(`narrow menu: name=${await nameText()} nameBox=${JSON.stringify(name)} menuBox=${JSON.stringify(box)} overflowX=${p.overflowX}`);
+        if (!box || box.x < 0 || box.x + box.width > vp.width + 0.5 || p.overflowX) throw new Error(`the layout menu overflows: ${JSON.stringify(box)}`);
+      });
+      await ctx.screenshot('menu');
       await ctx.writeText('checks', `${log.join('\n')}\n`);
       return;
     }
@@ -329,6 +355,180 @@ export const layouts: Scenario = {
       if (states.join(' ') !== 'Symbol=false Interval=true Crosshair=true Time=false Date range=false') throw new Error(`after reload ${states.join(' ')}`);
     });
     await ctx.screenshot('sync-reloaded');
+
+    /* ----------------------------- named layouts ----------------------------- */
+    await ctx.step('the layout name opens a menu: save, autosave on, copy, rename, download, create, open', async () => {
+      await page.mouse.move(2, 2);
+      await openMenu();
+      const items = (await menu.getByRole('menuitem').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+      const auto = await menu.getByRole('switch', { name: 'Autosave' }).getAttribute('aria-checked');
+      log.push(`menu: name=${await nameText()} items=${items.join(' | ')} autosave=${auto} state=${JSON.stringify(await savedState())}`);
+      if ((await nameText()) !== 'Unnamed') throw new Error('the first layout is not named Unnamed');
+      if (auto !== 'true') throw new Error('autosave is not on by default');
+      if (items.join('|') !== 'Save layout Ctrl + S|Make a copy...|Rename...|Download chart data...|Create new layout...|Open layout... .') throw new Error(`items ${items.join('|')}`);
+      if (await page.getByText('Share layout').count()) throw new Error('Share layout is in the menu');
+    });
+    await ctx.screenshot('menu');
+    await ctx.step('Rename: the name field refuses an empty name, OK renames the layout', async () => {
+      await menu.getByRole('menuitem', { name: 'Rename...' }).click();
+      const dialog = page.getByRole('dialog');
+      const field = dialog.getByLabel('Layout name');
+      await field.fill('   ');
+      if (!(await dialog.getByRole('button', { name: 'OK' }).isDisabled())) throw new Error('OK is enabled for an empty name');
+      await field.fill('  Grid  ');
+      await page.waitForTimeout(150);
+    });
+    await ctx.screenshot('rename');
+    await ctx.step('OK renames it and the name shows in the top bar', async () => {
+      await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+      if ((await nameText()) !== 'Grid') throw new Error(`name is ${await nameText()}`);
+      log.push(`renamed: ${JSON.stringify(await savedState())}`);
+    });
+    let updatedBefore = 0;
+    await ctx.step('Ctrl+S in the symbol field saves, prevents the browser save dialog and changes updatedAt', async () => {
+      updatedBefore = (await savedState())!.updatedAt!;
+      await page.evaluate(() => {
+        (window as unknown as { __saveKeys: boolean[] }).__saveKeys = [];
+        window.addEventListener('keydown', (e) => {
+          if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) (window as unknown as { __saveKeys: boolean[] }).__saveKeys.push(e.defaultPrevented);
+        });
+      });
+      await page.waitForTimeout(20);
+      await page.locator('.topbar .symbol-search input').focus();
+      await page.keyboard.press('Control+s');
+      await page.waitForTimeout(100);
+      const prevented = await page.evaluate(() => (window as unknown as { __saveKeys: boolean[] }).__saveKeys);
+      const after = (await savedState())!.updatedAt!;
+      log.push(`ctrl+s: defaultPrevented=${prevented.join(',')} updatedAt ${updatedBefore} -> ${after}`);
+      if (prevented.length !== 1 || !prevented[0]) throw new Error('Ctrl+S was not prevented');
+      if (!(after > updatedBefore)) throw new Error('updatedAt did not change');
+      await page.locator('.topbar .symbol-search input').blur();
+    });
+    await ctx.step('Download chart data: the active chart gives <symbol>_<timeframe>.csv', async () => {
+      await openMenu();
+      await menu.getByRole('menuitem', { name: 'Download chart data...' }).click();
+      const dialog = page.getByRole('dialog');
+      const radios = (await dialog.locator('label').allInnerTexts()).map((t) => t.trim());
+      const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Download' }).click()]);
+      log.push(`download: options=${radios.join('|')} file=${download.suggestedFilename()}`);
+      if (!/^DEMO[\w-]*_1h\.csv$/.test(download.suggestedFilename())) throw new Error(`file ${download.suggestedFilename()}`);
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+    });
+    await ctx.step('Make a copy: the field is prefilled "Grid copy", the copy becomes current', async () => {
+      await openMenu();
+      await menu.getByRole('menuitem', { name: 'Make a copy...' }).click();
+      const field = page.getByRole('dialog').getByLabel('Layout name');
+      if ((await field.inputValue()) !== 'Grid copy') throw new Error(`prefill ${await field.inputValue()}`);
+      await field.fill('Solo');
+      await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+      log.push(`copy: ${JSON.stringify(await savedState())}`);
+      if ((await nameText()) !== 'Solo') throw new Error('the copy is not current');
+    });
+    await ctx.step('autosave writes a one-chart arrangement into Solo only; then open Grid from Recently used', async () => {
+      await openPicker();
+      await pick('1 chart').click();
+      await page.getByRole('dialog', { name: 'Select layout' }).waitFor({ state: 'detached' });
+      await page.waitForTimeout(800);
+      const solo = await probe(page);
+      check('solo', solo);
+      if (solo.cells !== 1) throw new Error(`solo has ${solo.cells} charts`);
+      log.push(`solo saved: ${JSON.stringify(await savedState())}`);
+      await openMenu();
+      const recent = (await menu.getByRole('menuitem').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => t.startsWith('Grid'));
+      log.push(`recent: ${recent.join(' | ')}`);
+      if (!/^Grid DEMO[\w-]*, 1h$/.test(recent.join(''))) throw new Error(`recent ${recent.join('|')}`);
+      await menu.getByRole('menuitem', { name: /^Grid/ }).click();
+      await page.locator('.chart-cell').nth(3).waitFor({ state: 'attached' });
+      await waitLoaded(4);
+      const grid = await probe(page);
+      check('grid back', grid);
+      if (grid.cells !== 4 || (await nameText()) !== 'Grid') throw new Error('Grid did not come back with four charts');
+    });
+    await ctx.screenshot('switched');
+    await ctx.step('"." opens the layout list with both layouts; a search narrows it; Enter opens', async () => {
+      await page.mouse.move(2, 2);
+      await page.keyboard.press('.');
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor();
+      const rows = (await dialog.locator('.lm-open-row').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+      log.push(`open dialog: ${rows.join(' | ')}`);
+      if (rows.length !== 2) throw new Error(`rows ${rows.join('|')}`);
+      if (!(await dialog.getByRole('button', { name: 'Delete Grid' }).isDisabled())) throw new Error('the current layout can be deleted');
+      await page.waitForTimeout(150);
+    });
+    await ctx.screenshot('open-dialog');
+    await ctx.step('search "sol" lists Solo only; Enter opens it, one chart', async () => {
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel('Search layouts').fill('sol');
+      const n = await dialog.locator('.lm-open-row').count();
+      if (n !== 1) throw new Error(`${n} rows for "sol"`);
+      await page.keyboard.press('Enter');
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+      await page.waitForTimeout(300);
+      const p = await probe(page);
+      check('opened Solo', p);
+      if (p.cells !== 1 || (await nameText()) !== 'Solo') throw new Error('Solo did not open');
+    });
+    await ctx.step('Create new layout: one chart on the active market', async () => {
+      await openMenu();
+      await menu.getByRole('menuitem', { name: 'Create new layout...' }).click();
+      await page.getByRole('dialog').getByLabel('Layout name').fill('Fresh');
+      await page.getByRole('dialog').getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('dialog').waitFor({ state: 'detached' });
+      await page.waitForTimeout(300);
+      const p = await probe(page);
+      check('created', p);
+      log.push(`created: ${JSON.stringify(await savedState())}`);
+      if (p.cells !== 1 || (await nameText()) !== 'Fresh') throw new Error('Fresh is not a one-chart current layout');
+    });
+    await ctx.step('autosave off: a change shows the unsaved marker, and switching asks Save / Don\'t save / Cancel', async () => {
+      await openMenu();
+      await menu.getByRole('switch', { name: 'Autosave' }).click();
+      await page.keyboard.press('Escape');
+      await page.locator('.topbar select[title="Timeframe"]').selectOption('4h');
+      await page.waitForFunction(() => document.querySelector('.layout-unsaved') != null);
+      const label = await page.locator('.layout-unsaved').getAttribute('aria-label');
+      log.push(`unsaved: label=${label} title=${await nameBtn.getAttribute('title')} state=${JSON.stringify(await savedState())}`);
+      if (label !== 'Unsaved changes') throw new Error(`marker label ${label}`);
+      await page.mouse.move(2, 2);
+    });
+    await ctx.screenshot('unsaved');
+    await ctx.step('opening Grid asks first; Cancel stays, Save writes Fresh and leaves', async () => {
+      await openMenu();
+      await menu.getByRole('menuitem', { name: /^Grid/ }).click();
+      const dialog = page.getByRole('dialog');
+      const buttons = (await dialog.getByRole('button').allInnerTexts()).filter((t) => t !== '✕');
+      log.push(`unsaved dialog: ${buttons.join('|')}`);
+      if (buttons.join('|') !== 'Cancel|Don\'t save|Save') throw new Error(`buttons ${buttons.join('|')}`);
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      if ((await nameText()) !== 'Fresh') throw new Error('Cancel left the layout');
+      await openMenu();
+      await menu.getByRole('menuitem', { name: /^Grid/ }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+      await page.locator('.chart-cell').nth(3).waitFor({ state: 'attached' });
+      await waitLoaded(4);
+      const fresh = await page.evaluate(() => {
+        const raw = JSON.parse(localStorage.getItem('vost.savedLayouts.v1')!) as { layouts: Array<{ name: string; layout: { charts: Array<{ timeframe: string }> } }> };
+        return raw.layouts.find((l) => l.name === 'Fresh')!.layout.charts[0].timeframe;
+      });
+      log.push(`saved on leave: Fresh timeframe=${fresh}`);
+      if (fresh !== '4h' || (await nameText()) !== 'Grid') throw new Error('Save did not write Fresh before leaving');
+    });
+    await ctx.step('after a reload the last open layout (Grid, four charts, autosave off) is back', async () => {
+      await page.waitForTimeout(800);
+      await page.reload();
+      await page.locator('.chart-cell').nth(3).waitFor({ state: 'attached' });
+      await waitLoaded(4);
+      await openMenu();
+      const auto = await menu.getByRole('switch', { name: 'Autosave' }).getAttribute('aria-checked');
+      const p = await probe(page);
+      check('named reloaded', p, ` name=${(await nameText())} autosave=${auto} state=${JSON.stringify(await savedState())}`);
+      if (p.cells !== 4 || (await nameText()) !== 'Grid' || auto !== 'false') throw new Error('the last open layout did not come back');
+      if (p.overflowX) throw new Error('horizontal overflow');
+    });
+    await ctx.screenshot('named-reloaded');
     await ctx.writeText('checks', `${log.join('\n')}\n`);
   },
 };

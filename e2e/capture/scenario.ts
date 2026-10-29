@@ -97,6 +97,7 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
     if (keep && localStorage.getItem('vost.prefs.v1')) return;
     // A saved layout wins over prefs.v1 for the charts: seeding the prefs starts from a single chart again.
     localStorage.removeItem('vost.layout.v1');
+    localStorage.removeItem('vost.savedLayouts.v1');
     localStorage.setItem(
       'vost.prefs.v1',
       JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d' }),

@@ -257,6 +257,29 @@ export function sanitizeSync(raw: unknown): LayoutSync {
   return out;
 }
 
+/** One chart of a layout record: its id and the fields that belong to one chart. */
+export interface LayoutChartRecord {
+  id: string;
+  providerId: string;
+  symbol: string;
+  timeframe: string;
+  bars: number;
+  indicators: unknown[];
+  btConfig: unknown;
+  showTrades: boolean;
+  btRange?: unknown;
+}
+
+/** The record `layout.v1` holds, and each named layout keeps as its snapshot. */
+export interface LayoutRecord {
+  version: number;
+  arrangementId: string;
+  activeChartId: string;
+  charts: LayoutChartRecord[];
+  sizes: LayoutSizes;
+  sync: LayoutSync;
+}
+
 /** What a valid saved layout holds; the per-chart records are checked field by field by the caller. */
 export interface ParsedLayout {
   arrangement: Arrangement;
