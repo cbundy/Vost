@@ -3,7 +3,7 @@
 Vost is a static web client plus a tiny zero-dependency Node server. The server does three things:
 
 1. serves `client/dist` (the built web app),
-2. answers the market-data API (`/api/providers`, `/api/history`, `/api/symbols`, `/api/search`): it calls the public provider APIs (Binance, Yahoo, Stooq, …) on the browser's behalf, because many of them send no CORS headers,
+2. answers the market-data API (`/api/providers`, `/api/history`, `/api/symbols`, `/api/search`): it calls the public provider APIs (Binance, Yahoo, …) on the browser's behalf, because many of them send no CORS headers,
 3. keeps price alerts (`/api/alerts`) and watches prices for them around the clock, even with every browser tab closed.
 
 There are two files of state on disk, both in the data folder (`VOST_DATA_DIR`): the alerts file, `alerts.json`, and a candle store, `candles.sqlite` (a SQLite file the server opens with Node's built-in `node:sqlite`, so no npm dependency is added). The candle store holds chart history for the markets the server records (see [Recorded markets](#recorded-markets)); it is safe to delete, because the history is then fetched from the exchange again. Everything else is in memory (the symbol-list cache, the open exchange websockets). The server is TypeScript that Node runs directly (type stripping), so there is no server build step and no npm dependency at runtime. Everything else — fetch orchestration, CSV parsing, indicators, backtests — runs in the visitor's browser.
@@ -163,7 +163,7 @@ The client calls `/api/...` with absolute paths, so it assumes it's served from 
 You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by deploying `client/dist/` anywhere, but only the offline features work there:
 
 - **CSV import, the Demo provider and all backtesting work** - they never touch the network.
-- **Every remote provider (Binance, Coinbase, Kraken, Bybit, OKX, Hyperliquid Perps, Hyperliquid Spot, Yahoo, Stooq) needs the Node server**: the browser no longer calls those APIs itself, so without `/api/*` they fail to load.
+- **Every remote provider (Binance, Coinbase, Kraken, Bybit, OKX, Hyperliquid Perps, Hyperliquid Spot, Yahoo) needs the Node server**: the browser no longer calls those APIs itself, so without `/api/*` they fail to load.
 
 `npm run dev` automatically proxies `/api/*` from Vite (:5173) to the Node server (:8787).
 
@@ -177,7 +177,7 @@ You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by
 | `VOST_DATA_DIR` | server (runtime) | `<repo>/data` (`/data` in the Docker image) | Folder for `alerts.json` and `candles.sqlite`, created on first write. If it is not writable the server still starts, alerts can be listed but every change answers `503` naming this variable, and the candle store is off (charts then come from the exchange as before) |
 | `VOST_RECORD` | server (runtime) | `binance:BTCUSDT binance:ETHUSDT coinbase:BTC-USD coinbase:ETH-USD hyperliquid-perps:BTC hyperliquid-perps:ETH` | The markets the server records at all times, separated by commas or spaces. Each entry is `provider:SYMBOL` (every timeframe the provider's live feed supports) or `provider:SYMBOL:tf/tf` (those timeframes only), e.g. `binance:BTCUSDT:1h/1d`. `off` records nothing. A bad entry is skipped with a `[recorder]` warning. See [Recorded markets](#recorded-markets) |
 | `VOST_RECORD_BARS` | server (runtime) | `20000` | Bars kept per recorded series; an integer of at least 100 (a bad value logs a warning and uses the default) |
-| `VOST_ALERT_POLL` | server (runtime) | `60` | Seconds between price polls for alerts on providers without a live feed (Yahoo, Stooq); values below 10 count as 10. Binance, Coinbase, Kraken, Bybit, OKX and Hyperliquid alerts use the shared live stream instead |
+| `VOST_ALERT_POLL` | server (runtime) | `60` | Seconds between price polls for alerts on providers without a live feed (Yahoo); values below 10 count as 10. Binance, Coinbase, Kraken, Bybit, OKX and Hyperliquid alerts use the shared live stream instead |
 | `VOST_TELEGRAM_BOT_TOKEN` | server (runtime) | unset | Bot token from [@BotFather](https://t.me/BotFather) (`/newbot`). With `VOST_TELEGRAM_CHAT_ID` also set, every alert that fires sends one Telegram message. **A secret**: it is never logged or returned by the API, but keep it out of git and tickets. Needs outbound access to `api.telegram.org` |
 | `VOST_TELEGRAM_CHAT_ID` | server (runtime) | unset | Chat that receives the messages. Send your bot a message, then open `https://api.telegram.org/bot<token>/getUpdates` and read `message.chat.id`. If only one of the two Telegram variables is set the server logs a warning and sends nothing |
 | `VOST_SERVER_URL` | Vite dev server | `http://localhost:8787` | Upstream for the dev-time `/api` proxy |
@@ -211,11 +211,10 @@ What to expect:
 |---|---|
 | `Vost needs Node 22.18 or newer` | The server runs TypeScript directly and needs Node 22.18+ (24 recommended). Upgrade Node. |
 | Yahoo returns `429` | Shared/datacenter IPs are rate-limited by Yahoo's edge. The server retries automatically; if it persists, wait or switch networks. CSV import always works. |
-| Stooq returns `403` (HTML challenge) | Stooq's bot protection challenges many cloud/VPS IPs. Use Yahoo, Binance or CSV import instead. |
 | Stale page after deploy | Hard-refresh once. `index.html` is `no-cache`, but a layer between the browser and Vost may cache HTML — check your reverse proxy isn't overriding `Cache-Control`. |
 | Port already in use | `PORT=9090 npm start`, or update `docker-compose.yml`. |
 | Client shows "HTTP 404" or "fetch failed" for a remote provider | You're on a static-only deployment without the Node server. Serve the app through the Node server (or Docker). |
 
 ## Data provider terms
 
-The bundled providers use only public, keyless endpoints (Binance, Coinbase, Kraken, Bybit, OKX and Hyperliquid REST/WS, Yahoo chart API, Stooq CSV downloads). They are intended for **personal research use**; if you run a heavily-trafficked public instance, review each provider's terms of service and rate limits first — or plug in your own licensed data API (see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-data-provider)).
+The bundled providers use only public, keyless endpoints (Binance, Coinbase, Kraken, Bybit, OKX and Hyperliquid REST/WS, Yahoo chart API). They are intended for **personal research use**; if you run a heavily-trafficked public instance, review each provider's terms of service and rate limits first — or plug in your own licensed data API (see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-data-provider)).

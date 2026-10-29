@@ -615,7 +615,7 @@ export const useStore = create<AppState>()((set, get) => {
     setWatchTagColor: (id, color) => get().updateWatchlists((s) => wl.setTagColor(s, id, color)),
     deleteWatchTag: (id) => get().updateWatchlists((s) => wl.deleteTag(s, id)),
     importWatchlist(json) {
-      const res = wl.importList(json, get().watchlists);
+      const res = wl.importList(json, get().watchlists, providers);
       if (typeof res === 'string') return res;
       set({ watchlists: res });
       persistWatchlists();
@@ -633,11 +633,13 @@ export const useStore = create<AppState>()((set, get) => {
       for (const id of ['binance', 'coinbase', 'kraken', 'bybit', 'okx']) removeKey(`${id}.symbols.v1`);
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
+      // A chart left on a provider that is gone opens on the default market, not on a fallback with the old symbol.
+      const known = providers.some((p) => p.id === prefs.providerId);
       set({
         watchlists: wl.loadWatchlists(providers),
-        providerId: prefs.providerId ?? defaultPrefs.providerId,
-        symbol: prefs.symbol ?? defaultPrefs.symbol,
-        timeframe: prefs.timeframe ?? defaultPrefs.timeframe,
+        providerId: known ? prefs.providerId : defaultPrefs.providerId,
+        symbol: known ? (prefs.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
+        timeframe: known ? (prefs.timeframe ?? defaultPrefs.timeframe) : defaultPrefs.timeframe,
         bars: prefs.bars ?? defaultPrefs.bars,
         indicators: Array.isArray(prefs.indicators) && prefs.indicators.length > 0 ? prefs.indicators : defaultPrefs.indicators,
         btConfig: { ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) },

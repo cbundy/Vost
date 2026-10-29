@@ -43,7 +43,6 @@ const payload = (refreshed?: boolean): StatusResponse => ({
     check('okx', 'OKX', 'live', { state: 'degraded', latencyMs: 10_000, error: 'connected but sent no data within 10 s' }),
     check('yahoo', 'Yahoo Finance', 'history', { latencyMs: 520 }),
     check('yahoo', 'Yahoo Finance', 'symbols', { latencyMs: 480 }),
-    check('stooq', 'Stooq', 'history', { latencyMs: 700 }),
   ],
 });
 

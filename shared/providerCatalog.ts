@@ -135,30 +135,6 @@ const NATIVE_CATALOG: Array<Omit<ProviderInfo, 'builtTimeframes'>> = [
     hasSymbolList: false,
     hasSearch: true,
   },
-  {
-    id: 'stooq',
-    name: 'Stooq',
-    description: 'Free historical data (stocks / indices / FX / crypto) downloadable as CSV. No key needed.',
-    timeframes: ['1d', '1w', '1M'],
-    defaultTimeframe: '1d',
-    defaultSymbol: 'aapl.us',
-    popularSymbols: [
-      { symbol: 'aapl.us', label: 'Apple (US)', exchange: 'US', type: 'stock' },
-      { symbol: 'msft.us', label: 'Microsoft (US)', exchange: 'US', type: 'stock' },
-      { symbol: 'tsla.us', label: 'Tesla (US)', exchange: 'US', type: 'stock' },
-      { symbol: 'spy.us', label: 'SPDR S&P 500 ETF', exchange: 'US', type: 'etf' },
-      { symbol: '^spx', label: 'S&P 500 Index', exchange: 'US', type: 'index' },
-      { symbol: '^ndq', label: 'Nasdaq 100 Index', exchange: 'US', type: 'index' },
-      { symbol: 'btcusd', label: 'Bitcoin / USD', exchange: 'CRYPT', type: 'crypto' },
-      { symbol: 'ethusd', label: 'Ethereum / USD', exchange: 'CRYPT', type: 'crypto' },
-      { symbol: 'eurusd', label: 'EUR / USD', exchange: 'FX', type: 'forex' },
-      { symbol: 'usdjpy', label: 'USD / JPY', exchange: 'FX', type: 'forex' },
-      { symbol: 'xauusd', label: 'Gold / USD', exchange: 'XAU', type: 'commodity' },
-    ],
-    supportsLive: false,
-    hasSymbolList: true,
-    hasSearch: true,
-  },
 ];
 
 /** The catalog with `builtTimeframes` derived from each entry's native `timeframes`. */

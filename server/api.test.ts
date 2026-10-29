@@ -43,6 +43,9 @@ async function get(path: string): Promise<{ status: number; body: any; headers: 
   return { status: res.status, body: await res.json(), headers: res.headers };
 }
 
+const binanceInfo = {
+  symbols: ['BTC', 'ETH', 'SPDR'].map((b) => ({ symbol: `${b}USDT`, status: 'TRADING', baseAsset: b, quoteAsset: 'USDT' })),
+};
 const kline = (ms: number) => [ms, '1', '3', '0.5', '2', '9'];
 
 describe('GET /api/providers', () => {
@@ -51,7 +54,7 @@ describe('GET /api/providers', () => {
     expect(r.status).toBe(200);
     expect(r.body).toEqual(PROVIDER_CATALOG);
     expect(r.headers.get('cache-control')).toBe('no-store');
-    expect(r.body.map((p: { id: string }) => p.id)).toEqual(['binance', 'coinbase', 'kraken', 'bybit', 'okx', 'hyperliquid-perps', 'hyperliquid-spot', 'yahoo', 'stooq']);
+    expect(r.body.map((p: { id: string }) => p.id)).toEqual(['binance', 'coinbase', 'kraken', 'bybit', 'okx', 'hyperliquid-perps', 'hyperliquid-spot', 'yahoo']);
     expect(JSON.stringify(r.body)).not.toMatch(/https?:\/\//);
   });
 });
@@ -70,7 +73,7 @@ describe('GET /api/history', () => {
     ['a missing provider', '/api/history?symbol=A&timeframe=1h&bars=5', /Unknown provider/],
     ['a missing symbol', '/api/history?provider=binance&timeframe=1h&bars=5', /Missing symbol/],
     ['a timeframe the app does not know', '/api/history?provider=binance&symbol=A&timeframe=3m&bars=5', /does not support timeframe 3m/],
-    ['a timeframe the provider lacks and cannot build', '/api/history?provider=stooq&symbol=A&timeframe=4h&bars=5', /Stooq does not support timeframe 4h/],
+    ['a provider that was dropped', '/api/history?provider=stooq&symbol=aapl.us&timeframe=1d&bars=5', /Unknown provider "stooq"/],
     ['bars 0', '/api/history?provider=binance&symbol=A&timeframe=1h&bars=0', /bars must be an integer/],
     [`bars ${MAX_BARS + 1}`, `/api/history?provider=binance&symbol=A&timeframe=1h&bars=${MAX_BARS + 1}`, /bars must be an integer/],
     ['bars 1.5', '/api/history?provider=binance&symbol=A&timeframe=1h&bars=1.5', /bars must be an integer/],
@@ -181,9 +184,10 @@ describe('GET /api/history', () => {
 
 describe('GET /api/symbols', () => {
   it('returns the list for a provider with one', async () => {
-    const r = await get('/api/symbols?provider=stooq');
+    upstream = () => binanceInfo;
+    const r = await get('/api/symbols?provider=binance');
     expect(r.status).toBe(200);
-    expect(r.body.length).toBeGreaterThan(200);
+    expect(r.body.map((s: { symbol: string }) => s.symbol)).toEqual(['BTCUSDT', 'ETHUSDT', 'SPDRUSDT']);
   });
   it('answers 400 for a provider without a list', async () => {
     const r = await get('/api/symbols?provider=kraken');
@@ -198,13 +202,15 @@ describe('GET /api/search', () => {
     expect(r.body.map((s: { symbol: string }) => s.symbol)).toContain('BTC-USD');
     expect(current.urls).toEqual([]);
   });
-  it('returns the whole list for stooq with an empty query', async () => {
-    const r = await get('/api/search?provider=stooq');
-    expect(r.body.length).toBeGreaterThan(200);
+  it('returns popular symbols for binance with an empty query, without a list call', async () => {
+    const r = await get('/api/search?provider=binance');
+    expect(r.body.map((s: { symbol: string }) => s.symbol)).toContain('BTCUSDT');
+    expect(current.urls).toEqual([]);
   });
   it('searches', async () => {
-    const r = await get('/api/search?provider=stooq&q=spdr');
-    expect(r.body.map((s: { symbol: string }) => s.symbol)).toContain('spy.us');
+    upstream = () => binanceInfo;
+    const r = await get('/api/search?provider=binance&q=spdr');
+    expect(r.body.map((s: { symbol: string }) => s.symbol)).toEqual(['SPDRUSDT']);
   });
   it('answers 400 for an unknown provider', async () => {
     expect((await get('/api/search?provider=x&q=a')).status).toBe(400);
@@ -213,7 +219,7 @@ describe('GET /api/search', () => {
 
 describe('other routes', () => {
   it('the old proxy is gone: 404 listing the real routes', async () => {
-    const r = await get('/api/proxy?url=https%3A%2F%2Fstooq.com%2F');
+    const r = await get('/api/proxy?url=https%3A%2F%2Fexample.com%2F');
     expect(r.status).toBe(404);
     expect(r.body.error).toMatch(/\/api\/history/);
     expect(current.urls).toEqual([]);
@@ -398,13 +404,6 @@ describe('built timeframes', () => {
     const bars = await get('/api/history?provider=coinbase&symbol=NOPE&timeframe=4h&bars=5');
     expect(bars.status).toBe(404);
     expect(bars.body.error).toBe('No data returned for NOPE. Check the symbol (e.g. BTC-USD).');
-  });
-
-  it('answers 400 before any upstream call for a timeframe neither native nor buildable', async () => {
-    const r = await get('/api/history?provider=stooq&symbol=aapl.us&timeframe=4h&bars=5');
-    expect(r.status).toBe(400);
-    expect(r.body.error).toMatch(/Stooq does not support timeframe 4h/);
-    expect(current.urls).toEqual([]);
   });
 
   it('keeps the alert evaluator on the lowest native timeframe', () => {

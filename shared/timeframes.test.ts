@@ -20,9 +20,9 @@ describe('baseTimeframe', () => {
     expect(baseTimeframe(native(id), target)).toBe(base);
   });
 
-  it('is null for a native timeframe and when nothing lower exists (Stooq)', () => {
+  it('is null for a native timeframe and when nothing lower exists', () => {
     expect(baseTimeframe(native('binance'), '4h')).toBeNull();
-    for (const tf of ['1m', '5m', '15m', '30m', '1h', '4h'] as const) expect(baseTimeframe(native('stooq'), tf)).toBeNull();
+    for (const tf of ['1m', '5m', '15m', '30m', '1h', '4h'] as const) expect(baseTimeframe(['1d', '1w', '1M'], tf)).toBeNull();
   });
 
   it('never builds a month from weeks, and needs the target to be a whole multiple of the base', () => {
@@ -37,7 +37,6 @@ describe('baseTimeframe', () => {
     expect(catalogEntry('coinbase')!.builtTimeframes).toEqual(['30m', '4h', '1w', '1M']);
     expect(catalogEntry('kraken')!.builtTimeframes).toEqual(['1M']);
     expect(catalogEntry('yahoo')!.builtTimeframes).toEqual(['4h']);
-    expect(catalogEntry('stooq')!.builtTimeframes).toEqual([]);
     expect(catalogEntry('coinbase')!.timeframes).toEqual(['1m', '5m', '15m', '1h', '1d']);
     for (const p of PROVIDER_CATALOG) expect(p.builtTimeframes).toEqual(builtTimeframes(p.timeframes));
   });

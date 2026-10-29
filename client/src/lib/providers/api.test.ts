@@ -47,7 +47,7 @@ describe('REST client', () => {
     for (const u of urls) expect(u.startsWith('/api/'), u).toBe(true);
     expect(urls[0]).toBe('/api/history?provider=binance&symbol=X+Y&timeframe=1h&bars=10');
     expect(urls).toContain('/api/search?provider=kraken&q=a+b');
-    expect(urls).toContain('/api/symbols?provider=stooq');
+    expect(urls).toContain('/api/symbols?provider=binance');
   });
 
   it('passes the abort signal on', async () => {

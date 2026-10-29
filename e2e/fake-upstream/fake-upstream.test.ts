@@ -29,7 +29,6 @@ const HOSTS: Record<string, string[]> = {
   'hyperliquid-perps': ['api.hyperliquid.xyz'],
   'hyperliquid-spot': ['api.hyperliquid.xyz'],
   yahoo: ['query1.finance.yahoo.com'],
-  stooq: ['stooq.com'],
 };
 
 describe('fake upstream REST, through the real adapters and the real fetch', () => {

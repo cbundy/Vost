@@ -20,7 +20,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 
 | | |
 |---|---|
-| 🔑 **No accounts, no keys, no quotas** | Data comes from free public APIs (Binance, Yahoo Finance, Stooq) or your own files. Nothing is metered, nothing phones home. |
+| 🔑 **No accounts, no keys, no quotas** | Data comes from free public APIs (Binance, Yahoo Finance) or your own files. Nothing is metered, nothing phones home. |
 | 📴 **Works completely offline** | Import an OHLCV CSV → chart it → backtest it. Parsing, storing and computing all happen **in your browser**. Airplane-mode friendly. |
 | ♾️ **Unlimited backtests** | No "upgrade to run more". The engine runs client-side in a Web Worker; even 100k-bar datasets and thousands-of-combinations grid searches are just local CPU. |
 | 🏠 **Self-hosted in one command** | `docker compose up` or `npm start`. A single Node process serves the app and its market-data API. |
@@ -40,7 +40,6 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 **Data**
 - **Binance** — free public crypto klines + realtime websocket, no key
 - **Yahoo Finance** — stocks, ETFs, indices, forex, crypto (delayed), no key
-- **Stooq** — free historical stocks/indices/FX/crypto CSV downloads, no key
 - **Demo** — deterministic synthetic candles, fully offline
 - **CSV import** — auto-detects delimiter, header, column roles, and ~8 timestamp formats (see [CSV support](#csv-import--the-offline-workflow))
 - Local library: imported datasets persist in browser storage; chart & backtest with the network off
@@ -97,7 +96,6 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 | **Hyperliquid Perps** | Crypto perpetuals | No | ✅ | Public info API (POST) + websocket. Only the latest 5000 candles per timeframe are kept. |
 | **Hyperliquid Spot** | Crypto spot | No | ✅ | Same API; pairs are written `HYPE/USDC`. Only the latest 5000 candles per timeframe are kept. |
 | **Yahoo Finance** | Stocks, ETFs, indices, FX, crypto | No | — | Public chart API (delayed). Intraday history limits apply (1m ≈ 7 days, 1h ≈ 2 years). 4h is built from 1h on the exchange's session calendar (marked `*`). |
-| **Stooq** | Stocks, indices, FX, crypto | No | — | Daily/weekly/monthly CSV downloads. Some cloud/VPS IPs are challenged by Stooq's bot protection — Yahoo or CSV import are good fallbacks there. |
 | **Demo (offline)** | Synthetic | No | — | Deterministic random walk — try the whole app with zero network. |
 | **CSV import** | Anything you have | No | — | Fully offline workflow. See below. |
 

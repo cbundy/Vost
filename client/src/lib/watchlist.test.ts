@@ -152,6 +152,56 @@ describe('persistence', () => {
   });
 });
 
+describe('providers that are gone', () => {
+  const item = (providerId: string, symbol: string) => ({ providerId, symbol, label: symbol, tags: [], note: '', addedAt: 0 });
+  const state = (sections: Array<{ name: string; items: ReturnType<typeof item>[] }>): WatchlistState => ({
+    version: 1,
+    activeListId: 'l1',
+    tags: [],
+    lists: [{ id: 'l1', name: 'Default', sections: sections.map((x, i) => ({ id: `s${i}`, ...x })) }],
+  });
+  const gone = (symbol: string) => item('stooq', symbol);
+
+  it('loads without the section that held only items of a gone provider', () => {
+    const store = stubStorage({
+      'vost.watchlists.v1': JSON.stringify(state([{ name: 'Stooq', items: [gone('aapl.us'), gone('msft.us')] }, { name: 'Alpha', items: [item('a', 'A1')] }])),
+    });
+    const s = wl.loadWatchlists(fakeProviders);
+    expect(s.lists[0].sections.map((x) => x.name)).toEqual(['Alpha']);
+    expect(JSON.parse(store['vost.watchlists.v1']).lists[0].sections).toHaveLength(1); // saved, so it happens once
+  });
+  it('keeps the known items of a mixed section', () => {
+    stubStorage({ 'vost.watchlists.v1': JSON.stringify(state([{ name: 'Mixed', items: [gone('aapl.us'), item('a', 'A1')] }])) });
+    const sec = wl.loadWatchlists(fakeProviders).lists[0].sections;
+    expect(sec.map((x) => x.name)).toEqual(['Mixed']);
+    expect(syms(sec[0])).toEqual(['A1']);
+  });
+  it('keeps one empty section in a list left with none', () => {
+    stubStorage({ 'vost.watchlists.v1': JSON.stringify(state([{ name: 'Stooq', items: [gone('aapl.us')] }])) });
+    const sec = wl.loadWatchlists(fakeProviders).lists[0].sections;
+    expect(sec).toHaveLength(1);
+    expect(sec[0].items).toEqual([]);
+  });
+  it('keeps a section that was already empty, and does not save when nothing changed', () => {
+    const raw = JSON.stringify(state([{ name: 'Empty', items: [] }, { name: 'Alpha', items: [item('a', 'A1')] }]));
+    const store = stubStorage({ 'vost.watchlists.v1': raw });
+    expect(wl.loadWatchlists(fakeProviders).lists[0].sections.map((x) => x.name)).toEqual(['Empty', 'Alpha']);
+    expect(store['vost.watchlists.v1']).toBe(raw);
+  });
+  it('importList drops the same items', () => {
+    const json = JSON.stringify({
+      version: 1,
+      list: state([{ name: 'Stooq', items: [gone('aapl.us')] }, { name: 'Mixed', items: [gone('x'), item('a', 'A1')] }, { name: 'Empty', items: [] }]).lists[0],
+      tags: [],
+    });
+    const r = wl.importList(json, base(), fakeProviders);
+    if (typeof r === 'string') throw new Error(r);
+    const imported = r.lists[r.lists.length - 1];
+    expect(imported.sections.map((x) => x.name)).toEqual(['Mixed', 'Empty']);
+    expect(syms(imported.sections[0])).toEqual(['A1']);
+  });
+});
+
 describe('import/export', () => {
   const strip = (l: wl.WatchList) => ({
     name: l.name,

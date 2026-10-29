@@ -15,7 +15,7 @@ How to read it:
 
 ## Built timeframes
 
-A timeframe a provider lacks is built by the server from its nearest lower native timeframe whose bars nest exactly in it, and the picker offers it marked (`4h *`). `timeframes` in the catalog stays the native list; `builtTimeframes` is derived from it (`shared/timeframes.ts`): Coinbase 30m (from 15m), 4h (from 1h), 1w and 1M (from 1d), Kraken 1M (from 1d), Yahoo 4h (from 1h). Stooq has nothing below its daily bars, so it builds nothing. A built bar is the open of the first base bar, the close of the last, the highest high, the lowest low and the summed volume, stamped at its bucket start. The `/api/history` contract above is unchanged: a request for a built timeframe reads the base timeframe (through the candle store when it is recorded) in chunks of at most 20000 base bars, newest first, and answers ascending, without duplicates, with the provider's 404 wording naming the built timeframe.
+A timeframe a provider lacks is built by the server from its nearest lower native timeframe whose bars nest exactly in it, and the picker offers it marked (`4h *`). `timeframes` in the catalog stays the native list; `builtTimeframes` is derived from it (`shared/timeframes.ts`): Coinbase 30m (from 15m), 4h (from 1h), 1w and 1M (from 1d), Kraken 1M (from 1d), Yahoo 4h (from 1h). A built bar is the open of the first base bar, the close of the last, the highest high, the lowest low and the summed volume, stamped at its bucket start. The `/api/history` contract above is unchanged: a request for a built timeframe reads the base timeframe (through the candle store when it is recorded) in chunks of at most 20000 base bars, newest first, and answers ascending, without duplicates, with the provider's 404 wording naming the built timeframe.
 
 Calendar rules:
 - Crypto providers use UTC: intraday and daily buckets are multiples of their length, weeks start on Monday 00:00 UTC, months on the 1st 00:00 UTC. (Kraken's own weekly bars start on Thursday; Kraken 1w is native and is not rebuilt.)
@@ -31,7 +31,7 @@ A probe on live data is in `docs/spikes/built-timeframes/`: Binance 4h, 1w and 1
 |---|---|---|---|---|---|---|
 | Binance | Crypto spot | No | Yes (ws) | 1000 | Yes (`*`) | Yes |
 | Yahoo Finance | Stocks, ETFs, indices, FX, crypto | No | No (delayed) | Range based | No | Yes |
-| Stooq | Stocks, indices, FX, crypto | No | No | Whole history (CSV) | Bot check blocks | Yes |
+| Stooq | Stocks, indices, FX, crypto | No | No | Whole history (CSV) | Bot check blocks | No (dropped 2026-10-29) |
 | Coinbase Exchange | Crypto spot | No | Yes (ws trades, candles built by Vost) | 300 | Yes (`*`) | Yes |
 | Kraken | Crypto spot | No | Yes (ws) | 720 | No | Yes |
 | Bybit | Crypto spot, derivatives | No | Yes (ws) | 1000 | Echoes origin | Yes (spot) |
@@ -72,7 +72,9 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - ToS: the API is unofficial and for personal use only; no redistribution. [Yahoo terms](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html).
 - Checked 2026-10-23: `query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=1d&range=1mo` returned 200 with chart JSON; `/v1/finance/search?q=apple` returned 200 with quotes.
 
-## Stooq (supported)
+## Stooq (dropped)
+
+Dropped on 2026-10-29: its CSV download is behind a browser challenge that a server cannot answer, so it no longer returned data. Yahoo Finance and CSV import cover the same assets. Saved watchlist entries for it are removed when the app starts, and a chart left on it opens on the default market. CSV import still reads Stooq's own CSV export format. The notes below are kept as the record.
 
 - Assets: stocks (`aapl.us`), indices, FX, some crypto.
 - Symbol listing: none by API; symbols are looked up on the website.

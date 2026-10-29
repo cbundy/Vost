@@ -519,7 +519,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
             <div className="empty-card">
               <h2>No data on the chart yet</h2>
               <p>
-                Pull free public data from <b>Binance</b>, <b>Coinbase</b>, <b>Kraken</b>, <b>Bybit</b>, <b>OKX</b>, <b>Yahoo Finance</b> or <b>Stooq</b> using the toolbar above — or work{' '}
+                Pull free public data from <b>Binance</b>, <b>Coinbase</b>, <b>Kraken</b>, <b>Bybit</b>, <b>OKX</b>, or <b>Yahoo Finance</b> using the toolbar above — or work{' '}
                 <b>completely offline</b> by importing an OHLCV CSV file.
               </p>
               <p className="muted-2">
