@@ -4,7 +4,7 @@
  * can inject a fake fetch and never touch the network.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { MAX_BARS, TIMEFRAMES, rangeBarCount, type ApiError, type Candle, type Timeframe } from '../shared/market.ts';
+import { MAX_BARS, rangeBarCount, type ApiError, type Candle, type ProviderInfo, type Timeframe } from '../shared/market.ts';
 import { PROVIDER_CATALOG, catalogEntry } from '../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './providers/errors.ts';
 import { adapters } from './providers/index.ts';
@@ -15,6 +15,8 @@ import type { CheckResult } from './status/registry.ts';
 import { sendJson } from './respond.ts';
 import type { CandleStore } from './candles/store.ts';
 import { readThroughHistory } from './candles/history.ts';
+import { builtHistory } from './providers/built.ts';
+import type { Calendar } from '../shared/timeframes.ts';
 
 export interface ApiDeps {
   /** Defaults to `globalThis.fetch`. */
@@ -80,6 +82,24 @@ function history(deps: ApiDeps, id: string, ctx: AdapterContext, adapter: Provid
   );
 }
 
+/** The calendar each built series last reported (`provider:symbol`), for when the base bars come from the candle store and no fetch reports one. */
+const calendars = new Map<string, Calendar>();
+
+/** One history request for `timeframe`: native as it is, built from the provider's lower native timeframe. */
+function timeframeHistory(deps: ApiDeps, info: ProviderInfo, ctx: AdapterContext, adapter: ProviderAdapter, req: HistoryRequest): Promise<Candle[]> {
+  if (info.timeframes.includes(req.timeframe)) return history(deps, info.id, ctx, adapter, req);
+  const key = `${info.id}:${req.symbol}`;
+  return builtHistory(
+    {
+      fetchBase: (baseReq, onCalendar) =>
+        history(deps, info.id, { ...ctx, onCalendar: (c) => { calendars.set(key, c); onCalendar(c); } }, adapter, baseReq),
+      calendar: calendars.get(key),
+    },
+    info.timeframes,
+    req,
+  );
+}
+
 async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unknown> {
   const base = { fetch: deps.fetch, symbols: deps.symbols, signal };
   switch (url.pathname) {
@@ -90,8 +110,8 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       const symbol = (url.searchParams.get('symbol') ?? '').trim();
       if (!symbol) throw new InputError('Missing symbol');
       const timeframe = url.searchParams.get('timeframe') ?? '';
-      // A known timeframe the provider lacks is refused by its adapter, with its own wording.
-      if (!(TIMEFRAMES as readonly string[]).includes(timeframe)) {
+      // Neither native nor buildable from a lower native timeframe: refused before any upstream call.
+      if (![...info.timeframes, ...info.builtTimeframes].some((tf) => tf === timeframe)) {
         throw new InputError(`${info.name} does not support timeframe ${timeframe || '(none)'}`);
       }
       const from = parseTime('from', url.searchParams.get('from'));
@@ -99,7 +119,7 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (from === undefined) {
         const bars = parseBars(url.searchParams.get('bars'));
         if (to !== undefined) to = Math.min(to, Math.floor(Date.now() / 1000));
-        return history(deps, info.id, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) });
+        return timeframeHistory(deps, info, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) });
       }
       to = Math.min(to ?? Infinity, Math.floor(Date.now() / 1000));
       if (from > to) throw new InputError('from must not be after to (or in the future)');
@@ -107,7 +127,7 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (count > MAX_BARS) {
         throw new InputError(`That span is about ${count} ${timeframe} bars, above the limit of ${MAX_BARS}; pick a shorter span or a larger timeframe`);
       }
-      return history(deps, info.id, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to });
+      return timeframeHistory(deps, info, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to });
     }
     case '/api/symbols': {
       const { info, adapter } = provider(url);

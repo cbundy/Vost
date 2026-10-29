@@ -204,6 +204,10 @@ describe('Yahoo', () => {
     expect(pickRange('1d', 300)).toBe('1y');
     expect(pickRange('1d', 100000)).toBe('max');
     expect(pickRange('5m', 100000)).toBe('1mo');
+    // Hourly bars (Yahoo code 60m) are sized as hours and capped at the 2y Yahoo serves.
+    expect(pickRange('60m', 434)).toBe('1mo');
+    expect(pickRange('60m', 1464)).toBe('3mo');
+    expect(pickRange('60m', 100000)).toBe('2y');
   });
   it('requests the chosen range and returns the last bars', async () => {
     const f = fakeFetch(() => chart(10));

@@ -70,7 +70,7 @@ describe('GET /api/history', () => {
     ['a missing provider', '/api/history?symbol=A&timeframe=1h&bars=5', /Unknown provider/],
     ['a missing symbol', '/api/history?provider=binance&timeframe=1h&bars=5', /Missing symbol/],
     ['a timeframe the app does not know', '/api/history?provider=binance&symbol=A&timeframe=3m&bars=5', /does not support timeframe 3m/],
-    ['a timeframe the provider lacks', '/api/history?provider=coinbase&symbol=A&timeframe=4h&bars=5', /Coinbase does not support timeframe 4h/],
+    ['a timeframe the provider lacks and cannot build', '/api/history?provider=stooq&symbol=A&timeframe=4h&bars=5', /Stooq does not support timeframe 4h/],
     ['bars 0', '/api/history?provider=binance&symbol=A&timeframe=1h&bars=0', /bars must be an integer/],
     [`bars ${MAX_BARS + 1}`, `/api/history?provider=binance&symbol=A&timeframe=1h&bars=${MAX_BARS + 1}`, /bars must be an integer/],
     ['bars 1.5', '/api/history?provider=binance&symbol=A&timeframe=1h&bars=1.5', /bars must be an integer/],
@@ -103,9 +103,9 @@ describe('GET /api/history', () => {
     expect(r.body.error).toBe('Kraken: HTTP 400 - bad gateway');
   });
 
-  it('every provider refuses exactly the timeframes its catalog entry lacks (400), before any upstream call', async () => {
+  it('every provider refuses exactly the timeframes it neither has nor can build (400), before any upstream call', async () => {
     for (const info of PROVIDER_CATALOG) {
-      for (const tf of TIMEFRAMES.filter((t) => !info.timeframes.includes(t))) {
+      for (const tf of TIMEFRAMES.filter((t) => !info.timeframes.includes(t) && !info.builtTimeframes.includes(t))) {
         const r = await get(`/api/history?provider=${info.id}&symbol=A&timeframe=${tf}&bars=5`);
         expect(r.status, `${info.id} ${tf}`).toBe(400);
       }
@@ -113,10 +113,10 @@ describe('GET /api/history', () => {
     expect(current.urls).toEqual([]);
   });
 
-  it('every catalog timeframe is accepted by its adapter (never a 400)', async () => {
+  it('every native and built timeframe is accepted (never a 400)', async () => {
     upstream = () => new Response('x', { status: 404 }); // any non-400 answer proves the adapter took the timeframe
     for (const info of PROVIDER_CATALOG) {
-      for (const tf of info.timeframes) {
+      for (const tf of [...info.timeframes, ...info.builtTimeframes]) {
         const r = await get(`/api/history?provider=${info.id}&symbol=A&timeframe=${tf}&bars=5`);
         expect(r.status, `${info.id} ${tf}`).not.toBe(400);
       }
@@ -315,6 +315,121 @@ describe('recorded series (candle store)', () => {
       await fetch(url + q.replace('BTCUSDT', 'ETHUSDT'));
       expect(current.urls).toHaveLength(3); // not recorded: always the exchange
       expect(candles.stats().rows).toBe(2);
+    } finally {
+      await new Promise<void>((r) => srv.close(() => r()));
+      candles.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('built timeframes', () => {
+  /** A Coinbase candles endpoint over a series from time `first` every `step` seconds: one row [time, low, high, open, close, volume] per bar. */
+  const series = (first: number, step: number, count: number) => (u: URL) => {
+    const gran = Number(u.searchParams.get('granularity'));
+    expect(gran).toBe(step);
+    const start = Date.parse(u.searchParams.get('start')!) / 1000;
+    const end = Date.parse(u.searchParams.get('end')!) / 1000;
+    const rows = [];
+    for (let i = count - 1; i >= 0; i--) {
+      const t = first + i * step;
+      if (t >= start && t <= end) rows.push([t, i, i + 10, i + 1, i + 2, 1]);
+    }
+    return rows.slice(0, 300);
+  };
+  const H = 3600;
+  const T0 = Date.UTC(2024, 0, 1) / 1000; // a Monday, aligned to every bucket
+  const times = (body: Array<{ time: number }>) => body.map((c) => c.time);
+
+  it('serves Coinbase 4h in bars mode from 1h, every bar covering its whole bucket', async () => {
+    upstream = series(T0, H, 24 * 10);
+    const to = T0 + 24 * 10 * H - 1;
+    const r = await get(`/api/history?provider=coinbase&symbol=BTC-USD&timeframe=4h&bars=5&to=${to}`);
+    expect(r.status).toBe(200);
+    expect(r.body).toHaveLength(5);
+    expect(times(r.body)).toEqual([55, 56, 57, 58, 59].map((i) => T0 + i * 4 * H));
+    for (const c of r.body) expect(c.volume).toBe(4);
+    expect(current.urls.every((u) => u.includes('granularity=3600'))).toBe(true);
+    expect(current.urls.length).toBeGreaterThan(0);
+  });
+
+  it('serves a span in range mode: exactly the buckets stamped inside it, 1w from 1d', async () => {
+    upstream = series(T0, 86400, 70);
+    const from = T0 + 7 * 86400;
+    const to = T0 + 40 * 86400;
+    const r = await get(`/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1w&from=${from}&to=${to}`);
+    expect(r.status).toBe(200);
+    expect(times(r.body)).toEqual([1, 2, 3, 4, 5].map((w) => T0 + w * 7 * 86400));
+    expect(r.body[0]).toMatchObject({ open: 8, close: 15, low: 7, high: 23, volume: 7 });
+    expect(current.urls.every((u) => u.includes('granularity=86400'))).toBe(true);
+  });
+
+  it('builds calendar months of different lengths from daily bars (Kraken 1M)', async () => {
+    const first = Date.UTC(2023, 0, 1) / 1000;
+    upstream = () => ({
+      error: [],
+      result: { XBTUSD: Array.from({ length: 120 }, (_, i) => [first + i * 86400, '1', '2', '0.5', '1.5', '1', '3', 1]), last: 0 },
+    });
+    const to = first + 119 * 86400;
+    const r = await get(`/api/history?provider=kraken&symbol=XBTUSD&timeframe=1M&bars=3&to=${to}`);
+    expect(r.status).toBe(200);
+    expect(r.body.map((c: { volume: number }) => c.volume)).toEqual([28 * 3, 31 * 3, 30 * 3]); // volume 3 per day: Feb, Mar, and the forming Apr
+    expect(times(r.body)).toEqual([Date.UTC(2023, 1, 1) / 1000, Date.UTC(2023, 2, 1) / 1000, Date.UTC(2023, 3, 1) / 1000]);
+    expect(current.urls[0]).toContain('interval=1440');
+  });
+
+  it('reads past MAX_BARS base bars in chunks, newest first, and stops at the first empty chunk', async () => {
+    const days = 20500;
+    upstream = series(0, 86400, days);
+    const to = (days - 1) * 86400;
+    const r = await get(`/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1M&bars=800&to=${to}`);
+    expect(r.status).toBe(200);
+    expect(r.body.length).toBeGreaterThan(660); // 56 years of months, minus the partial newest
+    expect(times(r.body)).toEqual([...new Set(times(r.body))].sort((a, b) => a - b));
+    expect(r.body[0].time).toBe(0); // the series starts at the start of January 1970, so that oldest bucket is complete and kept
+    expect(new Date(r.body[r.body.length - 1].time * 1000).getUTCDate()).toBe(1);
+  });
+
+  it('answers 404 in the provider wording naming the built timeframe', async () => {
+    upstream = () => [];
+    const span = await get(`/api/history?provider=coinbase&symbol=NOPE&timeframe=4h&from=${T0}&to=${T0 + 86400}`);
+    expect(span.status).toBe(404);
+    expect(span.body.error).toMatch(/^Coinbase has no NOPE 4h data from /);
+    const bars = await get('/api/history?provider=coinbase&symbol=NOPE&timeframe=4h&bars=5');
+    expect(bars.status).toBe(404);
+    expect(bars.body.error).toBe('No data returned for NOPE. Check the symbol (e.g. BTC-USD).');
+  });
+
+  it('answers 400 before any upstream call for a timeframe neither native nor buildable', async () => {
+    const r = await get('/api/history?provider=stooq&symbol=aapl.us&timeframe=4h&bars=5');
+    expect(r.status).toBe(400);
+    expect(r.body.error).toMatch(/Stooq does not support timeframe 4h/);
+    expect(current.urls).toEqual([]);
+  });
+
+  it('keeps the alert evaluator on the lowest native timeframe', () => {
+    for (const info of PROVIDER_CATALOG) expect(info.builtTimeframes).not.toContain(info.timeframes[0]);
+    expect(PROVIDER_CATALOG.find((p) => p.id === 'coinbase')!.timeframes[0]).toBe('1m');
+  });
+
+  it('reads a recorded base series from the candle store for a built request', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'vost-api-'));
+    const candles = await openCandleStore({ dir, log: () => undefined });
+    const srv = http.createServer((req, res) => {
+      const deps = createApiDeps({ fetch: current.fetch, candles, isRecorded: (p, s, t) => `${p}:${s}:${t}` === 'coinbase:BTC-USD:1h' });
+      void handleApi(req, res, new URL(req.url!, 'http://x'), deps);
+    });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+    try {
+      upstream = series(T0, H, 24 * 10);
+      const q = `/api/history?provider=coinbase&symbol=BTC-USD&timeframe=4h&bars=3&to=${T0 + 24 * 10 * H - 1}`;
+      const first = await (await fetch(url + q)).json();
+      expect(candles.stats().rows).toBeGreaterThan(0);
+      const fetched = current.urls.length;
+      const second = await (await fetch(url + q)).json();
+      expect(second).toEqual(first);
+      expect(current.urls.length).toBe(fetched); // the base series came from disk
     } finally {
       await new Promise<void>((r) => srv.close(() => r()));
       candles.close();

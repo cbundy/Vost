@@ -1,10 +1,13 @@
 import type { Candle, SymbolSuggestion, Timeframe } from '../../shared/market.ts';
+import type { Calendar } from '../../shared/timeframes.ts';
 import type { SymbolCache } from './symbolCache.ts';
 import type { UpstreamContext } from './upstream.ts';
 
 /** What an adapter gets per request: the injectable fetch, the abort signal and the symbol-list cache. */
 export interface AdapterContext extends UpstreamContext {
   symbols: SymbolCache;
+  /** An adapter whose exchange keeps its own calendar (Yahoo) reports it here from a history fetch, so a built timeframe can follow it. Others are UTC. */
+  onCalendar?(calendar: Calendar): void;
 }
 
 export interface HistoryRequest {
