@@ -345,6 +345,21 @@ describe('errors and pacing', () => {
     expect(logs.some((l) => l.includes('cause: sweep'))).toBe(true);
   });
 
+  it('paces hyperliquid-perps and hyperliquid-spot on one queue: 5000-bar pages, 1000 ms apart, never two calls at once', async () => {
+    const { recorder } = build(config([['hyperliquid-perps', 'BTC', '1h'], ['hyperliquid-spot', 'PURR/USDC', '1h']], 6000));
+    recorder.start();
+    await tick(6000);
+    const perps = calls.filter((c) => c.provider === 'hyperliquid-perps');
+    const spot = calls.filter((c) => c.provider === 'hyperliquid-spot');
+    expect(perps).toHaveLength(2);
+    expect(spot).toHaveLength(2);
+    const sizes = calls.map((c) => (c.req.to! - c.req.from!) / sec('1h') + 1);
+    expect(Math.max(...sizes)).toBe(5000);
+    for (let i = 1; i < calls.length; i++) expect(calls[i]!.at - calls[i - 1]!.at).toBeGreaterThanOrEqual(1000);
+    expect((maxInflight.get('hyperliquid-perps') ?? 0) + (maxInflight.get('hyperliquid-spot') ?? 0)).toBe(2);
+    expect(holes({ provider: 'hyperliquid-perps', symbol: 'BTC', timeframe: '1h' }, 6000)).toEqual([]);
+  });
+
   it('uses a one second gap and 300-bar pages for a provider it does not know', async () => {
     const { recorder } = build(config([['binance', 'BTCUSDT', '1h']], 700), { pacing: { binance: { gapMs: 1000, page: 300 } } });
     recorder.start();
