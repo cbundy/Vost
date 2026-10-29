@@ -15,6 +15,12 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 - The backtest worker handles a `pine` request asynchronously and replies with `pineResult`. The main thread never executes Pine.
 - `inputs` overrides input defaults by input title.
 
+## Coverage
+
+Vost runs the Pine v6 language (library imports excepted) and its `ta`, `math`, `str`, `array`, `matrix`, `map` and `color` libraries, strategies (orders, exits, commission, pyramiding) and the basic plots: `plot`, `hline`, `bgcolor`, `plotshape`. It does not yet show `fill`, `barcolor`, `plotcandle`, `plotbar`, `plotarrow` or the drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`), alerts or logs, and `request.security` to another timeframe or symbol returns the chart's own data. The script always sees ticker `VOST` and timeframe `D`.
+
+The full table, with a rerunnable probe, is in [spikes/pine-coverage/README.md](spikes/pine-coverage/README.md).
+
 ## Editing
 
 Pine indicators are edited in the Pine editor pane to the right of the chart, with its own resize handle and close button. The Pine Editor button in the top bar opens it, and so does the Edit button on a Pine indicator in the side panel's Indicators section. On a narrow window (900px and below) the pane is a dialog that covers the chart area and closes with Escape. A status line shows the cursor position and the Pine version.
