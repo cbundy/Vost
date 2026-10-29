@@ -2,18 +2,26 @@ import type { Scenario } from '../scenario.ts';
 
 export const builtTimeframe: Scenario = {
   name: 'built-timeframe',
-  description: 'Coinbase on the fake upstream: the timeframe picker marks built options, and 4h loads a chart built from 1h and streams live',
-  viewports: ['desktop'],
+  description: 'Coinbase on the fake upstream: the timeframe picker marks built options, 4h loads a chart built from 1h and streams live, and the Build setting builds every higher timeframe from the next lower one',
+  viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
-    const providerSelect = page.locator('.topbar select').first();
+    const narrow = ctx.viewport === 'narrow';
+    const more = page.getByRole('button', { name: 'More', exact: true });
+    const providerSelect = narrow ? page.getByRole('dialog', { name: 'More' }).locator('select').first() : page.locator('.topbar select').first();
     const title = (name: string, symbol: string, tf: string) => page.locator('.chart-legend .legend-title', { hasText: `${name} · ${symbol} · ${tf}` });
     const timeframeSelect = page.locator('.topbar select[title="Timeframe"]');
+    const expectPicker = async (expected: string[]) => {
+      const labels = await timeframeSelect.locator('option').allTextContents();
+      if (JSON.stringify(labels) !== JSON.stringify(expected)) throw new Error(`picker shows ${labels.join(', ')}, expected ${expected.join(', ')}`);
+    };
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.step('switch to Coinbase', async () => {
+      if (narrow) await more.click();
       await providerSelect.selectOption('coinbase');
       await title('Coinbase', 'BTC-USD', '1h').waitFor();
+      if (narrow) await page.keyboard.press('Escape');
     });
     await ctx.step('the picker lists native and built timeframes, built ones marked', async () => {
       const labels = await timeframeSelect.locator('option').allTextContents();
@@ -30,6 +38,24 @@ export const builtTimeframe: Scenario = {
       if (value !== '4h') throw new Error(`timeframe snapped back to ${value}`);
     });
     await ctx.screenshot('chart');
+    const buildButton = () => (narrow ? page.getByRole('dialog', { name: 'More' }) : page.locator('.topbar')).getByRole('button', { name: 'Build higher timeframes from lower ones' });
+    if (narrow) {
+      await ctx.step('the Build setting sits in the More menu, off', async () => {
+        await more.click();
+        const pressed = await buildButton().getAttribute('aria-pressed');
+        if (pressed !== 'false') throw new Error(`Build is aria-pressed=${pressed}, expected false`);
+      });
+      await ctx.screenshot('setting-off');
+      await ctx.step('turn Build on: every option above 1m is marked and 4h reloads', async () => {
+        await buildButton().click();
+        await page.keyboard.press('Escape');
+        await title('Coinbase', 'BTC-USD', '4h').waitFor();
+        await expectPicker(['1m', '5m *', '15m *', '30m *', '1h *', '4h *', '1d *', '1w *', '1M *']);
+      });
+      await more.click();
+      await ctx.screenshot('setting-on');
+      return;
+    }
     await ctx.step('turn Live on: LIVE and the last 4h bar updates from the 1h stream', async () => {
       const liveButton = page.locator('.topbar button.badge').first();
       const ohlc = page.locator('.chart-legend .legend-ohlc');
@@ -61,5 +87,26 @@ export const builtTimeframe: Scenario = {
       });
     });
     await ctx.screenshot('picker');
+    await ctx.step('the Build setting is off: the picker is unchanged', async () => {
+      const pressed = await buildButton().getAttribute('aria-pressed');
+      if (pressed !== 'false') throw new Error(`Build is aria-pressed=${pressed}, expected false`);
+    });
+    await ctx.step('turn Build on: every option above 1m is marked, Live stays on, and 4h reloads', async () => {
+      const liveButton = page.locator('.topbar button.badge').first();
+      await buildButton().click();
+      await expectPicker(['1m', '5m *', '15m *', '30m *', '1h *', '4h *', '1d *', '1w *', '1M *']);
+      const built = await timeframeSelect.locator('option', { hasText: '1h' }).getAttribute('title');
+      if (built !== 'Built from 15m') throw new Error(`1h option title is ${built}`);
+      await title('Coinbase', 'BTC-USD', '4h').waitFor();
+      await liveButton.filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+    });
+    await ctx.step('pick 1h: the chart loads built from 15m', async () => {
+      const before = ctx.requests.length;
+      await timeframeSelect.selectOption('1h');
+      await title('Coinbase', 'BTC-USD', '1h').waitFor();
+      const asked = ctx.requests.slice(before).filter((u) => u.includes('/api/history') && u.includes('timeframe=1h'));
+      if (!asked.some((u) => u.includes('source=built'))) throw new Error(`no source=built history request: ${asked.join(', ')}`);
+    });
+    await ctx.screenshot('setting-on');
   },
 };

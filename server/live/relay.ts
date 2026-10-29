@@ -6,7 +6,7 @@
  */
 import type { Candle, LiveKlineEvent, LiveLogEvent, LiveStatusEvent, Timeframe } from '../../shared/market.ts';
 import { catalogEntry } from '../../shared/providerCatalog.ts';
-import { baseTimeframe } from '../../shared/timeframes.ts';
+import { sourceBase, type Source } from '../../shared/timeframes.ts';
 import type { HistoryRequest } from '../providers/types.ts';
 import type { FetchFn } from '../providers/upstream.ts';
 import { createBuiltFolder, type BuiltFolder } from './builtFeed.ts';
@@ -36,7 +36,7 @@ export type SubscribeResult = { unsubscribe(): void } | { error: string };
 
 export interface Relay {
   /** Never throws: input the server cannot serve comes back as `{ error }`. */
-  subscribe(provider: string, symbol: string, timeframe: string, sub: Subscriber): SubscribeResult;
+  subscribe(provider: string, symbol: string, timeframe: string, sub: Subscriber, opts?: { source?: Source }): SubscribeResult;
   stats(): FeedStats[];
   /** Closes every upstream socket and ends every subscriber. */
   closeAll(): void;
@@ -99,7 +99,7 @@ export function createRelay(deps: RelayDeps = {}): Relay {
   };
 
   const subscribeBuilt = (provider: string, symbol: string, timeframe: string, base: Timeframe, sub: Subscriber, subscribeBase: Relay['subscribe']): SubscribeResult => {
-    const key = `${provider}|${symbol}|${timeframe}`;
+    const key = `${provider}|${symbol}|${timeframe}<${base}`;
     let entry = builtEntries.get(key);
     if (!entry) {
       const created: BuiltEntry = { subs: new Set([sub]), status: { status: 'connecting' }, lastKline: null, folder: null as unknown as BuiltFolder, baseSub: null };
@@ -168,12 +168,12 @@ export function createRelay(deps: RelayDeps = {}): Relay {
   };
 
   const relay: Relay = {
-    subscribe(provider, rawSymbol, timeframe, sub) {
+    subscribe(provider, rawSymbol, timeframe, sub, opts) {
       const symbol = rawSymbol.trim().toUpperCase();
       if (!symbol) return { error: 'Missing symbol' };
       const info = catalogEntry(provider);
-      if (deps.history && info?.supportsLive && (info.builtTimeframes as string[]).includes(timeframe)) {
-        const base = baseTimeframe(info.timeframes, timeframe as Timeframe);
+      if (deps.history && info?.supportsLive && ((info.builtTimeframes as string[]).includes(timeframe) || (info.timeframes as string[]).includes(timeframe))) {
+        const base = sourceBase(info.timeframes, timeframe as Timeframe, opts?.source ?? 'native');
         if (base) return subscribeBuilt(provider, symbol, timeframe, base, sub, relay.subscribe);
       }
       const key = `${provider}|${symbol}|${timeframe}`;

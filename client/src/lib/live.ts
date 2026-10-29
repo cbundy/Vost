@@ -16,7 +16,9 @@ export const SLOW_RETRY_MS = 60_000;
 const LOST = 'Connection to the Vost server lost';
 
 export function startLiveApi(providerId: string, opts: LiveOptions): LiveHandle {
-  const url = `/api/live?${new URLSearchParams({ provider: providerId, symbol: opts.symbol, timeframe: opts.timeframe })}`;
+  const query: Record<string, string> = { provider: providerId, symbol: opts.symbol, timeframe: opts.timeframe };
+  if (opts.source === 'built') query.source = 'built';
+  const url = `/api/live?${new URLSearchParams(query)}`;
   let es: EventSource | null = null;
   let stopped = false;
   let fatal = false;

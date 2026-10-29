@@ -71,6 +71,11 @@ describe('startLiveApi', () => {
     expect(last().url).toBe('/api/live?provider=binance&symbol=BTC%2FUSDT&timeframe=1m');
   });
 
+  it('adds source=built to the stream URL only when set', () => {
+    startLiveApi('binance', { symbol: 'BTCUSDT', timeframe: '4h', source: 'built', onKline: () => undefined, onStatus: () => undefined });
+    expect(last().url).toBe('/api/live?provider=binance&symbol=BTCUSDT&timeframe=4h&source=built');
+  });
+
   it('maps status, kline and log events to the callbacks', () => {
     const { statuses, klines, logs } = start();
     last().emit('status', { status: 'live' });

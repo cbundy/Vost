@@ -275,3 +275,37 @@ describe('relay: built timeframes', () => {
     expect(makeBuilt().subscribe('kraken', 'XBTUSD', '9x', sub().s)).toEqual({ error: 'Live data does not support 9x' });
   });
 });
+
+describe('relay: built source', () => {
+  const makeSrc = () => createRelay({ WebSocket: FakeWebSocket, timers, log: (l) => lines.push(l), history: async () => [] });
+
+  it('keeps a native and a built Binance 4h apart; the built one rides the 1h socket', () => {
+    const relay = makeSrc();
+    const native = sub();
+    const built = sub();
+    const hour = sub();
+    relay.subscribe('binance', 'BTCUSDT', '4h', native.s);
+    expect(FakeWS.instances).toHaveLength(1);
+    expect(FakeWS.instances[0].url).toContain('4h');
+    relay.subscribe('binance', 'BTCUSDT', '1h', hour.s);
+    relay.subscribe('binance', 'BTCUSDT', '4h', built.s, { source: 'built' });
+    expect(FakeWS.instances).toHaveLength(2); // 4h native, 1h shared by the 1h chart and the built 4h
+    expect(FakeWS.instances.filter((w) => w.url.includes('1h'))).toHaveLength(1);
+    expect(relay.stats().map((s) => s.timeframe).sort()).toEqual(['1h', '4h']);
+  });
+
+  it('releases the built entry and its base socket when its last subscriber leaves', () => {
+    const relay = makeSrc();
+    const res = relay.subscribe('binance', 'BTCUSDT', '4h', sub().s, { source: 'built' });
+    expect('unsubscribe' in res).toBe(true);
+    expect(relay.stats().map((s) => s.timeframe)).toEqual(['1h']);
+    if ('unsubscribe' in res) res.unsubscribe();
+    expect(relay.stats()).toEqual([]);
+  });
+
+  it('the lowest timeframe stays native with source=built', () => {
+    const relay = makeSrc();
+    relay.subscribe('binance', 'BTCUSDT', '1m', sub().s, { source: 'built' });
+    expect(relay.stats().map((s) => s.timeframe)).toEqual(['1m']);
+  });
+});

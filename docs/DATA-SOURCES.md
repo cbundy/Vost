@@ -23,6 +23,15 @@ Calendar rules:
 - No partial bar passes as complete: the base fetch reaches one bucket before the oldest wanted bar and the oldest bucket present is dropped. Only the newest bar, still forming, may be partial, as with native bars.
 - Live candles of a built timeframe are built by the server from the live stream of its base timeframe, which is shared with any chart on that base. Each update sends the whole higher bar. On every connect and reconnect the bar in progress is seeded from the base history (so it never looks smaller than the real one; a failed seed is retried every 15 s and nothing is shown for that bar meanwhile). The bar is closed once, when the first base update of the next bucket arrives (no close flag is needed).
 
+### The "Build higher timeframes from lower ones" setting
+
+Both `GET /api/history` and `GET /api/live` take an optional `source`: absent or `native` serves the exchange's own bars as above; `built` builds every timeframe above the provider's lowest one from the next lower native timeframe that nests (Binance chains 4h from 1h, 1d from 4h, 1w and 1M from 1d). The lowest native timeframe, and any timeframe that is built anyway, behave as without it. Any other value is a 400 naming the allowed values (on `/api/live` a JSON 400 before any event-stream header). A built live bar shares the base timeframe's upstream socket with any chart open on that base. The client keeps the choice in its saved preferences (`buildTimeframes`, off by default), shows it as a toggle next to the timeframe picker (in the More menu on narrower screens), and marks every built option with `*` while it is on. CSV datasets and the demo provider ignore it; watchlist quotes stay native.
+
+Things to know with the setting on:
+- Built daily bars for stocks (Yahoo) can differ slightly from the exchange's official daily bars.
+- OKX's own daily bars use UTC+8 days; built ones use UTC days.
+- History is shorter on providers with short lower-timeframe history: Yahoo 1m covers about 7 days, and Kraken keeps 720 bars per timeframe, so the higher timeframes reach back less far.
+
 A probe on live data is in `docs/spikes/built-timeframes/`: Binance 4h, 1w and 1M built from lower bars equal the native ones exactly.
 
 ## Summary

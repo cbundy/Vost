@@ -123,3 +123,23 @@ describe('GET /api/live', () => {
     expect(res.status).toBe(405);
   });
 });
+
+describe('GET /api/live source', () => {
+  it('answers a bad source with a 400 JSON body and no event-stream header', async () => {
+    const res = await fetch(`${base}/api/live?provider=binance&symbol=BTCUSDT&timeframe=4h&source=bogus`);
+    expect(res.status).toBe(400);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    expect(((await res.json()) as { error: string }).error).toMatch(/native or built/);
+    expect(FakeWS.instances).toHaveLength(0);
+  });
+
+  it('passes source=built to the relay', async () => {
+    const seen: Array<{ source?: string } | undefined> = [];
+    const inner = relay;
+    relay = { ...inner, subscribe: (p, s, t, sub, opts) => (seen.push(opts), inner.subscribe(p, s, t, sub, opts)) };
+    const res = await fetch(`${base}/api/live?provider=binance&symbol=BTCUSDT&timeframe=1m&source=built`);
+    await waitFor(() => FakeWS.instances.length === 1);
+    expect(seen).toEqual([{ source: 'built' }]);
+    void res.body?.cancel();
+  });
+});
