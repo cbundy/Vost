@@ -184,4 +184,32 @@ describe('Sync in layout', () => {
       for (const s of t.spies.slice(1)) expect(s.clearChartRange).not.toHaveBeenCalled();
     });
   });
+
+  it('symbol and interval syncs show one load-error toast, not one per receiving chart', async () => {
+    for (const kind of ['symbol', 'interval'] as const) {
+      const t = await grid({});
+      const settle = () =>
+        vi.waitFor(() => {
+          for (const id of t.ids) expect(t.chart(id).getState().loadState).not.toBe('loading');
+        });
+      for (const id of t.ids) t.chart(id).getState().openWatchItem('coinbase', 'BTC-USD', { broadcast: false });
+      await settle();
+      t.app.getState().setSync(kind, true);
+      const before = t.app.getState().toasts.length;
+      if (kind === 'symbol') t.chart(t.ids[1]).getState().openWatchItem('coinbase', 'ETH-USD');
+      else t.chart(t.ids[1]).getState().setTimeframe('1h');
+      await settle();
+      const errors = t.app.getState().toasts.slice(before).filter((x) => x.kind === 'error');
+      expect(errors.length).toBe(1); // the source and the three receivers share one toast
+    }
+  });
+
+  it('removing a custom timeframe does not sync the app-driven reset', async () => {
+    const t = await grid({ interval: true });
+    t.app.getState().addCustomTimeframe?.('2h');
+    t.chart(t.ids[0]).getState().setTimeframe('2h', { load: false, broadcast: false });
+    t.chart(t.ids[1]).getState().setTimeframe('4h', { load: false, broadcast: false });
+    t.app.getState().removeCustomTimeframe('2h');
+    expect(t.chart(t.ids[1]).getState().timeframe).toBe('4h');
+  });
 });

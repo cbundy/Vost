@@ -292,6 +292,19 @@ export const useStore = create<AppState>()((set, get) => {
   const syncToasts = new Set<string>();
   let syncPending = 0;
 
+  /** Resolves once the chart's load in flight (if any) has finished, so the toast window outlives the receivers' loads. */
+  function loadSettled(chart: ReturnType<typeof get>['charts'][string]): Promise<void> {
+    return new Promise((resolve) => {
+      if (chart.getState().loadState !== 'loading') return resolve();
+      const unsub = chart.subscribe((st) => {
+        if (st.loadState !== 'loading') {
+          unsub();
+          resolve();
+        }
+      });
+    });
+  }
+
   /** Applies a change made on chart `sourceId` to every other chart, when its switch is on. Receivers never announce again. */
   function applySync(sourceId: string, change: SyncChange): void {
     const s = get();
@@ -305,10 +318,14 @@ export const useStore = create<AppState>()((set, get) => {
     syncPending++;
     for (const id of others) {
       const chart = s.charts[id].getState();
-      if (change.kind === 'symbol') chart.openWatchItem(change.providerId, change.symbol, quiet);
-      else if (change.kind === 'interval') {
-        if (servable(getProvider(chart.providerId), change.timeframe)) chart.setTimeframe(change.timeframe, quiet);
-        else kept.push(`Chart ${s.chartOrder.indexOf(id) + 1}`);
+      if (change.kind === 'symbol') {
+        chart.openWatchItem(change.providerId, change.symbol, quiet);
+        pending.push(loadSettled(s.charts[id]));
+      } else if (change.kind === 'interval') {
+        if (servable(getProvider(chart.providerId), change.timeframe)) {
+          chart.setTimeframe(change.timeframe, quiet);
+          pending.push(loadSettled(s.charts[id]));
+        } else kept.push(`Chart ${s.chartOrder.indexOf(id) + 1}`);
       } else if (change.range) pending.push(chart.setChartRange(change.range, quiet));
       else pending.push(chart.clearChartRange(quiet));
     }
@@ -541,7 +558,7 @@ export const useStore = create<AppState>()((set, get) => {
       for (const chart of Object.values(get().charts)) {
         const { timeframe, providerId, activeDatasetId } = chart.getState();
         if (timeframe !== iv) continue;
-        chart.getState().setTimeframe(getProvider(providerId).defaultTimeframe, { load: activeDatasetId == null });
+        chart.getState().setTimeframe(getProvider(providerId).defaultTimeframe, { load: activeDatasetId == null, broadcast: false });
       }
     },
 
