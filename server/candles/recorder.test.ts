@@ -199,6 +199,21 @@ describe('start fill', () => {
     expect(calls[3]!.req).toMatchObject({ from: oldLast + 1, to: lastBar('1h') }); // only the new bar, nothing old
   });
 
+  it('never asks for a time before the Unix epoch when the window is deeper than the calendar', async () => {
+    const S: Series = { provider: 'binance', symbol: 'BTCUSDT', timeframe: '1M' };
+    historyStart.binance = lastBar('1M') - 100 * sec('1M');
+    const { recorder } = build(config([['binance', 'BTCUSDT', '1M']], 20000));
+    recorder.start();
+    await tick(3000);
+    expect(calls.length).toBeGreaterThan(1);
+    for (const c of calls) {
+      expect(c.req.from!).toBeGreaterThanOrEqual(0);
+      expect(c.req.to!).toBeGreaterThanOrEqual(0);
+    }
+    expect(store.covered(S, 0, lastBar('1M'))).toEqual([]);
+    expect(logs.filter((l) => l.includes('fill failed'))).toEqual([]);
+  });
+
   it('covers a 404 on a series with nothing stored as empty, never to be asked again', async () => {
     historyStart.binance = lastBar('1h') + 10 * H; // no data at all
     const { recorder } = build(config([['binance', 'BTCUSDT', '1h']], 2500));

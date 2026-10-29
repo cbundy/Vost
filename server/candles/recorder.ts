@@ -120,7 +120,8 @@ export function createRecorder(deps: RecorderDeps): Recorder {
     const step = TIMEFRAME_SECONDS[s.timeframe];
     return Math.floor(now() / 1000 / step) * step - step;
   };
-  const depthStartOf = (s: Series): number => lastBarOf(s) - (config.depthBars - 1) * TIMEFRAME_SECONDS[s.timeframe];
+  /** Never before the Unix epoch: a negative time is not a valid request to any exchange. */
+  const depthStartOf = (s: Series): number => Math.max(0, lastBarOf(s) - (config.depthBars - 1) * TIMEFRAME_SECONDS[s.timeframe]);
   const iso = (t: number): string => new Date(t * 1000).toISOString().slice(0, 16) + 'Z';
 
   const markDirty = (e: Entry, cause: Cause): void => {
