@@ -42,7 +42,7 @@ jobs:
 
       - name: Smoke-test the server (API + static)
         run: |
-          npm start &
+          VOST_RECORD=off npm start &
           SERVER_PID=$!
           for i in $(seq 1 30); do
             curl -fsS http://localhost:8787/api/health > /dev/null && break
@@ -76,7 +76,7 @@ jobs:
 
       - name: Smoke-test the image
         run: |
-          docker run -d --name vost-ci -p 8787:8787 vost:ci
+          docker run -d --name vost-ci -e VOST_RECORD=off -p 8787:8787 vost:ci
           for i in $(seq 1 30); do
             curl -fsS http://localhost:8787/api/health > /dev/null && break
             sleep 1
