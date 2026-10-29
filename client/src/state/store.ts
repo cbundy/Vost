@@ -19,7 +19,9 @@ import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from 
 import { createChartStore, defaultChartInitial, type ChartEnv, type ChartStore } from './chart';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
-import type { Timeframe } from '../types';
+import type { Interval } from '../types';
+import { MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
+import { canonicalInterval } from '../../../shared/market.ts';
 import type { TimeRange } from '../lib/timeRange';
 
 
@@ -40,7 +42,7 @@ export type DockTab = 'backtest' | 'optimizer' | 'results';
 interface Prefs {
   providerId: string;
   symbol: string;
-  timeframe: Timeframe;
+  timeframe: Interval;
   bars: number;
   indicators: IndicatorSpec[];
   btConfig: BacktestConfig;
@@ -55,6 +57,7 @@ interface Prefs {
   drawingMagnet?: boolean;
   drawingsHidden?: boolean;
   buildTimeframes?: boolean;
+  customTimeframes?: Interval[];
 }
 
 /** The sections of the right-hand side panel; one shows at a time. */
@@ -99,6 +102,8 @@ export interface AppState {
   drawingsHidden: boolean;
   /** Build every timeframe above the provider's lowest from the next lower native one, instead of the exchange's own bars. */
   buildTimeframes: boolean;
+  /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
+  customTimeframes: Interval[];
 
   /** The chart stores by id, and which one the panels outside the chart are bound to. */
   charts: Record<string, ChartStore>;
@@ -141,6 +146,10 @@ export interface AppState {
   flushPersist(): void;
   /** Turns building higher timeframes from lower ones on or off; reloads every remote chart whose source changes. */
   setBuildTimeframes(v: boolean): void;
+  /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
+  addCustomTimeframe(iv: Interval): void;
+  /** Forgets a custom interval and moves every chart showing it to its provider's default timeframe. */
+  removeCustomTimeframe(iv: Interval): void;
   setDockTab(tab: DockTab): void;
   setDockCollapsed(collapsed: boolean): void;
   setSidebarWidth(px: number): void;
@@ -193,6 +202,7 @@ export const useStore = create<AppState>()((set, get) => {
       drawingMagnet: s.drawingMagnet,
       drawingsHidden: s.drawingsHidden,
       buildTimeframes: s.buildTimeframes,
+      customTimeframes: s.customTimeframes,
     } satisfies Prefs);
   }, 400);
 
@@ -244,6 +254,7 @@ export const useStore = create<AppState>()((set, get) => {
     drawingMagnet: false,
     drawingsHidden: false,
     buildTimeframes: false,
+    customTimeframes: [],
     charts: { [FIRST_CHART_ID]: createChartStore(FIRST_CHART_ID, defaultChart, chartEnv) },
     activeChartId: FIRST_CHART_ID,
     datasets: [],
@@ -304,7 +315,7 @@ export const useStore = create<AppState>()((set, get) => {
         {
           providerId: known ? prefs.providerId : defaultPrefs.providerId,
           symbol: known ? (prefs.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
-          timeframe: known ? (prefs.timeframe ?? defaultPrefs.timeframe) : defaultPrefs.timeframe,
+          timeframe: known ? (typeof prefs.timeframe === 'string' && canonicalInterval(prefs.timeframe) === prefs.timeframe ? prefs.timeframe : defaultPrefs.timeframe) : defaultPrefs.timeframe,
           bars: prefs.bars ?? defaultPrefs.bars,
           indicators: Array.isArray(prefs.indicators) && prefs.indicators.length > 0 ? prefs.indicators : defaultPrefs.indicators,
           btConfig,
@@ -324,6 +335,7 @@ export const useStore = create<AppState>()((set, get) => {
         drawingMagnet: prefs.drawingMagnet === true,
         drawingsHidden: prefs.drawingsHidden === true,
         buildTimeframes: prefs.buildTimeframes === true,
+        customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
         charts: { ...get().charts, [FIRST_CHART_ID]: chart },
       });
@@ -342,6 +354,23 @@ export const useStore = create<AppState>()((set, get) => {
         const native = provider.timeframes.filter((tf) => !(provider.builtTimeframes ?? []).includes(tf));
         if (sourceBase(native, timeframe, 'native') === sourceBase(native, timeframe, 'built')) continue;
         void chart.getState().loadData(); // keeps Live on: it stays set and loadData reconnects it
+      }
+    },
+
+    addCustomTimeframe(iv) {
+      const list = get().customTimeframes;
+      if (list.includes(iv) || list.length >= MAX_CUSTOM_TIMEFRAMES) return;
+      set({ customTimeframes: [...list, iv] });
+      persistPrefs();
+    },
+
+    removeCustomTimeframe(iv) {
+      set({ customTimeframes: get().customTimeframes.filter((x) => x !== iv) });
+      persistPrefs();
+      for (const chart of Object.values(get().charts)) {
+        const { timeframe, providerId, activeDatasetId } = chart.getState();
+        if (timeframe !== iv) continue;
+        chart.getState().setTimeframe(getProvider(providerId).defaultTimeframe, { load: activeDatasetId == null });
       }
     },
 

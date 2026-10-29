@@ -374,6 +374,7 @@ describe('chart registry and flat prefs', () => {
     drawingMagnet: true,
     drawingsHidden: true,
     buildTimeframes: true,
+    customTimeframes: ['2h'],
   });
 
   it('opens with exactly one chart, chart-1, built from the saved prefs', async () => {
@@ -476,5 +477,65 @@ describe('chart registry and flat prefs', () => {
     bybit.listSymbols = async () => [{ symbol: 'QQQ', label: 'QQQ' }];
     await useStore.getState().loadSymbolCatalog('bybit');
     expect(useStore.getState().symbolCatalog.bybit).toEqual([{ symbol: 'QQQ', label: 'QQQ' }]);
+  });
+});
+
+describe('custom timeframes', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+  });
+  const saved = () => JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+  const base = { providerId: 'coinbase', symbol: 'BTC-USD', timeframe: '1h', bars: 100 };
+  async function fresh() {
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore;
+  }
+
+  it('adds canonical intervals once, persists them and a fresh store restores them', async () => {
+    vi.useFakeTimers();
+    const useStore = await fresh();
+    useStore.getState().addCustomTimeframe('2h');
+    useStore.getState().addCustomTimeframe('2h');
+    useStore.getState().addCustomTimeframe('10m');
+    vi.advanceTimersByTime(1000);
+    expect(saved().customTimeframes).toEqual(['2h', '10m']);
+    vi.resetModules();
+    const again = await fresh();
+    expect(again.getState().customTimeframes).toEqual(['2h', '10m']);
+  });
+
+  it('stops at 20', async () => {
+    const useStore = await fresh();
+    for (let i = 2; i < 30; i++) useStore.getState().addCustomTimeframe(`${i}m`);
+    expect(useStore.getState().customTimeframes).toHaveLength(20);
+  });
+
+  it('restores a chart left on a custom interval', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, timeframe: '2h', customTimeframes: ['2h'] }));
+    const useStore = await fresh();
+    expect(chartOf(useStore).getState().timeframe).toBe('2h');
+  });
+
+  it('drops bad saved lists and a bad saved timeframe without a toast', async () => {
+    for (const bad of ['2h', [1, '120m', 'x'], Array.from({ length: 30 }, (_, i) => `${i + 2}m`)]) {
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, timeframe: '120m', customTimeframes: bad }));
+      vi.resetModules();
+      const useStore = await fresh();
+      expect(useStore.getState().customTimeframes.length).toBe(Array.isArray(bad) && bad.length === 30 ? 20 : 0);
+      expect(chartOf(useStore).getState().timeframe).toBe('1h');
+      expect(useStore.getState().toasts).toEqual([]);
+    }
+  });
+
+  it('removing the active interval moves the chart to the provider default', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, timeframe: '2h', customTimeframes: ['2h'] }));
+    const useStore = await fresh();
+    useStore.getState().removeCustomTimeframe('2h');
+    expect(useStore.getState().customTimeframes).toEqual([]);
+    expect(chartOf(useStore).getState().timeframe).toBe('1h');
   });
 });

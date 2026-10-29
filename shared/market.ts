@@ -37,7 +37,7 @@ export type IntervalUnit = 'm' | 'h' | 'd' | 'w' | 'M';
 /** A timeframe written as a number and a unit, such as `2h`, `3d` or `3M`. Every `Timeframe` is one. */
 export type Interval = `${number}${IntervalUnit}`;
 
-const INTERVAL_MAX: Record<IntervalUnit, number> = { m: 1440, h: 168, d: 365, w: 52, M: 12 };
+export const INTERVAL_MAX: Record<IntervalUnit, number> = { m: 1440, h: 168, d: 365, w: 52, M: 12 };
 const UNIT_SECONDS: Record<IntervalUnit, number> = { m: 60, h: 3600, d: 86400, w: 604800, M: 2592000 };
 
 /** Parses `<N><unit>` (N a positive integer without leading zeros, within the unit's range, checked as written), or null. */

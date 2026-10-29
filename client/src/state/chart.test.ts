@@ -1164,6 +1164,19 @@ describe('two chart stores stay apart', () => {
     expect(b.getState().id).toBe('b');
   });
 
+  it('loadData keeps a custom interval the provider can build and snaps back one it cannot', async () => {
+    const p = fakeProvider();
+    p.history.set('AAA', async () => series(30, 100));
+    const a = make('a', 'AAA', stubEnv().env);
+    a.getState().setTimeframe('2h', { load: false });
+    await a.getState().loadData();
+    expect(a.getState().timeframe).toBe('2h');
+    expect(p.fetchHistory).toHaveBeenLastCalledWith(expect.objectContaining({ timeframe: '2h' }));
+    a.getState().setTimeframe('10m', { load: false }); // the fake provider's only native timeframe is 1h
+    await a.getState().loadData();
+    expect(a.getState().timeframe).toBe('1h');
+  });
+
   it('a slow load on one is not dropped when the other loads meanwhile (own request tokens)', async () => {
     const p = fakeProvider();
     let finishA!: (c: Candle[]) => void;
