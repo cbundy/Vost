@@ -7,6 +7,7 @@ import { catalogEntry } from '../../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './errors.ts';
 import { cropToSpan, isoTime, noDataInSpan } from './range.ts';
 import type { ProviderAdapter } from './types.ts';
+import type { Calendar } from '../../shared/timeframes.ts';
 import { upstreamJson } from './upstream.ts';
 
 const PROVIDER = 'Yahoo Finance';
@@ -15,6 +16,10 @@ const POPULAR = catalogEntry('yahoo')!.popularSymbols;
 interface YahooChartResponse {
   chart?: {
     result?: Array<{
+      meta?: {
+        exchangeTimezoneName?: string;
+        currentTradingPeriod?: { regular?: { start?: number } };
+      };
       timestamp?: number[];
       indicators?: {
         quote?: Array<{
@@ -52,12 +57,30 @@ const YAHOO_INTERVALS: Partial<Record<Timeframe, string>> = {
   '1M': '1mo',
 };
 
+/**
+ * The exchange's calendar from the chart `meta`: its time zone and the local
+ * time of day the regular session opens (the start of the current trading
+ * period). Null when Yahoo did not say, or named a zone `Intl` does not know.
+ */
+export function sessionCalendar(meta: { exchangeTimezoneName?: string; currentTradingPeriod?: { regular?: { start?: number } } } | undefined): Calendar | null {
+  const timeZone = meta?.exchangeTimezoneName;
+  const start = meta?.currentTradingPeriod?.regular?.start;
+  if (!timeZone || typeof start !== 'number') return null;
+  try {
+    const wall = new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', hour: 'numeric', minute: 'numeric', second: 'numeric' }).formatToParts(new Date(start * 1000));
+    const part = (type: string) => Number(wall.find((p) => p.type === type)?.value ?? 0);
+    return { kind: 'session', timeZone, openSeconds: part('hour') * 3600 + part('minute') * 60 + part('second') };
+  } catch {
+    return null;
+  }
+}
+
 const BAR_SECONDS: Record<string, number> = {
   '1m': 60,
   '5m': 300,
   '15m': 900,
   '30m': 1800,
-  '1h': 3600,
+  '60m': 3600, // keyed by Yahoo's interval code, which is what pickRange receives
   '1d': 86400,
   '1w': 7 * 86400,
   '1M': 30 * 86400,
@@ -82,7 +105,7 @@ const INTRADAY_MAX_RANGE: Record<string, string> = {
   '5m': '1mo',
   '15m': '1mo',
   '30m': '1mo',
-  '1h': '2y',
+  '60m': '2y',
 };
 
 /** How far back Yahoo serves an intraday interval, in seconds, from the one INTRADAY_MAX_RANGE table. */
@@ -172,7 +195,15 @@ export const yahooAdapter: ProviderAdapter = {
     } else if (req.to !== undefined) {
       // Bars ending at `to`: ask for the usual range's worth of time before it, then keep the newest `bars`.
       const seconds = RANGE_STEPS.find((s) => s.range === pickRange(interval, req.bars))?.seconds ?? Number.MAX_SAFE_INTEGER;
-      window = `period1=${Math.max(0, req.to + 1 - seconds)}&period2=${req.to + 1}`;
+      let period1 = Math.max(0, req.to + 1 - seconds);
+      const depth = intradayDepthSeconds(interval);
+      if (depth !== undefined) {
+        // Yahoo refuses a window that starts beyond its intraday depth: start at the edge, and say "nothing" past it.
+        const edge = now - depth + 3 * 86400;
+        if (req.to < edge) throw new NotFoundError(`${PROVIDER} has no ${symbol} ${req.timeframe} data before ${isoTime(edge)}`);
+        period1 = Math.max(period1, edge);
+      }
+      window = `period1=${period1}&period2=${req.to + 1}`;
     } else {
       window = `range=${pickRange(interval, req.bars)}`;
     }
@@ -196,6 +227,8 @@ export const yahooAdapter: ProviderAdapter = {
     if (!result?.timestamp || !result.indicators?.quote?.[0]) {
       throw new NotFoundError(`No data for "${symbol}". Try symbols like AAPL, ^GSPC, BTC-USD, EURUSD=X.`);
     }
+    const calendar = sessionCalendar(result.meta);
+    if (calendar) ctx.onCalendar?.(calendar);
     const quote = result.indicators.quote[0];
     const candles: Candle[] = [];
     for (let i = 0; i < result.timestamp.length; i++) {

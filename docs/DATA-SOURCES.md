@@ -13,6 +13,18 @@ How to read it:
 
 `GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / timeframe seconds) + 1`) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists. A series the server records is served from the server's own candle store under the same contract, fetching from the exchange only what the store lacks.
 
+## Built timeframes
+
+A timeframe a provider lacks is built by the server from its nearest lower native timeframe whose bars nest exactly in it, and the picker offers it marked (`4h *`). `timeframes` in the catalog stays the native list; `builtTimeframes` is derived from it (`shared/timeframes.ts`): Coinbase 30m (from 15m), 4h (from 1h), 1w and 1M (from 1d), Kraken 1M (from 1d), Yahoo 4h (from 1h). Stooq has nothing below its daily bars, so it builds nothing. A built bar is the open of the first base bar, the close of the last, the highest high, the lowest low and the summed volume, stamped at its bucket start. The `/api/history` contract above is unchanged: a request for a built timeframe reads the base timeframe (through the candle store when it is recorded) in chunks of at most 20000 base bars, newest first, and answers ascending, without duplicates, with the provider's 404 wording naming the built timeframe.
+
+Calendar rules:
+- Crypto providers use UTC: intraday and daily buckets are multiples of their length, weeks start on Monday 00:00 UTC, months on the 1st 00:00 UTC. (Kraken's own weekly bars start on Thursday; Kraken 1w is native and is not rebuilt.)
+- Yahoo uses the exchange calendar from the chart `meta` (`exchangeTimezoneName` and the regular session start): a trading day is the exchange-local date and 4h buckets count from that day's session open, so a US stock gets 9:30-13:30 and 13:30-16:00 ET, DST included.
+- No partial bar passes as complete: the base fetch reaches one bucket before the oldest wanted bar and the oldest bucket present is dropped. Only the newest bar, still forming, may be partial, as with native bars.
+- Live candles are not built (a built timeframe has no live feed yet).
+
+A probe on live data is in `docs/spikes/built-timeframes/`: Binance 4h, 1w and 1M built from lower bars equal the native ones exactly.
+
 ## Summary
 
 | Source | Assets | Key | Live / websocket | Max candles per request | Browser CORS (checked) | Supported today |
@@ -51,7 +63,7 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - Assets: stocks, ETFs, indices, FX, crypto, worldwide exchanges.
 - Symbol listing: no list; search with `GET /v1/finance/search?q=`.
 - Candles: `GET /v8/finance/chart/<symbol>?interval=&range=`.
-- Timeframes: 1m, 2m, 5m, 15m, 30m, 60m/1h, 1d, 5d, 1wk, 1mo, 3mo. No 4h.
+- Timeframes: 1m, 2m, 5m, 15m, 30m, 60m/1h, 1d, 5d, 1wk, 1mo, 3mo. No 4h natively: Vost builds it from 1h (see Built timeframes).
 - History: intraday is capped (1m about 7 days, sub-hour about 60 days, 1h about 2 years); daily and up goes back to listing. Undocumented limits as observed by the community; Yahoo publishes no official API docs. A span uses `period1=from&period2=to+1` instead of `range=`; an intraday `from` older than the depth above is a 400 naming the earliest time served.
 - Rate limits: unpublished; HTTP 429 when exceeded, and datacenter IPs are throttled harder.
 - Server hosts: `query1.finance.yahoo.com` (no CORS headers, so only a server can call it).
@@ -79,7 +91,7 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - Assets: crypto spot (`BTC-USD`, USD, EUR, GBP and stablecoin quotes).
 - Symbol listing: `GET https://api.exchange.coinbase.com/products`.
 - Candles: `GET /products/<id>/candles?granularity=<seconds>&start=&end=`.
-- Timeframes: 1m, 5m, 15m, 1h, 6h, 1d only (granularity 60, 300, 900, 3600, 21600, 86400). No 4h; build it from 1h. Vost offers 1m, 5m, 15m, 1h and 1d (it has no 6h timeframe).
+- Timeframes: 1m, 5m, 15m, 1h, 6h, 1d only (granularity 60, 300, 900, 3600, 21600, 86400). No 4h, 30m, 1w or 1M. Vost serves 1m, 5m, 15m, 1h and 1d natively (it has no 6h timeframe) and builds 30m (from 15m), 4h (from 1h), 1w and 1M (from 1d).
 - History: at most 300 candles per request; paginate by `start`/`end`. Candles are only returned for periods with trades. A span steps fixed 300-candle windows from `to` back to `from` by time, so a window without trades does not end it early.
 - Rate limits: public endpoints 10 requests per second per IP (burst 15). [Docs](https://docs.cdp.coinbase.com/exchange/docs/rest-rate-limits).
 - Server hosts: `api.exchange.coinbase.com` (CORS `*` was observed, but the server makes the call).
