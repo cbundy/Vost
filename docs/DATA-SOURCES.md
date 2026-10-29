@@ -27,6 +27,10 @@ Calendar rules:
 
 Both `GET /api/history` and `GET /api/live` take an optional `source`: absent or `native` serves the exchange's own bars as above; `built` builds every timeframe above the provider's lowest one from the next lower native timeframe that nests (Binance chains 4h from 1h, 1d from 4h, 1w and 1M from 1d). The lowest native timeframe, and any timeframe that is built anyway, behave as without it. Any other value is a 400 naming the allowed values (on `/api/live` a JSON 400 before any event-stream header). A built live bar shares the base timeframe's upstream socket with any chart open on that base. The client keeps the choice in its saved preferences (`buildTimeframes`, off by default), shows it as a toggle next to the timeframe picker (in the More menu on narrower screens), and marks every built option with `*` while it is on. CSV datasets and the demo provider ignore it; watchlist quotes stay native.
 
+### One live stream per tab
+
+`GET /api/live?sub=<key>&sub=<key>...` serves several subscriptions on one event stream, so a grid of live charts uses one browser connection. A key is `<provider>:<timeframe>:<source>:<symbol>` (`source` is `native` or `built`; the symbol is everything after the third `:`), URL-encoded per parameter. Duplicate keys collapse to one; more than 16 distinct keys is a JSON 400. Every `status`, `kline` and `log` event carries `sub: <key>`. A key the server cannot serve gets one tagged `status` with `fatal: true` and the other keys keep streaming; the response ends only when every key failed. The client changes the set make-before-break (the new stream opens before the old one closes) so the charts that stay are not interrupted. The older query (`provider`, `symbol`, `timeframe`, `source`) is still served, with untagged events.
+
 Things to know with the setting on:
 - Built daily bars for stocks (Yahoo) can differ slightly from the exchange's official daily bars.
 - OKX's own daily bars use UTC+8 days; built ones use UTC days.

@@ -73,6 +73,32 @@ export interface ApiError {
 
 /* ------------------------------- live stream ------------------------------ */
 /* `GET /api/live` is a server-sent-events stream of these three events.      */
+/* A `?sub=<key>` stream serves several subscriptions and tags every event    */
+/* with the `sub` key it belongs to.                                          */
+
+/** Most distinct subscriptions one `/api/live?sub=` stream serves. */
+export const MAX_LIVE_SUBS = 16;
+
+/** A subscription key: `<provider>:<timeframe>:<source>:<symbol>` (the symbol may itself contain `:`). */
+export function subKey(provider: string, timeframe: string, source: 'native' | 'built', symbol: string): string {
+  return `${provider}:${timeframe}:${source}:${symbol}`;
+}
+
+/** Parses a subscription key (splitting on the first three `:` only), or null when malformed or the source is bad. */
+export function parseSubKey(key: string): { provider: string; timeframe: string; source: 'native' | 'built'; symbol: string } | null {
+  const parts: string[] = [];
+  let rest = key;
+  for (let i = 0; i < 3; i++) {
+    const at = rest.indexOf(':');
+    if (at < 0) return null;
+    parts.push(rest.slice(0, at));
+    rest = rest.slice(at + 1);
+  }
+  const [provider, timeframe, source] = parts;
+  if (source !== 'native' && source !== 'built') return null;
+  if (!provider || !timeframe || !rest) return null;
+  return { provider, timeframe, source, symbol: rest };
+}
 
 /** State of the live feed as the server reports it (the client adds its own `off`). */
 export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'error';
@@ -81,6 +107,8 @@ export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'error';
 export interface LiveKlineEvent {
   candle: Candle;
   closed: boolean;
+  /** The subscription key, on a `?sub=` stream only. */
+  sub?: string;
 }
 
 /** Event `status`. `fatal` means the request can never be served: the stream ends and must not be retried. */
@@ -88,12 +116,16 @@ export interface LiveStatusEvent {
   status: LiveStatus;
   detail?: string;
   fatal?: boolean;
+  /** The subscription key, on a `?sub=` stream only. */
+  sub?: string;
 }
 
 /** Event `log`: one line for the in-app message log. */
 export interface LiveLogEvent {
   severity: 'info' | 'success' | 'warning' | 'error';
   text: string;
+  /** The subscription key, on a `?sub=` stream only. */
+  sub?: string;
 }
 
 /** Describes a websocket close event for the logs. */
