@@ -18,16 +18,18 @@ describe('readRecordConfig', () => {
       expect(config.depthBars).toBe(20000);
       const binance = PROVIDER_CATALOG.find((p) => p.id === 'binance')!.timeframes;
       const coinbase = PROVIDER_CATALOG.find((p) => p.id === 'coinbase')!.timeframes;
+      const perps = PROVIDER_CATALOG.find((p) => p.id === 'hyperliquid-perps')!.timeframes;
       expect(keys(config)).toEqual([
         ...['BTCUSDT', 'ETHUSDT'].flatMap((sym) => binance.map((tf) => `binance ${sym} ${tf}`)),
         ...['BTC-USD', 'ETH-USD'].flatMap((sym) => coinbase.map((tf) => `coinbase ${sym} ${tf}`)),
+        ...['BTC', 'ETH'].flatMap((sym) => perps.map((tf) => `hyperliquid-perps ${sym} ${tf}`)),
       ]);
     }
   });
 
   it('names the Hyperliquid markets in the default list', () => {
-    expect(DEFAULT_RECORD).toContain('hyperliquid:BTC');
-    expect(DEFAULT_RECORD).toContain('hyperliquid:ETH');
+    expect(DEFAULT_RECORD).toContain('hyperliquid-perps:BTC');
+    expect(DEFAULT_RECORD).toContain('hyperliquid-perps:ETH');
   });
 
   it('records nothing for off, in any case', () => {

@@ -9,7 +9,7 @@ import { liveFeed } from '../live/feeds.ts';
 import { adapters } from '../providers/index.ts';
 import type { Series } from './store.ts';
 
-export const DEFAULT_RECORD = 'binance:BTCUSDT binance:ETHUSDT coinbase:BTC-USD coinbase:ETH-USD hyperliquid:BTC hyperliquid:ETH';
+export const DEFAULT_RECORD = 'binance:BTCUSDT binance:ETHUSDT coinbase:BTC-USD coinbase:ETH-USD hyperliquid-perps:BTC hyperliquid-perps:ETH';
 export const MIN_DEPTH = 100;
 
 export interface RecordConfig {

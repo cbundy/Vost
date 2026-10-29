@@ -32,6 +32,8 @@ export const PACING: Record<string, Pacing> = {
   coinbase: { gapMs: 250, page: 300 },
   hyperliquid: { gapMs: 1000, page: 5000 },
 };
+/** The queue (and pacing) a provider shares: both Hyperliquid providers hit one host and one rate limit. */
+export const queueKeyOf = (provider: string): string => (provider.startsWith('hyperliquid-') ? 'hyperliquid' : provider);
 export const DEFAULT_PACING: Pacing = { gapMs: 1000, page: 300 };
 export const SWEEP_MS = 15 * 60_000;
 export const BACKOFF_START_MS = 60_000;
@@ -106,9 +108,10 @@ export function createRecorder(deps: RecorderDeps): Recorder {
     : [];
   const queues = new Map<string, Queue>();
   for (const e of entries) {
-    let q = queues.get(e.series.provider);
+    const key = queueKeyOf(e.series.provider);
+    let q = queues.get(key);
     if (!q) {
-      q = { provider: e.series.provider, entries: [], pacing: deps.pacing?.[e.series.provider] ?? PACING[e.series.provider] ?? DEFAULT_PACING, busy: false, timer: undefined, nextAt: 0, pausedUntil: 0, backoffMs: 0, rr: 0, pruned: false };
+      q = { provider: key, entries: [], pacing: deps.pacing?.[e.series.provider] ?? deps.pacing?.[key] ?? PACING[key] ?? DEFAULT_PACING, busy: false, timer: undefined, nextAt: 0, pausedUntil: 0, backoffMs: 0, rr: 0, pruned: false };
       queues.set(q.provider, q);
     }
     q.entries.push(e);
@@ -131,7 +134,7 @@ export function createRecorder(deps: RecorderDeps): Recorder {
       e.chunks = 0;
       e.cause = cause;
     }
-    pump(queues.get(e.series.provider)!);
+    pump(queues.get(queueKeyOf(e.series.provider))!);
   };
 
   /** The next chunk to fetch: the newest hole of the series that has had the fewest chunks this round. */
