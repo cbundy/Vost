@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from './store';
+import { chartOf, snap } from './stateTestKit';
 import * as providers from '../lib/providers';
 import type { Candle } from '../types';
 
@@ -13,18 +14,18 @@ describe('setLive', () => {
       return { stop };
     });
     vi.spyOn(providers, 'getProvider').mockReturnValue({ ...providers.demoProvider, name: 'Fake', supportsLive: true, startLive } as never);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     expect(startLive).toHaveBeenCalledOnce();
-    expect(useStore.getState().liveStatus).toBe('live');
-    useStore.getState().setLive(false);
+    expect(chartOf(useStore).getState().liveStatus).toBe('live');
+    chartOf(useStore).getState().setLive(false);
     expect(stop).toHaveBeenCalledOnce();
-    expect(useStore.getState().live).toBe(false);
+    expect(chartOf(useStore).getState().live).toBe(false);
   });
 
   it('refuses providers without startLive with a neutral toast', () => {
     vi.spyOn(providers, 'getProvider').mockReturnValue({ ...providers.demoProvider, name: 'Fake' } as never);
-    useStore.getState().setLive(true);
-    expect(useStore.getState().live).toBe(false);
+    chartOf(useStore).getState().setLive(true);
+    expect(chartOf(useStore).getState().live).toBe(false);
     const toasts = useStore.getState().toasts;
     expect(toasts[toasts.length - 1].text).toBe('Live streaming is not available for Fake data.');
   });
@@ -49,29 +50,31 @@ describe('setLive recovery', () => {
 
   it('fetches recent history once after reconnecting -> live and merges it with no gap or duplicate', async () => {
     const now = hourNow();
-    useStore.setState({ timeframe: '1h', symbol: 'BTCUSDT', candles: [bar(now - 7200, 1), bar(now - 3600, 2)], messages: [] });
+    chartOf(useStore).setState({ timeframe: '1h', symbol: 'BTCUSDT', candles: [bar(now - 7200, 1), bar(now - 3600, 2)] });
+    useStore.setState({ messages: [] });
     const fetchHistory = vi.fn(async () => [bar(now - 7200, 1), bar(now - 3600, 22), bar(now, 3)]);
     const opts = start(fetchHistory);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     expect(fetchHistory).not.toHaveBeenCalled(); // connecting -> live needs no backfill
     opts().onStatus('reconnecting', 'Connection to the Vost server lost');
     opts().onStatus('live');
-    await vi.waitFor(() => expect(useStore.getState().candles).toHaveLength(3));
+    await vi.waitFor(() => expect(chartOf(useStore).getState().candles).toHaveLength(3));
     expect(fetchHistory).toHaveBeenCalledOnce();
     // 1 bar elapsed since the last loaded candle (the current one) + 2
     expect(fetchHistory).toHaveBeenCalledWith({ symbol: 'BTCUSDT', timeframe: '1h', bars: 3 });
-    expect(useStore.getState().candles.map((c) => [c.time, c.close])).toEqual([[now - 7200, 1], [now - 3600, 22], [now, 3]]);
+    expect(chartOf(useStore).getState().candles.map((c) => [c.time, c.close])).toEqual([[now - 7200, 1], [now - 3600, 22], [now, 3]]);
     // a later kline replaces the last bar
     opts().onKline(bar(now, 4), false);
-    expect(useStore.getState().candles.map((c) => c.close)).toEqual([1, 22, 4]);
+    expect(chartOf(useStore).getState().candles.map((c) => c.close)).toEqual([1, 22, 4]);
   });
 
   it('also backfills after the exchange feed gave up (error -> live)', async () => {
     const now = hourNow();
-    useStore.setState({ timeframe: '1h', candles: [bar(now - 36000, 1)], messages: [] });
+    chartOf(useStore).setState({ timeframe: '1h', candles: [bar(now - 36000, 1)] });
+    useStore.setState({ messages: [] });
     const fetchHistory = vi.fn(async (_req: { bars: number }) => [bar(now - 3600, 2), bar(now, 3)]);
     const opts = start(fetchHistory);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     opts().onStatus('error', 'Live connection lost');
     opts().onStatus('live');
     await vi.waitFor(() => expect(fetchHistory).toHaveBeenCalledOnce());
@@ -80,10 +83,11 @@ describe('setLive recovery', () => {
 
   it('backfills after a browser-to-server drop that comes back as reconnecting -> connecting -> live', async () => {
     const now = hourNow();
-    useStore.setState({ timeframe: '1h', candles: [bar(now - 3600, 2)], messages: [] });
+    chartOf(useStore).setState({ timeframe: '1h', candles: [bar(now - 3600, 2)] });
+    useStore.setState({ messages: [] });
     const fetchHistory = vi.fn(async () => [bar(now - 3600, 2), bar(now, 3)]);
     const opts = start(fetchHistory);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     opts().onStatus('reconnecting');
     opts().onStatus('connecting');
     opts().onStatus('live');
@@ -92,10 +96,11 @@ describe('setLive recovery', () => {
 
   it('backfills after live -> connecting -> live (server restart) but not on the first connect', async () => {
     const now = hourNow();
-    useStore.setState({ timeframe: '1h', candles: [bar(now - 3600, 2)], messages: [] });
+    chartOf(useStore).setState({ timeframe: '1h', candles: [bar(now - 3600, 2)] });
+    useStore.setState({ messages: [] });
     const fetchHistory = vi.fn(async () => [bar(now - 3600, 2), bar(now, 3)]);
     const opts = start(fetchHistory);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     expect(fetchHistory).not.toHaveBeenCalled();
     opts().onStatus('connecting');
     opts().onStatus('live');
@@ -105,16 +110,17 @@ describe('setLive recovery', () => {
   it('a failing backfill leaves the candles as they are and writes an inbox line', async () => {
     const now = hourNow();
     const before = [bar(now - 3600, 2)];
-    useStore.setState({ timeframe: '1h', candles: before, messages: [] });
+    chartOf(useStore).setState({ timeframe: '1h', candles: before });
+    useStore.setState({ messages: [] });
     const fetchHistory = vi.fn(async () => {
       throw new Error('upstream down');
     });
     const opts = start(fetchHistory);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     opts().onStatus('reconnecting');
     opts().onStatus('live');
     await vi.waitFor(() => expect(useStore.getState().messages.length).toBeGreaterThan(0));
-    expect(useStore.getState().candles).toBe(before);
+    expect(chartOf(useStore).getState().candles).toBe(before);
     const msg = useStore.getState().messages[useStore.getState().messages.length - 1];
     expect(msg.source).toBe('Live');
     expect(msg.text).toContain('upstream down');
@@ -123,16 +129,17 @@ describe('setLive recovery', () => {
   it('drops a backfill that finishes after the stream was stopped', async () => {
     const now = hourNow();
     const before = [bar(now - 3600, 2)];
-    useStore.setState({ timeframe: '1h', candles: before, messages: [] });
+    chartOf(useStore).setState({ timeframe: '1h', candles: before });
+    useStore.setState({ messages: [] });
     let finish!: (c: Candle[]) => void;
     const fetchHistory = vi.fn(() => new Promise<Candle[]>((r) => (finish = r)));
     const opts = start(fetchHistory);
-    useStore.getState().setLive(true);
+    chartOf(useStore).getState().setLive(true);
     opts().onStatus('reconnecting');
     opts().onStatus('live');
-    useStore.getState().setLive(false);
+    chartOf(useStore).getState().setLive(false);
     finish([bar(now - 3600, 2), bar(now, 3)]);
     await new Promise((r) => setTimeout(r, 0));
-    expect(useStore.getState().candles).toBe(before);
+    expect(chartOf(useStore).getState().candles).toBe(before);
   });
 });

@@ -179,7 +179,7 @@ Vost/
 │       │   ├── csv.ts         # dialect-tolerant CSV import engine
 │       │   ├── indicators.ts  # SMA/EMA/RSI/MACD/BB/ATR/VWAP…
 │       │   └── workers/       # backtest Web Worker
-│       └── state/             # zustand store (prefs, datasets, runs)
+│       └── state/             # app store (prefs, datasets, layout) + one chart store per chart (data, runs, live)
 ├── server/
 │   ├── index.mjs              # entry point: checks the Node version, then loads main.ts
 │   ├── main.ts                # zero-dep Node server: static files + the /api routes

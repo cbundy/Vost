@@ -4,6 +4,7 @@ import { groupSymbols } from '../lib/providers/symbolMatch';
 import type { SymbolSuggestion } from '../lib/providers';
 import { debounce } from '../lib/storage';
 import { useStore } from '../state/store';
+import { useChart } from '../state/chartContext';
 
 const ROW_H = 36;
 const VIEW_H = 340;
@@ -12,12 +13,12 @@ const OVERSCAN = 6;
 type Row = { kind: 'header'; title: string } | { kind: 'item'; s: SymbolSuggestion };
 
 export function SymbolSearch() {
-  const providerId = useStore((s) => s.providerId);
-  const symbol = useStore((s) => s.symbol);
-  const suggestions = useStore((s) => s.symbolSuggestions);
-  const setSymbol = useStore((s) => s.setSymbol);
-  const loadData = useStore((s) => s.loadData);
-  const searchSymbols = useStore((s) => s.searchSymbols);
+  const providerId = useChart((s) => s.providerId);
+  const symbol = useChart((s) => s.symbol);
+  const suggestions = useChart((s) => s.symbolSuggestions);
+  const setSymbol = useChart((s) => s.setSymbol);
+  const loadData = useChart((s) => s.loadData);
+  const searchSymbols = useChart((s) => s.searchSymbols);
 
   const provider = getProvider(providerId);
   const [query, setQuery] = useState(symbol);
@@ -147,7 +148,7 @@ export function SymbolSearch() {
         }}
         onFocus={() => {
           setOpen(true);
-          void loadSymbolCatalog();
+          void loadSymbolCatalog(providerId);
           void searchSymbols(query);
         }}
         onKeyDown={onKeyDown}

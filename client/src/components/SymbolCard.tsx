@@ -4,11 +4,12 @@ import { getProvider } from '../lib/providers';
 import { CARD_BARS, cardStats } from '../lib/quotes';
 import { quoteKey, useQuotes } from '../state/quotes';
 import { useStore } from '../state/store';
+import { useChart } from '../state/chartContext';
 
 /** Summary of the chart's symbol from its daily bars; shows only what can be computed. */
 export function SymbolCard() {
-  const providerId = useStore((s) => s.providerId);
-  const symbol = useStore((s) => s.symbol);
+  const providerId = useChart((s) => s.providerId);
+  const symbol = useChart((s) => s.symbol);
   const lists = useStore((s) => s.watchlists.lists);
   const entry = useQuotes((s) => s.entries[quoteKey(providerId, symbol)]);
 

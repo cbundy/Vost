@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useStore } from '../state/store';
+import { useChart } from '../state/chartContext';
 import { Modal } from './Modal';
 import { PineEditor } from './PineEditor';
 
@@ -24,8 +24,8 @@ async function errorOf(res: Response): Promise<string> {
  * paste one. Saving or removing one re-runs every Pine indicator.
  */
 export function PineLibraries({ initialPath = '', onClose }: { initialPath?: string; onClose: () => void }) {
-  const indicators = useStore((s) => s.indicators);
-  const updateIndicator = useStore((s) => s.updateIndicator);
+  const indicators = useChart((s) => s.indicators);
+  const updateIndicator = useChart((s) => s.updateIndicator);
   const [stored, setStored] = useState<Stored[] | null>(null);
   const [loadError, setLoadError] = useState('');
   const [libPath, setLibPath] = useState(initialPath);

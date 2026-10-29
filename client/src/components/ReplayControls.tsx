@@ -4,12 +4,14 @@ import { REPLAY_SPEEDS, replayAtEnd, replayAtStart } from '../lib/replay';
 import { fromZonedInputValue, toZonedInputValue } from '../lib/timeRange';
 import { useStore } from '../state/store';
 import { PauseIcon, PlayIcon, StepBackIcon, StepForwardIcon } from './Icons';
+import { useChart, useChartStore } from '../state/chartContext';
 
 /** The chart bar's replay part: the start-bar hint while picking, the transport strip while replaying. */
 export function ReplayControls() {
-  const replay = useStore((s) => s.replay);
+  const chartStore = useChartStore();
+  const replay = useChart((s) => s.replay);
   const timeZone = useStore((s) => s.timeZone);
-  const candles = useStore((s) => s.candles);
+  const candles = useChart((s) => s.candles);
   const [typed, setTyped] = useState('');
   const phase = replay?.phase;
   useEffect(() => setTyped(''), [phase]);
@@ -22,12 +24,12 @@ export function ReplayControls() {
         useStore.getState().pushToast('error', 'Enter a valid date and time to start the replay.');
         return;
       }
-      useStore.getState().startReplayAt(t);
+      chartStore.getState().startReplayAt(t);
     };
     return (
       <div className="replay-strip" role="toolbar" aria-label="Replay">
         <span className="replay-hint">Click a bar to start replay</span>
-        <button className="ghost" onClick={() => useStore.getState().cancelReplay()}>
+        <button className="ghost" onClick={() => chartStore.getState().cancelReplay()}>
           Cancel
         </button>
         <input
@@ -50,7 +52,7 @@ export function ReplayControls() {
     );
   }
 
-  const st = useStore.getState();
+  const st = chartStore.getState();
   const atStart = replayAtStart(replay);
   const atEnd = replayAtEnd(replay);
   const bar = replay.source[replay.cursor];

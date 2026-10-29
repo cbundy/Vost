@@ -1,17 +1,17 @@
 import { downloadFile, rowsToCsv, sanitizeFileName } from '../lib/export';
 import { fmtCompact, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
 import { getStrategy } from '../lib/backtest/strategies';
-import { useStore } from '../state/store';
 import { EquityChart } from './EquityChart';
 import { TradesTable } from './TradesTable';
+import { useChart } from '../state/chartContext';
 
 export function ResultsTab() {
-  const btResult = useStore((s) => s.btResult);
-  const btRunning = useStore((s) => s.btRunning);
-  const dataLabel = useStore((s) => s.dataLabel);
-  const showTrades = useStore((s) => s.showTrades);
-  const setShowTrades = useStore((s) => s.setShowTrades);
-  const clearBacktest = useStore((s) => s.clearBacktest);
+  const btResult = useChart((s) => s.btResult);
+  const btRunning = useChart((s) => s.btRunning);
+  const dataLabel = useChart((s) => s.dataLabel);
+  const showTrades = useChart((s) => s.showTrades);
+  const setShowTrades = useChart((s) => s.setShowTrades);
+  const clearBacktest = useChart((s) => s.clearBacktest);
 
   if (btRunning) {
     return (

@@ -13,6 +13,7 @@ import { providers } from '../lib/providers';
 import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
 import { Modal } from './Modal';
+import { useChart } from '../state/chartContext';
 
 const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -139,9 +140,9 @@ function AlertRow({ alert, timeZone, onError }: { alert: Alert; timeZone: string
 }
 
 export function AlertsPanel({ onClose, initialLevel }: { onClose: () => void; initialLevel?: number }) {
-  const chartProvider = useStore((s) => s.providerId);
-  const chartSymbol = useStore((s) => s.symbol);
-  const datasetActive = useStore((s) => s.activeDatasetId != null);
+  const chartProvider = useChart((s) => s.providerId);
+  const chartSymbol = useChart((s) => s.symbol);
+  const datasetActive = useChart((s) => s.activeDatasetId != null);
   const timeZone = useStore((s) => s.timeZone);
   const alerts = useAlerts((s) => s.alerts);
   const telegram = useAlerts((s) => s.telegramConfigured);

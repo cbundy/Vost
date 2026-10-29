@@ -9,21 +9,23 @@ import { messageToError } from '../lib/pine/language';
 import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange, timeRangeErrorText } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
-import { selectBars, useStore } from '../state/store';
+import { useStore } from '../state/store';
+import { selectBars } from '../state/chart';
+import { useChart } from '../state/chartContext';
 
 export function BacktestTab() {
-  const btConfig = useStore((s) => s.btConfig);
-  const btRunning = useStore((s) => s.btRunning);
-  const btError = useStore((s) => s.btError);
-  const candles = useStore(selectBars);
-  const setBtConfig = useStore((s) => s.setBtConfig);
-  const runBacktest = useStore((s) => s.runBacktest);
+  const btConfig = useChart((s) => s.btConfig);
+  const btRunning = useChart((s) => s.btRunning);
+  const btError = useChart((s) => s.btError);
+  const candles = useChart(selectBars);
+  const setBtConfig = useChart((s) => s.setBtConfig);
+  const runBacktest = useChart((s) => s.runBacktest);
   const pushToast = useStore((s) => s.pushToast);
-  const pineInputs = useStore((s) => s.pineInputs);
-  const refreshPineInputs = useStore((s) => s.refreshPineInputs);
-  const btResult = useStore((s) => s.btResult);
-  const btRange = useStore((s) => s.btRange);
-  const setBtRange = useStore((s) => s.setBtRange);
+  const pineInputs = useChart((s) => s.pineInputs);
+  const refreshPineInputs = useChart((s) => s.refreshPineInputs);
+  const btResult = useChart((s) => s.btResult);
+  const btRange = useChart((s) => s.btRange);
+  const setBtRange = useChart((s) => s.setBtRange);
   const timeZone = useStore((s) => s.timeZone);
 
   const strategy = getStrategy(btConfig.strategyId);

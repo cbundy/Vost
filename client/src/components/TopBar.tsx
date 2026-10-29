@@ -8,12 +8,14 @@ import { TIMEFRAMES } from '../types';
 import { sourceBase } from '../../../shared/timeframes.ts';
 import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
-import { selectDataCandles, useStore } from '../state/store';
+import { useStore } from '../state/store';
+import { selectDataCandles } from '../state/chart';
 import { ChartRangeControl } from './ChartRangeControl';
 import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
+import { useChart, useChartStore } from '../state/chartContext';
 
 const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
 
@@ -29,35 +31,36 @@ export function TopBar({
   pineToggleRef?: Ref<HTMLButtonElement>;
 }) {
   const tier = topbarTier(useViewportSize().width);
+  const chartStore = useChartStore();
   const providerInMore = tier === 'narrow' || tier === 'tiny';
   const importInMore = tier !== 'full';
 
-  const providerId = useStore((s) => s.providerId);
-  const timeframe = useStore((s) => s.timeframe);
-  const bars = useStore((s) => s.bars);
-  const loadState = useStore((s) => s.loadState);
+  const providerId = useChart((s) => s.providerId);
+  const timeframe = useChart((s) => s.timeframe);
+  const bars = useChart((s) => s.bars);
+  const loadState = useChart((s) => s.loadState);
   const activeAlerts = useAlerts((s) => s.alerts.filter((a) => a.status === 'active').length);
   const unread = useStore((s) => unreadCount(s.messages));
   const pineOpen = useStore((s) => s.pineOpen);
-  const pineCount = useStore((s) => s.indicators.filter((i) => i.kind === 'pine').length);
-  const pineRunning = useStore((s) => Object.values(s.pineRuns).some((r) => r.running));
+  const pineCount = useChart((s) => s.indicators.filter((i) => i.kind === 'pine').length);
+  const pineRunning = useChart((s) => Object.values(s.pineRuns).some((r) => r.running));
   const togglePineEditor = useStore((s) => s.togglePineEditor);
-  const live = useStore((s) => s.live);
-  const candles = useStore(selectDataCandles);
-  const replayOn = useStore((s) => s.replay != null);
-  const hasBars = useStore((s) => s.candles.length >= 3);
-  const chartRange = useStore((s) => s.chartRange);
+  const live = useChart((s) => s.live);
+  const candles = useChart(selectDataCandles);
+  const replayOn = useChart((s) => s.replay != null);
+  const hasBars = useChart((s) => s.candles.length >= 3);
+  const chartRange = useChart((s) => s.chartRange);
   const timeZone = useStore((s) => s.timeZone);
   const [now, setNow] = useState(() => Date.now() / 1000);
-  const liveStatus = useStore((s) => s.liveStatus);
-  const liveDetail = useStore((s) => s.liveDetail);
-  const setProvider = useStore((s) => s.setProvider);
-  const setTimeframe = useStore((s) => s.setTimeframe);
+  const liveStatus = useChart((s) => s.liveStatus);
+  const liveDetail = useChart((s) => s.liveDetail);
+  const setProvider = useChart((s) => s.setProvider);
+  const setTimeframe = useChart((s) => s.setTimeframe);
   const buildTimeframes = useStore((s) => s.buildTimeframes);
   const setBuildTimeframes = useStore((s) => s.setBuildTimeframes);
-  const setBars = useStore((s) => s.setBars);
-  const loadData = useStore((s) => s.loadData);
-  const setLive = useStore((s) => s.setLive);
+  const setBars = useChart((s) => s.setBars);
+  const loadData = useChart((s) => s.loadData);
+  const setLive = useChart((s) => s.setLive);
 
   useEffect(() => {
     if (!live) return;
@@ -130,7 +133,7 @@ export function TopBar({
       title={replayOn ? 'Leave bar replay' : 'Replay the chart bar by bar from a bar you pick'}
       onClick={() => {
         after?.();
-        const st = useStore.getState();
+        const st = chartStore.getState();
         if (st.replay) st.exitReplay();
         else st.startReplayPick();
       }}
