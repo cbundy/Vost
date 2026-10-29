@@ -13,6 +13,7 @@ import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { advanceTick } from './data.ts';
 import { binanceSubscription, coinbaseSubscription, bybitSubscription, krakenSubscription, okxSubscription, subscribeAck, type Subscription } from './live.ts';
+import { HYPERLIQUID_HOST, hyperliquidAck, hyperliquidInfo, hyperliquidSubscription } from './hyperliquid.ts';
 import { REST_HOSTS } from './rest.ts';
 
 /** How often every live socket gets a new frame. The brief wants one at least every second. */
@@ -67,13 +68,16 @@ function newSubscription(host: string, path: string, msg: unknown): Subscription
       return okxSubscription(msg);
     case 'ws-feed.exchange.coinbase.com':
       return coinbaseSubscription(msg);
+    case HYPERLIQUID_HOST:
+      return hyperliquidSubscription(msg);
     default:
       return null;
   }
 }
 
-/** The one POST the app makes: a Telegram send. */
-function postReply(host: string, path: string, n: number): { status: number; body: unknown } {
+/** The POSTs the app makes: a Telegram send, and Hyperliquid's `/info`. */
+function postReply(host: string, path: string, n: number, body: string): { status: number; body: unknown } {
+  if (host === HYPERLIQUID_HOST && path === '/info') return hyperliquidInfo(body, Math.floor(Date.now() / 1000));
   if (host === 'api.telegram.org' && /^\/bot[^/]+\/sendMessage$/.test(path)) return { status: 200, body: { ok: true, result: { message_id: n } } };
   return { status: 404, body: { error: `the fake upstream has no POST ${host}${path}` } };
 }
@@ -100,7 +104,7 @@ export async function startFakeUpstream(): Promise<FakeUpstream> {
       req.on('end', () => {
         recorded.method = 'POST';
         recorded.body = Buffer.concat(chunks).toString('utf8');
-        const reply = postReply(hostName(parts.host), parts.path, requests.length);
+        const reply = postReply(hostName(parts.host), parts.path, requests.length, recorded.body);
         res.writeHead(reply.status, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(reply.body));
       });
       return;
@@ -138,11 +142,12 @@ export async function startFakeUpstream(): Promise<FakeUpstream> {
         } catch {
           return;
         }
+        if ((msg as { method?: string }).method === 'ping') return ws.send(JSON.stringify({ channel: 'pong' })); // Hyperliquid
         if ((msg as { op?: string }).op === 'ping') return ws.send(JSON.stringify({ success: true, ret_msg: 'pong', op: 'ping' })); // Bybit
         const sub = newSubscription(parts.host, parts.path, msg);
         if (!sub) return;
         subs.set(ws, sub);
-        const ack = subscribeAck(hostName(parts.host), msg);
+        const ack = hostName(parts.host) === HYPERLIQUID_HOST ? hyperliquidAck(msg) : subscribeAck(hostName(parts.host), msg);
         if (ack) ws.send(ack);
         ws.send(sub.frame(Math.floor(Date.now() / 1000))); // like a real feed: the current candle at once
       });

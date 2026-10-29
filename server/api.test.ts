@@ -51,7 +51,7 @@ describe('GET /api/providers', () => {
     expect(r.status).toBe(200);
     expect(r.body).toEqual(PROVIDER_CATALOG);
     expect(r.headers.get('cache-control')).toBe('no-store');
-    expect(r.body.map((p: { id: string }) => p.id)).toEqual(['binance', 'coinbase', 'kraken', 'bybit', 'okx', 'yahoo', 'stooq']);
+    expect(r.body.map((p: { id: string }) => p.id)).toEqual(['binance', 'coinbase', 'kraken', 'bybit', 'okx', 'hyperliquid-perps', 'hyperliquid-spot', 'yahoo', 'stooq']);
     expect(JSON.stringify(r.body)).not.toMatch(/https?:\/\//);
   });
 });

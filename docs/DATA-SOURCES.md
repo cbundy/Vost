@@ -24,6 +24,7 @@ How to read it:
 | Kraken | Crypto spot | No | Yes (ws) | 720 | No | Yes |
 | Bybit | Crypto spot, derivatives | No | Yes (ws) | 1000 | Echoes origin | Yes (spot) |
 | OKX | Crypto spot, derivatives | No | Yes (ws) | 100 (history) | Echoes origin | Yes (spot) |
+| Hyperliquid | Crypto perps and spot | No | Yes (ws) | 5000 (latest 5000 kept) | Not checked (Vost server calls it) | Yes (perps and spot) |
 | Alpha Vantage | Stocks, FX, crypto | Free key | No | Full / compact series | Not checked (needs key) | No |
 | Twelve Data | Stocks, FX, crypto, ETFs | Free key | Websocket (paid tiers, verify) | 5000 | Not checked (needs key) | No |
 | Finnhub | Stocks, FX, crypto | Free key | Yes (ws trades) | Varies | Not checked (needs key) | No |
@@ -132,6 +133,24 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - ToS: [OKX terms](https://www.okx.com/help/terms-of-service); personal use.
 - Docs: [API v5](https://www.okx.com/docs-v5/en/).
 - Checked 2026-10-23: `www.okx.com/api/v5/market/history-candles?instId=BTC-USDT&bar=1H&limit=100` returned 200, code 0, 100 candles; `/api/v5/public/instruments?instType=SPOT` returned 200 with 1212 instruments.
+
+## Hyperliquid (supported, perps and spot)
+
+Two providers share one adapter file: "Hyperliquid Perps" (`hyperliquid-perps`) and "Hyperliquid Spot" (`hyperliquid-spot`).
+
+- Endpoint: every REST call is `POST https://api.hyperliquid.xyz/info` with a JSON body (`content-type: application/json`).
+- Perps list: `{"type":"meta"}` returns `universe[]` of `{name, szDecimals, maxLeverage, isDelisted?}` (235 markets, 56 of them `isDelisted: true`, on 2026-10-29). Seven names are mixed case (`kPEPE`, `kSHIB`, `kBONK`, `kLUNC`, `kFLOKI`, `kDOGS`, `kNEIRO`).
+- Spot list: `{"type":"spotMeta"}` returns `tokens[]` (511) and `universe[]` of `{tokens:[base,quote], name, index}` (347 pairs). A token's `index` is not its position in `tokens[]` (the highest is 1308): look tokens up by `.index`.
+- Coin naming: perps use the name (`BTC`, `kPEPE`); spot pairs use `@<index>` (HYPE/USDC is `@107`, UBTC/USDC `@142`, UETH/USDC `@151`, USOL/USDC `@156`) except `PURR/USDC`, which is its own name. Names are case-sensitive: `btc` answers HTTP 500 with body `null`. Vost symbols are `BTC`, `kPEPE` and `HYPE/USDC` (readable `<BASE>/<QUOTE>`, `@107` also accepted); the server maps any letter case to the exact coin and answers 404 for an unknown symbol.
+- Candles: `{"type":"candleSnapshot","req":{"coin":"BTC","interval":"1h","startTime":<ms>,"endTime":<ms>}}` returns an ascending array of `{t,T,s,i,o,c,h,l,v,n}` (strings for prices and volume, `t` open time in ms, `T` close time). `endTime` is inclusive. A span with no data answers 200 `[]`.
+- Timeframes: per the docs 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 8h, 12h, 1d, 3d, 1w, 1M (Vost offers 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M).
+- Retention: only the latest 5000 candles per timeframe are kept (a 1h request from time 0 returned 5003 candles, the oldest in 2026-04), so 1m history covers about 3.5 days. A span starts at `endTime = to*1000 + 999` and pages back in windows of at most 5000 candles until `from` or an empty window.
+- Rate limits: about 1200 weight per minute per IP across REST (per the docs; `candleSnapshot` costs extra weight per 60 candles returned). [Docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits).
+- Live: websocket `wss://api.hyperliquid.xyz/ws`. Subscribe with `{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m"}}`; the reply is a `subscriptionResponse` frame, then `{"channel":"candle","data":{t,T,s,i,o,c,h,l,v,n}}` frames where `s` is the coin and `i` the interval. There is no close flag: Vost marks a candle closed when a frame with a newer `t` arrives. Keepalive: send `{"method":"ping"}` (answered with `{"channel":"pong"}`) every 20 s, (per the docs, the server closes a socket silent for 60 s). Limits per IP (per the docs): 100 connections, 1000 subscriptions, 2000 messages per minute.
+- Key: none for market data.
+- ToS: personal use; check [Hyperliquid terms](https://app.hyperliquid.xyz/terms).
+- Docs: [Info endpoint](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint), [Websocket](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket).
+- Checked 2026-10-29: `meta`, `spotMeta` and `candleSnapshot` (BTC 1h) answered 200 with the shapes above; a websocket subscribe to BTC 1m answered `subscriptionResponse`, then `candle` frames, and `{"method":"ping"}` answered `{"channel":"pong"}`; subscribing `@107` 1m streamed frames with `s: "@107"`.
 
 ## Alpha Vantage (not supported, free key)
 
