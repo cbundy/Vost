@@ -11,7 +11,7 @@ How to read it:
 
 ## Time ranges
 
-`GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / timeframe seconds) + 1`) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists. A series the server records is served from the server's own candle store under the same contract, fetching from the exchange only what the store lacks.
+`GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / interval seconds) + 1`, a month counted as 30 days) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists. A series the server records is served from the server's own candle store under the same contract, fetching from the exchange only what the store lacks.
 
 ## Built timeframes
 
@@ -22,6 +22,15 @@ Calendar rules:
 - Yahoo uses the exchange calendar from the chart `meta` (`exchangeTimezoneName` and the regular session start): a trading day is the exchange-local date and 4h buckets count from that day's session open, so a US stock gets 9:30-13:30 and 13:30-16:00 ET, DST included.
 - No partial bar passes as complete: the base fetch reaches one bucket before the oldest wanted bar and the oldest bucket present is dropped. Only the newest bar, still forming, may be partial, as with native bars.
 - Live candles of a built timeframe are built by the server from the live stream of its base timeframe, which is shared with any chart on that base. Each update sends the whole higher bar. On every connect and reconnect the bar in progress is seeded from the base history (so it never looks smaller than the real one; a failed seed is retried every 15 s and nothing is shown for that bar meanwhile). The bar is closed once, when the first base update of the next bucket arrives (no close flag is needed).
+
+### Custom intervals
+
+`/api/history` and `/api/live` also take any interval written as a number and a unit: `<N>m`, `<N>h`, `<N>d`, `<N>w` or `<N>M` (months), N a positive integer without leading zeros, at most 1440 minutes, 168 hours, 365 days, 52 weeks or 12 months (checked on the spelling as written). Only the canonical spelling is accepted: whole hours and whole days are folded (`120m` is `2h`, `1440m` is `1d`, `48h` is `2d`, `168h` is `7d`; `7d` and `12M` stay). A value that does not parse, or is not canonical, is a 400 before any upstream call; so is a canonical interval the provider can neither serve nor build (`<Provider> does not support timeframe <tf>`). `/api/providers` does not list them.
+
+- Base: the largest native timeframe below the interval that nests. For minutes, hours and days, a native timeframe of at most a day whose length divides the interval; for weeks, any native timeframe of at most a day (never native 1w, which starts on other days on some exchanges); for months, one of at most a day or native 1M.
+- Buckets (UTC): a minute/hour interval that divides a day is a multiple of its length; one shorter than a day that does not (7h) restarts at each UTC midnight, so the day's last bucket is shorter; an hour interval longer than a day (36h) counts from 1970-01-01 00:00 UTC. `Nd` counts N-day buckets from 1970-01-01, `Nw` N-week buckets from Monday 1970-01-05, `NM` N-month buckets from January 1970 (3M is calendar quarters, 12M calendar years).
+- Buckets (session calendar): `Nd`, `Nw` and `NM` count the same way over exchange-local days and are stamped at the session open of their first day; minute/hour intervals of at most a day count from each day's session open; an hour interval longer than a day uses the UTC rule.
+- Live: a canonical interval with a base streams through the built live folder on the base timeframe's shared socket, as a built timeframe does.
 
 ### The "Build higher timeframes from lower ones" setting
 

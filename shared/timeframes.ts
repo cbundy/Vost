@@ -5,15 +5,20 @@
  * TypeScript only, and no imports outside `shared/`.
  *
  * Calendar rules (what an exchange would print):
- * - UTC (crypto): intraday and daily buckets are `floor(t / seconds) * seconds`,
- *   weeks start on Monday 00:00 UTC, months on the 1st 00:00 UTC.
- * - Session (stocks): a trading day is the exchange-local date; intraday buckets
- *   are counted from that day's regular session open (so a 9:30 ET open gives
- *   4h buckets 9:30-13:30 and 13:30-16:00); days, weeks and months are stamped
- *   at the session open of their first day. DST follows the exchange time zone.
+ * - UTC (crypto): an m/h interval that divides a day is `floor(t / seconds) * seconds`;
+ *   one shorter than a day that does not (7h) restarts at each UTC midnight; an h
+ *   interval longer than a day (36h) counts from 1970-01-01. `Nd` counts N-day
+ *   buckets from 1970-01-01, `Nw` N-week buckets from Monday 1970-01-05, `NM`
+ *   N-month buckets from January 1970 (3M is calendar quarters, 12M years).
+ * - Session (stocks): a trading day is the exchange-local date; m/h buckets of at
+ *   most a day are counted from that day's regular session open (so a 9:30 ET
+ *   open gives 4h buckets 9:30-13:30 and 13:30-16:00); `Nd`, `Nw` and `NM` count
+ *   the same way over exchange-local civil days and are stamped at the session
+ *   open of the bucket's first day; an h interval longer than a day uses the UTC
+ *   rule. DST follows the exchange time zone.
  * A built bar is stamped at its bucket start.
  */
-import { TIMEFRAMES, TIMEFRAME_SECONDS, type Candle, type Timeframe } from './market.ts';
+import { TIMEFRAMES, TIMEFRAME_SECONDS, intervalSeconds, parseInterval, type Candle, type Interval, type IntervalUnit, type Timeframe } from './market.ts';
 
 /** How the buckets of a built timeframe are laid out in time. */
 export type Calendar =
@@ -30,26 +35,46 @@ export const UTC_CALENDAR: Calendar = { kind: 'utc' };
 
 const DAY = 86400;
 
-/** Seconds a bucket of `tf` can span at most (a month is 31 days here, unlike `TIMEFRAME_SECONDS`). */
-export function bucketSecondsMax(tf: Timeframe): number {
-  return tf === '1M' ? 31 * DAY : TIMEFRAME_SECONDS[tf];
+const parsed = new Map<string, { n: number; unit: IntervalUnit }>();
+
+/** The cached parse of an interval; throws on an invalid one. */
+function parse(iv: Interval): { n: number; unit: IntervalUnit } {
+  let p = parsed.get(iv);
+  if (!p) {
+    const q = parseInterval(iv);
+    if (!q) throw new Error(`Invalid interval ${iv}`);
+    parsed.set(iv, (p = q));
+  }
+  return p;
+}
+
+/** Seconds a bucket of `iv` can span at most (a month is 31 days here, unlike `intervalSeconds`). */
+export function bucketSecondsMax(iv: Interval): number {
+  const { n, unit } = parse(iv);
+  if (unit === 'd') return n * DAY;
+  if (unit === 'w') return 7 * n * DAY;
+  if (unit === 'M') return 31 * n * DAY;
+  return intervalSeconds(iv);
 }
 
 /**
  * The timeframe `target` is built from: the largest native timeframe below it
- * whose bars nest exactly in it. Intraday and daily targets need the target to
- * be a whole multiple of the base; a week or a month is built from days or
- * lower (a month never from weeks). Null when `target` is native or nothing
- * nests.
+ * whose bars nest exactly in it. An m/h/d target needs a native timeframe of at
+ * most a day whose seconds divide the target's; a week is built from any native
+ * timeframe of at most a day (never native 1w); a month from one of at most a day
+ * or native 1M. Null when `target` is native, invalid or nothing nests.
  */
-export function baseTimeframe(native: readonly Timeframe[], target: Timeframe): Timeframe | null {
-  if (native.includes(target)) return null;
-  const targetSeconds = TIMEFRAME_SECONDS[target];
+export function baseTimeframe(native: readonly Timeframe[], target: Interval): Timeframe | null {
+  if ((native as readonly string[]).includes(target)) return null;
+  const p = parseInterval(target);
+  if (!p) return null;
+  const targetSeconds = intervalSeconds(target);
   let best: Timeframe | null = null;
   for (const tf of TIMEFRAMES) {
     const seconds = TIMEFRAME_SECONDS[tf];
     if (!native.includes(tf) || seconds >= targetSeconds) continue;
-    const nests = target === '1w' || target === '1M' ? seconds <= DAY : targetSeconds % seconds === 0;
+    const nests =
+      p.unit === 'w' ? seconds <= DAY : p.unit === 'M' ? seconds <= DAY || tf === '1M' : seconds <= DAY && targetSeconds % seconds === 0;
     if (nests && (best === null || seconds > TIMEFRAME_SECONDS[best])) best = tf;
   }
   return best;
@@ -69,8 +94,8 @@ export function parseSource(raw: string | null | undefined): Source | null {
  * Built: a native timeframe above the lowest one is built too, from the next
  * lower native timeframe that nests. Null means the request is served native.
  */
-export function sourceBase(native: readonly Timeframe[], target: Timeframe, source: Source): Timeframe | null {
-  if (source === 'built' && native.includes(target)) {
+export function sourceBase(native: readonly Timeframe[], target: Interval, source: Source): Timeframe | null {
+  if (source === 'built' && (native as readonly string[]).includes(target)) {
     const lowest = native.reduce<Timeframe | null>((m, tf) => (m === null || TIMEFRAME_SECONDS[tf] < TIMEFRAME_SECONDS[m] ? tf : m), null);
     if (target === lowest) return null;
     return baseTimeframe(native.filter((tf) => tf !== target), target);
@@ -127,30 +152,39 @@ function zonedTime(day: number, secondsOfDay: number, timeZone: string): number 
   return t;
 }
 
-/** The Monday on or before the civil date `day` (days since 1970-01-01, a Thursday). */
-function mondayOf(day: number): number {
-  return day - (((day + 3) % 7) + 7) % 7;
+/** The first Monday on or before civil date `day`, counted in `weeks`-week buckets from Monday 1970-01-05 (day 4). */
+function weekBucket(day: number, weeks: number): number {
+  const span = 7 * weeks;
+  return 4 + Math.floor((day - 4) / span) * span;
 }
 
-function firstOfMonth(day: number): number {
+/** The first civil date (days since 1970-01-01) of the `months`-month bucket holding `day`, counted from January 1970. */
+function monthBucket(day: number, months: number): number {
   const d = new Date(day * DAY * 1000);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / (DAY * 1000);
+  const index = (d.getUTCFullYear() - 1970) * 12 + d.getUTCMonth();
+  return Date.UTC(1970, Math.floor(index / months) * months, 1) / (DAY * 1000);
 }
 
 /** Start of the `target` bucket holding unix time `t`. */
-export function bucketStart(t: number, target: Timeframe, calendar: Calendar = UTC_CALENDAR): number {
-  const seconds = TIMEFRAME_SECONDS[target];
+export function bucketStart(t: number, target: Interval, calendar: Calendar = UTC_CALENDAR): number {
+  const { n, unit } = parse(target);
+  const seconds = intervalSeconds(target);
   if (calendar.kind === 'utc') {
-    if (target === '1w') return mondayOf(Math.floor(t / DAY)) * DAY;
-    if (target === '1M') return firstOfMonth(Math.floor(t / DAY)) * DAY;
-    return Math.floor(t / seconds) * seconds;
+    const day = Math.floor(t / DAY);
+    if (unit === 'd') return Math.floor(day / n) * n * DAY;
+    if (unit === 'w') return weekBucket(day, n) * DAY;
+    if (unit === 'M') return monthBucket(day, n) * DAY;
+    if (seconds > DAY || DAY % seconds === 0) return Math.floor(t / seconds) * seconds;
+    return day * DAY + Math.floor((t - day * DAY) / seconds) * seconds; // restarts at each UTC midnight
   }
   const { timeZone, openSeconds } = calendar;
   const day = localDay(t, timeZone);
-  if (target === '1w') return zonedTime(mondayOf(day), openSeconds, timeZone);
-  if (target === '1M') return zonedTime(firstOfMonth(day), openSeconds, timeZone);
+  if (unit === 'd') return zonedTime(Math.floor(day / n) * n, openSeconds, timeZone);
+  if (unit === 'w') return zonedTime(weekBucket(day, n), openSeconds, timeZone);
+  if (unit === 'M') return zonedTime(monthBucket(day, n), openSeconds, timeZone);
+  if (seconds > DAY) return Math.floor(t / seconds) * seconds;
   const open = zonedTime(day, openSeconds, timeZone);
-  if (target === '1d') return open;
+  if (seconds === DAY) return open;
   return open + Math.floor((t - open) / seconds) * seconds;
 }
 
@@ -161,7 +195,7 @@ export function bucketStart(t: number, target: Timeframe, calendar: Calendar = U
  * Every bucket is returned, the oldest and newest possibly partial: the caller
  * decides which to keep.
  */
-export function buildBars(base: readonly Candle[], target: Timeframe, calendar: Calendar = UTC_CALENDAR): Candle[] {
+export function buildBars(base: readonly Candle[], target: Interval, calendar: Calendar = UTC_CALENDAR): Candle[] {
   const out: Candle[] = [];
   for (const c of base) {
     const start = bucketStart(c.time, target, calendar);

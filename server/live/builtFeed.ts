@@ -6,7 +6,7 @@
  * the base history, so the live bar never looks smaller than the real one. It has
  * no socket knowledge: the relay feeds it the base feed's status and klines.
  */
-import { TIMEFRAME_SECONDS, type Candle, type LiveKlineEvent, type LiveStatusEvent, type Timeframe } from '../../shared/market.ts';
+import { TIMEFRAME_SECONDS, type Candle, type LiveKlineEvent, type Interval, type LiveStatusEvent, type Timeframe } from '../../shared/market.ts';
 import { bucketSecondsMax, bucketStart, buildBars, UTC_CALENDAR } from '../../shared/timeframes.ts';
 import type { HistoryRequest } from '../providers/types.ts';
 import { SEED_RETRY_MS } from './coinbaseCandles.ts';
@@ -14,7 +14,7 @@ import type { Timers } from './socket.ts';
 
 export interface BuiltFolderDeps {
   symbol: string;
-  target: Timeframe;
+  target: Interval;
   base: Timeframe;
   /** Base bars for a range request (the read-through history of the server). */
   history: (req: HistoryRequest) => Promise<Candle[]>;

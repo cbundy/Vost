@@ -72,7 +72,9 @@ describe('GET /api/history', () => {
     ['an unknown provider', '/api/history?provider=nope&symbol=A&timeframe=1h&bars=5', /Unknown provider "nope"/],
     ['a missing provider', '/api/history?symbol=A&timeframe=1h&bars=5', /Unknown provider/],
     ['a missing symbol', '/api/history?provider=binance&timeframe=1h&bars=5', /Missing symbol/],
-    ['a timeframe the app does not know', '/api/history?provider=binance&symbol=A&timeframe=3m&bars=5', /does not support timeframe 3m/],
+    ['a timeframe the app does not know', '/api/history?provider=binance&symbol=A&timeframe=2x&bars=5', /timeframe must be a number and a unit m, h, d, w or M, such as 2h/],
+    ['a timeframe out of range', '/api/history?provider=binance&symbol=A&timeframe=13M&bars=5', /such as 2h/],
+    ['a non-canonical interval', '/api/history?provider=binance&symbol=A&timeframe=120m&bars=5', /write 120m as 2h/],
     ['a provider that was dropped', '/api/history?provider=stooq&symbol=aapl.us&timeframe=1d&bars=5', /Unknown provider "stooq"/],
     ['bars 0', '/api/history?provider=binance&symbol=A&timeframe=1h&bars=0', /bars must be an integer/],
     [`bars ${MAX_BARS + 1}`, `/api/history?provider=binance&symbol=A&timeframe=1h&bars=${MAX_BARS + 1}`, /bars must be an integer/],
@@ -124,6 +126,35 @@ describe('GET /api/history', () => {
         expect(r.status, `${info.id} ${tf}`).not.toBe(400);
       }
     }
+  });
+
+  describe('custom intervals', () => {
+    it('serves 2h from 1h bars', async () => {
+      upstream = () => [kline(0), kline(3_600_000), kline(7_200_000), kline(10_800_000)];
+      const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=2h&bars=1');
+      expect(r.status).toBe(200);
+      expect(r.body.map((c: { time: number }) => c.time)).toEqual([7200]);
+      expect(current.urls[0]).toContain('interval=1h');
+    });
+    it('refuses a canonical interval that cannot be built, before any upstream call', async () => {
+      const info = PROVIDER_CATALOG.find((p) => p.id === 'coinbase')!;
+      const saved = info.timeframes;
+      info.timeframes = ['1h', '1d'];
+      try {
+        const r = await get('/api/history?provider=coinbase&symbol=BTC-USD&timeframe=7m&bars=5');
+        expect(r.status).toBe(400);
+        expect(r.body.error).toBe('Coinbase does not support timeframe 7m');
+        expect(current.urls).toEqual([]);
+      } finally {
+        info.timeframes = saved;
+      }
+    });
+    it('counts a range with interval seconds and refuses more than the limit', async () => {
+      const r = await get(`/api/history?provider=binance&symbol=BTCUSDT&timeframe=2h&from=0&to=${(MAX_BARS + 1) * 7200}`);
+      expect(r.status).toBe(400);
+      expect(r.body.error).toMatch(/20000/);
+      expect(current.urls).toEqual([]);
+    });
   });
 
   describe('time span', () => {

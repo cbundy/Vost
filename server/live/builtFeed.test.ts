@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Candle, LiveKlineEvent, Timeframe } from '../../shared/market.ts';
+import type { Candle, Interval, LiveKlineEvent, Timeframe } from '../../shared/market.ts';
 import type { HistoryRequest } from '../providers/types.ts';
 import { createBuiltFolder } from './builtFeed.ts';
 import { SEED_RETRY_MS } from './coinbaseCandles.ts';
@@ -21,7 +21,7 @@ interface Call {
   reject(err: Error): void;
 }
 
-function setup(target: Timeframe, base: Timeframe, startSec: number) {
+function setup(target: Interval, base: Timeframe, startSec: number) {
   const timers = fakeTimers();
   let nowSec = startSec;
   const calls: Call[] = [];
@@ -227,5 +227,26 @@ describe('built folder (calendar)', () => {
     m.kline(bar(feb1, 4, 4, 3, 3, 1));
     expect(m.out[1]).toEqual({ candle: bar(jan1, 1, 5, 1, 4, 15), closed: true });
     expect(m.out[2]).toEqual({ candle: bar(feb1, 4, 4, 3, 3, 1), closed: false });
+  });
+});
+
+describe('built folder (custom intervals)', () => {
+  it('closes a 7h bar at UTC midnight', async () => {
+    const x = setup('7h', '1h', MON + 21 * H + 600);
+    x.live();
+    x.calls[0].resolve([bar(MON + 21 * H, 1, 2, 1, 2, 1)]);
+    await flush();
+    expect(x.out.at(-1)).toEqual({ candle: bar(MON + 21 * H, 1, 2, 1, 2, 1), closed: false });
+    x.kline(bar(MON + 22 * H, 2, 3, 2, 3, 1));
+    expect(x.out.filter((e) => e.closed)).toHaveLength(0);
+    x.kline(bar(MON + D, 3, 4, 3, 4, 1));
+    expect(x.out.filter((e) => e.closed)).toHaveLength(1);
+    expect(x.out.find((e) => e.closed)!.candle.time).toBe(MON + 21 * H);
+  });
+
+  it('seeds a 3M bar with bucketSecondsMax / baseSeconds + 1 base bars', () => {
+    const x = setup('3M', '1d', MON + 5 * D);
+    x.live();
+    expect(x.calls[0].req).toMatchObject({ timeframe: '1d', bars: Math.ceil((93 * D) / D) + 1, from: MON });
   });
 });

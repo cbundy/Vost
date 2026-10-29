@@ -4,12 +4,12 @@
  * can inject a fake fetch and never touch the network.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { MAX_BARS, rangeBarCount, type ApiError, type Candle, type ProviderInfo, type Timeframe } from '../shared/market.ts';
+import { MAX_BARS, canonicalInterval, parseInterval, rangeBarCount, type ApiError, type Candle, type ProviderInfo, type Timeframe } from '../shared/market.ts';
 import { PROVIDER_CATALOG, catalogEntry } from '../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './providers/errors.ts';
 import { adapters } from './providers/index.ts';
 import { createSymbolCache, type SymbolCache } from './providers/symbolCache.ts';
-import type { AdapterContext, HistoryRequest, ProviderAdapter } from './providers/types.ts';
+import type { AdapterContext, BuiltHistoryRequest, HistoryRequest, ProviderAdapter } from './providers/types.ts';
 import type { FetchFn } from './providers/upstream.ts';
 import type { CheckResult } from './status/registry.ts';
 import { sendJson } from './respond.ts';
@@ -89,9 +89,11 @@ function history(deps: ApiDeps, id: string, ctx: AdapterContext, adapter: Provid
 const calendars = new Map<string, Calendar>();
 
 /** One history request for `timeframe`: native as it is, built from the provider's lower native timeframe. */
-function timeframeHistory(deps: ApiDeps, info: ProviderInfo, ctx: AdapterContext, adapter: ProviderAdapter, req: HistoryRequest, source: Source = 'native'): Promise<Candle[]> {
-  const native = info.timeframes.includes(req.timeframe);
-  if (native && sourceBase(info.timeframes, req.timeframe, source) === null) return history(deps, info.id, ctx, adapter, req);
+function timeframeHistory(deps: ApiDeps, info: ProviderInfo, ctx: AdapterContext, adapter: ProviderAdapter, req: BuiltHistoryRequest, source: Source = 'native'): Promise<Candle[]> {
+  const native = (info.timeframes as readonly string[]).includes(req.timeframe);
+  if (native && sourceBase(info.timeframes, req.timeframe, source) === null) {
+    return history(deps, info.id, ctx, adapter, { ...req, timeframe: req.timeframe as Timeframe });
+  }
   const key = `${info.id}:${req.symbol}`;
   return builtHistory(
     {
@@ -119,27 +121,32 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       const { info, adapter } = provider(url);
       const symbol = (url.searchParams.get('symbol') ?? '').trim();
       if (!symbol) throw new InputError('Missing symbol');
-      const timeframe = url.searchParams.get('timeframe') ?? '';
-      // Neither native nor buildable from a lower native timeframe: refused before any upstream call.
-      if (![...info.timeframes, ...info.builtTimeframes].some((tf) => tf === timeframe)) {
-        throw new InputError(`${info.name} does not support timeframe ${timeframe || '(none)'}`);
+      const rawTimeframe = url.searchParams.get('timeframe') ?? '';
+      if (parseInterval(rawTimeframe) === null) {
+        throw new InputError('timeframe must be a number and a unit m, h, d, w or M, such as 2h');
       }
+      const timeframe = canonicalInterval(rawTimeframe)!;
+      if (timeframe !== rawTimeframe) throw new InputError(`write ${rawTimeframe} as ${timeframe}`);
       const source = parseSource(url.searchParams.get('source'));
       if (source === null) throw new InputError('source must be native or built');
+      // Neither native nor buildable from a lower native timeframe: refused before any upstream call.
+      if (!(info.timeframes as readonly string[]).includes(timeframe) && sourceBase(info.timeframes, timeframe, 'native') === null) {
+        throw new InputError(`${info.name} does not support timeframe ${timeframe}`);
+      }
       const from = parseTime('from', url.searchParams.get('from'));
       let to = parseTime('to', url.searchParams.get('to'));
       if (from === undefined) {
         const bars = parseBars(url.searchParams.get('bars'));
         if (to !== undefined) to = Math.min(to, Math.floor(Date.now() / 1000));
-        return timeframeHistory(deps, info, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) }, source);
+        return timeframeHistory(deps, info, base, adapter, { symbol, timeframe, bars, ...(to === undefined ? {} : { to }) }, source);
       }
       to = Math.min(to ?? Infinity, Math.floor(Date.now() / 1000));
       if (from > to) throw new InputError('from must not be after to (or in the future)');
-      const count = rangeBarCount(timeframe as Timeframe, from, to);
+      const count = rangeBarCount(timeframe, from, to);
       if (count > MAX_BARS) {
         throw new InputError(`That span is about ${count} ${timeframe} bars, above the limit of ${MAX_BARS}; pick a shorter span or a larger timeframe`);
       }
-      return timeframeHistory(deps, info, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to }, source);
+      return timeframeHistory(deps, info, base, adapter, { symbol, timeframe, bars: count, from, to }, source);
     }
     case '/api/symbols': {
       const { info, adapter } = provider(url);
