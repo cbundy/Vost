@@ -55,6 +55,29 @@ export function baseTimeframe(native: readonly Timeframe[], target: Timeframe): 
   return best;
 }
 
+/** Where a chart's bars come from: the exchange's own, or built from the next lower native timeframe. */
+export type Source = 'native' | 'built';
+
+/** Parses a `source` query value: absent or `native` is native, `built` is built, anything else null. */
+export function parseSource(raw: string | null | undefined): Source | null {
+  if (raw == null || raw === '' || raw === 'native') return 'native';
+  return raw === 'built' ? 'built' : null;
+}
+
+/**
+ * The timeframe `target` is built from under `source`. Native: as `baseTimeframe`.
+ * Built: a native timeframe above the lowest one is built too, from the next
+ * lower native timeframe that nests. Null means the request is served native.
+ */
+export function sourceBase(native: readonly Timeframe[], target: Timeframe, source: Source): Timeframe | null {
+  if (source === 'built' && native.includes(target)) {
+    const lowest = native.reduce<Timeframe | null>((m, tf) => (m === null || TIMEFRAME_SECONDS[tf] < TIMEFRAME_SECONDS[m] ? tf : m), null);
+    if (target === lowest) return null;
+    return baseTimeframe(native.filter((tf) => tf !== target), target);
+  }
+  return baseTimeframe(native, target);
+}
+
 /** The timeframes a provider with these native timeframes can add, in `TIMEFRAMES` order. */
 export function builtTimeframes(native: readonly Timeframe[]): Timeframe[] {
   return TIMEFRAMES.filter((tf) => baseTimeframe(native, tf) !== null);

@@ -21,6 +21,7 @@ import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } from '../lib/messages';
 import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
+import { sourceBase, type Source } from '../../../shared/timeframes.ts';
 import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce, removeKey } from '../lib/storage';
@@ -83,6 +84,7 @@ interface Prefs {
   sidePanelCollapsed?: boolean;
   drawingMagnet?: boolean;
   drawingsHidden?: boolean;
+  buildTimeframes?: boolean;
 }
 
 /** The sections of the right-hand side panel; one shows at a time. */
@@ -153,6 +155,8 @@ export interface AppState {
   sidePanelCollapsed: boolean;
   drawingMagnet: boolean;
   drawingsHidden: boolean;
+  /** Build every timeframe above the provider's lowest from the next lower native one, instead of the exchange's own bars. */
+  buildTimeframes: boolean;
   selectedPineId: string | null;
 
   /* market data */
@@ -238,6 +242,8 @@ export interface AppState {
   openWatchItem(providerId: string, symbol: string): void;
   setSymbol(symbol: string, opts?: { load?: boolean }): void;
   setTimeframe(tf: Timeframe, opts?: { load?: boolean }): void;
+  /** Turns building higher timeframes from lower ones on or off; reloads a remote chart whose source changes. */
+  setBuildTimeframes(v: boolean): void;
   setBars(bars: number): void;
   loadData(): Promise<void>;
   clearData(): void;
@@ -416,8 +422,13 @@ export const useStore = create<AppState>()((set, get) => {
       sidePanelCollapsed: s.sidePanelCollapsed,
       drawingMagnet: s.drawingMagnet,
       drawingsHidden: s.drawingsHidden,
+      buildTimeframes: s.buildTimeframes,
     } satisfies Prefs);
   }, 400);
+
+  /** `source: 'built'` when the setting is on and the provider is a remote one (the demo provider ignores it). */
+  const sourceOpt = (provider: { offline?: boolean }): { source?: Source } =>
+    get().buildTimeframes && !provider.offline ? { source: 'built' } : {};
 
   const persistWatchlists = debounce(() => {
     wl.saveWatchlists(get().watchlists);
@@ -561,6 +572,7 @@ export const useStore = create<AppState>()((set, get) => {
     sidePanelCollapsed: false,
     drawingMagnet: false,
     drawingsHidden: false,
+    buildTimeframes: false,
     selectedPineId: null,
     candles: [],
     dataKey: '',
@@ -653,6 +665,7 @@ export const useStore = create<AppState>()((set, get) => {
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
         drawingMagnet: prefs.drawingMagnet === true,
         drawingsHidden: prefs.drawingsHidden === true,
+        buildTimeframes: prefs.buildTimeframes === true,
         datasets: Array.isArray(datasets) ? datasets : [],
         optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
       });
@@ -691,6 +704,19 @@ export const useStore = create<AppState>()((set, get) => {
       if (opts?.load !== false) void get().loadData();
     },
 
+    setBuildTimeframes(v) {
+      const was = get().buildTimeframes;
+      set({ buildTimeframes: v });
+      persistPrefs();
+      if (was === v) return;
+      const { providerId, timeframe, activeDatasetId } = get();
+      const provider = getProvider(providerId);
+      if (provider.offline || activeDatasetId != null) return;
+      const native = provider.timeframes.filter((tf) => !(provider.builtTimeframes ?? []).includes(tf));
+      if (sourceBase(native, timeframe, 'native') === sourceBase(native, timeframe, 'built')) return;
+      void get().loadData(); // keeps Live on: it stays set and loadData reconnects it
+    },
+
     setBars(bars) {
       set({ bars });
       persistPrefs();
@@ -704,7 +730,7 @@ export const useStore = create<AppState>()((set, get) => {
       get().exitReplay();
       set({ loadState: 'loading', timeframe: tf });
       try {
-        const candles = await provider.fetchHistory({ symbol, timeframe: tf, bars });
+        const candles = await provider.fetchHistory({ symbol, timeframe: tf, bars, ...sourceOpt(provider) });
         if (token !== requestToken) return; // a newer load or range fetch owns the data now
         if (candles.length < 2) throw new Error(`Not enough data returned for ${symbol}.`);
         setCandles(candles, `${provider.name} · ${symbol} · ${tf}`, null);
@@ -932,7 +958,7 @@ export const useStore = create<AppState>()((set, get) => {
       const { providerId, symbol, timeframe, bars } = state;
       const provider = getProvider(providerId);
       const token = ++requestToken;
-      const req: HistoryRequest = { symbol, timeframe, bars };
+      const req: HistoryRequest = { symbol, timeframe, bars, ...sourceOpt(provider) };
       if (range.from != null) req.from = range.from;
       if (range.to != null) req.to = range.to;
       set({ loadState: 'loading' });
@@ -1223,7 +1249,7 @@ export const useStore = create<AppState>()((set, get) => {
         const elapsed = Math.floor((Date.now() / 1000 - last.time) / (TIMEFRAME_SECONDS[timeframe] ?? 60));
         const count = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
         try {
-          const recent = await provider.fetchHistory({ symbol, timeframe, bars: count });
+          const recent = await provider.fetchHistory({ symbol, timeframe, bars: count, ...sourceOpt(provider) });
           if (session !== liveSession || get().dataKey !== dataKey) return; // stopped or switched meanwhile
           const rp = get().replay;
           if (rp?.phase === 'active') set({ replay: { ...rp, source: mergeCandles(rp.source, recent) } });
@@ -1250,6 +1276,7 @@ export const useStore = create<AppState>()((set, get) => {
       liveHandle = provider.startLive({
         symbol,
         timeframe,
+        ...sourceOpt(provider),
         onLog: (severity, text) => get().pushMessage('Live', severity, text),
         onStatus: (status, detail) => {
           set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' });

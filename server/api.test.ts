@@ -462,3 +462,46 @@ describe('built timeframes', () => {
     }
   });
 });
+
+describe('history source', () => {
+  const H = 3600;
+  const T0 = Date.UTC(2024, 0, 1) / 1000;
+  const hourly = (count: number) => (u: URL) => {
+    expect(u.searchParams.get('interval')).toBe('1h');
+    return Array.from({ length: count }, (_, i) => kline((T0 + i * H) * 1000));
+  };
+
+  it('builds Binance 4h from 1h with source=built', async () => {
+    upstream = hourly(24);
+    const r = await get(`/api/history?provider=binance&symbol=BTCUSDT&timeframe=4h&bars=3&to=${T0 + 24 * H - 1}&source=built`);
+    expect(r.status).toBe(200);
+    expect(r.body.length).toBeGreaterThan(0);
+    for (const c of r.body) expect(c.volume).toBe(36); // four 1h bars of volume 9
+    expect(current.urls.length).toBeGreaterThan(0);
+    expect(current.urls.every((u) => u.includes('interval=1h'))).toBe(true);
+  });
+
+  it('asks Binance 4h natively without the source or with source=native', async () => {
+    upstream = (u) => {
+      expect(u.searchParams.get('interval')).toBe('4h');
+      return [kline(0)];
+    };
+    expect((await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=4h&bars=1')).status).toBe(200);
+    expect((await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=4h&bars=1&source=native')).status).toBe(200);
+  });
+
+  it('keeps the lowest native timeframe native with source=built', async () => {
+    upstream = (u) => {
+      expect(u.searchParams.get('interval')).toBe('1m');
+      return [kline(0)];
+    };
+    expect((await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=1&source=built')).status).toBe(200);
+  });
+
+  it('answers 400 for another source value, without calling upstream', async () => {
+    const r = await get('/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1&source=bogus');
+    expect(r.status).toBe(400);
+    expect(r.body.error).toMatch(/native or built/);
+    expect(current.urls).toEqual([]);
+  });
+});

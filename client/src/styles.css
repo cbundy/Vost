@@ -113,6 +113,7 @@ textarea {
   user-select: none;
   margin-right: 4px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .brand-logo {
@@ -247,7 +248,8 @@ button.icon {
   line-height: 1;
 }
 
-.badge {
+.badge,
+.build-toggle {
   font-size: 11px;
   padding: 2px 7px;
   border-radius: 20px;
@@ -275,7 +277,8 @@ button.icon {
   background: rgba(245, 158, 11, 0.08);
 }
 
-.badge.blue {
+.badge.blue,
+.build-toggle.blue {
   color: var(--accent-2);
   border-color: rgba(59, 130, 246, 0.4);
   background: rgba(59, 130, 246, 0.1);
@@ -2276,12 +2279,14 @@ a:hover {
 
 .topbar button:focus-visible,
 .topbar .badge:focus-visible,
+.topbar .build-toggle:focus-visible,
 .topbar select:focus-visible {
   outline: 2px solid var(--accent-2);
   outline-offset: 1px;
 }
 
-.topbar .badge {
+.topbar .badge,
+.topbar .build-toggle {
   border-radius: var(--radius-sm);
 }
 

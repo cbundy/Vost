@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROVIDER_CATALOG, catalogEntry } from './providerCatalog.ts';
 import { TIMEFRAME_SECONDS, type Candle, type Timeframe } from './market.ts';
-import { UTC_CALENDAR, baseTimeframe, bucketStart, buildBars, builtTimeframes, type Calendar } from './timeframes.ts';
+import { UTC_CALENDAR, baseTimeframe, parseSource, sourceBase, bucketStart, buildBars, builtTimeframes, type Calendar } from './timeframes.ts';
 
 const ts = (iso: string): number => Date.parse(iso) / 1000;
 const bar = (time: number, o: number, h: number, l: number, c: number, v = 1): Candle => ({ time, open: o, high: h, low: l, close: c, volume: v });
+const TIMEFRAME_LIST = Object.keys(TIMEFRAME_SECONDS) as Timeframe[];
 const native = (id: string): Timeframe[] => catalogEntry(id)!.timeframes;
 
 describe('baseTimeframe', () => {
@@ -211,4 +212,43 @@ describe('parity with real Binance bars', () => {
   it('1h built into 4h equals Binance 4h', () => expectParity(fx.hourly, fx.h4, '4h'));
   it('1d built into 1w equals Binance 1w', () => expectParity(fx.daily, fx.weekly, '1w'));
   it('1d built into 1M equals Binance 1M', () => expectParity(fx.daily, fx.monthly, '1M'));
+});
+
+describe('sourceBase', () => {
+  it('equals baseTimeframe for the native source', () => {
+    for (const id of ['binance', 'coinbase', 'kraken', 'yahoo']) {
+      for (const tf of TIMEFRAME_LIST) expect(sourceBase(native(id), tf, 'native')).toBe(baseTimeframe(native(id), tf));
+    }
+  });
+
+  it.each([
+    ['binance', '4h', '1h'],
+    ['binance', '1d', '4h'],
+    ['binance', '1w', '1d'],
+    ['binance', '5m', '1m'],
+    ['coinbase', '1h', '15m'],
+    ['coinbase', '30m', '15m'],
+  ] as const)('built: %s %s comes from %s', (id, tf, base) => {
+    expect(sourceBase(native(id), tf, 'built')).toBe(base);
+  });
+
+  it('built: the lowest native timeframe and a native one with nothing lower that nests stay native', () => {
+    expect(sourceBase(native('binance'), '1m', 'built')).toBeNull();
+    expect(sourceBase(['1d', '1w', '1M'], '1d', 'built')).toBeNull();
+    expect(sourceBase(['1m', '1w'], '1w', 'built')).toBe('1m');
+    expect(sourceBase(['1h', '1d'], '1d', 'built')).toBe('1h');
+  });
+
+  it('native timeframe 4h stays native without the built source', () => {
+    expect(sourceBase(native('binance'), '4h', 'native')).toBeNull();
+  });
+});
+
+describe('parseSource', () => {
+  it('reads absent and native as native, built as built, anything else as null', () => {
+    expect(parseSource(null)).toBe('native');
+    expect(parseSource('native')).toBe('native');
+    expect(parseSource('built')).toBe('built');
+    expect(parseSource('bogus')).toBeNull();
+  });
 });
