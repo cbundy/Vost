@@ -11,7 +11,7 @@
  * CONTRIBUTING.md.
  */
 import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog.ts';
-import type { ProviderInfo } from '../../../../shared/market.ts';
+import { TIMEFRAMES, type ProviderInfo } from '../../../../shared/market.ts';
 import { fetchHistoryApi, listSymbolsApi, searchSymbolsApi } from './api';
 import { demoProvider } from './demo';
 import { startLiveApi } from '../live';
@@ -23,7 +23,8 @@ function remoteProvider(info: ProviderInfo): DataProvider {
     name: info.name,
     description: info.description,
     supportsLive: info.supportsLive,
-    timeframes: info.timeframes,
+    timeframes: TIMEFRAMES.filter((tf) => info.timeframes.includes(tf) || info.builtTimeframes.includes(tf)),
+    builtTimeframes: info.builtTimeframes,
     defaultTimeframe: info.defaultTimeframe,
     defaultSymbol: info.defaultSymbol,
     popularSymbols: info.popularSymbols,

@@ -80,7 +80,7 @@ export const myAdapter: ProviderAdapter = {
    (which the API turns into a 502 naming the provider). Take the fetch from `ctx` so tests can inject a fake.
    Register the adapter in `server/providers/index.ts`.
 
-2. A catalog entry in `shared/providerCatalog.ts` (id, name, description, timeframes, default symbol and
+2. A catalog entry in `shared/providerCatalog.ts` (id, name, description, timeframes (the native ones; `builtTimeframes` is derived from them, see `shared/timeframes.ts`), default symbol and
    timeframe, popular symbols, `supportsLive`, `hasSymbolList`, `hasSearch`). The client builds its provider
    from it, so the UI picks it up automatically. The catalog holds no host name.
 

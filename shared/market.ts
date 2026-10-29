@@ -51,7 +51,10 @@ export interface ProviderInfo {
   id: string;
   name: string;
   description: string;
+  /** Timeframes the provider serves itself. */
   timeframes: Timeframe[];
+  /** Timeframes the server builds from a lower native one (derived from `timeframes`, see `shared/timeframes.ts`). */
+  builtTimeframes: Timeframe[];
   defaultTimeframe: Timeframe;
   defaultSymbol: string;
   popularSymbols: SymbolSuggestion[];

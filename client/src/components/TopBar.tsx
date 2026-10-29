@@ -169,8 +169,8 @@ export function TopBar({
           title="Timeframe"
         >
           {timeframes.map((tf) => (
-            <option key={tf} value={tf}>
-              {tf}
+            <option key={tf} value={tf} title={provider.builtTimeframes?.includes(tf) ? 'Built from a lower timeframe' : undefined}>
+              {provider.builtTimeframes?.includes(tf) ? `${tf} *` : tf}
             </option>
           ))}
         </select>
