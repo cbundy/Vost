@@ -29,7 +29,10 @@ import {
   parseLayout,
   sanitizeSizes,
   type LayoutSizes,
+  type LayoutRecord,
+  type ParsedLayout,
 } from '../lib/layouts';
+import * as sl from '../lib/savedLayouts';
 import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial, type ChartStore } from './chart';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
@@ -113,6 +116,31 @@ function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
 /** The id of the one chart the app opens with. */
 export const FIRST_CHART_ID = 'chart-1';
 
+/** The layout as `layout.v1` and every named layout keep it: the arrangement, each chart's own fields, sizes and sync. */
+export function layoutSnapshot(s: Pick<AppState, 'arrangementId' | 'activeChartId' | 'chartOrder' | 'charts' | 'layoutSizes' | 'sync'>): LayoutRecord {
+  return {
+    version: LAYOUT_VERSION,
+    arrangementId: s.arrangementId,
+    activeChartId: s.activeChartId,
+    charts: s.chartOrder.map((id) => {
+      const c = s.charts[id].getState();
+      return {
+        id,
+        providerId: c.providerId,
+        symbol: c.symbol,
+        timeframe: c.timeframe,
+        bars: c.bars,
+        indicators: c.indicators,
+        btConfig: c.btConfig,
+        showTrades: c.showTrades,
+        btRange: c.btRange,
+      };
+    }),
+    sizes: s.layoutSizes,
+    sync: s.sync,
+  };
+}
+
 export interface AppState {
   /** IANA zone every date on screen is shown in (candle times stay UTC). */
   timeZone: string;
@@ -144,6 +172,12 @@ export interface AppState {
   /** Which changes on one chart carry to every chart of the layout (persisted with it). */
   sync: LayoutSync;
   layoutSizes: LayoutSizes;
+  /** Counts the times the charts were rebuilt from a layout, so the grid mounts fresh panels for them. */
+  layoutGen: number;
+  /** The named layouts kept in the browser (lib/savedLayouts). */
+  savedLayouts: sl.SavedLayoutsState;
+  /** The working layout differs from the current named layout's saved snapshot. */
+  layoutDirty: boolean;
 
   /* saved local datasets */
   datasets: Dataset[];
@@ -178,6 +212,18 @@ export interface AppState {
   /** Imports an exported list; returns an error string or null on success. */
   importWatchlist(json: string): string | null;
   init(): void;
+  /** Writes the working layout into the current named layout. */
+  saveLayout(): void;
+  setAutosave(on: boolean): void;
+  /** Keeps the working layout under a new name and makes that the current layout; false when the name is empty. */
+  copyLayout(name: string): boolean;
+  renameLayout(id: string, name: string): boolean;
+  /** Opens a one-chart layout on the active chart's market and makes it current; false when the name is empty. */
+  createLayout(name: string): boolean;
+  /** Replaces every chart with the named layout's; false when there is none by that id. */
+  openLayout(id: string): boolean;
+  /** Deletes a named layout; the current one is refused (false). */
+  deleteLayout(id: string): boolean;
   /** Run any pending debounced saves (prefs, watchlists, datasets) now. */
   flushPersist(): void;
   /** Shows this arrangement: new charts copy the active chart's market, dropped ones (from the end) are stopped and removed. */
@@ -248,30 +294,35 @@ export const useStore = create<AppState>()((set, get) => {
     } satisfies Prefs);
   }, 400);
 
-  const persistLayout = debounce(() => {
+  /** Stores the named layouts and keeps the "unsaved" flag in step with them. */
+  function commitSaved(next: sl.SavedLayoutsState): void {
+    set({ savedLayouts: next });
+    sl.saveSavedLayouts(next);
+    refreshDirty();
+  }
+
+  function refreshDirty(): void {
     const s = get();
-    saveJson(LAYOUT_KEY, {
-      version: LAYOUT_VERSION,
-      arrangementId: s.arrangementId,
-      activeChartId: s.activeChartId,
-      charts: s.chartOrder.map((id) => {
-        const c = s.charts[id].getState();
-        return {
-          id,
-          providerId: c.providerId,
-          symbol: c.symbol,
-          timeframe: c.timeframe,
-          bars: c.bars,
-          indicators: c.indicators,
-          btConfig: c.btConfig,
-          showTrades: c.showTrades,
-          btRange: c.btRange,
-        };
-      }),
-      sizes: s.layoutSizes,
-      sync: s.sync,
-    });
+    const dirty = sl.isDirty(sl.currentEntry(s.savedLayouts), layoutSnapshot(s));
+    if (dirty !== s.layoutDirty) set({ layoutDirty: dirty });
+  }
+
+  const writeLayout = debounce(() => {
+    const s = get();
+    const snapshot = layoutSnapshot(s);
+    saveJson(LAYOUT_KEY, snapshot);
+    if (s.savedLayouts.autosave) {
+      const cur = sl.currentEntry(s.savedLayouts);
+      if (cur && sl.isDirty(cur, snapshot)) commitSaved(sl.writeSnapshot(s.savedLayouts, cur.id, snapshot));
+    }
+    refreshDirty();
   }, 400);
+
+  /** A layout change: the unsaved flag follows at once, the working copy (and, with autosave on, the current named layout) is written after the debounce. */
+  const persistLayout = () => {
+    refreshDirty();
+    writeLayout();
+  };
 
   const persistWatchlists = debounce(() => {
     wl.saveWatchlists(get().watchlists);
@@ -370,6 +421,42 @@ export const useStore = create<AppState>()((set, get) => {
     onSync: applySync,
   };
 
+  /**
+   * Stops every chart the app has and builds the charts of a layout (else one chart from the saved prefs): the
+   * state fields for them, with the charts not yet loading. Init and opening a named layout both use it.
+   */
+  function buildLayout(layout: ParsedLayout | null, prefs: Prefs) {
+    for (const old of Object.values(get().charts)) old.getState().clearData();
+    const arrangement = layout?.arrangement ?? getArrangement(DEFAULT_ARRANGEMENT_ID)!;
+    const records: Array<Partial<Prefs> & { id?: string }> = layout ? layout.charts : [{ ...prefs, id: FIRST_CHART_ID }];
+    const built = records.map((rec) => {
+      const id = rec.id ?? FIRST_CHART_ID;
+      return [id, createChartStore(id, chartInitialFrom(rec), chartEnv)] as const;
+    });
+    return {
+      charts: Object.fromEntries(built),
+      chartOrder: built.map(([id]) => id),
+      activeChartId: layout?.activeChartId ?? built[0][0],
+      arrangementId: arrangement.id,
+      layoutSizes: layout?.sizes ?? evenSizes(arrangement),
+      sync: layout?.sync ?? DEFAULT_SYNC,
+      layoutGen: get().layoutGen + 1,
+    };
+  }
+
+  /** Makes a layout record the working layout: rebuilds the charts, writes `layout.v1` and the prefs, and loads each chart's data. */
+  function applyLayoutRecord(record: LayoutRecord): void {
+    writeLayout.cancel();
+    const fields = buildLayout(parseLayout(record), defaultPrefs);
+    set(fields);
+    saveJson(LAYOUT_KEY, layoutSnapshot(get()));
+    persistPrefs();
+    for (const chart of Object.values(fields.charts)) void chart.getState().loadData();
+  }
+
+  const firstCharts = { [FIRST_CHART_ID]: createChartStore(FIRST_CHART_ID, defaultChart, chartEnv) };
+  const firstSizes = evenSizes(getArrangement(DEFAULT_ARRANGEMENT_ID)!);
+
   return {
     timeZone: browserTimeZone(),
     dockTab: 'backtest',
@@ -384,12 +471,24 @@ export const useStore = create<AppState>()((set, get) => {
     drawingsHidden: false,
     buildTimeframes: false,
     customTimeframes: [],
-    charts: { [FIRST_CHART_ID]: createChartStore(FIRST_CHART_ID, defaultChart, chartEnv) },
+    charts: firstCharts,
     activeChartId: FIRST_CHART_ID,
     arrangementId: DEFAULT_ARRANGEMENT_ID,
     chartOrder: [FIRST_CHART_ID],
     sync: DEFAULT_SYNC,
-    layoutSizes: evenSizes(getArrangement(DEFAULT_ARRANGEMENT_ID)!),
+    layoutSizes: firstSizes,
+    layoutGen: 0,
+    savedLayouts: sl.seedFrom(
+      layoutSnapshot({
+        arrangementId: DEFAULT_ARRANGEMENT_ID,
+        activeChartId: FIRST_CHART_ID,
+        chartOrder: [FIRST_CHART_ID],
+        charts: firstCharts,
+        layoutSizes: firstSizes,
+        sync: DEFAULT_SYNC,
+      }),
+    ),
+    layoutDirty: false,
     datasets: [],
     toasts: [],
     messages: [],
@@ -428,7 +527,7 @@ export const useStore = create<AppState>()((set, get) => {
 
     flushPersist() {
       persistPrefs.flush();
-      persistLayout.flush();
+      writeLayout.flush();
       persistWatchlists.flush();
       persistDatasets.flush();
     },
@@ -439,15 +538,8 @@ export const useStore = create<AppState>()((set, get) => {
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
       // The charts are built from the saved layout, else from the saved prefs as one chart: they replace the placeholder the store opened with.
-      for (const old of Object.values(get().charts)) old.getState().clearData();
       const layout = parseLayout(loadJson<unknown>(LAYOUT_KEY, null));
-      const arrangement = layout?.arrangement ?? getArrangement(DEFAULT_ARRANGEMENT_ID)!;
-      const records: Array<Partial<Prefs> & { id?: string }> = layout ? layout.charts : [{ ...prefs, id: FIRST_CHART_ID }];
-      const built = records.map((rec) => {
-        const id = rec.id ?? FIRST_CHART_ID;
-        return [id, createChartStore(id, chartInitialFrom(rec), chartEnv)] as const;
-      });
-      const charts = Object.fromEntries(built);
+      const fields = buildLayout(layout, prefs);
       set({
         watchlists: wl.loadWatchlists(providers),
         timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
@@ -461,14 +553,94 @@ export const useStore = create<AppState>()((set, get) => {
         buildTimeframes: prefs.buildTimeframes === true,
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
-        charts,
-        chartOrder: built.map(([id]) => id),
-        activeChartId: layout?.activeChartId ?? built[0][0],
-        arrangementId: arrangement.id,
-        layoutSizes: layout?.sizes ?? evenSizes(arrangement),
-        sync: layout?.sync ?? DEFAULT_SYNC,
+        ...fields,
       });
-      for (const chart of Object.values(charts)) void chart.getState().loadData();
+      // The named layouts: the first run, or a corrupt key, makes one "Unnamed" from the working layout (nothing else is touched).
+      const saved = sl.loadSavedLayouts();
+      if (saved) set({ savedLayouts: saved, layoutDirty: sl.isDirty(sl.currentEntry(saved), layoutSnapshot(get())) });
+      else commitSaved(sl.seedFrom(layoutSnapshot(get())));
+      for (const chart of Object.values(fields.charts)) void chart.getState().loadData();
+    },
+
+    saveLayout() {
+      const s = get();
+      const cur = sl.currentEntry(s.savedLayouts);
+      if (!cur) return;
+      writeLayout.flush();
+      commitSaved(sl.writeSnapshot(get().savedLayouts, cur.id, layoutSnapshot(get())));
+    },
+
+    setAutosave(on) {
+      const next = sl.setAutosave(get().savedLayouts, on);
+      if (next === get().savedLayouts) return;
+      commitSaved(next);
+      // Turning it on brings the saved layout up to date, so what it holds is never older than the screen.
+      if (on) get().saveLayout();
+    },
+
+    copyLayout(name) {
+      // Flush first: a pending autosave writes into the saved layouts, and the copy must build on that.
+      writeLayout.flush();
+      const next = sl.copyLayout(get().savedLayouts, name, layoutSnapshot(get()));
+      if (next === get().savedLayouts) return false;
+      commitSaved(next);
+      return true;
+    },
+
+    renameLayout(id, name) {
+      const next = sl.renameLayout(get().savedLayouts, id, name);
+      if (next === get().savedLayouts) return false;
+      commitSaved(next);
+      return true;
+    },
+
+    createLayout(name) {
+      if (!sl.cleanName(name)) return false;
+      if (get().savedLayouts.autosave) writeLayout.flush();
+      const from = activeChart().getState();
+      const id = FIRST_CHART_ID;
+      const record: LayoutRecord = {
+        version: LAYOUT_VERSION,
+        arrangementId: DEFAULT_ARRANGEMENT_ID,
+        activeChartId: id,
+        charts: [
+          {
+            id,
+            providerId: from.providerId,
+            symbol: from.symbol,
+            timeframe: from.timeframe,
+            bars: from.bars,
+            indicators: defaultChart.indicators,
+            btConfig: defaultChart.btConfig,
+            showTrades: defaultChart.showTrades,
+          },
+        ],
+        sizes: evenSizes(getArrangement(DEFAULT_ARRANGEMENT_ID)!),
+        sync: DEFAULT_SYNC,
+      };
+      applyLayoutRecord(record);
+      // The entry holds what the rebuilt charts say, so it starts out saved.
+      commitSaved(sl.createLayout(get().savedLayouts, name, layoutSnapshot(get())));
+      return true;
+    },
+
+    openLayout(id) {
+      const target = get().savedLayouts.layouts.find((l) => l.id === id);
+      if (!target) return false;
+      if (id === get().savedLayouts.currentId) return true;
+      // With autosave on the pending change reaches the layout being left first; with it off the person was asked.
+      if (get().savedLayouts.autosave) writeLayout.flush();
+      commitSaved(sl.setCurrent(get().savedLayouts, id));
+      applyLayoutRecord(target.layout);
+      refreshDirty();
+      return true;
+    },
+
+    deleteLayout(id) {
+      const next = sl.deleteLayout(get().savedLayouts, id);
+      if (next === get().savedLayouts) return false;
+      commitSaved(next);
+      return true;
     },
 
     setArrangement(id) {

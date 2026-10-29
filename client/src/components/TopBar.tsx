@@ -13,6 +13,8 @@ import { selectDataCandles } from '../state/chart';
 import { ChartRangeControl } from './ChartRangeControl';
 import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
+import { LayoutDialogs } from './LayoutDialogs';
+import { LayoutMenu } from './LayoutMenu';
 import { LayoutPicker } from './LayoutPicker';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
@@ -167,6 +169,8 @@ export function TopBar({
   return (
     <header className="topbar">
       <LayoutPicker />
+      {!providerInMore && <LayoutMenu />}
+      <LayoutDialogs />
       <div className="brand" title={`Vost v${APP_VERSION} — self-hosted charts & backtesting`}>
         <span className="brand-logo">
           <svg width="16" height="16" viewBox="0 0 32 32">
@@ -261,6 +265,12 @@ export function TopBar({
                 {tier === 'tiny' && (
                   <div className="more-row more-version">
                     <span className="brand-name-plain">Vost</span> <span className="muted-2">v{APP_VERSION}</span>
+                  </div>
+                )}
+                {providerInMore && (
+                  <div className="more-row more-layout">
+                    <span className="more-label">Layout</span>
+                    <LayoutMenu inline onDone={close} />
                   </div>
                 )}
                 {providerInMore && (

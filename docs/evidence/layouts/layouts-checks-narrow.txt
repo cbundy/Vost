@@ -1,8 +1,14 @@
 start: cells=1 shown=1 active=0 topbar=DEMO titles=DEMO overflowX=false
-picker: options=55 rows=1,2,3,4,5,6,7,8,9,10,12,14,16 box={"x":6,"y":40,"width":372,"height":719} topbar={"scrollWidth":390,"clientWidth":390,"moreRight":384,"moreWidth":28}
+picker: options=55 rows=1,2,3,4,5,6,7,8,9,10,12,14,16 box={"x":6,"y":40,"width":372,"height":719} topbar={"kids":"layout-picker:28,brand:0,topbar-sep:0,symbol-search:46,field:70,topbar-range:0,primary:34,conn-status:50,topbar-right:130","scrollWidth":390,"clientWidth":390,"moreRight":384,"moreWidth":28}
 2x2: cells=4 shown=1 active=1 topbar=DEMO titles=DEMO|DEMO|DEMO|DEMO overflowX=false
 narrow chart 2: cells=4 shown=1 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO|DEMO overflowX=false
 menu: 1 DEMO · 1d / 2 DEMO-BEAR · 1d / 3 DEMO · 1d / 4 DEMO · 1d
 narrow chart 1: cells=4 shown=1 active=1 topbar=DEMO titles=DEMO|DEMO-BEAR|DEMO|DEMO overflowX=false
 narrow reloaded: cells=4 shown=1 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO|DEMO overflowX=false
 narrow sync: rows=Symbol|Interval|Crosshair|Time|Date range crosshair=true lastRow={"x":19,"y":720,"width":346,"height":28}
+narrow menu: name=Unnamed nameBox={"x":272.625,"y":83,"width":96.375,"height":28} menuBox={"x":21,"y":123,"width":348,"height":261} overflowX=false
+narrow created: {"autosave":true,"current":"Fresh","names":["Narrow:4","Fresh:1"],"updatedAt":1793312613053}
+narrow open dialog: rows=2 box={"x":8,"y":312.5,"width":374,"height":219}
+narrow switched: name=Narrow items=Save layout Ctrl + S | Make a copy... | Rename... | Download chart data... | Create new layout... | Fresh DEMO-BEAR, 1d | Open layout... .
+narrow unsaved: overflowX=false
+narrow named reloaded: name=Narrow autosave=false overflowX=false

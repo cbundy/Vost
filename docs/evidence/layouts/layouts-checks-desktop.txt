@@ -1,5 +1,5 @@
 start: cells=1 shown=1 active=0 topbar=DEMO titles=DEMO overflowX=false
-picker: options=55 rows=1,2,3,4,5,6,7,8,9,10,12,14,16 box={"x":10,"y":40,"width":372,"height":719} topbar={"scrollWidth":1440,"clientWidth":1440,"moreRight":null,"moreWidth":null}
+picker: options=55 rows=1,2,3,4,5,6,7,8,9,10,12,14,16 box={"x":10,"y":40,"width":372,"height":719} topbar={"kids":"layout-picker:28,layout-name-wrap:96,brand:68,topbar-sep:0,field:149,symbol-search:150,field:126,field:94,topbar-range:4,primary:74,badge:82,conn-status:50,topbar-right:395","scrollWidth":1440,"clientWidth":1440,"moreRight":null,"moreWidth":null}
 2x2: cells=4 shown=4 active=1 topbar=DEMO titles=DEMO|DEMO|DEMO|DEMO overflowX=false
 four markets: cells=4 shown=4 active=1 topbar=DEMO-DOWN titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false
 active=2: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-CHOP|DEMO-DOWN overflowX=false
@@ -12,3 +12,20 @@ reloaded: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-C
 sync defaults: SYNC IN LAYOUT Symbol=false Interval=false Crosshair=true Time=false Date range=false
 interval synced: 1h|1h|1h|1h
 sync reloaded: Symbol=false Interval=true Crosshair=true Time=false Date range=false timeframes=1h|1h|1h|1h
+menu: name=Unnamed items=Save layout Ctrl + S | Make a copy... | Rename... | Download chart data... | Create new layout... | Open layout... . autosave=true state={"autosave":true,"current":"Unnamed","names":["Unnamed:4"],"updatedAt":1793312601150}
+renamed: {"autosave":true,"current":"Grid","names":["Grid:4"],"updatedAt":1793312601150}
+ctrl+s: defaultPrevented=true updatedAt 1793312601150 -> 1793312603903
+download: options=Active chart|All charts file=DEMO-BEAR_1h.csv
+copy: {"autosave":true,"current":"Solo","names":["Grid:4","Solo:4"],"updatedAt":1793312604303}
+solo: cells=1 shown=1 active=0 topbar=DEMO titles=DEMO overflowX=false
+solo saved: {"autosave":true,"current":"Solo","names":["Grid:4","Solo:1"],"updatedAt":1793312604803}
+recent: Grid DEMO-BEAR, 1h
+grid back: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR overflowX=false
+open dialog: Grid DEMO-BEAR, 1h - 4 charts - current 🗑 | Solo DEMO, 1h - 1 chart 🗑
+opened Solo: cells=1 shown=1 active=0 topbar=DEMO titles=DEMO overflowX=false
+created: cells=1 shown=1 active=0 topbar=DEMO titles=DEMO overflowX=false
+created: {"autosave":true,"current":"Fresh","names":["Grid:4","Solo:1","Fresh:1"],"updatedAt":1793312606609}
+unsaved: label=Unsaved changes title=Fresh (unsaved changes) state={"autosave":false,"current":"Fresh","names":["Grid:4","Solo:1","Fresh:1"],"updatedAt":1793312606609}
+unsaved dialog: Cancel|Don't save|Save
+saved on leave: Fresh timeframe=4h
+named reloaded: cells=4 shown=4 active=1 topbar=DEMO-BEAR titles=DEMO|DEMO-BEAR|DEMO-BEAR|DEMO-BEAR overflowX=false name=Grid autosave=false state={"autosave":false,"current":"Grid","names":["Grid:4","Solo:1","Fresh:1"],"updatedAt":1793312603903}
