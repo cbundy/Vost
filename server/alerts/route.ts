@@ -27,7 +27,7 @@ function reply(res: ServerResponse, status: number, body?: unknown): void {
 }
 
 /** A reason to refuse a cross-site write, or null. */
-function crossSiteReason(req: IncomingMessage): string | null {
+export function crossSiteReason(req: IncomingMessage): string | null {
   if (req.headers['sec-fetch-site'] === 'cross-site') return 'cross-site request';
   const origin = req.headers.origin;
   if (origin !== undefined) {

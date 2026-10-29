@@ -3,6 +3,7 @@
  * URL (the original path and query, host already stripped) and returns the body.
  */
 import { bars, TIMEFRAME_SECONDS, type Bar } from './data.ts';
+import { tradingViewFacade, tradingViewSearch } from './pine-libraries.ts';
 
 export interface RestReply {
   status?: number;
@@ -183,4 +184,6 @@ export const REST_HOSTS: Record<string, Handler> = {
   'api.bybit.com': bybit,
   'www.okx.com': okx,
   'query1.finance.yahoo.com': yahoo,
+  'www.tradingview.com': (url) => tradingViewSearch(url),
+  'pine-facade.tradingview.com': (url) => tradingViewFacade(url),
 };

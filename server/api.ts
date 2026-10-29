@@ -34,7 +34,7 @@ export function createApiDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
   return { symbols: createSymbolCache(), ...overrides };
 }
 
-const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live', '/api/status', '/api/alerts'];
+const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live', '/api/status', '/api/alerts', '/api/pine/libraries'];
 
 function provider(url: URL) {
   return providerById(url.searchParams.get('provider') ?? '');
