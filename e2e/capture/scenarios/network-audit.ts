@@ -63,6 +63,12 @@ export const networkAudit: Scenario = {
       await row.waitFor();
       await providerSelect.selectOption('coinbase');
       await title('Coinbase', 'BTC-USD', '1h').waitFor();
+      // Coinbase builds its live candles from the trade feed; the audit covers that socket too.
+      await liveButton(page).click();
+      await liveButton(page).filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+      await ctx.screenshot('live-coinbase');
+      await liveButton(page).click();
+      await liveButton(page).filter({ hasText: /^\s*Live\s*$/ }).waitFor();
       await row.click();
       // The seeded list already holds ETHUSDT, so opening it loads the provider's default timeframe.
       await title('Binance', 'ETHUSDT', '1h').waitFor();

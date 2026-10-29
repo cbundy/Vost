@@ -2,7 +2,7 @@
  * A fake market-data service for the end-to-end captures and the tests behind
  * `VOST_TEST_UPSTREAM`. It serves, per original host (the first two path
  * segments are the scheme and the host, see server/testUpstream.ts), every
- * provider's REST payloads and the four live feeds' websocket frames.
+ * provider's REST payloads and the five live feeds' websocket frames.
  *
  * `stop()` closes the listener and terminates every open socket, so new
  * connects are refused; `start()` listens again on the same port.
@@ -12,7 +12,7 @@ import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { advanceTick } from './data.ts';
-import { binanceSubscription, bybitSubscription, krakenSubscription, okxSubscription, subscribeAck, type Subscription } from './live.ts';
+import { binanceSubscription, coinbaseSubscription, bybitSubscription, krakenSubscription, okxSubscription, subscribeAck, type Subscription } from './live.ts';
 import { REST_HOSTS } from './rest.ts';
 
 /** How often every live socket gets a new frame. The brief wants one at least every second. */
@@ -65,6 +65,8 @@ function newSubscription(host: string, path: string, msg: unknown): Subscription
       return bybitSubscription(msg);
     case 'ws.okx.com':
       return okxSubscription(msg);
+    case 'ws-feed.exchange.coinbase.com':
+      return coinbaseSubscription(msg);
     default:
       return null;
   }

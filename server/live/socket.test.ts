@@ -187,3 +187,62 @@ describe('openUpstream', () => {
     expect(timers.pending).toBe(0);
   });
 });
+
+describe('feed onOpen hook', () => {
+  type Ctx = Parameters<NonNullable<LiveFeed['onOpen']>>[0];
+  function hooked() {
+    const timers = fakeTimers();
+    const opens: Array<{ ctx: Ctx; sent: number }> = [];
+    const klines: number[] = [];
+    const closed: number[] = [];
+    const feed: LiveFeed = {
+      url: 'wss://x',
+      subscribe: 'sub',
+      parse: () => [],
+      onOpen: (ctx) => {
+        opens.push({ ctx, sent: FakeWS.last.sent.length });
+        const n = opens.length;
+        ctx.onClose(() => closed.push(n));
+      },
+    };
+    const sock = openUpstream({
+      feed,
+      WebSocket: FakeWebSocket,
+      timers,
+      label: 'x',
+      onStatus: () => undefined,
+      onKline: (c) => klines.push(c.time),
+      onLog: () => undefined,
+    });
+    return { timers, opens, klines, closed, sock };
+  }
+  const item = (time: number) => [{ candle: { time, open: 1, high: 1, low: 1, close: 1, volume: 1 }, closed: false }];
+
+  it('runs after subscribe on every open, and its emit reaches onKline', () => {
+    const { timers, opens, klines } = hooked();
+    FakeWS.last.open();
+    expect(opens).toHaveLength(1);
+    expect(opens[0].sent).toBe(1); // subscribe was already sent
+    opens[0].ctx.emit(item(1));
+    FakeWS.last.drop();
+    timers.advance(15000);
+    FakeWS.last.open();
+    expect(opens).toHaveLength(2);
+    opens[1].ctx.emit(item(2));
+    expect(klines).toEqual([1, 2]);
+  });
+
+  it('kills emit and runs onClose when the connection drops or the socket is closed', () => {
+    const { timers, opens, klines, closed, sock } = hooked();
+    FakeWS.last.open();
+    FakeWS.last.drop();
+    expect(closed).toEqual([1]);
+    opens[0].ctx.emit(item(1));
+    timers.advance(15000);
+    FakeWS.last.open();
+    sock.close();
+    expect(closed).toEqual([1, 2]);
+    opens[1].ctx.emit(item(2));
+    expect(klines).toEqual([]);
+  });
+});

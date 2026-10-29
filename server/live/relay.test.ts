@@ -99,7 +99,7 @@ describe('relay', () => {
     const a = sub();
     expect(relay.subscribe('binance', 'BTCUSDT', '9x', a.s)).toEqual({ error: 'Live data does not support 9x' });
     expect(relay.subscribe('nope', 'BTCUSDT', '1m', a.s)).toEqual({ error: 'Unknown provider "nope"' });
-    expect(relay.subscribe('coinbase', 'BTCUSDT', '1m', a.s)).toHaveProperty('error');
+    expect(relay.subscribe('yahoo', 'AAPL', '1m', a.s)).toHaveProperty('error');
     expect(relay.subscribe('binance', '  ', '1m', a.s)).toEqual({ error: 'Missing symbol' });
     expect(FakeWS.instances).toHaveLength(0);
     expect(relay.stats()).toEqual([]);
