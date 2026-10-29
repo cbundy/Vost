@@ -1,7 +1,6 @@
 import { editorTheme } from '../lib/theme';
 import { useEffect, useRef } from 'react';
 import { ChangeSet, Compartment, EditorState, type Extension } from '@codemirror/state';
-import { getOriginalDoc, unifiedMergeView, updateOriginalDoc } from '@codemirror/merge';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
@@ -61,8 +60,12 @@ interface Props {
   compareTo?: string;
 }
 
-const mergeExtension = (original: string): Extension =>
-  unifiedMergeView({ original, mergeControls: false, highlightChanges: true, gutter: true, syntaxHighlightDeletions: true });
+// Loaded on first use so the diff library stays out of the chart app's main bundle.
+type MergeLib = typeof import('@codemirror/merge');
+const loadMerge = (): Promise<MergeLib> => import('@codemirror/merge');
+
+const mergeExtension = (lib: MergeLib, original: string): Extension =>
+  lib.unifiedMergeView({ original, mergeControls: false, highlightChanges: true, gutter: true, syntaxHighlightDeletions: true });
 
 /** CodeMirror 6 editor for Pine Script with highlighting, autocomplete and inline error markers. */
 export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200, onCursor, compareTo }: Props) {
@@ -75,6 +78,7 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
   const sizing = useRef(new Compartment());
   const merge = useRef(new Compartment());
   const compareRef = useRef(compareTo);
+  const shown = useRef(false);
 
   useEffect(() => {
     const v = new EditorView({
@@ -96,7 +100,7 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
           keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...completionKeymap, indentWithTab]),
           theme,
           sizing.current.of(EditorView.theme({ '.cm-scroller': { minHeight: `${minHeight}px` } })),
-          merge.current.of(compareTo === undefined ? [] : mergeExtension(compareTo)),
+          merge.current.of([]),
           EditorState.tabSize.of(2),
           EditorView.contentAttributes.of({ 'aria-label': ariaLabel, spellcheck: 'false' }),
           EditorView.updateListener.of((u) => {
@@ -128,18 +132,29 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
 
   // Compare mode: switch the diff on or off by reconfiguring; otherwise feed the new original in place.
   useEffect(() => {
-    const v = view.current;
-    if (!v) return;
-    const was = compareRef.current;
     compareRef.current = compareTo;
-    if (was === compareTo) return;
-    if (was === undefined || compareTo === undefined) {
-      v.dispatch({ effects: merge.current.reconfigure(compareTo === undefined ? [] : mergeExtension(compareTo)) });
-      return;
-    }
-    const cur = getOriginalDoc(v.state);
-    const changes = ChangeSet.of({ from: 0, to: cur.length, insert: compareTo }, cur.length);
-    v.dispatch({ effects: updateOriginalDoc.of({ doc: changes.apply(cur), changes }) });
+    if (compareTo === undefined && !shown.current) return;
+    let live = true;
+    void loadMerge().then((lib) => {
+      const v = view.current;
+      const want = compareRef.current;
+      if (!live || !v) return;
+      if (want === undefined) {
+        if (shown.current) v.dispatch({ effects: merge.current.reconfigure([]) });
+        shown.current = false;
+      } else if (!shown.current) {
+        v.dispatch({ effects: merge.current.reconfigure(mergeExtension(lib, want)) });
+        shown.current = true;
+      } else {
+        const cur = lib.getOriginalDoc(v.state);
+        if (cur.toString() === want) return;
+        const changes = ChangeSet.of({ from: 0, to: cur.length, insert: want }, cur.length);
+        v.dispatch({ effects: lib.updateOriginalDoc.of({ doc: changes.apply(cur), changes }) });
+      }
+    });
+    return () => {
+      live = false;
+    };
   }, [compareTo]);
 
   useEffect(() => {
