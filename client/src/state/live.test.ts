@@ -143,3 +143,26 @@ describe('setLive recovery', () => {
     expect(chartOf(useStore).getState().candles).toBe(before);
   });
 });
+
+describe('setLive backfill on a custom interval', () => {
+  it('counts the bars missed with the interval length (2h is 7200 s)', async () => {
+    const bar = (time: number): Candle => ({ time, open: 1, high: 2, low: 0.5, close: 1, volume: 1 });
+    const now = Math.floor(Date.now() / 1000 / 7200) * 7200;
+    chartOf(useStore).setState({ timeframe: '2h', symbol: 'BTCUSDT', candles: [bar(now - 14400), bar(now - 7200)] });
+    const fetchHistory = vi.fn(async () => [bar(now - 7200), bar(now)]);
+    let opts!: { onStatus: (s: string, d?: string) => void };
+    const startLive = vi.fn((o: typeof opts) => {
+      opts = o;
+      o.onStatus('live');
+      return { stop: vi.fn() };
+    });
+    vi.spyOn(providers, 'getProvider').mockReturnValue({ ...providers.demoProvider, name: 'Fake', supportsLive: true, startLive, fetchHistory } as never);
+    chartOf(useStore).getState().setLive(true);
+    opts.onStatus('reconnecting');
+    opts.onStatus('live');
+    await vi.waitFor(() => expect(fetchHistory).toHaveBeenCalledOnce());
+    // the last candle is one 2h bar old: 1 elapsed + 2
+    expect(fetchHistory).toHaveBeenCalledWith({ symbol: 'BTCUSDT', timeframe: '2h', bars: 3 });
+    chartOf(useStore).getState().setLive(false);
+  });
+});

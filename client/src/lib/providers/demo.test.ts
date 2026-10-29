@@ -57,3 +57,13 @@ describe('demo provider span mode', () => {
     expect(r[119].time).toBe(Math.floor(1_700_000_000 / DAY) * DAY);
   });
 });
+
+describe('demo provider custom intervals', () => {
+  it('generates bars as far apart as the interval', async () => {
+    for (const [timeframe, seconds] of [['2h', 7200], ['3d', 259200]] as const) {
+      const r = await demoProvider.fetchHistory({ symbol: 'DEMO', timeframe, bars: 60 });
+      expect(r.length).toBeGreaterThan(40);
+      for (let i = 1; i < r.length; i++) expect(r[i].time - r[i - 1].time).toBe(seconds);
+    }
+  });
+});

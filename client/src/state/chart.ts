@@ -8,8 +8,8 @@
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { applyKline, mergeCandles } from '../lib/applyKline';
-import { MAX_BARS, TIMEFRAME_SECONDS } from '../../../shared/market.ts';
-import type { Candle, Dataset, Timeframe } from '../types';
+import { MAX_BARS, intervalSeconds } from '../../../shared/market.ts';
+import type { Candle, Dataset, Interval } from '../types';
 import { uid } from '../types';
 import type { BacktestResult, BacktestConfig } from '../lib/backtest/types';
 import { defaultBacktestConfig } from '../lib/backtest/types';
@@ -24,6 +24,7 @@ import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../l
 import { type Source } from '../../../shared/timeframes.ts';
 import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, type SymbolSuggestion } from '../lib/providers';
+import { servable } from '../lib/customTimeframes';
 import { fmtTime } from '../lib/format';
 import { CHART_MIN_BARS, chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, sliceByTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
 import {
@@ -75,7 +76,7 @@ export function selectBars(s: Pick<ChartState, 'candles' | 'replay'>): Candle[] 
 export interface ChartInitial {
   providerId: string;
   symbol: string;
-  timeframe: Timeframe;
+  timeframe: Interval;
   bars: number;
   indicators: IndicatorSpec[];
   btConfig: BacktestConfig;
@@ -123,7 +124,7 @@ export interface ChartState {
   /* preferences (persisted) */
   providerId: string;
   symbol: string;
-  timeframe: Timeframe;
+  timeframe: Interval;
   bars: number;
   indicators: IndicatorSpec[];
   showTrades: boolean;
@@ -180,7 +181,7 @@ export interface ChartState {
   /** Switches to a watchlist item's provider and symbol and loads the chart once. */
   openWatchItem(providerId: string, symbol: string, opts?: BroadcastOpt): void;
   setSymbol(symbol: string, opts?: { load?: boolean } & BroadcastOpt): void;
-  setTimeframe(tf: Timeframe, opts?: { load?: boolean } & BroadcastOpt): void;
+  setTimeframe(tf: Interval, opts?: { load?: boolean } & BroadcastOpt): void;
   setBars(bars: number): void;
   loadData(): Promise<void>;
   clearData(): void;
@@ -436,7 +437,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     async loadData() {
       const { providerId, symbol, timeframe, bars } = get();
       const provider = getProvider(providerId);
-      const tf = provider.timeframes.includes(timeframe) ? timeframe : provider.defaultTimeframe;
+      const tf = servable(provider, timeframe) ? timeframe : provider.defaultTimeframe;
       const token = ++requestToken;
       get().exitReplay();
       set({ loadState: 'loading', timeframe: tf });
@@ -622,7 +623,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         }
         applyRange(slice, fetched, range, true);
         set({ loadState: 'ready' });
-        if (range.from != null && slice[0].time - range.from > TIMEFRAME_SECONDS[timeframe]) {
+        if (range.from != null && slice[0].time - range.from > intervalSeconds(timeframe)) {
           const date = fmtTime(slice[0].time, { timeZone: env.timeZone() });
           const text = `${provider.name} has data for this range only from ${date}`;
           env.pushMessage(provider.name, 'warning', text);
@@ -894,7 +895,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         if (!last || backfilling) return;
         backfilling = true;
         const dataKey = get().dataKey;
-        const elapsed = Math.floor((Date.now() / 1000 - last.time) / (TIMEFRAME_SECONDS[timeframe] ?? 60));
+        const elapsed = Math.floor((Date.now() / 1000 - last.time) / intervalSeconds(timeframe));
         const count = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
         try {
           const recent = await provider.fetchHistory({ symbol, timeframe, bars: count, ...sourceOpt(provider) });

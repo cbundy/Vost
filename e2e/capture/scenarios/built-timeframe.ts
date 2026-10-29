@@ -11,8 +11,10 @@ export const builtTimeframe: Scenario = {
     const providerSelect = narrow ? page.getByRole('dialog', { name: 'More' }).locator('select').first() : page.locator('.topbar select').first();
     const title = (name: string, symbol: string, tf: string) => page.locator('.chart-legend .legend-title', { hasText: `${name} · ${symbol} · ${tf}` });
     const timeframeSelect = page.locator('.topbar select[title="Timeframe"]');
+    // The picker ends with a disabled separator and the "Add interval..." entry: compare only the timeframe options.
+    const timeframeOptions = timeframeSelect.locator('option:not([disabled]):not([value="__add-interval"])');
     const expectPicker = async (expected: string[]) => {
-      const labels = await timeframeSelect.locator('option').allTextContents();
+      const labels = await timeframeOptions.allTextContents();
       if (JSON.stringify(labels) !== JSON.stringify(expected)) throw new Error(`picker shows ${labels.join(', ')}, expected ${expected.join(', ')}`);
     };
     await ctx.step('open app', () => page.goto('/'));
@@ -24,7 +26,7 @@ export const builtTimeframe: Scenario = {
       if (narrow) await page.keyboard.press('Escape');
     });
     await ctx.step('the picker lists native and built timeframes, built ones marked', async () => {
-      const labels = await timeframeSelect.locator('option').allTextContents();
+      const labels = await timeframeOptions.allTextContents();
       const expected = ['1m', '5m', '15m', '30m *', '1h', '4h *', '1d', '1w *', '1M *'];
       if (JSON.stringify(labels) !== JSON.stringify(expected)) throw new Error(`picker shows ${labels.join(', ')}, expected ${expected.join(', ')}`);
       const title = await timeframeSelect.locator('option', { hasText: '4h' }).getAttribute('title');

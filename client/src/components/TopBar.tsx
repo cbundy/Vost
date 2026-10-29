@@ -4,8 +4,8 @@ import { fmtDataRange } from '../lib/format';
 import { topbarTier } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
-import { TIMEFRAMES } from '../types';
-import { sourceBase } from '../../../shared/timeframes.ts';
+import { pickerTimeframes } from '../lib/customTimeframes';
+import { IntervalDialog } from './IntervalDialog';
 import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
@@ -16,8 +16,10 @@ import { ConnectionStatus } from './ConnectionStatus';
 import { LayoutPicker } from './LayoutPicker';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
+import type { Interval } from '../types';
 import { useChart, useChartStore } from '../state/chartContext';
 
+const ADD_INTERVAL = '__add-interval';
 const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
 
 export function TopBar({
@@ -58,6 +60,8 @@ export function TopBar({
   const setProvider = useChart((s) => s.setProvider);
   const setTimeframe = useChart((s) => s.setTimeframe);
   const buildTimeframes = useStore((s) => s.buildTimeframes);
+  const customTimeframes = useStore((s) => s.customTimeframes);
+  const [intervalOpen, setIntervalOpen] = useState(false);
   const setBuildTimeframes = useStore((s) => s.setBuildTimeframes);
   const setBars = useChart((s) => s.setBars);
   const loadData = useChart((s) => s.loadData);
@@ -73,10 +77,8 @@ export function TopBar({
   const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live: live && !chartRange, now, timeZone });
 
   const provider = getProvider(providerId);
-  const timeframes = TIMEFRAMES.filter((tf) => provider.timeframes.includes(tf));
-  const nativeTimeframes = timeframes.filter((tf) => !provider.builtTimeframes?.includes(tf));
   const source = buildTimeframes && !provider.offline ? 'built' : 'native';
-  const builtFrom = (tf: (typeof timeframes)[number]) => sourceBase(nativeTimeframes, tf, source);
+  const pickerEntries = pickerTimeframes(provider, customTimeframes, source);
 
   const liveClass = liveStatus === 'live' ? '' : liveStatus === 'connecting' || liveStatus === 'reconnecting' ? 'connecting' : 'error';
 
@@ -188,14 +190,16 @@ export function TopBar({
       <div className="field">
         <select
           value={timeframe}
-          onChange={(e) => setTimeframe(e.target.value as (typeof timeframes)[number])}
+          onChange={(e) => (e.target.value === ADD_INTERVAL ? setIntervalOpen(true) : setTimeframe(e.target.value as Interval))}
           title="Timeframe"
         >
-          {timeframes.map((tf) => (
-            <option key={tf} value={tf} title={builtFrom(tf) ? `Built from ${builtFrom(tf)}` : undefined}>
-              {builtFrom(tf) ? `${tf} *` : tf}
+          {pickerEntries.map(({ interval, base }) => (
+            <option key={interval} value={interval} title={base ? `Built from ${base}` : undefined}>
+              {base ? `${interval} *` : interval}
             </option>
           ))}
+          <option disabled>──────────</option>
+          <option value={ADD_INTERVAL}>Add interval...</option>
         </select>
       </div>
 
@@ -300,6 +304,7 @@ export function TopBar({
           </TopBarMore>
         )}
       </div>
+      {intervalOpen && <IntervalDialog provider={provider} entries={pickerEntries} source={source} onClose={() => setIntervalOpen(false)} />}
     </header>
   );
 }

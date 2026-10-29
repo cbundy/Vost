@@ -95,8 +95,9 @@ describe('Sync in layout', () => {
   it('interval: a chart whose provider does not serve it keeps its own, with one toast for all of them', async () => {
     const t = await grid({ interval: true });
     const lacking = t.providers.providers.find((p) => p.id !== 'demo')!;
-    const missing = '4h' as const;
-    lacking.timeframes = lacking.timeframes.filter((tf) => tf !== missing); // this module copy is reset per test
+    const missing = '5m' as const;
+    // this module copy is reset per test; drop the missing one and everything below it so it cannot be built either
+    lacking.timeframes = lacking.timeframes.filter((tf) => tf !== '1m' && tf !== missing);
     const own = lacking.defaultTimeframe;
     for (const id of [t.ids[1], t.ids[2]]) t.chart(id).setState({ providerId: lacking.id, timeframe: own });
     const toasts = () => t.app.getState().toasts;

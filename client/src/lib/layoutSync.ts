@@ -2,13 +2,13 @@
  * Pure helpers for "Sync in layout": the change a chart announces, the bar lookup the crosshair sync needs, and a
  * small in-memory bus that carries the view syncs (crosshair, visible time range) between the mounted charts.
  */
-import type { Candle, Timeframe } from '../types';
+import type { Candle, Interval } from '../types';
 import type { TimeRange } from './timeRange';
 
 /** A committed change on one chart that other charts may follow. */
 export type SyncChange =
   | { kind: 'symbol'; providerId: string; symbol: string }
-  | { kind: 'interval'; timeframe: Timeframe }
+  | { kind: 'interval'; timeframe: Interval }
   | { kind: 'range'; range: TimeRange | null };
 
 /** Opt-out for the actions a sync applies to the receiving charts: they must never announce again. */
