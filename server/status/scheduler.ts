@@ -130,6 +130,8 @@ export interface StatusServiceOptions {
   version: string;
   intervalSeconds: number;
   relayStats?: () => FeedStats[];
+  /** Candle store figures for `/api/status`; left out of the reply when not given. */
+  candleStats?: () => NonNullable<StatusResponse['candles']>;
   probeEnv?: ProbeEnv;
   timers?: Timers;
   now?: () => number;
@@ -159,6 +161,7 @@ export function createStatusService(opts: StatusServiceOptions): StatusService {
         server: { state: 'ok', version: opts.version, uptimeSeconds: opts.uptimeSeconds?.() ?? Math.round(process.uptime()) },
         intervalSeconds: Math.max(0, opts.intervalSeconds),
         checks,
+        ...(opts.candleStats ? { candles: opts.candleStats() } : {}),
       };
     },
   };

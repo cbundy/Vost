@@ -190,7 +190,7 @@ Vost/
 └── docs/                      # strategy authoring & deployment guides
 ```
 
-- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its only state on disk is the price-alerts file (`alerts.json` in `VOST_DATA_DIR`); the symbol-list cache and the open exchange websockets are in memory. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency. No database.
+- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its state on disk is the price-alerts file (`alerts.json`) and the candle store (`candles.sqlite`, a SQLite file written through Node's built-in `node:sqlite`), both in `VOST_DATA_DIR`; the candle store holds chart history for the markets the server records and is safe to delete (history is refetched from the exchange). The symbol-list cache and the open exchange websockets are in memory. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency.
 - The **client** holds everything else: fetching, CSV parsing, indicator math, backtests (in a Web Worker), persistence (localStorage). This is what makes offline mode work.
 
 ### Configuration

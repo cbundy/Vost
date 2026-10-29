@@ -34,6 +34,7 @@ import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
 import { createApiDeps, handleApi } from './api.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
+import { openCandleStore } from './candles/store.ts';
 import { sendJson } from './respond.ts';
 import { handleStatus } from './status/route.ts';
 import { createStatusService } from './status/scheduler.ts';
@@ -171,10 +172,12 @@ const status = createStatusService({
   version,
   intervalSeconds: Number.isFinite(intervalEnv) && intervalEnv > 0 ? intervalEnv : 0,
   relayStats: () => relay.stats(),
+  candleStats: () => candles.stats(),
 });
-const apiDeps = createApiDeps({ onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
-
 const DATA_DIR = path.resolve(process.env.VOST_DATA_DIR || path.join(ROOT, 'data'));
+const candles = await openCandleStore({ dir: DATA_DIR });
+const apiDeps = createApiDeps({ candles, onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
+
 const pollEnv = Number(process.env.VOST_ALERT_POLL ?? 60);
 const telegramConfig = readTelegramConfig(process.env, (line) => console.warn(line));
 const telegram = createTelegram({ config: telegramConfig, fetch: apiDeps.fetch, log: (line) => console.log(line) });
@@ -236,6 +239,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search, /api/status`);
   console.log(`  → live candles: /api/live`);
   console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
+  console.log(`  → candle store: ${candles.on ? `on (${candles.file})` : 'off'}`);
   console.log('');
   status.scheduler.start();
 });
@@ -244,6 +248,7 @@ const shutdown = (): void => {
   status.scheduler.stop();
   const saved = alerts.stop(); // drops its feeds, ends its streams, writes held prices
   relay.closeAll(); // ends the streams, so server.close does not wait on them
+  candles.close();
   server.close(() => void saved.finally(() => process.exit(0)));
   setTimeout(() => process.exit(0), 2000).unref();
 };

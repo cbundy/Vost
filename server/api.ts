@@ -4,14 +4,17 @@
  * can inject a fake fetch and never touch the network.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { MAX_BARS, TIMEFRAMES, rangeBarCount, type ApiError, type Timeframe } from '../shared/market.ts';
+import { MAX_BARS, TIMEFRAMES, rangeBarCount, type ApiError, type Candle, type Timeframe } from '../shared/market.ts';
 import { PROVIDER_CATALOG, catalogEntry } from '../shared/providerCatalog.ts';
 import { InputError, NotFoundError, UpstreamError } from './providers/errors.ts';
 import { adapters } from './providers/index.ts';
 import { createSymbolCache, type SymbolCache } from './providers/symbolCache.ts';
+import type { AdapterContext, HistoryRequest, ProviderAdapter } from './providers/types.ts';
 import type { FetchFn } from './providers/upstream.ts';
 import type { CheckResult } from './status/registry.ts';
 import { sendJson } from './respond.ts';
+import type { CandleStore } from './candles/store.ts';
+import { readThroughHistory } from './candles/history.ts';
 
 export interface ApiDeps {
   /** Defaults to `globalThis.fetch`. */
@@ -19,6 +22,10 @@ export interface ApiDeps {
   symbols: SymbolCache;
   /** Told how each real history, symbols or search request went, for the status page (provider failures only, never a bad request). */
   onOutcome?(provider: string, feed: 'history' | 'symbols', result: CheckResult): void;
+  /** The on-disk candle store; with `isRecorded` it answers history for the series the server records. */
+  candles?: CandleStore;
+  /** Whether the server records this series. Default: nothing is recorded, so every request goes to the exchange. */
+  isRecorded?: (provider: string, symbol: string, timeframe: Timeframe) => boolean;
 }
 
 export function createApiDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
@@ -64,6 +71,15 @@ async function tracked<T>(deps: ApiDeps, provider: string, feed: 'history' | 'sy
   }
 }
 
+/** One history request: through the candle store for a recorded series, else straight to the exchange. */
+function history(deps: ApiDeps, id: string, ctx: AdapterContext, adapter: ProviderAdapter, req: HistoryRequest): Promise<Candle[]> {
+  return readThroughHistory(
+    { store: deps.candles, isRecorded: deps.isRecorded, fetch: (r) => tracked(deps, id, 'history', () => adapter.history(ctx, r)) },
+    id,
+    req,
+  );
+}
+
 async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unknown> {
   const base = { fetch: deps.fetch, symbols: deps.symbols, signal };
   switch (url.pathname) {
@@ -83,7 +99,7 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (from === undefined) {
         const bars = parseBars(url.searchParams.get('bars'));
         if (to !== undefined) to = Math.min(to, Math.floor(Date.now() / 1000));
-        return tracked(deps, info.id, 'history', () => adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) }));
+        return history(deps, info.id, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars, ...(to === undefined ? {} : { to }) });
       }
       to = Math.min(to ?? Infinity, Math.floor(Date.now() / 1000));
       if (from > to) throw new InputError('from must not be after to (or in the future)');
@@ -91,7 +107,7 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       if (count > MAX_BARS) {
         throw new InputError(`That span is about ${count} ${timeframe} bars, above the limit of ${MAX_BARS}; pick a shorter span or a larger timeframe`);
       }
-      return tracked(deps, info.id, 'history', () => adapter.history(base, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to }));
+      return history(deps, info.id, base, adapter, { symbol, timeframe: timeframe as Timeframe, bars: count, from, to });
     }
     case '/api/symbols': {
       const { info, adapter } = provider(url);

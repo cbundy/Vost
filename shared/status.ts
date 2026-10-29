@@ -33,6 +33,8 @@ export interface StatusResponse {
   checks: StatusCheck[];
   /** Only on `?refresh=1`: true when this call ran a round, false when it joined or reused one. */
   refreshed?: boolean;
+  /** The server's on-disk candle store; absent when the server has none. */
+  candles?: { on: boolean; series: number; rows: number; bytes: number };
 }
 
 /** Providers whose symbol lookup is built in (no remote call to check). */
