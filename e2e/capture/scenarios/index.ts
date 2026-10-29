@@ -1,5 +1,6 @@
 import type { Scenario } from '../scenario.ts';
 import { alerts } from './alerts.ts';
+import { customTimeframe } from './custom-timeframe.ts';
 import { builtTimeframe } from './built-timeframe.ts';
 import { chart } from './chart.ts';
 import { chartPan } from './chart-pan.ts';
@@ -23,7 +24,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, btRange, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, drawings, layouts, networkAudit, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, btRange, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawings, layouts, networkAudit, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();

@@ -2881,3 +2881,52 @@ a:hover {
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* ------------------------- custom intervals dialog ------------------------- */
+
+.interval-row {
+  display: flex;
+  gap: 8px;
+}
+
+.interval-row input {
+  width: 90px;
+  min-width: 0;
+}
+
+.interval-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.interval-msg {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.interval-msg.error {
+  color: var(--red, #ef4444);
+}
+
+.interval-list-title {
+  margin: 16px 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.interval-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.interval-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

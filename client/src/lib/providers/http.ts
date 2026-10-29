@@ -3,7 +3,7 @@
  * are built from the shared catalog in ./index.ts and call the server through
  * ./api.ts; the demo provider lives entirely in the browser.
  */
-import type { Candle, LiveStatus as ServerLiveStatus, SymbolSuggestion, Timeframe } from '../../../../shared/market.ts';
+import type { Candle, LiveStatus as ServerLiveStatus, SymbolSuggestion, Timeframe, Interval } from '../../../../shared/market.ts';
 
 import type { Source } from '../../../../shared/timeframes.ts';
 
@@ -11,7 +11,7 @@ export type { SymbolSuggestion };
 
 export interface HistoryRequest {
   symbol: string;
-  timeframe: Timeframe;
+  timeframe: Interval;
   /** Target number of bars (the provider may return fewer). */
   bars: number;
   /** Time span (unix seconds, both ends inclusive); with `from` the span wins over `bars`. */

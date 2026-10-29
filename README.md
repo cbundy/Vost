@@ -99,7 +99,7 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 | **Demo (offline)** | Synthetic | No | — | Deterministic random walk — try the whole app with zero network. |
 | **CSV import** | Anything you have | No | — | Fully offline workflow. See below. |
 
-The **Build** toggle next to the timeframe picker (remembered, off by default) builds every timeframe above the provider's lowest from the next lower native one instead of using the exchange's own bars; see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
+The **Build** toggle next to the timeframe picker (remembered, off by default) builds every timeframe above the provider's lowest from the next lower native one instead of using the exchange's own bars; see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md). To chart any other interval (such as 2h, 10m, 3d, 2w or 3M), pick **Add interval...** at the end of the timeframe picker: the interval is built from the best lower timeframe the provider has, kept in your browser, and can be removed from the same dialog.
 
 For a full comparison of these and candidate providers (limits, CORS, keys, terms), see [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 

@@ -31,6 +31,7 @@ Calendar rules:
 - Buckets (UTC): a minute/hour interval that divides a day is a multiple of its length; one shorter than a day that does not (7h) restarts at each UTC midnight, so the day's last bucket is shorter; an hour interval longer than a day (36h) counts from 1970-01-01 00:00 UTC. `Nd` counts N-day buckets from 1970-01-01, `Nw` N-week buckets from Monday 1970-01-05, `NM` N-month buckets from January 1970 (3M is calendar quarters, 12M calendar years).
 - Buckets (session calendar): `Nd`, `Nw` and `NM` count the same way over exchange-local days and are stamped at the session open of their first day; minute/hour intervals of at most a day count from each day's session open; an hour interval longer than a day uses the UTC rule.
 - Live: a canonical interval with a base streams through the built live folder on the base timeframe's shared socket, as a built timeframe does.
+- In the app: the timeframe picker ends with **Add interval...**, which opens the "Custom intervals" dialog (a number and a unit, a preview of the canonical name and its base). It refuses a value outside the limits above, one already in the picker, and one the provider can neither serve nor build. Saved intervals (at most 20, in `prefs.v1` as `customTimeframes`) are listed in the picker by bar length, marked `*` like built timeframes, and hidden on a provider that cannot serve them; the demo provider generates any interval directly. Removing one moves every chart showing it to the provider's default timeframe.
 
 ### The "Build higher timeframes from lower ones" setting
 

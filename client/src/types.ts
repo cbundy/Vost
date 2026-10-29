@@ -4,7 +4,7 @@
 
 export { TIMEFRAMES } from '../../shared/market.ts';
 import type { Candle } from '../../shared/market.ts';
-export type { Candle, Timeframe } from '../../shared/market.ts';
+export type { Candle, Interval, Timeframe } from '../../shared/market.ts';
 
 /** Human label for a detected/synthetic timeframe. */
 export interface DatasetInfo {
