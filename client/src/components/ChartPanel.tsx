@@ -34,6 +34,7 @@ import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useChart, useChartStore } from '../state/chartContext';
+import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
 
 type IndEntry = {
   series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
@@ -386,6 +387,91 @@ export function ChartPanel({
     return () => chart.unsubscribeCrosshairMove(handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, dataLabel]);
+
+  /* ---------------- sync in layout: crosshair and visible time range ---------------- */
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  useEffect(() => {
+    const chart = chartApi;
+    const candleSeries = candleSeriesRef.current;
+    const el = containerRef.current;
+    if (!chart || !candleSeries || !el) return;
+    const id = chartStore.getState().id;
+    let publishingCrosshair = false;
+    let applyingCrosshair = false;
+    let lastApplied: TimeRangeSync | null = null;
+    let lastSent: TimeRangeSync | null = null;
+    const visible = () => el.clientWidth > 0 && el.clientHeight > 0; // a hidden (narrow-screen) chart skips applying
+
+    const onMove = (param: MouseEventParams<Time>) => {
+      if (applyingCrosshair || !useStore.getState().sync.crosshair) return;
+      if (param.point && param.time != null) {
+        if (!param.sourceEvent) return; // a programmatic move (a sync landing here), not the person
+        const price = candleSeries.coordinateToPrice(param.point.y);
+        if (price == null) return;
+        const s = chartStore.getState();
+        publishingCrosshair = true;
+        publishCrosshair(id, { time: param.time as number, price, providerId: s.providerId, symbol: s.symbol });
+      } else if (publishingCrosshair) {
+        publishingCrosshair = false;
+        publishCrosshair(id, null);
+      }
+    };
+    chart.subscribeCrosshairMove(onMove);
+
+    const onRange = (range: { from: Time; to: Time } | null) => {
+      if (!range || !useStore.getState().sync.time) return;
+      const r = { from: range.from as number, to: range.to as number };
+      if (sameTimeRange(r, lastApplied) || sameTimeRange(r, lastSent)) return;
+      if (!drivesTime(id, activeRef.current)) return;
+      lastSent = r;
+      publishTimeRange(id, r);
+    };
+    chart.timeScale().subscribeVisibleTimeRangeChange(onRange);
+
+    const onEnter = () => setHovered(id, true);
+    const onLeave = () => setHovered(id, false);
+    el.addEventListener('pointerenter', onEnter);
+    el.addEventListener('pointerleave', onLeave);
+
+    const off = subscribe(id, {
+      crosshair(pos) {
+        if (!useStore.getState().sync.crosshair || !visible()) return;
+        applyingCrosshair = true;
+        try {
+          const s = chartStore.getState();
+          const t = pos ? barTimeAt(s.candles, pos.time) : null;
+          if (!pos || t == null) {
+            chart.clearCrosshairPosition();
+            return;
+          }
+          const bar = s.candles.find((c) => c.time === t);
+          const same = pos.providerId === s.providerId && pos.symbol === s.symbol;
+          chart.setCrosshairPosition(same ? pos.price : (bar?.close ?? pos.price), t as UTCTimestamp, candleSeries);
+        } finally {
+          applyingCrosshair = false;
+        }
+      },
+      timeRange(range) {
+        if (!useStore.getState().sync.time || !visible() || sameTimeRange(range, lastApplied)) return;
+        lastApplied = range;
+        try {
+          chart.timeScale().setVisibleRange({ from: range.from as UTCTimestamp, to: range.to as UTCTimestamp });
+        } catch {
+          /* no data to place the range on yet */
+        }
+      },
+    });
+    return () => {
+      off();
+      setHovered(id, false);
+      el.removeEventListener('pointerenter', onEnter);
+      el.removeEventListener('pointerleave', onLeave);
+      chart.unsubscribeCrosshairMove(onMove);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(onRange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartApi]);
 
   /* Zone change: swap the formatters in place (no rebuild, visible range untouched) and redraw the legend. */
   useEffect(() => {

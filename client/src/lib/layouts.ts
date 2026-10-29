@@ -236,12 +236,34 @@ export function moveBoundary(a: Arrangement, axis: Axis, tracks: number[], at: n
 export const LAYOUT_KEY = 'layout.v1';
 export const LAYOUT_VERSION = 1;
 
+/** Which things a change on one chart carries to every chart of the layout. */
+export interface LayoutSync {
+  symbol: boolean;
+  interval: boolean;
+  crosshair: boolean;
+  time: boolean;
+  dateRange: boolean;
+}
+
+export const SYNC_KEYS = ['symbol', 'interval', 'crosshair', 'time', 'dateRange'] as const satisfies ReadonlyArray<keyof LayoutSync>;
+
+export const DEFAULT_SYNC: LayoutSync = { symbol: false, interval: false, crosshair: true, time: false, dateRange: false };
+
+/** Reads saved sync flags field by field; a missing or non-boolean field takes its default. */
+export function sanitizeSync(raw: unknown): LayoutSync {
+  const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const out = { ...DEFAULT_SYNC };
+  for (const k of SYNC_KEYS) if (typeof r[k] === 'boolean') out[k] = r[k] as boolean;
+  return out;
+}
+
 /** What a valid saved layout holds; the per-chart records are checked field by field by the caller. */
 export interface ParsedLayout {
   arrangement: Arrangement;
   activeChartId: string;
   charts: Array<Record<string, unknown>>;
   sizes: LayoutSizes;
+  sync: LayoutSync;
 }
 
 /**
@@ -265,5 +287,5 @@ export function parseLayout(raw: unknown): ParsedLayout | null {
     charts.push(c as Record<string, unknown>);
   }
   const activeChartId = typeof r.activeChartId === 'string' && seen.has(r.activeChartId) ? r.activeChartId : (charts[0].id as string);
-  return { arrangement, activeChartId, charts, sizes: sanitizeSizes(r.sizes, arrangement) };
+  return { arrangement, activeChartId, charts, sizes: sanitizeSizes(r.sizes, arrangement), sync: sanitizeSync(r.sync) };
 }

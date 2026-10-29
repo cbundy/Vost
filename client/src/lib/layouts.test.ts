@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_SYNC,
+  sanitizeSync,
   ARRANGEMENTS,
   type Arrangement,
   LAYOUT_COUNTS,
@@ -160,6 +162,22 @@ describe('track sizes', () => {
   });
 });
 
+describe('sanitizeSync', () => {
+  it('defaults to crosshair only', () => {
+    expect(sanitizeSync(undefined)).toEqual({ symbol: false, interval: false, crosshair: true, time: false, dateRange: false });
+  });
+  it('keeps booleans and falls back field by field', () => {
+    expect(sanitizeSync({ symbol: true, crosshair: false, time: 'yes', interval: 1, extra: true })).toEqual({
+      symbol: true,
+      interval: false,
+      crosshair: false,
+      time: false,
+      dateRange: false,
+    });
+    expect(sanitizeSync([])).toEqual(DEFAULT_SYNC);
+  });
+});
+
 describe('parseLayout', () => {
   const chart = (id: string) => ({ id, providerId: 'demo', symbol: 'DEMO', timeframe: '1d', bars: 500 });
   const good = () => ({
@@ -188,6 +206,16 @@ describe('parseLayout', () => {
     expect(parseLayout({ ...good(), charts: [...good().charts.slice(0, 3), chart('a')] })).toBeNull();
     expect(parseLayout({ ...good(), charts: [...good().charts.slice(0, 3), 7] })).toBeNull();
     expect(parseLayout({ ...good(), charts: [...good().charts.slice(0, 3), { symbol: 'X' }] })).toBeNull();
+  });
+
+  it('keeps a good sync and defaults a missing, partial or bad one', () => {
+    const sync = { symbol: true, interval: true, crosshair: false, time: true, dateRange: true };
+    expect(parseLayout({ ...good(), sync })!.sync).toEqual(sync);
+    expect(parseLayout(good())!.sync).toEqual(DEFAULT_SYNC);
+    expect(parseLayout({ ...good(), sync: { time: true } })!.sync).toEqual({ ...DEFAULT_SYNC, time: true });
+    const bad = parseLayout({ ...good(), sync: { symbol: 'x', crosshair: null } })!;
+    expect(bad.sync).toEqual(DEFAULT_SYNC);
+    expect(bad.sizes).toEqual({ cols: [0.4, 0.6], rows: [0.5, 0.5] });
   });
 
   it('bad sizes fall back to even tracks and an unknown active chart to the first', () => {

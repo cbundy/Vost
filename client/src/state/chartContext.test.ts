@@ -13,6 +13,7 @@ const env: ChartEnv = {
   addDataset: () => {},
   removeDataset: () => {},
   onPrefsChange: () => {},
+  onSync: () => {},
 };
 
 function Symbol() {

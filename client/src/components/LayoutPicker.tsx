@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { ARRANGEMENTS, DEFAULT_ARRANGEMENT_ID, LAYOUT_COUNTS, arrangementsWithCount, getArrangement, type Arrangement } from '../lib/layouts';
+import { ARRANGEMENTS, DEFAULT_ARRANGEMENT_ID, LAYOUT_COUNTS, arrangementsWithCount, getArrangement, type Arrangement, type LayoutSync } from '../lib/layouts';
 import { useTopKeydown } from '../lib/useDialogKeys';
 import { useStore } from '../state/store';
+import { InfoIcon } from './Icons';
+
+const SYNC_ROWS: Array<{ key: keyof LayoutSync; label: string; info: string }> = [
+  { key: 'symbol', label: 'Symbol', info: 'Changing the symbol on one chart changes it on every chart' },
+  { key: 'interval', label: 'Interval', info: 'Changing the interval on one chart changes it on every chart' },
+  { key: 'crosshair', label: 'Crosshair', info: 'Moving the crosshair on one chart shows it on every chart' },
+  { key: 'time', label: 'Time', info: 'Scrolling or zooming one chart moves every chart to the same time' },
+  { key: 'dateRange', label: 'Date range', info: 'Applying a date range to one chart applies it to every chart' },
+];
 
 const W = 24;
 const H = 18;
@@ -30,6 +39,8 @@ export function ArrangementIcon({ arrangement: a }: { arrangement: Arrangement }
 export function LayoutPicker() {
   const arrangementId = useStore((s) => s.arrangementId);
   const setArrangement = useStore((s) => s.setArrangement);
+  const sync = useStore((s) => s.sync);
+  const setSync = useStore((s) => s.setSync);
   const current = getArrangement(arrangementId) ?? getArrangement(DEFAULT_ARRANGEMENT_ID) ?? ARRANGEMENTS[0];
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -88,6 +99,29 @@ export function LayoutPicker() {
               </div>
             </div>
           ))}
+          <div className="layout-sync" role="group" aria-labelledby="layout-sync-heading">
+            <div className="layout-sync-heading" id="layout-sync-heading">
+              Sync in layout
+            </div>
+            {SYNC_ROWS.map((r) => (
+              <div className="layout-sync-row" key={r.key}>
+                <span className="layout-sync-label" id={`layout-sync-${r.key}`}>
+                  {r.label}
+                </span>
+                <span className="layout-sync-info" tabIndex={0} role="img" aria-label={r.info} title={r.info}>
+                  <InfoIcon />
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  className="switch"
+                  aria-checked={sync[r.key]}
+                  aria-labelledby={`layout-sync-${r.key}`}
+                  onClick={() => setSync(r.key, !sync[r.key])}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

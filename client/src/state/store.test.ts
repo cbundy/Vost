@@ -439,6 +439,7 @@ describe('chart registry and flat prefs', () => {
       addDataset: () => {},
       removeDataset: () => {},
       onPrefsChange: () => {},
+      onSync: () => {},
     });
     useStore.setState({ charts: { ...useStore.getState().charts, 'chart-2': second } });
     useStore.getState().setBuildTimeframes(true);
