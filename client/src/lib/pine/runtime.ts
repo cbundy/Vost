@@ -3,8 +3,9 @@
  * docs/PINE.md) and maps its context into plain typed data. Never throws:
  * compile and runtime failures resolve to `{ ok: false, error }`.
  */
-import { Indicator, PineTS } from 'pinets';
+import { Indicator, PineTS, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
+import { createServerResolver, libraryMessage, missingLibraryPath } from './libraries';
 import { detectPineVersion, legacyMessage } from './version';
 import type {
   PineInput,
@@ -140,12 +141,20 @@ async function coerceInputs(
   return out;
 }
 
+export interface PineRunOptions {
+  /** Finds the source of an imported library. The default asks the Vost server (`/api/pine/libraries`). */
+  resolver?: ImportResolverFn | IImportResolver;
+}
+
 /** Run a Pine script over candles (time in seconds). `inputs` override defaults by input title. */
 export async function runPine(
   source: string,
   candles: Candle[],
   inputs: Record<string, PineInputValue> = {},
+  opts: PineRunOptions = {},
 ): Promise<PineRunOutcome> {
+  // Fresh per run, so a library pasted after a miss is found on the next run.
+  const server = opts.resolver ? null : createServerResolver();
   try {
     // PineTS reads a script with no //@version line as raw JavaScript and fails with a parser error.
     const { version, legacy } = detectPineVersion(source);
@@ -153,7 +162,9 @@ export async function runPine(
     if (candles.length === 0) return { ok: false, error: { message: 'No candles to run the script on' } };
     const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();
-    const ctx: any = await new PineTS(toPineData(candles), 'VOST', 'D').run(indicator);
+    const pine = new PineTS(toPineData(candles), 'VOST', 'D');
+    pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
+    const ctx: any = await pine.run(indicator);
 
     const isStrategy = indicator.getDeclarationType() === 'strategy';
     const decl = (isStrategy ? ctx.strategy?.config : ctx.indicator) ?? {};
@@ -188,6 +199,9 @@ export async function runPine(
       ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
     };
   } catch (err) {
-    return { ok: false, error: parseError(err) };
+    const error = parseError(err);
+    const library = missingLibraryPath(error.message);
+    if (library) return { ok: false, error: { message: libraryMessage(library, server?.misses.get(library)), library } };
+    return { ok: false, error };
   }
 }

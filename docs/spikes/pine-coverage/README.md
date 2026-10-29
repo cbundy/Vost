@@ -32,7 +32,7 @@ Columns: **PineTS** computes it (yes / partial / no); **runPine** passes it thro
 | Area | PineTS | runPine | Vost shows | Note and evidence |
 |---|---|---|---|---|
 | Language: types, UDTs, methods, enums, tuples, switch/for/while, `var`, `varip` | yes | yes | yes (through plots) | Cases `language / udt, method, enum, function-switch-for, var-persist, varip, tuple-return, while-break` all compile and give the expected value. `varip` behaves as `var` (history only, no ticks) |
-| Language: imports / libraries | no | no (same error) | no | `language / import-library`: "no import resolver is configured". PineTS has `setImportResolver`; `runtime.ts` never sets one, and Vost has no library source |
+| Language: imports / libraries | yes (with a resolver) | yes | yes (through plots) | `language / import-library` runs an inline library through a resolver and plots its value. `runPine` sets a resolver that asks the Vost server (`/api/pine/libraries`), which fetches open-source TradingView libraries and keeps pasted ones; see `docs/PINE.md` (Libraries). The probe passes `opts.resolver`, so it needs no network |
 | `ta.*` (48 functions probed) | yes | yes | yes | Cases `ta / fn ...`, `sma-ema-rma-wma`, `rsi-macd-bb`, `atr-stoch-adx`, `supertrend-sar`, `kc-keltner`, `correlation-linreg`, `vwap-obv-cci-mfi`: every one compiles and returns a value. `client/src/lib/pine/runtime.test.ts` already checks sma, ema, rsi, macd, bb against `client/src/lib/indicators.ts`. Values of the rest are not cross-checked against TradingView |
 | `math.*` | yes | yes | yes | Cases `math / fn ...` (20) all ok. Exception: `math.round_to_mintick` returns NaN because `syminfo.mintick` is na (below) |
 | `str.*` | yes | yes | yes | `str / str-basic, str-split-replace` ok |
@@ -121,6 +121,6 @@ The owner picks which to build; this decides nothing. Ordered by value, then ris
 4. **Draw `line`, `label`, `box`, `table`, `polyline`, `linefill`.** Read the `__*__` collections instead of skipping them, then render on the chart (tables as an overlay). Closes six rows. Large; medium risk (new chart primitives; bar-index to time mapping).
 5. **Surface alerts, logs and warnings.** Read `ctx.alerts`, `ctx.warnings` and the log output, show them in the Pine pane. Optionally route `alertcondition` into Vost's alerts. Closes `alert`, `log`, the "empty plot, no reason" part of `request.*`. Small to medium; low risk.
 6. **Richer input controls and plot options.** Color picker, source select, time/symbol/session controls, `group`/`tooltip`/`inline`, plot `linewidth`, `offset`, step/area styles, `plotshape` text and size. Closes the `input.*` and partial plot rows. Medium; low risk.
-7. **Import resolver for libraries.** Set `setImportResolver` with a bundled or fetched set of libraries. Closes the imports row. Medium to large; needs a licence and source decision.
+7. **Import resolver for libraries.** Done: `runPine` sets a resolver backed by the Vost server (open-source libraries fetched from TradingView and kept, closed-source ones pasted). Closed the imports row.
 8. **Report the engine gaps upstream** (the list above) and re-probe on each PineTS upgrade: rerun `probe.ts` and diff `output.txt`. Small; no risk.
 9. **Verify the strategy risk rules** with a probe that trips a limit. Small.

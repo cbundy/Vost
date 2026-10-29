@@ -6,6 +6,7 @@ import type { PineInput, PineInputValue } from '../lib/pine/types';
 import { useStore, type PineRunState } from '../state/store';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
+import { PineLibraries } from './PineLibraries';
 
 /**
  * The Pine editor pane beside the chart: one Pine indicator at a time in a full-height editor.
@@ -20,6 +21,7 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
   const openPineEditor = useStore((s) => s.openPineEditor);
   const rootRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [libraries, setLibraries] = useState<{ path: string } | null>(null);
 
   useEffect(() => {
     if (dialog) closeRef.current?.focus();
@@ -57,6 +59,9 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
         <a className="pine-compare-link" href="/compare" target="_blank" rel="noopener" title="Compare Pine scripts side by side">
           Compare
         </a>
+        <button className="ghost pine-libs-button" onClick={() => setLibraries({ path: '' })} title="Libraries that scripts import">
+          Libraries
+        </button>
         <span className="pine-pane-spacer" />
         <button ref={closeRef} className="ghost icon" aria-label="Close Pine editor" title="Close (Esc)" onClick={onClose}>
           ✕
@@ -70,6 +75,7 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
           run={pineRuns[active.id]}
           onSource={(source) => updateIndicator(active.id, { source })}
           onInput={(name, v) => updateIndicator(active.id, { inputs: { [name]: v } })}
+          onPasteLibrary={(path) => setLibraries({ path })}
         />
       ) : (
         <div className="pine-empty">
@@ -79,6 +85,7 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
           </button>
         </div>
       )}
+      {libraries && <PineLibraries initialPath={libraries.path} onClose={() => setLibraries(null)} />}
     </section>
   );
 }
@@ -89,12 +96,14 @@ function PineEntry({
   run,
   onSource,
   onInput,
+  onPasteLibrary,
 }: {
   source: string;
   overrides: Record<string, PineInputValue>;
   run: PineRunState | undefined;
   onSource: (source: string) => void;
   onInput: (name: string, v: PineInputValue) => void;
+  onPasteLibrary: (path: string) => void;
 }) {
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const { version } = detectPineVersion(source);
@@ -107,6 +116,13 @@ function PineEntry({
       </div>
       {run?.running && <div className="muted-2" style={{ fontSize: 11.5 }}>Running…</div>}
       <PineConvert source={source} error={error} onChange={onSource} />
+      {error?.library && (
+        <div className="pine-error-actions">
+          <button className="primary" onClick={() => onPasteLibrary(error.library!)}>
+            Paste library
+          </button>
+        </div>
+      )}
       {inputs.length > 0 && (
         <div className="indicator-params">
           {inputs.map((inp) => (

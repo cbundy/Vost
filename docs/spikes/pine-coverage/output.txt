@@ -25,8 +25,8 @@ Pine v6 coverage probe: 161 cases, 120 synthetic daily candles from 2023-11-14, 
   runPine: ok  plots[1]: #0:plot/line/price=120 | declaration overlay=true
 
 ## language / import-library
-  pinets : ERR The script imports "TradingView/ta/7" but no import resolver is configured. Call pineTS.setImportResolver(...)...
-  runPine: ERR The script imports "TradingView/ta/7" but no import resolver is configured. Call pineTS.setImportResolver(...)...
+  pinets : ok  plots[1]: #0=287.66
+  runPine: ok  plots[1]: #0:plot/line/price=287.66 | declaration overlay=true
 
 ## language / tuple-return
   pinets : ok  plots[1]: #0=2.94

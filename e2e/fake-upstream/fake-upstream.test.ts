@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Candle } from '../../shared/market.ts';
 import { PROVIDER_CATALOG } from '../../shared/providerCatalog.ts';
@@ -6,7 +9,9 @@ import { openUpstream, type UpstreamSocket } from '../../server/live/socket.ts';
 import { adapters } from '../../server/providers/index.ts';
 import { createSymbolCache } from '../../server/providers/symbolCache.ts';
 import { setTestUpstream } from '../../server/testUpstream.ts';
+import { createLibraries } from '../../server/pine/libraries.ts';
 import { startFakeUpstream, type FakeUpstream } from './index.ts';
+import { CLOSED_LIB_PATH, NESTED_LIB_PATH, NESTED_LIB_SOURCE, OPEN_LIB_PATH, OPEN_LIB_SOURCE } from './pine-libraries.ts';
 
 let fake: FakeUpstream;
 
@@ -193,5 +198,28 @@ describe('fake upstream live feeds, through the real socket and WebSocket', () =
     expect(fake.requests.slice(before)).toEqual([{ kind: 'http', scheme: 'https', host: 'api.telegram.org', path: '/bottest-token/sendMessage', method: 'POST', body }]);
     const other = await fetch(`${fake.url}/https/api.telegram.org/bottest-token/getMe`, { method: 'POST', body: '{}' });
     expect(other.status).toBe(404);
+  });
+});
+
+describe('fake upstream TradingView library endpoints, through the real Libraries lookup', () => {
+  it('serves an open-source library, the library it imports, and a closed-source one', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'vost-fake-tv-'));
+    try {
+      const libs = createLibraries({ dir, log: () => undefined });
+      await libs.load();
+      expect(await libs.get(OPEN_LIB_PATH)).toMatchObject({ ok: true, origin: 'tradingview', source: OPEN_LIB_SOURCE });
+      expect(await libs.get(NESTED_LIB_PATH)).toMatchObject({ ok: true, source: NESTED_LIB_SOURCE });
+      expect(await libs.get(CLOSED_LIB_PATH)).toMatchObject({ ok: false, reason: 'closed-source' });
+      expect(await libs.get('alice/Unknown/1')).toMatchObject({ ok: false, reason: 'not-found' });
+      const hosts = new Set(fake.requests.map((r) => r.host));
+      expect(hosts.has('www.tradingview.com') && hosts.has('pine-facade.tradingview.com')).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('search without type=3 finds no library', async () => {
+    const res = await fetch(`${fake.url}/https/www.tradingview.com/pubscripts-suggest-json/?search=OpenLib`);
+    expect(((await res.json()) as { results: unknown[] }).results).toEqual([]);
   });
 });

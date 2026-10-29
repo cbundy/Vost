@@ -82,6 +82,8 @@ export interface PineError {
   message: string;
   line?: number;
   column?: number;
+  /** The `user/name/version` of an imported library that could not be loaded. */
+  library?: string;
 }
 
 export type PineRunOutcome = PineResult | { ok: false; error: PineError };
