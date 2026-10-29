@@ -1,0 +1,648 @@
+Pine v6 coverage probe: 161 cases, 120 synthetic daily candles from 2023-11-14, PineTS ticker VOST timeframe D
+
+## language / udt
+  pinets : ok  plots[1]: #0=2.94
+  runPine: ok  plots[1]: #0:plot/line/price=2.94 | declaration overlay=true
+
+## language / method
+  pinets : ok  plots[1]: #0=287.66
+  runPine: ok  plots[1]: #0:plot/line/price=287.66 | declaration overlay=true
+
+## language / enum
+  pinets : ok  plots[1]: #0=1
+  runPine: ok  plots[1]: #0:plot/line/price=1 | declaration overlay=true
+
+## language / function-switch-for
+  pinets : ok  plots[1]: #0=11
+  runPine: ok  plots[1]: #0:plot/line/price=11 | declaration overlay=true
+
+## language / varip
+  pinets : ok  plots[1]: #0=120
+  runPine: ok  plots[1]: #0:plot/line/price=120 | declaration overlay=true
+
+## language / var-persist
+  pinets : ok  plots[1]: #0=120
+  runPine: ok  plots[1]: #0:plot/line/price=120 | declaration overlay=true
+
+## language / import-library
+  pinets : ERR The script imports "TradingView/ta/7" but no import resolver is configured. Call pineTS.setImportResolver(...)...
+  runPine: ERR The script imports "TradingView/ta/7" but no import resolver is configured. Call pineTS.setImportResolver(...)...
+
+## language / tuple-return
+  pinets : ok  plots[1]: #0=2.94
+  runPine: ok  plots[1]: #0:plot/line/price=2.94 | declaration overlay=true
+
+## language / while-break
+  pinets : ok  plots[1]: #0=5
+  runPine: ok  plots[1]: #0:plot/line/price=5 | declaration overlay=true
+
+## ta / sma-ema-rma-wma
+  pinets : ok  plots[4]: sma=135.72, ema=136.8208, rma=133.3312, wma=138.3544
+  runPine: ok  plots[4]: sma:plot/line/price=135.72, ema:plot/line/price=136.8208, rma:plot/line/price=133.3312, wma:plot/line/price=138.3544 | declaration overlay=true
+
+## ta / rsi-macd-bb
+  pinets : ok  plots[3]: rsi=87.1039, macd=4.0378, bbu=130.085
+  runPine: ok  plots[3]: rsi:plot/line/price=87.1039, macd:plot/line/price=4.0378, bbu:plot/line/price=130.085 | declaration overlay=true
+
+## ta / atr-stoch-adx
+  pinets : ok  plots[3]: atr=4.607, stoch=93.2232, adx=44.9175
+  runPine: ok  plots[3]: atr:plot/line/price=4.607, stoch:plot/line/price=93.2232, adx:plot/line/price=44.9175 | declaration overlay=true
+
+## ta / supertrend-sar
+  pinets : ok  plots[2]: st=128.506, sar=137.1975
+  runPine: ok  plots[2]: st:plot/line/price=128.506, sar:plot/line/price=137.1975 | declaration overlay=true
+
+## ta / pivots-highest
+  pinets : ok  plots[3]: ph=NaN, hh=145.43, lb=-9
+  runPine: ok  plots[3]: ph:plot/line/price=na, hh:plot/line/price=145.43, lb:plot/line/price=-9 | declaration overlay=true
+
+## ta / vwap-obv-cci-mfi
+  pinets : ok  plots[4]: vwap=142.9167, obv=15178, cci=158.8375, mfi=100
+  runPine: ok  plots[4]: vwap:plot/line/price=142.9167, obv:plot/line/price=15178, cci:plot/line/price=158.8375, mfi:plot/line/price=100 | declaration overlay=true
+
+## ta / kc-keltner
+  pinets : ok  plots[1]: kc=133.0711
+  runPine: ok  plots[1]: kc:plot/line/price=133.0711 | declaration overlay=true
+
+## ta / correlation-linreg
+  pinets : ok  plots[3]: corr=0.9412, lr=143.6231, pr=100
+  runPine: ok  plots[3]: corr:plot/line/price=0.9412, lr:plot/line/price=143.6231, pr:plot/line/price=100 | declaration overlay=true
+
+## math / math-basic
+  pinets : ok  plots[1]: #0=444.0226
+  runPine: ok  plots[1]: #0:plot/line/price=444.0226 | declaration overlay=true
+
+## math / math-random
+  pinets : ok  plots[1]: #0=0.9622
+  runPine: ok  plots[1]: #0:plot/line/price=0.9622 | declaration overlay=true
+
+## str / str-basic
+  pinets : ok  plots[1]: #0=10
+  runPine: ok  plots[1]: #0:plot/line/price=10 | declaration overlay=true
+
+## str / str-split-replace
+  pinets : ok  plots[1]: #0=10
+  runPine: ok  plots[1]: #0:plot/line/price=10 | declaration overlay=true
+
+## array / array-basic
+  pinets : ok  plots[1]: #0=288.19
+  runPine: ok  plots[1]: #0:plot/line/price=288.19 | declaration overlay=true
+
+## array / array-sort-slice
+  pinets : ok  plots[1]: #0=3
+  runPine: ok  plots[1]: #0:plot/line/price=3 | declaration overlay=true
+
+## matrix / matrix-basic
+  pinets : ok  plots[1]: #0=7
+  runPine: ok  plots[1]: #0:plot/line/price=7 | declaration overlay=true
+
+## matrix / matrix-det
+  pinets : ok  plots[1]: #0=2
+  runPine: ok  plots[1]: #0:plot/line/price=2 | declaration overlay=true
+
+## map / map-basic
+  pinets : ok  plots[1]: #0=144.83
+  runPine: ok  plots[1]: #0:plot/line/price=144.83 | declaration overlay=true
+
+## color / color-basic
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## color / color-rgb-components
+  pinets : ok  plots[1]: #0=100
+  runPine: ok  plots[1]: #0:plot/line/price=100 | declaration overlay=true
+
+## input / input-int-float-bool-string
+  pinets : ok  plots[1]: #0=8.5
+  runPine: ok  plots[1]: #0:plot/line/price=8.5 | inputs: A:int, B:float, C:bool, D:string | declaration overlay=true
+
+## input / input-source-color-timeframe
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | inputs: S:source, C:color, T:timeframe | declaration overlay=true
+
+## input / input-time-symbol-session
+  pinets : ok  plots[1]: #0=1
+  runPine: ok  plots[1]: #0:plot/line/price=1 | inputs: Sy:symbol, Tm:time, Ss:session | declaration overlay=true
+
+## input / input-group-tooltip-inline
+  pinets : ok  plots[1]: #0=5
+  runPine: ok  plots[1]: #0:plot/line/price=5 | inputs: A:int | declaration overlay=true
+
+## syminfo / syminfo-numbers
+  pinets : ok  plots[3]: mintick=na, pv=na, mincontract=na
+  runPine: ok  plots[3]: mintick:plot/line/price=na, pv:plot/line/price=na, mincontract:plot/line/price=na | all-null: mintick, pv, mincontract | declaration overlay=true
+
+## syminfo / syminfo-strings
+  pinets : ok  plots[7]: len tickerid=0, ticker is VOST=0, len timezone=0, len currency=0, len type=0, len session=0, len description=0
+  runPine: ok  plots[7]: len tickerid:plot/line/price=0, ticker is VOST:plot/line/price=0, len timezone:plot/line/price=0, len currency:plot/line/price=0, len type:plot/line/price=0, len session:plot/line/price=0, len description:plot/line/price=0 | declaration overlay=true
+
+## syminfo / syminfo-ticker-text
+  pinets : ok  plots[1]: #0=0 | drawings: labels=50
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## timeframe / timeframe-fields
+  pinets : ok  plots[4]: secs=86400, isd=1, mult=1, plen=2
+  runPine: ok  plots[4]: secs:plot/line/price=86400, isd:plot/line/price=1, mult:plot/line/price=1, plen:plot/line/price=2 | declaration overlay=true
+
+## timeframe / timeframe-change-from-seconds
+  pinets : ok  plots[2]: chg=0, #1=1
+  runPine: ok  plots[2]: chg:plot/line/price=0, #1:plot/line/price=1 | declaration overlay=true
+
+## barstate / barstate-fields
+  pinets : ok  plots[6]: first=0, last=1, conf=1, rt=1, hist=0, new=1
+  runPine: ok  plots[6]: first:plot/line/price=0, last:plot/line/price=1, conf:plot/line/price=1, rt:plot/line/price=1, hist:plot/line/price=0, new:plot/line/price=1 | declaration overlay=true
+
+## session-time / time-vars
+  pinets : ok  plots[6]: dow=3, mon=3, h=0, y=2024, t=1, tc=1
+  runPine: ok  plots[6]: dow:plot/line/price=3, mon:plot/line/price=3, h:plot/line/price=0, y:plot/line/price=2024, t:plot/line/price=1, tc:plot/line/price=1 | declaration overlay=true
+
+## session-time / time-functions
+  pinets : ok  plots[2]: ts=1, dw=14
+  runPine: ok  plots[2]: ts:plot/line/price=1, dw:plot/line/price=14 | declaration overlay=true
+
+## session-time / time-session-0000-2359
+  pinets : ok  plots[1]: in session=1
+  runPine: ok  plots[1]: in session:plot/line/price=1 | declaration overlay=true
+
+## session-time / time-session-0000-2400
+  pinets : ERR Invalid session specification: "0000-2400"
+  runPine: ERR Invalid session specification: "0000-2400"
+
+## session-time / time-session-timezone
+  pinets : ok  plots[1]: in session=0
+  runPine: ok  plots[1]: in session:plot/line/price=0 | declaration overlay=true
+
+## session-time / session-vars
+  pinets : ok  plots[3]: mkt=1, fb=1, lb=1
+  runPine: ok  plots[3]: mkt:plot/line/price=1, fb:plot/line/price=1, lb:plot/line/price=1 | declaration overlay=true
+
+## session-time / last-bar-time
+  pinets : ok  plots[4]: lbt=1, bi=119, lbi=119, na=0
+  runPine: ok  plots[4]: lbt:plot/line/price=1, bi:plot/line/price=119, lbi:plot/line/price=119, na:plot/line/price=0 | declaration overlay=true
+
+## request / security-same-tf
+  pinets : ok  plots[1]: sec=143.83
+  runPine: ok  plots[1]: sec:plot/line/price=143.83 | declaration overlay=true
+
+## request / security-higher-tf
+  pinets : ok  plots[2]: weekly open=140.89, daily open=140.89
+  runPine: ok  plots[2]: weekly open:plot/line/price=140.89, daily open:plot/line/price=140.89 | declaration overlay=true
+
+## request / security-other-symbol
+  pinets : ok  plots[2]: AAPL close=143.83, chart close=143.83
+  runPine: ok  plots[2]: AAPL close:plot/line/price=143.83, chart close:plot/line/price=143.83 | declaration overlay=true
+
+## request / security-lower-tf
+  pinets : ok  plots[1]: n=1
+  runPine: ok  plots[1]: n:plot/line/price=1 | declaration overlay=true
+
+## request / request-financial
+  pinets : ok  plots[1]: fin=NaN | warnings: 1
+  runPine: ok  plots[1]: fin:plot/line/price=na | all-null: fin | declaration overlay=true
+
+## request / request-economic
+  pinets : ok  plots[1]: gdp=NaN | warnings: 1
+  runPine: ok  plots[1]: gdp:plot/line/price=na | all-null: gdp | declaration overlay=true
+
+## request / request-seed
+  pinets : ok  plots[1]: seed=NaN | warnings: 1
+  runPine: ok  plots[1]: seed:plot/line/price=na | all-null: seed | declaration overlay=true
+
+## request / request-dividends-splits-earnings
+  pinets : ok  plots[3]: div=NaN, spl=NaN, ear=NaN | warnings: 3
+  runPine: ok  plots[3]: div:plot/line/price=na, spl:plot/line/price=na, ear:plot/line/price=na | all-null: div, spl, ear | declaration overlay=true
+
+## plot / plot-styles
+  pinets : ok  plots[6]: line=143.83, stepline=140.89, hist=145.43, cross=139.49, area=143.83, cols=143.83
+  runPine: ok  plots[6]: line:plot/line/price=143.83, stepline:plot/stepline/price=140.89, hist:plot/histogram/price=145.43, cross:plot/cross/price=139.49, area:plot/area/price=143.83, cols:plot/columns/price=143.83 | declaration overlay=true
+
+## plot / plot-color-linewidth-offset
+  pinets : ok  plots[1]: p=143.83
+  runPine: ok  plots[1]: p:plot/line/price=143.83 | declaration overlay=true
+
+## hline / hline-basic
+  pinets : ok  plots[1]: h=100
+  runPine: ok  plots[1]: h:hline/hline/price=100 | declaration overlay=true
+
+## fill / fill-plots
+  pinets : ok  plots[3]: a=140.236, b=130.085, fill=na
+  runPine: ok  plots[3]: a:plot/line/price=140.236, b:plot/line/price=130.085, Fill:plot/fill/price=na | all-null: Fill | declaration overlay=true
+
+## fill / fill-hlines
+  pinets : ok  plots[3]: #0=100, #1=120, fill=na
+  runPine: ok  plots[3]: #0:hline/hline/price=100, #1:hline/hline/price=120, Fill:plot/fill/price=na | all-null: Fill | declaration overlay=true
+
+## bgcolor / bgcolor-basic
+  pinets : ok  plots[1]: bgcolor#0=true | non-number values in: bgcolor#0
+  runPine: ok  plots[1]: bgcolor#0:bgcolor/background/price=1 | declaration overlay=true
+
+## barcolor / barcolor-basic
+  pinets : ok  plots[1]: barcolor#0=true | non-number values in: barcolor#0
+  runPine: ok  plots[1]: barcolor#0:plot/barcolor/price=na | all-null: barcolor#0 | declaration overlay=true
+
+## plotshape / plotshape-basic
+  pinets : ok  plots[1]: ps=true | non-number values in: ps
+  runPine: ok  plots[1]: ps:plotshape/shape/price=1 | declaration overlay=true
+
+## plotchar / plotchar-basic
+  pinets : ok  plots[1]: pc=true | non-number values in: pc
+  runPine: ok  plots[1]: pc:plotshape/char/price=1 | declaration overlay=true
+
+## plotarrow / plotarrow-basic
+  pinets : ok  plots[1]: pa=2.94
+  runPine: ok  plots[1]: pa:plotshape/shape/price=na | all-null: pa | declaration overlay=true
+
+## plotcandle / plotcandle-basic
+  pinets : ok  plots[1]: pcd=[4 values] | non-number values in: pcd
+  runPine: ok  plots[1]: pcd:plot/candle/price=na | all-null: pcd | declaration overlay=true
+
+## plotbar / plotbar-basic
+  pinets : ok  plots[1]: pb=[4 values] | non-number values in: pb
+  runPine: ok  plots[1]: pb:plot/bar/price=na | all-null: pb | declaration overlay=true
+
+## line / line-basic
+  pinets : ok  plots[1]: #0=0 | drawings: lines=1
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## label / label-basic
+  pinets : ok  plots[1]: #0=0 | drawings: labels=1
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## box / box-basic
+  pinets : ok  plots[1]: #0=0 | drawings: boxes=1
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## table / table-basic
+  pinets : ok  plots[1]: #0=0 | drawings: tables=1
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## polyline / polyline-basic
+  pinets : ok  plots[1]: #0=0 | drawings: polylines=1
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## linefill / linefill-basic
+  pinets : ok  plots[1]: #0=0 | drawings: lines=2 linefills=1
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## chart / chart-vars
+  pinets : ok  plots[4]: std=1, ha=0, bg=0, lv=1
+  runPine: ok  plots[4]: std:plot/line/price=1, ha:plot/line/price=0, bg:plot/line/price=0, lv:plot/line/price=1 | declaration overlay=true
+
+## alert / alertcondition
+  pinets : ok  plots[1]: #0=143.83 | alerts: 1 (alertcondition, bar 119)
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## alert / alert-fn
+  pinets : ok  plots[1]: #0=143.83 | alerts: 1 (alert, bar 119)
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## log / log-info-warning-error
+  pinets : ok  plots[1]: #0=143.83 | console lines: 360
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## runtime / runtime-error
+  pinets : ERR boom
+  runPine: ERR boom
+
+## runtime / max-bars-back
+  pinets : ok  plots[1]: #0=128.56
+  runPine: ok  plots[1]: #0:plot/line/price=128.56 | declaration overlay=true
+
+## declaration / indicator-args
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/separate=143.83 | declaration overlay=false
+
+## declaration / indicator-timeframe-arg
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/separate=143.83 | declaration overlay=false
+
+## declaration / indicator-overlay-false
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/separate=143.83 | declaration overlay=false
+
+## strategy / strategy-entry-close
+  pinets : ok  plots[0]: - | strategy: closed=2 open=1 closed-profit=45.46
+  runPine: ok  plots[0]: - | trades=3 (open 1) closed-profit=45.46 | declaration overlay=true
+
+## strategy / strategy-short
+  pinets : ok  plots[0]: - | strategy: closed=3 open=0 closed-profit=33.56
+  runPine: ok  plots[0]: - | trades=3 (open 0) closed-profit=33.56 | declaration overlay=true
+
+## strategy / strategy-exit-stop-limit
+  pinets : ok  plots[0]: - | strategy: closed=2 open=1 closed-profit=15.55
+  runPine: ok  plots[0]: - | trades=3 (open 1) closed-profit=15.55 | declaration overlay=true
+
+## strategy / strategy-order-close-all
+  pinets : ok  plots[0]: - | strategy: closed=6 open=0 closed-profit=23.95
+  runPine: ok  plots[0]: - | trades=6 (open 0) closed-profit=23.95 | declaration overlay=true
+
+## strategy / strategy-limit-stop-entry
+  pinets : ok  plots[0]: - | strategy: closed=6 open=0 closed-profit=30.6
+  runPine: ok  plots[0]: - | trades=6 (open 0) closed-profit=30.6 | declaration overlay=true
+
+## strategy / strategy-cancel
+  pinets : ok  plots[0]: - | strategy: closed=0 open=0 closed-profit=0
+  runPine: ok  plots[0]: - | trades=0 (open 0) closed-profit=0 | declaration overlay=true
+
+## strategy / strategy-risk
+  pinets : ok  plots[0]: - | strategy: closed=2 open=1 closed-profit=45.46
+  runPine: ok  plots[0]: - | trades=3 (open 1) closed-profit=45.46 | declaration overlay=true
+
+## strategy / strategy-commission-slippage
+  pinets : ok  plots[0]: - | strategy: closed=2 open=1 closed-profit=44.91
+  runPine: ok  plots[0]: - | trades=3 (open 1) closed-profit=44.91 | declaration overlay=true
+
+## strategy / strategy-pyramiding
+  pinets : ok  plots[0]: - | strategy: closed=12 open=3 closed-profit=46.44
+  runPine: ok  plots[0]: - | trades=15 (open 3) closed-profit=46.44 | declaration overlay=true
+
+## strategy / strategy-qty-percent-equity
+  pinets : ok  plots[0]: - | strategy: closed=2 open=1 closed-profit=224198.12
+  runPine: ok  plots[0]: - | trades=3 (open 1) closed-profit=224198.12 | declaration overlay=true
+
+## strategy / strategy-margin-fill-orders
+  pinets : ok  plots[0]: - | strategy: closed=2 open=1 closed-profit=38.17
+  runPine: ok  plots[0]: - | trades=3 (open 1) closed-profit=38.17 | declaration overlay=true
+
+## strategy-vars / strategy-builtin-vars
+  pinets : ok  plots[9]: pos=1, eq=10066.27, net=45.46, open=1, closed=2, wins=2, avg=123.02, ic=10000, mdd=1.4 | strategy: closed=2 open=1 closed-profit=45.46
+  runPine: ok  plots[9]: pos:plot/line/separate=1, eq:plot/line/separate=10066.27, net:plot/line/separate=45.46, open:plot/line/separate=1, closed:plot/line/separate=2, wins:plot/line/separate=2, avg:plot/line/separate=123.02, ic:plot/line/separate=10000, mdd:plot/line/separate=1.4 | trades=3 (open 1) closed-profit=45.46 | declaration overlay=true
+
+## strategy-vars / strategy-trade-accessors
+  pinets : ok  plots[3]: p0=22.9, e0=100.19, s0=1 | strategy: closed=2 open=1 closed-profit=45.46
+  runPine: ok  plots[3]: p0:plot/line/separate=22.9, e0:plot/line/separate=100.19, s0:plot/line/separate=1 | trades=3 (open 1) closed-profit=45.46 | declaration overlay=true
+
+## ta / fn ta.alma(close,9,0.85,6)
+  pinets : ok  plots[1]: #0=141.155
+  runPine: ok  plots[1]: #0:plot/line/price=141.155 | declaration overlay=true
+
+## ta / fn ta.barssince(close>open)
+  pinets : ok  plots[1]: #0=0
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## ta / fn ta.bbw(close,20,2)
+  pinets : ok  plots[1]: #0=21.212
+  runPine: ok  plots[1]: #0:plot/line/price=21.212 | declaration overlay=true
+
+## ta / fn ta.cci(close,20)
+  pinets : ok  plots[1]: #0=158.8375
+  runPine: ok  plots[1]: #0:plot/line/price=158.8375 | declaration overlay=true
+
+## ta / fn ta.change(close)
+  pinets : ok  plots[1]: #0=1.44
+  runPine: ok  plots[1]: #0:plot/line/price=1.44 | declaration overlay=true
+
+## ta / fn ta.cmo(close,9)
+  pinets : ok  plots[1]: #0=100
+  runPine: ok  plots[1]: #0:plot/line/price=100 | declaration overlay=true
+
+## ta / fn ta.cog(close,10)
+  pinets : ok  plots[1]: #0=-5.3932
+  runPine: ok  plots[1]: #0:plot/line/price=-5.3932 | declaration overlay=true
+
+## ta / fn ta.cum(volume)
+  pinets : ok  plots[1]: #0=131980
+  runPine: ok  plots[1]: #0:plot/line/price=131980 | declaration overlay=true
+
+## ta / fn ta.dev(close,10)
+  pinets : ok  plots[1]: #0=4.516
+  runPine: ok  plots[1]: #0:plot/line/price=4.516 | declaration overlay=true
+
+## ta / fn ta.falling(close,3) ? 1 : 0
+  pinets : ok  plots[1]: #0=0
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## ta / fn ta.highestbars(high,10)
+  pinets : ok  plots[1]: #0=0
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## ta / fn ta.hma(close,9)
+  pinets : ok  plots[1]: #0=144.1497
+  runPine: ok  plots[1]: #0:plot/line/price=144.1497 | declaration overlay=true
+
+## ta / fn ta.kcw(close,20,2)
+  pinets : ok  plots[1]: #0=0.1396
+  runPine: ok  plots[1]: #0:plot/line/price=0.1396 | declaration overlay=true
+
+## ta / fn ta.mom(close,10)
+  pinets : ok  plots[1]: #0=15.49
+  runPine: ok  plots[1]: #0:plot/line/price=15.49 | declaration overlay=true
+
+## ta / fn ta.roc(close,10)
+  pinets : ok  plots[1]: #0=12.0695
+  runPine: ok  plots[1]: #0:plot/line/price=12.0695 | declaration overlay=true
+
+## ta / fn ta.rising(close,3) ? 1 : 0
+  pinets : ok  plots[1]: #0=1
+  runPine: ok  plots[1]: #0:plot/line/price=1 | declaration overlay=true
+
+## ta / fn ta.stdev(close,10)
+  pinets : ok  plots[1]: #0=5.081
+  runPine: ok  plots[1]: #0:plot/line/price=5.081 | declaration overlay=true
+
+## ta / fn ta.swma(close)
+  pinets : ok  plots[1]: #0=141.325
+  runPine: ok  plots[1]: #0:plot/line/price=141.325 | declaration overlay=true
+
+## ta / fn ta.tr
+  pinets : ok  plots[1]: #0=5.94
+  runPine: ok  plots[1]: #0:plot/line/price=5.94 | declaration overlay=true
+
+## ta / fn ta.tsi(close,5,13)
+  pinets : ok  plots[1]: #0=0.8889
+  runPine: ok  plots[1]: #0:plot/line/price=0.8889 | declaration overlay=true
+
+## ta / fn ta.valuewhen(close>open,close,0)
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## ta / fn ta.variance(close,10)
+  pinets : ok  plots[1]: #0=25.8166
+  runPine: ok  plots[1]: #0:plot/line/price=25.8166 | declaration overlay=true
+
+## ta / fn ta.vwma(close,10)
+  pinets : ok  plots[1]: #0=135.6796
+  runPine: ok  plots[1]: #0:plot/line/price=135.6796 | declaration overlay=true
+
+## ta / fn ta.wpr(14)
+  pinets : ok  plots[1]: #0=-6.7768
+  runPine: ok  plots[1]: #0:plot/line/price=-6.7768 | declaration overlay=true
+
+## ta / fn ta.cross(close, ta.sma(close,10)) ? 1 : 0
+  pinets : ok  plots[1]: #0=0
+  runPine: ok  plots[1]: #0:plot/line/price=0 | declaration overlay=true
+
+## ta / fn ta.median(close,10)
+  pinets : ok  plots[1]: #0=135.085
+  runPine: ok  plots[1]: #0:plot/line/price=135.085 | declaration overlay=true
+
+## ta / fn ta.mode(close,10)
+  pinets : ok  plots[1]: #0=129.02
+  runPine: ok  plots[1]: #0:plot/line/price=129.02 | declaration overlay=true
+
+## ta / fn ta.percentile_linear_interpolation(close,10,50)
+  pinets : ok  plots[1]: #0=135.085
+  runPine: ok  plots[1]: #0:plot/line/price=135.085 | declaration overlay=true
+
+## ta / fn ta.percentile_nearest_rank(close,10,50)
+  pinets : ok  plots[1]: #0=134.05
+  runPine: ok  plots[1]: #0:plot/line/price=134.05 | declaration overlay=true
+
+## ta / fn ta.range(close,10)
+  pinets : ok  plots[1]: #0=14.81
+  runPine: ok  plots[1]: #0:plot/line/price=14.81 | declaration overlay=true
+
+## ta / fn ta.max(close)
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## ta / fn ta.min(close)
+  pinets : ok  plots[1]: #0=98.5
+  runPine: ok  plots[1]: #0:plot/line/price=98.5 | declaration overlay=true
+
+## ta / fn ta.rci(close,10)
+  pinets : ok  plots[1]: #0=100
+  runPine: ok  plots[1]: #0:plot/line/price=100 | declaration overlay=true
+
+## ta / fn ta.ema(close,10)
+  pinets : ok  plots[1]: #0=136.8208
+  runPine: ok  plots[1]: #0:plot/line/price=136.8208 | declaration overlay=true
+
+## ta / fn ta.accdist
+  pinets : ok  plots[1]: #0=-2800.5895
+  runPine: ok  plots[1]: #0:plot/line/price=-2800.5895 | declaration overlay=true
+
+## ta / fn ta.iii
+  pinets : ok  plots[1]: #0=462.6633
+  runPine: ok  plots[1]: #0:plot/line/price=462.6633 | declaration overlay=true
+
+## ta / fn ta.nvi
+  pinets : ok  plots[1]: #0=1.0586
+  runPine: ok  plots[1]: #0:plot/line/price=1.0586 | declaration overlay=true
+
+## ta / fn ta.pvi
+  pinets : ok  plots[1]: #0=1.3794
+  runPine: ok  plots[1]: #0:plot/line/price=1.3794 | declaration overlay=true
+
+## ta / fn ta.pvt
+  pinets : ok  plots[1]: #0=423.6272
+  runPine: ok  plots[1]: #0:plot/line/price=423.6272 | declaration overlay=true
+
+## ta / fn ta.wad
+  pinets : ok  plots[1]: #0=33.93
+  runPine: ok  plots[1]: #0:plot/line/price=33.93 | declaration overlay=true
+
+## ta / fn ta.wvad
+  pinets : ok  plots[1]: #0=496.4343
+  runPine: ok  plots[1]: #0:plot/line/price=496.4343 | declaration overlay=true
+
+## ta / fn ta.vwap(close)
+  pinets : ok  plots[1]: #0=143.83
+  runPine: ok  plots[1]: #0:plot/line/price=143.83 | declaration overlay=true
+
+## ta / fn ta.supertrend(3,10)[0]
+  pinets : ok  plots[1]: #0=-1
+  runPine: ok  plots[1]: #0:plot/line/price=-1 | declaration overlay=true
+
+## ta / fn ta.dmi(14,14)[0]
+  pinets : ok  plots[1]: #0=44.9175
+  runPine: ok  plots[1]: #0:plot/line/price=44.9175 | declaration overlay=true
+
+## ta / fn ta.macd(close,12,26,9)[0]
+  pinets : ok  plots[1]: #0=1.6461
+  runPine: ok  plots[1]: #0:plot/line/price=1.6461 | declaration overlay=true
+
+## ta / fn ta.stoch(close,high,low,14)
+  pinets : ok  plots[1]: #0=93.2232
+  runPine: ok  plots[1]: #0:plot/line/price=93.2232 | declaration overlay=true
+
+## ta / fn ta.sar(0.02,0.02,0.2)
+  pinets : ok  plots[1]: #0=137.1975
+  runPine: ok  plots[1]: #0:plot/line/price=137.1975 | declaration overlay=true
+
+## ta / fn ta.pivotlow(low,3,3)
+  pinets : ok  plots[1]: #0=NaN
+  runPine: ok  plots[1]: #0:plot/line/price=na | declaration overlay=true
+
+## math / fn math.abs(-2)
+  pinets : ok  plots[1]: #0=2
+  runPine: ok  plots[1]: #0:plot/line/price=2 | declaration overlay=true
+
+## math / fn math.acos(0.5)
+  pinets : ok  plots[1]: #0=1.0472
+  runPine: ok  plots[1]: #0:plot/line/price=1.0472 | declaration overlay=true
+
+## math / fn math.asin(0.5)
+  pinets : ok  plots[1]: #0=0.5236
+  runPine: ok  plots[1]: #0:plot/line/price=0.5236 | declaration overlay=true
+
+## math / fn math.atan(1)
+  pinets : ok  plots[1]: #0=0.7854
+  runPine: ok  plots[1]: #0:plot/line/price=0.7854 | declaration overlay=true
+
+## math / fn math.ceil(1.2)
+  pinets : ok  plots[1]: #0=2
+  runPine: ok  plots[1]: #0:plot/line/price=2 | declaration overlay=true
+
+## math / fn math.cos(1)
+  pinets : ok  plots[1]: #0=0.5403
+  runPine: ok  plots[1]: #0:plot/line/price=0.5403 | declaration overlay=true
+
+## math / fn math.exp(1)
+  pinets : ok  plots[1]: #0=2.7183
+  runPine: ok  plots[1]: #0:plot/line/price=2.7183 | declaration overlay=true
+
+## math / fn math.floor(1.8)
+  pinets : ok  plots[1]: #0=1
+  runPine: ok  plots[1]: #0:plot/line/price=1 | declaration overlay=true
+
+## math / fn math.log10(100)
+  pinets : ok  plots[1]: #0=2
+  runPine: ok  plots[1]: #0:plot/line/price=2 | declaration overlay=true
+
+## math / fn math.max(1,2,3)
+  pinets : ok  plots[1]: #0=3
+  runPine: ok  plots[1]: #0:plot/line/price=3 | declaration overlay=true
+
+## math / fn math.min(1,2,3)
+  pinets : ok  plots[1]: #0=1
+  runPine: ok  plots[1]: #0:plot/line/price=1 | declaration overlay=true
+
+## math / fn math.round_to_mintick(close)
+  pinets : ok  plots[1]: #0=NaN
+  runPine: ok  plots[1]: #0:plot/line/price=na | all-null: #0 | declaration overlay=true
+
+## math / fn math.sign(-3)
+  pinets : ok  plots[1]: #0=-1
+  runPine: ok  plots[1]: #0:plot/line/price=-1 | declaration overlay=true
+
+## math / fn math.sin(1)
+  pinets : ok  plots[1]: #0=0.8415
+  runPine: ok  plots[1]: #0:plot/line/price=0.8415 | declaration overlay=true
+
+## math / fn math.tan(1)
+  pinets : ok  plots[1]: #0=1.5574
+  runPine: ok  plots[1]: #0:plot/line/price=1.5574 | declaration overlay=true
+
+## math / fn math.todegrees(1)
+  pinets : ok  plots[1]: #0=57.2958
+  runPine: ok  plots[1]: #0:plot/line/price=57.2958 | declaration overlay=true
+
+## math / fn math.toradians(180)
+  pinets : ok  plots[1]: #0=3.1416
+  runPine: ok  plots[1]: #0:plot/line/price=3.1416 | declaration overlay=true
+
+## math / fn math.avg(1,2,3)
+  pinets : ok  plots[1]: #0=2
+  runPine: ok  plots[1]: #0:plot/line/price=2 | declaration overlay=true
+
+## math / fn math.e + math.pi + math.phi + math.rphi
+  pinets : ok  plots[1]: #0=8.0959
+  runPine: ok  plots[1]: #0:plot/line/price=8.0959 | declaration overlay=true
+
+## math / fn math.sum(close,5)
+  pinets : ok  plots[1]: #0=701.18
+  runPine: ok  plots[1]: #0:plot/line/price=701.18 | declaration overlay=true
+
+## timeframe / runPine on 1h candles
+  runPine: in_seconds=86400, isintraday=0, isdaily=1, bar length s=3599.999
