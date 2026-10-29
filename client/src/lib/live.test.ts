@@ -221,6 +221,31 @@ describe('live mux', () => {
     expect(b.statuses).toEqual([['connecting', undefined]]);
   });
 
+  it('a subscriber joining a key the stream already serves gets its status and bar at once', async () => {
+    const a = start('AAA');
+    await flush();
+    last().open();
+    last().emit('status', { status: 'live', sub: key('AAA') });
+    last().emit('kline', { candle: candle(5), closed: false, sub: key('AAA') });
+    const b = start('AAA');
+    await flush();
+    expect(FakeES.instances).toHaveLength(1);
+    expect(b.statuses).toEqual([['live', undefined]]);
+    expect(b.klines).toEqual([[5, false]]);
+  });
+
+  it('a restart on the same key in one tick (Reload data) gets live again', async () => {
+    const a = start('AAA');
+    await flush();
+    last().open();
+    last().emit('status', { status: 'live', sub: key('AAA') });
+    a.handle.stop();
+    const b = start('AAA');
+    await flush();
+    expect(FakeES.instances).toHaveLength(1);
+    expect(b.statuses).toEqual([['live', undefined]]);
+  });
+
   it('the last stop() closes the stream and opens nothing', async () => {
     const a = start('AAA');
     const b = start('BBB');

@@ -54,6 +54,9 @@ export function createLiveMux(deps: LiveMuxDeps = {}): LiveMux {
   const registry = new Map<string, Set<Sub>>();
   /** Keys the server refused, with its reason: left out of every stream. */
   const fatalKeys = new Map<string, string>();
+  /** Latest status and bar per key, replayed to a subscriber that joins a key the stream already serves. */
+  const lastStatus = new Map<string, LiveStatusEvent>();
+  const lastKline = new Map<string, LiveKlineEvent>();
   let current: Stream | null = null;
   let pending: Stream | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,6 +83,8 @@ export function createLiveMux(deps: LiveMuxDeps = {}): LiveMux {
   const sameSet = (a: Set<string>, b: Set<string>): boolean => a.size === b.size && [...a].every((k) => b.has(k));
 
   const rebuild = (): void => {
+    for (const k of [...lastStatus.keys()]) if (!registry.has(k)) lastStatus.delete(k);
+    for (const k of [...lastKline.keys()]) if (!registry.has(k)) lastKline.delete(k);
     const want = wantedKeys();
     if (want.size === 0) {
       closeStream(pending);
@@ -147,12 +152,15 @@ export function createLiveMux(deps: LiveMuxDeps = {}): LiveMux {
       }
       // While a replacement opens, the old stream speaks for the keys that stay.
       if (pending === stream && previous?.keys.has(d.sub ?? '')) return;
+      if (d.sub !== undefined) lastStatus.set(d.sub, d);
       for (const s of targets(d.sub)) s.opts.onStatus(d.status, d.detail);
     });
     stream.es.addEventListener('kline', (ev) => {
       if (stream.closed) return;
       const d = parse<LiveKlineEvent>(ev);
-      if (d) for (const s of targets(d.sub)) s.opts.onKline(d.candle, d.closed);
+      if (!d) return;
+      if (d.sub !== undefined) lastKline.set(d.sub, d);
+      for (const s of targets(d.sub)) s.opts.onKline(d.candle, d.closed);
     });
     stream.es.addEventListener('log', (ev) => {
       if (stream.closed) return;
@@ -204,6 +212,14 @@ export function createLiveMux(deps: LiveMuxDeps = {}): LiveMux {
         opts.onStatus('error', refused);
       }
       requestRebuild();
+      // The stream may already serve this key and will not repeat its status: replay what it last said.
+      schedule(() => {
+        if (sub.stopped || sub.dead) return;
+        const st = lastStatus.get(key);
+        if (st) opts.onStatus(st.status, st.detail);
+        const k = lastKline.get(key);
+        if (k && !sub.stopped) opts.onKline(k.candle, k.closed);
+      });
       return {
         stop() {
           if (sub.stopped) return;
