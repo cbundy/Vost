@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TIMEFRAMES } from '../../../../shared/market.ts';
 import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog.ts';
 import { demoProvider, providers } from './index';
 
@@ -28,7 +29,8 @@ describe('provider registry', () => {
       const p = providers.find((x) => x.id === info.id)!;
       expect(typeof p.listSymbols === 'function', info.id).toBe(info.hasSymbolList);
       expect(typeof p.searchSymbols === 'function', info.id).toBe(info.hasSearch);
-      expect(p.timeframes).toEqual(info.timeframes);
+      expect(p.timeframes).toEqual(TIMEFRAMES.filter((tf) => info.timeframes.includes(tf) || info.builtTimeframes.includes(tf)));
+      expect(p.builtTimeframes).toEqual(info.builtTimeframes);
     }
   });
 });

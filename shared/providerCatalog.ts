@@ -5,13 +5,14 @@
  * host name: the REST adapters in `server/providers/` own those.
  */
 import type { ProviderInfo, SymbolSuggestion } from './market.ts';
+import { builtTimeframes } from './timeframes.ts';
 
 const crypto = (exchange: string, symbolOf: (base: string) => string, quote: string, bases: string[]): SymbolSuggestion[] =>
   bases.map((b) => ({ symbol: symbolOf(b), label: `${b} / ${quote}`, exchange, type: 'crypto' }));
 
 const FIVE = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'];
 
-export const PROVIDER_CATALOG: ProviderInfo[] = [
+const NATIVE_CATALOG: Array<Omit<ProviderInfo, 'builtTimeframes'>> = [
   {
     id: 'binance',
     name: 'Binance',
@@ -159,6 +160,9 @@ export const PROVIDER_CATALOG: ProviderInfo[] = [
     hasSearch: true,
   },
 ];
+
+/** The catalog with `builtTimeframes` derived from each entry's native `timeframes`. */
+export const PROVIDER_CATALOG: ProviderInfo[] = NATIVE_CATALOG.map((p) => ({ ...p, builtTimeframes: builtTimeframes(p.timeframes) }));
 
 export function catalogEntry(id: string): ProviderInfo | undefined {
   return PROVIDER_CATALOG.find((p) => p.id === id);

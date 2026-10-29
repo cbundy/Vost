@@ -43,7 +43,10 @@ export interface DataProvider {
   supportsLive?: boolean;
   /** Opens a realtime candle stream; present only when `supportsLive` is true. */
   startLive?(opts: LiveOptions): LiveHandle;
+  /** Timeframes the provider serves itself plus those the server builds from a lower one. */
   timeframes: Timeframe[];
+  /** The subset of `timeframes` that is built (shown marked in the picker). */
+  builtTimeframes?: Timeframe[];
   defaultTimeframe: Timeframe;
   defaultSymbol: string;
   popularSymbols: SymbolSuggestion[];

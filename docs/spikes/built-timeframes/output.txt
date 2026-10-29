@@ -1,0 +1,15 @@
+Binance BTCUSDT 4h from 1h: 300 built bars, 299 lined up with the 300 native bars, 0 differences, largest price difference 0.000%
+Binance BTCUSDT 1w from 1d: 60 built bars, 59 lined up with the 60 native bars, 0 differences, largest price difference 0.000%
+Binance BTCUSDT 1M from 1d: 24 built bars, 23 lined up with the 24 native bars, 0 differences, largest price difference 0.000%
+Kraken XBTUSD 1w from 1d: 40 built bars, 0 lined up with the 40 native bars, 40 differences, largest price difference 0.000%
+  2026-01-26T00:00:00.000Z built bar has no native bar at that time
+  2026-02-02T00:00:00.000Z built bar has no native bar at that time
+  2026-02-09T00:00:00.000Z built bar has no native bar at that time
+  2026-02-16T00:00:00.000Z built bar has no native bar at that time
+  2026-02-23T00:00:00.000Z built bar has no native bar at that time
+Yahoo AAPL 1d from 1h: 60 built bars, 59 lined up with the 60 native bars, 190 differences, largest price difference 0.161%
+  2026-08-06T13:30:00.000Z high: built 316.2893981933594 native 316.2900085449219
+  2026-08-06T13:30:00.000Z close: built 312.45001220703125 native 312.4100036621094
+  2026-08-06T13:30:00.000Z volume: built 33022983 native 46139900
+  2026-08-07T13:30:00.000Z open: built 311.32000732421875 native 311.45001220703125
+  2026-08-07T13:30:00.000Z close: built 313.29998779296875 native 313.3299865722656
