@@ -169,7 +169,7 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
       </>)}
 
       {section === 'watchlist' && (
-        <section className="sidebar-section">
+        <section className="sidebar-section sidebar-watchlist">
           <Watchlist />
           <SymbolCard />
         </section>
