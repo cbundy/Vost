@@ -1,5 +1,0 @@
-POST /bot<token>/sendMessage
-{"chat_id":"1","text":"Vost alert: BTCUSDT (Binance) crossed up 58,280.66 - now 58,375.448. Note: capture run"}
-
-POST /bot<token>/sendMessage
-{"chat_id":"1","text":"Vost: test message"}

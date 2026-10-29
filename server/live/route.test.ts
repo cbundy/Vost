@@ -86,7 +86,7 @@ describe('GET /api/live', () => {
   it.each([
     ['unsupported timeframe', 'provider=binance&symbol=BTCUSDT&timeframe=9x', 'Live data does not support 9x'],
     ['unknown provider', 'provider=nope&symbol=BTCUSDT&timeframe=1m', 'Unknown provider "nope"'],
-    ['provider without live', 'provider=coinbase&symbol=BTCUSDT&timeframe=1m', 'does not offer live data'],
+    ['provider without live', 'provider=yahoo&symbol=AAPL&timeframe=1m', 'does not offer live data'],
     ['empty symbol', 'provider=binance&symbol=&timeframe=1m', 'Missing symbol'],
   ])('answers %s with one fatal status error and ends the stream', async (_n, query, detail) => {
     const res = await fetch(`${base}/api/live?${query}`);

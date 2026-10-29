@@ -90,7 +90,7 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 | Provider | Coverage | Key needed | Live | Notes |
 |---|---|---|---|---|
 | **Binance** | Crypto (1000+ pairs) | No | ✅ | Public REST + websocket. Falls back to `data-api.binance.vision` when the main host is region-blocked. |
-| **Coinbase** | Crypto spot | No | — | Public REST candles (300 per request). The public feed has no candle channel, so no live streaming. |
+| **Coinbase** | Crypto spot | No | Yes (built from trades) | Public REST candles (300 per request). The public feed has no candle channel, so the server builds live candles from its trade stream, starting each bar from Coinbase's own candle. |
 | **Kraken** | Crypto spot | No | ✅ | Public REST + websocket v2. History is limited to the latest 720 candles per timeframe. |
 | **Bybit** | Crypto spot | No | ✅ | Public v5 REST (1000 per request) + websocket. |
 | **OKX** | Crypto spot | No | ✅ | Public v5 history candles (100 per request) + websocket. |

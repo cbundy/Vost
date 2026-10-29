@@ -5,6 +5,7 @@
  * the last subscriber leaves.
  */
 import type { Candle, LiveKlineEvent, LiveLogEvent, LiveStatusEvent } from '../../shared/market.ts';
+import type { FetchFn } from '../providers/upstream.ts';
 import { liveFeed } from './feeds.ts';
 import { openUpstream, type Timers, type UpstreamSocket, type WebSocketCtor } from './socket.ts';
 
@@ -40,6 +41,8 @@ export interface Relay {
 export interface RelayDeps {
   WebSocket?: WebSocketCtor;
   timers?: Timers;
+  /** Used by feeds that seed from REST (Coinbase). */
+  fetch?: FetchFn;
   /** Server log line sink; defaults to `console.log`. */
   log?: (line: string) => void;
 }
@@ -84,7 +87,7 @@ export function createRelay(deps: RelayDeps = {}): Relay {
       const key = `${provider}|${symbol}|${timeframe}`;
       let entry = entries.get(key);
       if (!entry) {
-        const found = liveFeed(provider, symbol, timeframe);
+        const found = liveFeed(provider, symbol, timeframe, { fetch: deps.fetch });
         if ('error' in found) return { error: found.error };
         const created: Entry = {
           provider,

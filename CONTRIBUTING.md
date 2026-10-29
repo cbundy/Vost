@@ -84,10 +84,12 @@ export const myAdapter: ProviderAdapter = {
    timeframe, popular symbols, `supportsLive`, `hasSymbolList`, `hasSearch`). The client builds its provider
    from it, so the UI picks it up automatically. The catalog holds no host name.
 
-3. Only if the exchange has a public candle websocket: its feed in `server/live/feeds.ts` (URL, interval map,
+3. Only if the exchange has a public candle (or trade) websocket: its feed in `server/live/feeds.ts` (URL, interval map,
    subscribe message, parser, and a `liveFeed()` case), with `supportsLive: true` in the catalog. The browser needs
    no change: it reads every live feed through the server's `/api/live` stream. `supportsLive` must be true
-   exactly when a feed exists (`server/live/feeds.test.ts` checks it).
+   exactly when a feed exists (`server/live/feeds.test.ts` checks it). An exchange with only a trade channel (as
+   Coinbase) builds its candles from trades instead: see `server/live/coinbaseCandles.ts`, which seeds the bar in
+   progress from the REST candle and uses the feed's `onOpen` hook.
 
 Add unit tests for the adapter in `server/providers/` with an injected fake fetch (see `exchanges.test.ts`);
 no test may touch the network.
