@@ -7,12 +7,13 @@ import { QUICK_RANGES, quickRangeState, type QuickRangeKey } from '../lib/quickR
 import { ReplayControls } from './ReplayControls';
 import { ChartRangeControl } from './ChartRangeControl';
 import { ZoneClock } from './ZoneClock';
+import { useChart } from '../state/chartContext';
 
 /** The slim bar under the chart: quick ranges, the Range picker (the replay strip during replay) and the time-zone clock. */
 export function ChartRangeBar({ chartApi }: { chartApi: IChartApi | null }) {
-  const candles = useStore((s) => s.candles);
+  const candles = useChart((s) => s.candles);
   const timeZone = useStore((s) => s.timeZone);
-  const replaying = useStore((s) => s.replay != null);
+  const replaying = useChart((s) => s.replay != null);
   const tier = topbarTier(useViewportSize().width);
   const states = useMemo(
     () => QUICK_RANGES.map((q) => ({ ...q, state: quickRangeState(q.key, candles, timeZone) })),

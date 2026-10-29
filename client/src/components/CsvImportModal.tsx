@@ -4,6 +4,7 @@ import { fmtNum, fmtTime } from '../lib/format';
 import { generateDemoCandles } from '../lib/providers/demo';
 import { useStore } from '../state/store';
 import { Modal } from './Modal';
+import { useChart } from '../state/chartContext';
 
 type Role = 'ignore' | 'time' | 'date' | 'open' | 'high' | 'low' | 'close' | 'volume';
 
@@ -45,7 +46,7 @@ function mappingFromRoles(roles: Role[]): ColumnMapping {
 }
 
 export function CsvImportModal({ onClose }: { onClose: () => void }) {
-  const addDataset = useStore((s) => s.addDataset);
+  const addDataset = useChart((s) => s.addDataset);
   const pushToast = useStore((s) => s.pushToast);
   const timeZone = useStore((s) => s.timeZone);
 

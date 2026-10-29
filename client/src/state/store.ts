@@ -1,47 +1,27 @@
 /**
- * Global application store (zustand). Owns chart data, indicators, local
- * datasets, live streaming and the backtest/optimizer lifecycle.
+ * Application store (zustand): everything shared by the whole app - layout, preferences, saved datasets,
+ * watchlists, toasts and the inbox - plus the registry of chart stores. A chart's own state (data, indicators,
+ * replay, backtest, live stream) lives in its chart store (./chart); the app and the chart meet in `ChartEnv`.
  *
- * Heavy computations run in a dedicated Web Worker; this module only talks to
- * it over a tiny promise-based message protocol.
+ * `prefs.v1` stays one flat object: the app writes the active chart's fields together with its own.
  */
-import { applyKline, mergeCandles } from '../lib/applyKline';
-import { MAX_BARS, TIMEFRAME_SECONDS } from '../../../shared/market.ts';
 import { create } from 'zustand';
-import type { Candle, Dataset, Timeframe } from '../types';
+import type { Dataset } from '../types';
 import { uid } from '../types';
-import type { BacktestResult, BacktestConfig } from '../lib/backtest/types';
-import { defaultBacktestConfig } from '../lib/backtest/types';
-import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/optimizer';
-import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
-import { runAnyBacktest } from '../lib/backtest/runner';
-import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
-import type { PineInput } from '../lib/pine/types';
-import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
-import { defaultIndicator } from '../lib/indicatorCompute';
 import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } from '../lib/messages';
-import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
-import { sourceBase, type Source } from '../../../shared/timeframes.ts';
-import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
+import { sourceBase } from '../../../shared/timeframes.ts';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce, removeKey } from '../lib/storage';
-import { fmtTime } from '../lib/format';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
-import { CHART_MIN_BARS, chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, sliceByTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
+import { sanitizeTimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
-import {
-  REPLAY_MIN_VISIBLE,
-  REPLAY_SPEEDS,
-  replayAtEnd,
-  replayIntervalMs,
-  replayStartIndex,
-  replayVisible,
-  runIsPrefixOf,
-  stepReplay as stepPosition,
-} from '../lib/replay';
 import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
-import { nextPineSelection } from '../lib/pineSelection';
-import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
+import { createChartStore, defaultChartInitial, type ChartEnv, type ChartStore } from './chart';
+import type { IndicatorSpec } from '../lib/indicatorCompute';
+import type { BacktestConfig } from '../lib/backtest/types';
+import type { Timeframe } from '../types';
+import type { TimeRange } from '../lib/timeRange';
+
 
 export interface Toast {
   id: string;
@@ -56,16 +36,6 @@ function toastSource(text: string): string {
 
 export type DockTab = 'backtest' | 'optimizer' | 'results';
 
-/** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
-export interface PineRunState {
-  running: boolean;
-  result?: PineResult;
-  /** The candles `result` was computed on (its values align 1:1 with these). */
-  candles?: Candle[];
-  error?: PineError;
-}
-
-export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
 interface Prefs {
   providerId: string;
@@ -96,51 +66,23 @@ const PREFS_KEY = 'prefs.v1';
 const DATASETS_KEY = 'datasets.v1';
 const MAX_PERSISTED_DATASETS_BYTES = 4_500_000;
 
+const defaultChart = defaultChartInitial();
 const defaultPrefs: Prefs = {
-  providerId: 'binance',
-  symbol: 'BTCUSDT',
-  timeframe: '1h',
-  bars: 5000,
-  indicators: [
-    { ...defaultIndicator('volume'), id: 'ind_volume_default' },
-    { ...defaultIndicator('sma'), params: { length: 20 }, id: 'ind_sma20_default', color: '#f59e0b' },
-  ],
-  btConfig: defaultBacktestConfig(),
-  showTrades: true,
+  providerId: defaultChart.providerId,
+  symbol: defaultChart.symbol,
+  timeframe: defaultChart.timeframe,
+  bars: defaultChart.bars,
+  indicators: defaultChart.indicators,
+  btConfig: defaultChart.btConfig,
+  showTrades: defaultChart.showTrades,
 };
 
-export interface ReplayState {
-  phase: 'picking' | 'active';
-  source: Candle[];
-  cursor: number;
-  playing: boolean;
-  speed: number;
-  /** Set only on a picking state entered from an active replay: the cursor Cancel returns to. */
-  resumeCursor?: number;
-}
-
-/** The full loaded bars: the span behind a chart range, else the bars replay began on, else what the chart shows. */
-export function selectDataCandles(s: Pick<AppState, 'candles' | 'fullCandles' | 'replay'>): Candle[] {
-  return s.fullCandles ?? selectBars(s);
-}
-
-/** The bars the chart would show without a replay cut: what backtests and optimizer runs use (a chart range still crops). */
-export function selectBars(s: Pick<AppState, 'candles' | 'replay'>): Candle[] {
-  return s.replay?.phase === 'active' ? s.replay.source : s.candles;
-}
+/** The id of the one chart the app opens with. */
+export const FIRST_CHART_ID = 'chart-1';
 
 export interface AppState {
-  /* preferences (persisted) */
-  providerId: string;
-  symbol: string;
-  timeframe: Timeframe;
-  bars: number;
-  indicators: IndicatorSpec[];
-  showTrades: boolean;
   /** IANA zone every date on screen is shown in (candle times stay UTC). */
   timeZone: string;
-  /** Pine run state by indicator id (not persisted). */
-  pineRuns: Record<string, PineRunState>;
   /** Bottom dock UI state (not persisted). */
   dockTab: DockTab;
   dockCollapsed: boolean;
@@ -157,56 +99,16 @@ export interface AppState {
   drawingsHidden: boolean;
   /** Build every timeframe above the provider's lowest from the next lower native one, instead of the exchange's own bars. */
   buildTimeframes: boolean;
-  selectedPineId: string | null;
 
-  /* market data */
-  candles: Candle[];
-  /** Changes whenever the full dataset is replaced (forces a chart rebuild). */
-  dataKey: string;
-  /** Chart range window (UTC seconds) applied to the loaded bars; null = none (not persisted). */
-  chartRange: TimeRange | null;
-  /** The full loaded bars while a chart range crops `candles`; null otherwise. */
-  fullCandles: Candle[] | null;
-  /** True while `fullCandles` is a span fetched from the provider for the chart range. */
-  chartRangeFetched: boolean;
-  dataLabel: string;
-  activeDatasetId: string | null;
-  loadState: LoadState;
-  /**
-   * Bar replay (not persisted). While `active`, `candles` is `source.slice(0, cursor + 1)` and `source` holds the
-   * bars shown when replay began, plus any live bars that arrived since. `picking` waits for a start bar.
-   */
-  replay: ReplayState | null;
+  /** The chart stores by id, and which one the panels outside the chart are bound to. */
+  charts: Record<string, ChartStore>;
+  activeChartId: string;
 
   /* saved local datasets */
   datasets: Dataset[];
 
-  /* live streaming */
-  live: boolean;
-  liveStatus: LiveStatus;
-  liveDetail: string;
-
-  /* backtest */
-  btConfig: BacktestConfig;
-  /** Time window the backtester and optimizer run on (UTC seconds, null = open end). */
-  btRange: TimeRange;
-  btRunning: boolean;
-  btProgress: number;
-  btResult: BacktestResult | null;
-  btError: string | null;
-  /** Inputs declared by the Pine script in the Backtest panel (not persisted). */
-  pineInputs: PineInput[];
-
-  /* optimizer */
-  optConfig: OptimizeConfig;
-  optRunning: boolean;
-  optProgress: number;
-  optResult: { rows: OptimizeRow[]; metric: MetricKey; combos: number; errored: number } | null;
-
   toasts: Toast[];
   messages: InboxMessage[];
-  symbolQuery: string;
-  symbolSuggestions: SymbolSuggestion[];
   /** Full browsable symbol list per provider id, once loaded. */
   symbolCatalog: Record<string, SymbolSuggestion[]>;
   watchlists: wl.WatchlistState;
@@ -237,23 +139,8 @@ export interface AppState {
   init(): void;
   /** Run any pending debounced saves (prefs, watchlists, datasets) now. */
   flushPersist(): void;
-  setProvider(id: string): void;
-  /** Switches to a watchlist item's provider and symbol and loads the chart once. */
-  openWatchItem(providerId: string, symbol: string): void;
-  setSymbol(symbol: string, opts?: { load?: boolean }): void;
-  setTimeframe(tf: Timeframe, opts?: { load?: boolean }): void;
-  /** Turns building higher timeframes from lower ones on or off; reloads a remote chart whose source changes. */
+  /** Turns building higher timeframes from lower ones on or off; reloads every remote chart whose source changes. */
   setBuildTimeframes(v: boolean): void;
-  setBars(bars: number): void;
-  loadData(): Promise<void>;
-  clearData(): void;
-  addDataset(input: { name: string; candles: Candle[]; source: string; description: string; barSeconds: number; barLabel: string }): string;
-  saveCurrentDataset(name?: string): void;
-  activateDataset(id: string): void;
-  removeDataset(id: string): void;
-  /** Adds an indicator and returns its id. */
-  addIndicator(kind: IndicatorKind): string;
-  removeIndicator(id: string): void;
   setDockTab(tab: DockTab): void;
   setDockCollapsed(collapsed: boolean): void;
   setSidebarWidth(px: number): void;
@@ -262,45 +149,16 @@ export interface AppState {
   setSidePanelCollapsed(collapsed: boolean): void;
   /** Sets the expanded dock height; the collapsed state is untouched. */
   setDockHeight(px: number): void;
-  /** Opens the Pine editor pane with this indicator selected. */
+  /** Opens the Pine editor pane with this indicator selected on the active chart. */
   openPineEditor(id: string): void;
   closePineEditor(): void;
   togglePineEditor(): void;
-  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
-  setShowTrades(v: boolean): void;
   setDrawingMagnet(v: boolean): void;
   setDrawingsHidden(v: boolean): void;
   setTimeZone(tz: string): void;
-  setBtConfig(patch: Partial<BacktestConfig>): void;
-  setBtRange(range: TimeRange): void;
-  /**
-   * Shows a time window of the chart: crops the loaded bars, or fetches the span from the provider
-   * when it lies outside them; an open range clears. Resolves true when applied.
-   */
-  setChartRange(range: TimeRange): Promise<boolean>;
-  clearChartRange(): Promise<void>;
-  /** Replay: wait for a start bar, begin at a time, step, play, pause, change speed, leave. */
-  startReplayPick(): void;
-  cancelReplay(): void;
-  /** Replay: from an active replay, go back to choosing a start bar; Cancel there resumes the replay. */
-  reselectReplayStart(): void;
-  startReplayAt(time: number): boolean;
-  stepReplay(delta: number): void;
-  playReplay(): void;
-  pauseReplay(): void;
-  setReplaySpeed(speed: number): void;
-  exitReplay(): void;
-  runBacktest(): Promise<void>;
-  refreshPineInputs(): Promise<void>;
-  clearBacktest(): void;
-  setOptConfig(patch: Partial<OptimizeConfig>): void;
-  runOptimizer(): Promise<void>;
-  applyOptimizeRow(row: OptimizeRow): Promise<void>;
-  setLive(v: boolean): void;
-  searchSymbols(query: string): Promise<void>;
-  /** Loads the provider's full symbol list once (silent fallback to popular symbols on error). */
-  loadSymbolCatalog(): Promise<void>;
-  /** Adds a suggestion to the active watchlist for the current provider. */
+  /** Loads a provider's full symbol list once (silent fallback to popular symbols on error). */
+  loadSymbolCatalog(providerId: string): Promise<void>;
+  /** Adds a suggestion to the active watchlist for the active chart's provider. */
   addSymbolToWatchlist(s: SymbolSuggestion): void;
   pushToast(kind: Toast['kind'], text: string): void;
   dismissToast(id: string): void;
@@ -309,112 +167,24 @@ export interface AppState {
   clearMessages(): void;
 }
 
-/* ------------------------------------------------------------------ */
-/* Web worker plumbing                                                 */
-/* ------------------------------------------------------------------ */
-
-let worker: Worker | null = null;
-let workerBroken = false;
-const pending = new Map<
-  string,
-  { resolve: (msg: WorkerResponse) => void; reject: (err: Error) => void; onProgress?: (pct: number) => void }
->();
-
-function getWorker(): Worker | null {
-  if (workerBroken) return null;
-  if (worker) return worker;
-  try {
-    worker = new Worker(new URL('../lib/workers/backtest.worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
-      const msg = ev.data;
-      const p = pending.get(msg.id);
-      if (!p) return;
-      if (msg.type === 'progress') {
-        p.onProgress?.(msg.pct);
-        return;
-      }
-      pending.delete(msg.id);
-      if (msg.type === 'error') p.reject(new Error(msg.message));
-      else p.resolve(msg);
-    };
-    worker.onerror = () => {
-      workerBroken = true;
-      for (const [, p] of pending) p.reject(new Error('Backtest worker crashed — falling back to main thread'));
-      pending.clear();
-      worker = null;
-    };
-    return worker;
-  } catch {
-    workerBroken = true;
-    worker = null;
-    return null;
-  }
-}
-
-function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void): Promise<WorkerResponse> {
-  const w = getWorker();
-  const id = uid('req_');
-  if (!w) {
-    // Main-thread fallback (e.g. workers unavailable).
-    return new Promise((resolve, reject) => {
-      try {
-        if (req.type === 'run') {
-          runAnyBacktest(req.candles, req.config).then(
-            (result) => resolve({ id, type: 'result', result }),
-            (err) => reject(err instanceof Error ? err : new Error(String(err))),
-          );
-        } else if (req.type === 'pine') {
-          // No Worker (e.g. tests): run on this thread. Loaded lazily to keep PineTS out of the main bundle.
-          void import('../lib/pine/runtime')
-            .then((m) => m.runPine(req.source, req.candles, req.inputs))
-            .then((outcome) => resolve({ id, type: 'pineResult', outcome }), reject);
-        } else {
-          reject(new Error('Optimizer requires Web Worker support.'));
-        }
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
-  }
-  return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject, onProgress });
-    w.postMessage({ ...req, id });
-  });
-}
-
-/* ------------------------------------------------------------------ */
-/* Live streaming plumbing                                             */
-/* ------------------------------------------------------------------ */
-
-let liveHandle: LiveHandle | null = null;
-/** The replay play timer; every path that ends replay clears it. */
-let replayTimer: ReturnType<typeof setTimeout> | null = null;
-const clearReplayTimer = () => {
-  if (replayTimer != null) clearTimeout(replayTimer);
-  replayTimer = null;
-};
-/** Bumped by every data load and chart range fetch; only the newest result may be applied. */
-let requestToken = 0;
-/** Bumped whenever a live stream starts or stops, so a late backfill can tell it is stale. */
-let liveSession = 0;
-
-/* ------------------------------------------------------------------ */
-/* Store                                                               */
-/* ------------------------------------------------------------------ */
 
 export const useStore = create<AppState>()((set, get) => {
+  /** The chart the panels outside the chart are bound to. */
+  const activeChart = (): ChartStore => get().charts[get().activeChartId];
+
   const persistPrefs = debounce(() => {
     const s = get();
+    const c = activeChart().getState();
     saveJson(PREFS_KEY, {
-      providerId: s.providerId,
-      symbol: s.symbol,
-      timeframe: s.timeframe,
-      bars: s.bars,
-      indicators: s.indicators,
-      btConfig: s.btConfig,
-      showTrades: s.showTrades,
+      providerId: c.providerId,
+      symbol: c.symbol,
+      timeframe: c.timeframe,
+      bars: c.bars,
+      indicators: c.indicators,
+      btConfig: c.btConfig,
+      showTrades: c.showTrades,
       timeZone: s.timeZone,
-      btRange: s.btRange,
+      btRange: c.btRange,
       sidebarWidth: s.sidebarWidth,
       pineWidth: s.pineWidth,
       dockHeight: s.dockHeight,
@@ -425,10 +195,6 @@ export const useStore = create<AppState>()((set, get) => {
       buildTimeframes: s.buildTimeframes,
     } satisfies Prefs);
   }, 400);
-
-  /** `source: 'built'` when the setting is on and the provider is a remote one (the demo provider ignores it). */
-  const sourceOpt = (provider: { offline?: boolean }): { source?: Source } =>
-    get().buildTimeframes && !provider.offline ? { source: 'built' } : {};
 
   const persistWatchlists = debounce(() => {
     wl.saveWatchlists(get().watchlists);
@@ -442,126 +208,31 @@ export const useStore = create<AppState>()((set, get) => {
     }
   }, 600);
 
-  /* ---- Pine runs: one at a time per indicator, results from superseded runs dropped ---- */
-  const pineInflight = new Set<string>();
-  const pineDirty = new Set<string>();
-
-  const setPineRun = (id: string, patch: PineRunState | null) => {
-    const next = { ...get().pineRuns };
-    if (patch) next[id] = patch;
-    else delete next[id];
-    set({ pineRuns: next });
-  };
-
-  const sameInputs = (a: Record<string, unknown>, b: Record<string, unknown>) => {
-    const ka = Object.keys(a);
-    return ka.length === Object.keys(b).length && ka.every((k) => k in b && Object.is(a[k], b[k]));
-  };
-
-  const runPineIndicator = async (id: string): Promise<void> => {
-    const spec = get().indicators.find((i) => i.id === id);
-    if (!spec || spec.kind !== 'pine') return;
-    const { candles } = get();
-    if (candles.length === 0) return;
-    pineInflight.add(id);
-    pineDirty.delete(id);
-    const { source, inputs } = { source: spec.source ?? '', inputs: spec.inputs ?? {} };
-    const prev = get().pineRuns[id];
-    setPineRun(id, { ...prev, running: true });
-    let outcome: PineRunOutcome;
-    try {
-      const res = await workerCall({ type: 'pine', source, candles, inputs });
-      outcome =
-        res.type === 'pineResult' ? res.outcome : { ok: false, error: { message: 'Unexpected worker reply' } };
-    } catch (err) {
-      outcome = { ok: false, error: { message: err instanceof Error ? err.message : String(err) } };
-    }
-    pineInflight.delete(id);
-    if (!get().indicators.some((i) => i.id === id)) {
-      setPineRun(id, null);
-      return;
-    }
-    if (pineDirty.has(id)) {
-      // Source or inputs changed, or newer bars were requested, while this ran. A result that still holds
-      // for the current bars (same source and inputs, bars a prefix of the current ones) is kept so a slow
-      // run shows during a replay; the usual draw filter hides anything past the visible bars.
-      const now = get().indicators.find((i) => i.id === id);
-      if (
-        outcome.ok &&
-        now &&
-        (now.source ?? '') === source &&
-        sameInputs(now.inputs ?? {}, inputs) &&
-        runIsPrefixOf(candles, get().candles)
-      ) {
-        setPineRun(id, { running: true, result: outcome, candles });
+  /** What every chart sees of the app. */
+  const chartEnv: ChartEnv = {
+    pushToast: (kind, text) => get().pushToast(kind, text),
+    pushMessage: (source, severity, text) => get().pushMessage(source, severity, text),
+    timeZone: () => get().timeZone,
+    buildTimeframes: () => get().buildTimeframes,
+    datasets: () => get().datasets,
+    addDataset(dataset) {
+      if (JSON.stringify(dataset).length > MAX_PERSISTED_DATASETS_BYTES) {
+        get().pushToast('error', 'Dataset too large to persist in the browser (kept for this session only).');
+        set({ datasets: [...get().datasets, dataset] });
+        return;
       }
-      void runPineIndicator(id);
-      return;
-    }
-    if (outcome.ok) setPineRun(id, { running: false, result: outcome, candles });
-    else setPineRun(id, { running: false, error: outcome.error });
-  };
-
-  /** (Re)run one pine indicator, or coalesce into the run already in flight. */
-  const schedulePine = (id: string) => {
-    const spec = get().indicators.find((i) => i.id === id);
-    if (!spec || spec.kind !== 'pine' || !spec.visible) return;
-    if (pineInflight.has(id)) pineDirty.add(id);
-    else void runPineIndicator(id);
-  };
-
-  const schedulePineAll = () => {
-    for (const i of get().indicators) if (i.kind === 'pine') schedulePine(i.id);
-  };
-
-  const dropReplay = () => clearReplayTimer();
-
-  const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
-    dropReplay();
-    set({
-      candles,
-      chartRange: null,
-      fullCandles: null,
-      chartRangeFetched: false,
-      dataKey: uid('data_'),
-      replay: null,
-      dataLabel,
-      activeDatasetId,
-      loadState: 'ready',
-      btResult: null,
-      btError: null,
-      optResult: null,
-    });
-    schedulePineAll();
-  };
-
-  const applyRange = (slice: Candle[], full: Candle[], range: TimeRange, fetched: boolean) => {
-    dropReplay();
-    set({
-      replay: null,
-      candles: slice,
-      fullCandles: full,
-      chartRange: { from: range.from, to: range.to },
-      chartRangeFetched: fetched,
-      dataKey: uid('data_'),
-      btResult: null,
-      btError: null,
-      optResult: null,
-    });
-    schedulePineAll();
-  };
-
-  const stopLive = () => {
-    liveSession++;
-    liveHandle?.stop();
-    liveHandle = null;
-    set({ live: false, liveStatus: 'off', liveDetail: '' });
+      set({ datasets: [...get().datasets, dataset] });
+      persistDatasets();
+    },
+    removeDataset(id) {
+      set({ datasets: get().datasets.filter((d) => d.id !== id) });
+      persistDatasets();
+    },
+    onPrefsChange: () => persistPrefs(),
   };
 
   return {
-    ...defaultPrefs,
     timeZone: browserTimeZone(),
-    pineRuns: {},
     dockTab: 'backtest',
     dockCollapsed: false,
     sidebarWidth: SIDEBAR_DEFAULT,
@@ -573,34 +244,11 @@ export const useStore = create<AppState>()((set, get) => {
     drawingMagnet: false,
     drawingsHidden: false,
     buildTimeframes: false,
-    selectedPineId: null,
-    candles: [],
-    dataKey: '',
-    chartRange: null,
-    fullCandles: null,
-    chartRangeFetched: false,
-    dataLabel: '',
-    activeDatasetId: null,
-    loadState: 'idle',
-    replay: null,
+    charts: { [FIRST_CHART_ID]: createChartStore(FIRST_CHART_ID, defaultChart, chartEnv) },
+    activeChartId: FIRST_CHART_ID,
     datasets: [],
-    live: false,
-    liveStatus: 'off',
-    liveDetail: '',
-    pineInputs: [],
-    btRange: { from: null, to: null },
-    btRunning: false,
-    btProgress: 0,
-    btResult: null,
-    btError: null,
-    optConfig: defaultOptimizeConfig(defaultBacktestConfig()),
-    optRunning: false,
-    optProgress: 0,
-    optResult: null,
     toasts: [],
     messages: [],
-    symbolQuery: '',
-    symbolSuggestions: [],
     symbolCatalog: {},
     watchlists: wl.emptyState(),
 
@@ -647,17 +295,27 @@ export const useStore = create<AppState>()((set, get) => {
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
       // A chart left on a provider that is gone opens on the default market, not on a fallback with the old symbol.
       const known = providers.some((p) => p.id === prefs.providerId);
+      const btConfig = { ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) };
+      // The chart is built from the saved prefs: a fresh one replaces the placeholder the store opened with.
+      const old = get().charts[FIRST_CHART_ID];
+      old.getState().clearData();
+      const chart = createChartStore(
+        FIRST_CHART_ID,
+        {
+          providerId: known ? prefs.providerId : defaultPrefs.providerId,
+          symbol: known ? (prefs.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
+          timeframe: known ? (prefs.timeframe ?? defaultPrefs.timeframe) : defaultPrefs.timeframe,
+          bars: prefs.bars ?? defaultPrefs.bars,
+          indicators: Array.isArray(prefs.indicators) && prefs.indicators.length > 0 ? prefs.indicators : defaultPrefs.indicators,
+          btConfig,
+          showTrades: prefs.showTrades ?? true,
+          btRange: sanitizeTimeRange(prefs.btRange),
+        },
+        chartEnv,
+      );
       set({
         watchlists: wl.loadWatchlists(providers),
-        providerId: known ? prefs.providerId : defaultPrefs.providerId,
-        symbol: known ? (prefs.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
-        timeframe: known ? (prefs.timeframe ?? defaultPrefs.timeframe) : defaultPrefs.timeframe,
-        bars: prefs.bars ?? defaultPrefs.bars,
-        indicators: Array.isArray(prefs.indicators) && prefs.indicators.length > 0 ? prefs.indicators : defaultPrefs.indicators,
-        btConfig: { ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) },
-        showTrades: prefs.showTrades ?? true,
         timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
-        btRange: sanitizeTimeRange(prefs.btRange),
         sidebarWidth: sanitizeStoredSize(prefs.sidebarWidth, SIDEBAR_DEFAULT),
         pineWidth: sanitizeStoredSize(prefs.pineWidth, PINE_DEFAULT),
         dockHeight: sanitizeStoredSize(prefs.dockHeight, DOCK_DEFAULT),
@@ -667,41 +325,9 @@ export const useStore = create<AppState>()((set, get) => {
         drawingsHidden: prefs.drawingsHidden === true,
         buildTimeframes: prefs.buildTimeframes === true,
         datasets: Array.isArray(datasets) ? datasets : [],
-        optConfig: defaultOptimizeConfig({ ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) }),
+        charts: { ...get().charts, [FIRST_CHART_ID]: chart },
       });
-      void get().loadData();
-    },
-
-    setProvider(id) {
-      const provider = getProvider(id);
-      stopLive();
-      set({
-        providerId: id,
-        symbol: provider.defaultSymbol,
-        timeframe: provider.defaultTimeframe,
-      });
-      persistPrefs();
-      void get().loadData();
-    },
-
-    openWatchItem(providerId, symbol) {
-      stopLive();
-      set({ providerId, symbol });
-      persistPrefs();
-      void get().loadData();
-    },
-
-    setSymbol(symbol, opts) {
-      set({ symbol });
-      persistPrefs();
-      if (opts?.load) void get().loadData();
-    },
-
-    setTimeframe(tf, opts) {
-      stopLive();
-      set({ timeframe: tf });
-      persistPrefs();
-      if (opts?.load !== false) void get().loadData();
+      void chart.getState().loadData();
     },
 
     setBuildTimeframes(v) {
@@ -709,132 +335,14 @@ export const useStore = create<AppState>()((set, get) => {
       set({ buildTimeframes: v });
       persistPrefs();
       if (was === v) return;
-      const { providerId, timeframe, activeDatasetId } = get();
-      const provider = getProvider(providerId);
-      if (provider.offline || activeDatasetId != null) return;
-      const native = provider.timeframes.filter((tf) => !(provider.builtTimeframes ?? []).includes(tf));
-      if (sourceBase(native, timeframe, 'native') === sourceBase(native, timeframe, 'built')) return;
-      void get().loadData(); // keeps Live on: it stays set and loadData reconnects it
-    },
-
-    setBars(bars) {
-      set({ bars });
-      persistPrefs();
-    },
-
-    async loadData() {
-      const { providerId, symbol, timeframe, bars } = get();
-      const provider = getProvider(providerId);
-      const tf = provider.timeframes.includes(timeframe) ? timeframe : provider.defaultTimeframe;
-      const token = ++requestToken;
-      get().exitReplay();
-      set({ loadState: 'loading', timeframe: tf });
-      try {
-        const candles = await provider.fetchHistory({ symbol, timeframe: tf, bars, ...sourceOpt(provider) });
-        if (token !== requestToken) return; // a newer load or range fetch owns the data now
-        if (candles.length < 2) throw new Error(`Not enough data returned for ${symbol}.`);
-        setCandles(candles, `${provider.name} · ${symbol} · ${tf}`, null);
-        const s = get();
-        if (s.live && provider.startLive) s.setLive(true); // reconnect for the new symbol/tf
-        else if (s.live) s.setLive(false);
-      } catch (err) {
-        if (token !== requestToken) return;
-        set({ loadState: 'error' });
-        get().pushToast('error', `Could not load data: ${err instanceof Error ? err.message : String(err)}`);
+      for (const chart of Object.values(get().charts)) {
+        const { providerId, timeframe, activeDatasetId } = chart.getState();
+        const provider = getProvider(providerId);
+        if (provider.offline || activeDatasetId != null) continue;
+        const native = provider.timeframes.filter((tf) => !(provider.builtTimeframes ?? []).includes(tf));
+        if (sourceBase(native, timeframe, 'native') === sourceBase(native, timeframe, 'built')) continue;
+        void chart.getState().loadData(); // keeps Live on: it stays set and loadData reconnects it
       }
-    },
-
-    clearData() {
-      stopLive();
-      dropReplay();
-      set({
-        replay: null,
-        candles: [],
-        chartRange: null,
-        fullCandles: null,
-        chartRangeFetched: false,
-        dataKey: uid('data_'),
-        dataLabel: '',
-        activeDatasetId: null,
-        loadState: 'idle',
-        btResult: null,
-        btError: null,
-        optResult: null,
-      });
-    },
-
-    addDataset(input) {
-      const dataset: Dataset = {
-        id: uid('ds_'),
-        createdAt: Date.now(),
-        ...input,
-      };
-      const size = JSON.stringify(dataset).length;
-      if (size > MAX_PERSISTED_DATASETS_BYTES) {
-        get().pushToast('error', 'Dataset too large to persist in the browser (kept for this session only).');
-        set({ datasets: [...get().datasets, dataset], activeDatasetId: dataset.id });
-        setCandles(dataset.candles, `Local · ${dataset.name}`, dataset.id);
-        return dataset.id;
-      }
-      set({ datasets: [...get().datasets, dataset], activeDatasetId: dataset.id });
-      persistDatasets();
-      setCandles(dataset.candles, `Local · ${dataset.name}`, dataset.id);
-      return dataset.id;
-    },
-
-    saveCurrentDataset(name) {
-      const { dataLabel, activeDatasetId, providerId } = get();
-      const candles = selectDataCandles(get());
-      if (candles.length === 0) {
-        get().pushToast('info', 'Nothing to save — load some data first.');
-        return;
-      }
-      if (activeDatasetId && get().datasets.some((d) => d.id === activeDatasetId)) {
-        get().pushToast('info', 'This dataset is already in your library.');
-        return;
-      }
-      get().addDataset({
-        name: name ?? `${dataLabel || 'Dataset'} · ${fmtTime(Date.now() / 1000, { dateOnly: true, timeZone: get().timeZone })}`,
-        candles,
-        source: providerId,
-        description: dataLabel,
-        barSeconds: 0,
-        barLabel: '',
-      });
-      get().pushToast('success', 'Saved to your local library — available offline.');
-    },
-
-    activateDataset(id) {
-      const ds = get().datasets.find((d) => d.id === id);
-      if (!ds) return;
-      stopLive();
-      setCandles(ds.candles, `Local · ${ds.name}`, ds.id);
-      get().pushToast('info', `Loaded "${ds.name}" (${ds.candles.length} bars) — charting works fully offline.`);
-    },
-
-    removeDataset(id) {
-      const next = get().datasets.filter((d) => d.id !== id);
-      set({ datasets: next, activeDatasetId: get().activeDatasetId === id ? null : get().activeDatasetId });
-      persistDatasets();
-    },
-
-    addIndicator(kind) {
-      const indicators = [...get().indicators, defaultIndicator(kind)];
-      set({ indicators });
-      persistPrefs();
-      const id = indicators[indicators.length - 1].id;
-      if (kind === 'pine') schedulePine(id);
-      return id;
-    },
-
-    removeIndicator(id) {
-      const before = get().indicators;
-      set({
-        indicators: before.filter((i) => i.id !== id),
-        selectedPineId: nextPineSelection(before, get().selectedPineId, id),
-      });
-      setPineRun(id, null);
-      persistPrefs();
     },
 
     setDockTab(tab) {
@@ -872,7 +380,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     openPineEditor(id) {
-      set({ pineOpen: true, selectedPineId: id });
+      activeChart().setState({ selectedPineId: id });
+      set({ pineOpen: true });
     },
 
     closePineEditor() {
@@ -881,23 +390,6 @@ export const useStore = create<AppState>()((set, get) => {
 
     togglePineEditor() {
       set((s) => ({ pineOpen: !s.pineOpen }));
-    },
-
-    updateIndicator(id, patch) {
-      set({
-        indicators: get().indicators.map((i) =>
-          i.id === id
-            ? {
-                ...i,
-                ...patch,
-                params: { ...i.params, ...(patch.params ?? {}) },
-                ...(i.kind === 'pine' && { inputs: { ...(i.inputs ?? {}), ...(patch.inputs ?? {}) } }),
-              }
-            : i,
-        ),
-      });
-      persistPrefs();
-      if (patch.source !== undefined || patch.inputs !== undefined || patch.visible === true) schedulePine(id);
     },
 
     setTimeZone(tz) {
@@ -916,415 +408,7 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
     },
 
-    setShowTrades(v) {
-      set({ showTrades: v });
-      persistPrefs();
-    },
-
-    setBtConfig(patch) {
-      const btConfig = { ...get().btConfig, ...patch };
-      set({ btConfig });
-      persistPrefs();
-    },
-
-    setBtRange(range) {
-      set({ btRange: sanitizeTimeRange(range) });
-      persistPrefs();
-    },
-
-    async setChartRange(range) {
-      const state = get();
-      const full = selectDataCandles(state);
-      const open = range.from == null && range.to == null;
-      if (open) {
-        await get().clearChartRange();
-        return true;
-      }
-      if (state.live) {
-        state.pushToast('error', 'Turn live off before cropping the chart: live bars land at the end of the full data.');
-        return false;
-      }
-      const crop = cropToChartRange(full, range);
-      if (crop.ok) {
-        applyRange(crop.slice, full, range, state.chartRangeFetched);
-        return true;
-      }
-      if (crop.error !== 'outside' || state.activeDatasetId != null) {
-        state.pushToast('error', chartRangeErrorText(crop.error));
-        return false;
-      }
-
-      // outside the provider's loaded bars: fetch that span
-      const { providerId, symbol, timeframe, bars } = state;
-      const provider = getProvider(providerId);
-      const token = ++requestToken;
-      const req: HistoryRequest = { symbol, timeframe, bars, ...sourceOpt(provider) };
-      if (range.from != null) req.from = range.from;
-      if (range.to != null) req.to = range.to;
-      set({ loadState: 'loading' });
-      try {
-        const fetched = await provider.fetchHistory(req);
-        const now = get();
-        if (token !== requestToken || now.providerId !== providerId || now.symbol !== symbol || now.activeDatasetId != null || now.timeframe !== timeframe) {
-          return false; // stale: the user moved on, a newer request owns the state
-        }
-        const slice = sliceByTimeRange(fetched, range);
-        if (slice.length < CHART_MIN_BARS) {
-          set({ loadState: 'ready' });
-          now.pushToast('error', chartRangeErrorText('too-few-bars'));
-          return false;
-        }
-        applyRange(slice, fetched, range, true);
-        set({ loadState: 'ready' });
-        if (range.from != null && slice[0].time - range.from > TIMEFRAME_SECONDS[timeframe]) {
-          const date = fmtTime(slice[0].time, { timeZone: get().timeZone });
-          const text = `${provider.name} has data for this range only from ${date}`;
-          get().pushMessage(provider.name, 'warning', text);
-          get().pushToast('info', text);
-        }
-        return true;
-      } catch (err) {
-        if (token !== requestToken) return false;
-        set({ loadState: 'ready' });
-        get().pushToast('error', `Could not load range: ${err instanceof Error ? err.message : String(err)}`);
-        return false;
-      }
-    },
-
-    async clearChartRange() {
-      const { fullCandles, chartRangeFetched } = get();
-      if (!fullCandles) return;
-      if (chartRangeFetched) {
-        await get().loadData(); // back to the latest bars; setCandles resets the range state
-        return;
-      }
-      dropReplay();
-      set({
-        replay: null,
-        candles: fullCandles,
-        fullCandles: null,
-        chartRange: null,
-        dataKey: uid('data_'),
-        btResult: null,
-        btError: null,
-        optResult: null,
-      });
-      schedulePineAll();
-    },
-
-    startReplayPick() {
-      if (get().candles.length < REPLAY_MIN_VISIBLE + 1) {
-        get().pushToast('error', 'Load some data before starting a replay.');
-        return;
-      }
-      if (get().replay) return;
-      set({ replay: { phase: 'picking', source: [], cursor: 0, playing: false, speed: REPLAY_SPEEDS[0] } });
-    },
-
-    cancelReplay() {
-      const rp = get().replay;
-      if (rp?.phase !== 'picking') return;
-      if (rp.resumeCursor == null) {
-        set({ replay: null });
-        return;
-      }
-      const source = get().candles;
-      const cursor = stepPosition({ source, cursor: rp.resumeCursor }, 0);
-      set({ replay: { phase: 'active', source, cursor, playing: false, speed: rp.speed }, candles: replayVisible(source, cursor) });
-      schedulePineAll();
-    },
-
-    reselectReplayStart() {
-      const rp = get().replay;
-      if (rp?.phase !== 'active') return;
-      clearReplayTimer();
-      set({
-        replay: { phase: 'picking', source: [], cursor: 0, playing: false, speed: rp.speed, resumeCursor: rp.cursor },
-        candles: rp.source,
-      });
-      schedulePineAll();
-    },
-
-    startReplayAt(time) {
-      const rp = get().replay;
-      if (rp?.phase !== 'picking') return false;
-      const source = get().candles;
-      const cursor = replayStartIndex(source, time);
-      if (cursor == null) {
-        get().pushToast('error', 'That time is outside the loaded bars, or too close to the end to replay.');
-        return false;
-      }
-      set({ replay: { phase: 'active', source, cursor, playing: false, speed: rp.speed }, candles: replayVisible(source, cursor) });
-      schedulePineAll();
-      return true;
-    },
-
-    stepReplay(delta) {
-      const rp = get().replay;
-      if (rp?.phase !== 'active') return;
-      get().pauseReplay();
-      const cursor = stepPosition(rp, delta);
-      if (cursor === rp.cursor) return;
-      set({ replay: { ...get().replay!, cursor }, candles: replayVisible(rp.source, cursor) });
-      schedulePineAll();
-    },
-
-    playReplay() {
-      const rp = get().replay;
-      if (rp?.phase !== 'active' || rp.playing || replayAtEnd(rp)) return;
-      clearReplayTimer();
-      set({ replay: { ...rp, playing: true } });
-      const tick = () => {
-        replayTimer = null;
-        const cur = get().replay;
-        if (cur?.phase !== 'active' || !cur.playing) return;
-        const cursor = stepPosition(cur, 1);
-        const next = { ...cur, cursor, playing: !replayAtEnd({ source: cur.source, cursor }) };
-        set({ replay: next, candles: replayVisible(cur.source, cursor) });
-        schedulePineAll();
-        if (next.playing) replayTimer = setTimeout(tick, replayIntervalMs(get().replay!.speed));
-      };
-      replayTimer = setTimeout(tick, replayIntervalMs(rp.speed));
-    },
-
-    pauseReplay() {
-      clearReplayTimer();
-      const rp = get().replay;
-      if (rp?.playing) set({ replay: { ...rp, playing: false } });
-    },
-
-    setReplaySpeed(speed) {
-      const rp = get().replay;
-      if (!rp || !(REPLAY_SPEEDS as readonly number[]).includes(speed)) return;
-      set({ replay: { ...rp, speed } });
-    },
-
-    exitReplay() {
-      const rp = get().replay;
-      clearReplayTimer();
-      if (!rp) return;
-      if (rp.phase === 'picking') {
-        set({ replay: null });
-        return;
-      }
-      set({ replay: null, candles: rp.source });
-      schedulePineAll();
-    },
-
-    async runBacktest() {
-      const { btConfig, btRange } = get();
-      const all = selectBars(get());
-      if (all.length < 3) {
-        get().pushToast('error', 'Load some data before running a backtest.');
-        return;
-      }
-      const { slice: candles, error } = describeTimeRange(all, btRange);
-      if (error) {
-        get().pushToast('error', timeRangeErrorText(error));
-        return;
-      }
-      set({ btRunning: true, btProgress: 0, btError: null });
-      try {
-        const t0 = performance.now();
-        const msg = await workerCall({ type: 'run', candles, config: btConfig });
-        if (msg.type !== 'result') throw new Error('Unexpected worker reply');
-        const ms = Math.round(performance.now() - t0);
-        set({ btResult: msg.result, btRunning: false, btProgress: 1 });
-        get().pushToast(
-          'success',
-          `Backtest finished in ${ms} ms — ${msg.result.trades.length} trade(s), ${candles.length} bars.`,
-        );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        set({ btRunning: false, btError: message });
-        get().pushToast('error', `Backtest failed: ${message}`);
-      }
-    },
-
-    async refreshPineInputs() {
-      const { btConfig } = get();
-      const candles = selectBars(get());
-      if (btConfig.strategyId !== 'pine' || candles.length === 0) {
-        if (get().pineInputs.length > 0) set({ pineInputs: [] });
-        return;
-      }
-      try {
-        // Input declarations do not depend on the data; a short slice keeps this cheap.
-        const msg = await workerCall({
-          type: 'pine',
-          source: btConfig.pineCode ?? DEFAULT_PINE_CODE,
-          candles: candles.slice(0, 60),
-        });
-        if (msg.type !== 'pineResult') throw new Error('Unexpected worker reply');
-        set({ pineInputs: msg.outcome.ok ? msg.outcome.inputs : [] });
-      } catch {
-        set({ pineInputs: [] });
-      }
-    },
-
-    clearBacktest() {
-      set({ btResult: null, btError: null });
-    },
-
-    setOptConfig(patch) {
-      set({ optConfig: { ...get().optConfig, ...patch } });
-    },
-
-    async runOptimizer() {
-      const { btConfig, optConfig, btRange } = get();
-      const all = selectBars(get());
-      if (all.length < 3) {
-        get().pushToast('error', 'Load some data before optimizing.');
-        return;
-      }
-      const { slice: candles, error } = describeTimeRange(all, btRange);
-      if (error) {
-        get().pushToast('error', timeRangeErrorText(error));
-        return;
-      }
-      set({ optRunning: true, optProgress: 0, optResult: null });
-      try {
-        const msg = await workerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
-          set({ optProgress: pct });
-        });
-        if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
-        set({
-          optResult: { rows: msg.rows, metric: msg.metric, combos: msg.combos, errored: msg.errored },
-          optRunning: false,
-          optProgress: 1,
-        });
-        if (msg.errored > 0) {
-          get().pushToast('error', `${msg.errored} of ${msg.combos} parameter combinations failed (see custom code).`);
-        }
-      } catch (err) {
-        set({ optRunning: false });
-        get().pushToast('error', `Optimizer failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    },
-
-    async applyOptimizeRow(row) {
-      get().setBtConfig({ params: { ...get().btConfig.params, ...row.params } });
-      await get().runBacktest();
-    },
-
-    setLive(v) {
-      const { providerId, symbol, timeframe } = get();
-      const provider = getProvider(providerId);
-      if (!v) {
-        stopLive();
-        return;
-      }
-      if (!provider.startLive) {
-        get().pushToast('info', `Live streaming is not available for ${provider.name} data.`);
-        return;
-      }
-      get().exitReplay(); // live bars land at the end of the real chart
-      if (get().chartRangeFetched) {
-        // a fetched span is not the latest bars: reload them, which reconnects live
-        set({ live: true, liveStatus: 'connecting', liveDetail: '' });
-        void get().loadData().then(() => {
-          if (get().loadState === 'error') stopLive();
-        });
-        return;
-      }
-      void get().clearChartRange(); // live bars land at the end of the full data
-      liveSession++;
-      const session = liveSession;
-      liveHandle?.stop();
-      set({ live: true, liveStatus: 'connecting', liveDetail: '' });
-
-      // After an outage (the exchange feed or the connection to the server) the stream
-      // resumes at the current bar: fetch what was missed once and merge it by time.
-      const liveBars = () => {
-        const rp = get().replay;
-        return rp?.phase === 'active' ? rp.source : get().candles;
-      };
-      let backfilling = false;
-      const backfill = async (): Promise<void> => {
-        const bars = liveBars();
-        const last = bars[bars.length - 1];
-        if (!last || backfilling) return;
-        backfilling = true;
-        const dataKey = get().dataKey;
-        const elapsed = Math.floor((Date.now() / 1000 - last.time) / (TIMEFRAME_SECONDS[timeframe] ?? 60));
-        const count = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
-        try {
-          const recent = await provider.fetchHistory({ symbol, timeframe, bars: count, ...sourceOpt(provider) });
-          if (session !== liveSession || get().dataKey !== dataKey) return; // stopped or switched meanwhile
-          const rp = get().replay;
-          if (rp?.phase === 'active') set({ replay: { ...rp, source: mergeCandles(rp.source, recent) } });
-          else {
-            set({ candles: mergeCandles(get().candles, recent) });
-            schedulePineAll();
-          }
-        } catch (err) {
-          if (session !== liveSession) return;
-          get().pushMessage(
-            'Live',
-            'warning',
-            `Live data came back for ${symbol} ${timeframe}, but the bars missed meanwhile could not be loaded (${err instanceof Error ? err.message : String(err)}). The chart may have a gap; reload the data to fill it.`,
-          );
-        } finally {
-          backfilling = false;
-        }
-      };
-
-      // A drop can surface as reconnecting -> connecting -> live (the server relay opens a fresh upstream
-      // entry, so its first status is 'connecting'), so remember any disruption, not just the status before live.
-      let wasLive = false;
-      let disrupted = false;
-      liveHandle = provider.startLive({
-        symbol,
-        timeframe,
-        ...sourceOpt(provider),
-        onLog: (severity, text) => get().pushMessage('Live', severity, text),
-        onStatus: (status, detail) => {
-          set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' });
-          if (status === 'reconnecting' || status === 'error' || (status === 'connecting' && wasLive)) disrupted = true;
-          if (status === 'live') {
-            if (disrupted) void backfill();
-            disrupted = false;
-            wasLive = true;
-          }
-        },
-        onKline: (candle, closed) => {
-          const rp = get().replay;
-          if (rp?.phase === 'active') {
-            // the chart stays where replay is; the live bar waits in the source
-            const next = applyKline(rp.source, candle);
-            if (next !== rp.source) set({ replay: { ...rp, source: next } });
-          } else {
-            const prev = get().candles;
-            const next = applyKline(prev, candle);
-            if (next !== prev) {
-              set({ candles: next });
-              schedulePineAll();
-            }
-          }
-          if (closed && get().showTrades && get().btResult) {
-            /* keep backtest results untouched; user re-runs manually */
-          }
-        },
-      });
-    },
-
-    async searchSymbols(query) {
-      const provider = getProvider(get().providerId);
-      set({ symbolQuery: query });
-      if (!provider.searchSymbols) {
-        set({ symbolSuggestions: provider.popularSymbols });
-        return;
-      }
-      try {
-        const suggestions = await provider.searchSymbols(query);
-        if (get().symbolQuery === query) set({ symbolSuggestions: suggestions });
-      } catch {
-        set({ symbolSuggestions: provider.popularSymbols });
-      }
-    },
-
-    async loadSymbolCatalog() {
-      const providerId = get().providerId;
+    async loadSymbolCatalog(providerId) {
       if (get().symbolCatalog[providerId]) return;
       const provider = getProvider(providerId);
       if (!provider.listSymbols) return;
@@ -1339,7 +423,8 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     addSymbolToWatchlist(sug) {
-      const { watchlists, providerId } = get();
+      const { watchlists } = get();
+      const { providerId } = activeChart().getState();
       const list = watchlists.lists.find((l) => l.id === watchlists.activeListId);
       if (!list) return;
       const exists = list.sections.some((sec) =>
@@ -1381,7 +466,8 @@ export const useStore = create<AppState>()((set, get) => {
   };
 });
 
-/** Convenience selector used by several components. */
-export function useActiveBarCount(): number {
-  return useStore((s) => s.candles.length);
+/** The chart the panels outside the chart are bound to, for imperative callers. */
+export function getActiveChart(): ChartStore {
+  const s = useStore.getState();
+  return s.charts[s.activeChartId];
 }

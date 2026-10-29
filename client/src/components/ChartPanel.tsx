@@ -26,12 +26,14 @@ import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
 import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { getProvider } from '../lib/providers';
-import { selectDataCandles, useStore } from '../state/store';
+import { useStore } from '../state/store';
+import { selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { useMediaQuery } from '../lib/useMediaQuery';
+import { useChart, useChartStore } from '../state/chartContext';
 
 type IndEntry = {
   series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
@@ -59,19 +61,20 @@ function mapIndicatorPoint(cs: ComputedSeries, point: { time: number; value: num
 }
 
 export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => void; onAddAlert: (level: number) => void }) {
-  const candles = useStore((s) => s.candles);
-  const dataKey = useStore((s) => s.dataKey);
-  const dataLabel = useStore((s) => s.dataLabel);
-  const indicators = useStore((s) => s.indicators);
-  const btResult = useStore((s) => s.btResult);
-  const showTrades = useStore((s) => s.showTrades);
-  const setShowTrades = useStore((s) => s.setShowTrades);
-  const loadState = useStore((s) => s.loadState);
-  const pineRuns = useStore((s) => s.pineRuns);
-  const providerId = useStore((s) => s.providerId);
-  const setProvider = useStore((s) => s.setProvider);
+  const chartStore = useChartStore();
+  const candles = useChart((s) => s.candles);
+  const dataKey = useChart((s) => s.dataKey);
+  const dataLabel = useChart((s) => s.dataLabel);
+  const indicators = useChart((s) => s.indicators);
+  const btResult = useChart((s) => s.btResult);
+  const showTrades = useChart((s) => s.showTrades);
+  const setShowTrades = useChart((s) => s.setShowTrades);
+  const loadState = useChart((s) => s.loadState);
+  const pineRuns = useChart((s) => s.pineRuns);
+  const providerId = useChart((s) => s.providerId);
+  const setProvider = useChart((s) => s.setProvider);
   const timeZone = useStore((s) => s.timeZone);
-  const replayPhase = useStore((s) => s.replay?.phase ?? null);
+  const replayPhase = useChart((s) => s.replay?.phase ?? null);
   /** During replay: the last visible bar's time, the cut-off for trade markers and Pine output. */
   const replayCutoff = replayPhase === 'active' ? (candles[candles.length - 1]?.time ?? null) : null;
 
@@ -197,7 +200,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
 
     let subIdx = 0;
     for (const spec of visible) {
-      const computed = computeIndicator(spec, useStore.getState().candles);
+      const computed = computeIndicator(spec, chartStore.getState().candles);
       if (computed.length === 0) continue;
       let paneIndex = 0;
       if (computed[0].pane === 'sub') {
@@ -335,7 +338,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
     if (!chart || replayPhase !== 'picking') return;
     const onClick = (param: MouseEventParams<Time>) => {
       if (param.time == null) return;
-      useStore.getState().startReplayAt(param.time as number);
+      chartStore.getState().startReplayAt(param.time as number);
     };
     chart.subscribeClick(onClick);
     return () => chart.unsubscribeClick(onClick);
@@ -360,7 +363,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
       const data = param.seriesData.get(candleSeries) as
         | { open: number; high: number; low: number; close: number }
         | undefined;
-      const state = useStore.getState();
+      const state = chartStore.getState();
       const last = state.candles[state.candles.length - 1];
       if (!data || !param.time) {
         if (last) updateLegend(last);
@@ -383,7 +386,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
       localization: { timeFormatter: (t: Time) => fmtTime(t as number, { timeZone }) },
       timeScale: { tickMarkFormatter: (t: Time, type: number) => fmtTick(t as number, type, timeZone) },
     });
-    const last = useStore.getState().candles.at(-1);
+    const last = chartStore.getState().candles.at(-1);
     if (last) updateLegend(last);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, timeZone]);
@@ -494,7 +497,7 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
           className="ghost icon"
           title="Export candles as CSV"
           disabled={candles.length === 0}
-          onClick={() => downloadFile(`vost_${sanitizeFileName(dataLabel || 'candles')}.csv`, candlesToCsv(selectDataCandles(useStore.getState()), { isoDates: false }))}
+          onClick={() => downloadFile(`vost_${sanitizeFileName(dataLabel || 'candles')}.csv`, candlesToCsv(selectDataCandles(chartStore.getState()), { isoDates: false }))}
         >
           ⬇
         </button>
@@ -526,14 +529,14 @@ export function ChartPanel({ onImportCsv, onAddAlert }: { onImportCsv: () => voi
                 {provider.offline ? 'This provider generates deterministic synthetic candles locally.' : provider.description}
               </p>
               <div className="empty-actions">
-                <button className="primary" onClick={() => void useStore.getState().loadData()}>
+                <button className="primary" onClick={() => void chartStore.getState().loadData()}>
                   Load {provider.name} data
                 </button>
                 <button onClick={onImportCsv}>Import CSV</button>
                 <button
                   onClick={() => {
                     if (providerId !== 'demo') setProvider('demo');
-                    else void useStore.getState().loadData();
+                    else void chartStore.getState().loadData();
                   }}
                 >
                   Try demo data

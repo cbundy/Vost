@@ -27,7 +27,8 @@ Useful scripts:
 | Path | Contents |
 |---|---|
 | `client/src/components/` | React UI (chart panel, top bar, dock, CSV modal, …); every pane and who owns its data: [UI audit](docs/spikes/ui-audit/README.md) |
-| `client/src/state/store.ts` | zustand store — owns data, indicators, datasets, backtest lifecycle |
+| `client/src/state/store.ts` | app zustand store — prefs, layout, datasets, watchlists, toasts; holds the chart stores |
+| `client/src/state/chart.ts` | chart store (`createChartStore`) — one chart's data, indicators, replay, backtest, live stream |
 | `client/src/lib/providers/` | Provider registry (built from the catalog), `/api` client, demo |
 | `client/src/lib/csv.ts` | The CSV dialect-detection engine |
 | `client/src/lib/indicators.ts` | Indicator math (pure functions, easy to test) |
@@ -123,7 +124,7 @@ Then append it to the `strategies` array. Rules:
 
 - `npm test` must pass; add tests for new pure logic (indicators, CSV parsing, engine behavior, metrics).
 - TypeScript strict mode; no `any` unless there's a good reason (worker boundaries).
-- Keep components small; state lives in `state/store.ts`, not scattered across components.
+- Keep components small; state lives in `state/store.ts` (app-wide) and `state/chart.ts` (per chart; read it with `useChart`), not scattered across components.
 - Prettier-ish formatting: 2-space indent, single quotes, ~120 col width. Match the surrounding code.
 - Comments explain *why*, not *what*.
 

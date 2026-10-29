@@ -3,22 +3,24 @@ import { METRIC_LABELS, paramValues, type MetricKey, type OptimizeRow } from '..
 import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtPct, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
-import { selectBars, useStore } from '../state/store';
+import { useStore } from '../state/store';
+import { selectBars } from '../state/chart';
+import { useChart } from '../state/chartContext';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
 
 export function OptimizerTab() {
-  const btConfig = useStore((s) => s.btConfig);
-  const optConfig = useStore((s) => s.optConfig);
-  const optRunning = useStore((s) => s.optRunning);
-  const optProgress = useStore((s) => s.optProgress);
-  const optResult = useStore((s) => s.optResult);
-  const candles = useStore(selectBars);
-  const btRange = useStore((s) => s.btRange);
+  const btConfig = useChart((s) => s.btConfig);
+  const optConfig = useChart((s) => s.optConfig);
+  const optRunning = useChart((s) => s.optRunning);
+  const optProgress = useChart((s) => s.optProgress);
+  const optResult = useChart((s) => s.optResult);
+  const candles = useChart(selectBars);
+  const btRange = useChart((s) => s.btRange);
   const timeZone = useStore((s) => s.timeZone);
-  const setOptConfig = useStore((s) => s.setOptConfig);
-  const runOptimizer = useStore((s) => s.runOptimizer);
-  const applyOptimizeRow = useStore((s) => s.applyOptimizeRow);
+  const setOptConfig = useChart((s) => s.setOptConfig);
+  const runOptimizer = useChart((s) => s.runOptimizer);
+  const applyOptimizeRow = useChart((s) => s.applyOptimizeRow);
 
   const range = describeTimeRange(candles, btRange);
   const rangeSet = btRange.from != null || btRange.to != null;
@@ -31,13 +33,13 @@ export function OptimizerTab() {
         : `Range: ${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars · ${fmtTime(range.slice[0].time, { timeZone })} → ${fmtTime(range.slice[range.slice.length - 1].time, { timeZone })} (set in Backtest)`;
 
   const strategy = getStrategy(btConfig.strategyId);
-  const pineInputs = useStore((s) => s.pineInputs);
+  const pineInputs = useChart((s) => s.pineInputs);
   const numericParams = strategy.pine
     ? pineInputs
         .filter((i) => i.type === 'int' || i.type === 'float')
         .map((i) => ({ key: i.name, label: i.name }))
     : strategy.params.filter((p) => p.type !== 'select');
-  const refreshPineInputs = useStore((s) => s.refreshPineInputs);
+  const refreshPineInputs = useChart((s) => s.refreshPineInputs);
   useEffect(() => {
     if (strategy.pine && pineInputs.length === 0) void refreshPineInputs();
   }, [strategy.pine, pineInputs.length, refreshPineInputs, candles.length > 0]);

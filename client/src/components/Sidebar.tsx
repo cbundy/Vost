@@ -4,9 +4,11 @@ import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
 import { SymbolCard } from './SymbolCard';
 import { Watchlist } from './Watchlist';
-import { selectBars, useStore } from '../state/store';
+import { useStore } from '../state/store';
+import { selectBars } from '../state/chart';
 import { SIDE_SECTIONS } from './SideRail';
 import { useDialogKeys } from '../lib/useDialogKeys';
+import { useChart } from '../state/chartContext';
 
 export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; drawer?: { onClose: () => void } }) {
   const asideRef = useRef<HTMLElement>(null);
@@ -20,20 +22,20 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
   }, [isDrawer]);
   useDialogKeys(asideRef, isDrawer, onClose);
 
-  const symbol = useStore((s) => s.symbol);
-  const candles = useStore(selectBars);
+  const symbol = useChart((s) => s.symbol);
+  const candles = useChart(selectBars);
   const timeZone = useStore((s) => s.timeZone);
-  const dataLabel = useStore((s) => s.dataLabel);
+  const dataLabel = useChart((s) => s.dataLabel);
   const datasets = useStore((s) => s.datasets);
-  const activeDatasetId = useStore((s) => s.activeDatasetId);
-  const indicators = useStore((s) => s.indicators);
-  const saveCurrentDataset = useStore((s) => s.saveCurrentDataset);
-  const activateDataset = useStore((s) => s.activateDataset);
-  const removeDataset = useStore((s) => s.removeDataset);
-  const addIndicator = useStore((s) => s.addIndicator);
+  const activeDatasetId = useChart((s) => s.activeDatasetId);
+  const indicators = useChart((s) => s.indicators);
+  const saveCurrentDataset = useChart((s) => s.saveCurrentDataset);
+  const activateDataset = useChart((s) => s.activateDataset);
+  const removeDataset = useChart((s) => s.removeDataset);
+  const addIndicator = useChart((s) => s.addIndicator);
   const openPineEditor = useStore((s) => s.openPineEditor);
-  const removeIndicator = useStore((s) => s.removeIndicator);
-  const updateIndicator = useStore((s) => s.updateIndicator);
+  const removeIndicator = useChart((s) => s.removeIndicator);
+  const updateIndicator = useChart((s) => s.updateIndicator);
   const section = useStore((s) => s.sidePanel);
   const setSidePanel = useStore((s) => s.setSidePanel);
 

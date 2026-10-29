@@ -14,7 +14,7 @@ import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import { buildPineChart, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
 import { runFitsVisible } from '../lib/replay';
-import type { PineRunState } from '../state/store';
+import type { PineRunState } from '../state/chart';
 
 type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
 
