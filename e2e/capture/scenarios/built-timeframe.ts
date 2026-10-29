@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const builtTimeframe: Scenario = {
   name: 'built-timeframe',
-  description: 'Coinbase on the fake upstream: the timeframe picker marks built options, and 4h loads a chart built from 1h',
+  description: 'Coinbase on the fake upstream: the timeframe picker marks built options, and 4h loads a chart built from 1h and streams live',
   viewports: ['desktop'],
   async run(ctx) {
     const { page } = ctx;
@@ -20,7 +20,7 @@ export const builtTimeframe: Scenario = {
       const expected = ['1m', '5m', '15m', '30m *', '1h', '4h *', '1d', '1w *', '1M *'];
       if (JSON.stringify(labels) !== JSON.stringify(expected)) throw new Error(`picker shows ${labels.join(', ')}, expected ${expected.join(', ')}`);
       const title = await timeframeSelect.locator('option', { hasText: '4h' }).getAttribute('title');
-      if (title !== 'Built from a lower timeframe') throw new Error(`built option title is ${title}`);
+      if (title !== 'Built from 1h') throw new Error(`built option title is ${title}`);
     });
     await ctx.step('pick 4h and keep it', async () => {
       await timeframeSelect.selectOption('4h');
@@ -30,6 +30,19 @@ export const builtTimeframe: Scenario = {
       if (value !== '4h') throw new Error(`timeframe snapped back to ${value}`);
     });
     await ctx.screenshot('chart');
+    await ctx.step('turn Live on: LIVE and the last 4h bar updates from the 1h stream', async () => {
+      const liveButton = page.locator('.topbar button.badge').first();
+      const ohlc = page.locator('.chart-legend .legend-ohlc');
+      const before = await ohlc.innerText();
+      await liveButton.click();
+      await liveButton.filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+      await page.waitForFunction(
+        (text) => (document.querySelector('.chart-legend .legend-ohlc') as HTMLElement | null)?.innerText !== text,
+        before,
+        { timeout: 20_000 },
+      );
+    });
+    await ctx.screenshot('live');
     await ctx.step('show the picker options', async () => {
       // A native dropdown does not render in a headless screenshot: draw its options as a list under the select.
       await timeframeSelect.evaluate((el) => {
