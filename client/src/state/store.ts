@@ -112,6 +112,8 @@ export interface ReplayState {
   cursor: number;
   playing: boolean;
   speed: number;
+  /** Set only on a picking state entered from an active replay: the cursor Cancel returns to. */
+  resumeCursor?: number;
 }
 
 /** The full loaded bars: the span behind a chart range, else the bars replay began on, else what the chart shows. */
@@ -273,6 +275,8 @@ export interface AppState {
   /** Replay: wait for a start bar, begin at a time, step, play, pause, change speed, leave. */
   startReplayPick(): void;
   cancelReplay(): void;
+  /** Replay: from an active replay, go back to choosing a start bar; Cancel there resumes the replay. */
+  reselectReplayStart(): void;
   startReplayAt(time: number): boolean;
   stepReplay(delta: number): void;
   playReplay(): void;
@@ -971,7 +975,27 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     cancelReplay() {
-      if (get().replay?.phase === 'picking') set({ replay: null });
+      const rp = get().replay;
+      if (rp?.phase !== 'picking') return;
+      if (rp.resumeCursor == null) {
+        set({ replay: null });
+        return;
+      }
+      const source = get().candles;
+      const cursor = stepPosition({ source, cursor: rp.resumeCursor }, 0);
+      set({ replay: { phase: 'active', source, cursor, playing: false, speed: rp.speed }, candles: replayVisible(source, cursor) });
+      schedulePineAll();
+    },
+
+    reselectReplayStart() {
+      const rp = get().replay;
+      if (rp?.phase !== 'active') return;
+      clearReplayTimer();
+      set({
+        replay: { phase: 'picking', source: [], cursor: 0, playing: false, speed: rp.speed, resumeCursor: rp.cursor },
+        candles: rp.source,
+      });
+      schedulePineAll();
     },
 
     startReplayAt(time) {
