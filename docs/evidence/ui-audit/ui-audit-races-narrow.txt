@@ -6,4 +6,4 @@ requests cancelled by the browser during the rapid switches (net::ERR_ABORTED): 
 history requests fired by the rapid switches: 16 for 14 selections
 providers coinbase>kraken>okx>bybit>binance (narrow goes through the More menu): select=n/a legend="Binance · BTCUSDT · 1h"
 live button after a timeframe change while live: "Live" (live was on before the change)
-live open streams after a timeframe change while live: 0 (was 1); a leak shows as 2+
+live open streams after a timeframe change while live: 1 (was 2); a leak shows as 2+

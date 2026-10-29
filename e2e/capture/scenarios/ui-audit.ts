@@ -528,10 +528,6 @@ export const uiAudit: Scenario = {
     await ctx.step('Pine pane: add, type an error, remove', async () => {
       await snap('before Pine');
       await act('pine add', async () => {
-        if (narrow) {
-          await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-          await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
-        }
         await showSideSection(page, 'Indicators', narrow);
         await page.locator('#add-indicator-select').selectOption('pine');
         // the add closes the narrow drawer and opens the Pine editor pane (a dialog on narrow)
@@ -546,10 +542,6 @@ export const uiAudit: Scenario = {
       });
       await scan('pine pane');
       await act('pine remove', async () => {
-        if (narrow) {
-          await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-          await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
-        }
         await showSideSection(page, 'Indicators', narrow);
         await page.getByTitle('Remove').last().click();
         if (narrow) {
@@ -643,9 +635,10 @@ export const uiAudit: Scenario = {
     });
     await ctx.step('drawer and More menu cycles with Esc', async () => {
       if (!narrow) return;
+      const railButton = page.getByRole('toolbar', { name: 'Side panel' }).getByRole('button', { name: 'Watchlist', exact: true });
       await snap('before drawer cycles');
       for (let i = 0; i < 5; i++) {
-        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+        await railButton.click();
         await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
         await page.keyboard.press('Escape');
         await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
@@ -654,12 +647,13 @@ export const uiAudit: Scenario = {
         await page.getByRole('dialog', { name: 'More' }).waitFor({ state: 'detached' });
       }
       await snap('after 5 drawer + More cycles');
-      await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+      await railButton.click();
       await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
       await ctx.screenshot('drawer');
       await scan('drawer');
       const d = (await page.getByRole('dialog', { name: 'Sidebar' }).boundingBox())!;
-      notes.stack.push(`drawer open: drawer centre -> ${await topAt(page, d.x + d.width / 2, d.y + 200)}; the top bar toggle (20,24) -> ${await topAt(page, 20, 24)}`);
+      const rb = (await railButton.boundingBox())!;
+      notes.stack.push(`drawer open: drawer centre -> ${await topAt(page, d.x + d.width / 2, d.y + 200)}; the rail Watchlist button -> ${await topAt(page, rb.x + rb.width / 2, rb.y + rb.height / 2)}`);
       await page.keyboard.press('Escape');
     });
     await ctx.step('dock collapse, tab and zone clock', async () => {
@@ -759,10 +753,6 @@ export const uiAudit: Scenario = {
         await page.getByTitle('Reload data').click();
         await settle(1500);
       });
-      if (narrow) {
-        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
-      }
       await showSideSection(page, 'Data and library', narrow);
       const dataSection = ((await text(page.locator('.sidebar-section').first())) || '').replace(/\s+/g, ' ').slice(0, 100);
       if (narrow) {

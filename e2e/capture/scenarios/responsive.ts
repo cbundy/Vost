@@ -118,24 +118,27 @@ export const responsive: Scenario = {
       await ctx.step(`resize ${w}x${h}`, () => page.setViewportSize({ width: w, height: h }));
       const l = await check(`${w}x${h}`);
       if (w <= 900) {
-        expect(!l.sidebarVisible && !l.hasSidebarSplitter && l.rail == null, `${w}x${h}: sidebar, rail or splitter shown in drawer mode`);
+        expect(!l.sidebarVisible && !l.hasSidebarSplitter, `${w}x${h}: sidebar or splitter shown in drawer mode`);
+        expect(l.rail != null && Math.abs(l.rail.right - l.innerWidth) <= 1 && l.rail.width >= 36 && l.rail.width <= 44, `${w}x${h}: icon rail is not about 40px wide at the right edge in drawer mode`);
+        expect(l.rail != null && l.rail.top >= l.topbarHeight - 1 && Math.abs(l.chartRight - l.rail.left) <= 4, `${w}x${h}: the chart does not end where the rail begins`);
       } else {
         expect(l.sidebarVisible && l.hasSidebarSplitter, `${w}x${h}: desktop sidebar or splitter missing`);
         expect(l.rail != null && Math.abs(l.rail.right - l.innerWidth) <= 1 && l.rail.width >= 36 && l.rail.width <= 44, `${w}x${h}: icon rail is not about 40px wide at the right edge`);
         expect(l.rail != null && l.panelLeft != null && l.panelLeft >= l.chartRight - 4 && l.panelLeft < l.rail.left, `${w}x${h}: the panel is not right of the chart and left of the rail`);
       }
+      expect((await page.getByRole('button', { name: 'Toggle sidebar' }).count()) === 0, `${w}x${h}: a Toggle sidebar button is present`);
       if (w > 1280) expect(!l.hasMore, `${w}x${h}: More button present on a wide screen`);
       else expect(l.hasMore, `${w}x${h}: More button missing`);
       if (w === 360 || w === 768 || w === 1024 || w === 1920 || w === 740) await ctx.screenshot(`${w}x${h}`);
     }
 
-    const toggle = page.getByRole('button', { name: 'Toggle sidebar' });
+    const toggle = page.getByRole('toolbar', { name: 'Side panel' }).getByRole('button', { name: 'Watchlist', exact: true });
     const drawer = page.getByRole('dialog', { name: 'Sidebar' });
     const focusInfo = () =>
       page.evaluate(() => {
         const a = document.activeElement;
         const d = document.querySelector('.sidebar.drawer');
-        return { label: a?.getAttribute('aria-label') ?? null, inDrawer: !!(d && a && d.contains(a)), isToggle: a?.getAttribute('aria-label') === 'Toggle sidebar' };
+        return { label: a?.getAttribute('aria-label') ?? null, inDrawer: !!(d && a && d.contains(a)), isToggle: a?.getAttribute('aria-label') === 'Watchlist' && !!a.closest('.side-rail') };
       });
 
     for (const [w, h] of [[360, 740], [768, 1024]] as const) {
@@ -143,12 +146,14 @@ export const responsive: Scenario = {
         await page.setViewportSize({ width: w, height: h });
         await page.waitForTimeout(250);
         expect((await drawer.count()) === 0, 'drawer present at load');
-        expect((await toggle.getAttribute('aria-expanded')) === 'false', 'toggle not collapsed at load');
-        expect((await toggle.getAttribute('aria-controls')) === 'sidebar', 'toggle has no aria-controls');
+        expect((await toggle.getAttribute('aria-expanded')) === 'false', 'rail button not collapsed at load');
+        expect((await toggle.getAttribute('aria-controls')) === 'sidebar', 'rail button has no aria-controls');
+        expect((await toggle.getAttribute('aria-haspopup')) === 'dialog', 'rail button has no aria-haspopup');
+        expect((await toggle.getAttribute('aria-pressed')) === 'false', 'rail button pressed while the drawer is closed');
         await toggle.click();
         await drawer.waitFor({ state: 'visible' });
         expect((await drawer.getAttribute('aria-modal')) === 'true', 'drawer is not aria-modal');
-        expect((await toggle.getAttribute('aria-expanded')) === 'true', 'toggle not expanded');
+        expect((await toggle.getAttribute('aria-expanded')) === 'true', 'rail button not expanded');
         expect((await focusInfo()).label === 'Close sidebar', 'focus did not move to the close button');
       });
       await ctx.screenshot(`drawer-${w}`);
@@ -170,7 +175,7 @@ export const responsive: Scenario = {
       await ctx.step(`Escape closes it at ${w}`, async () => {
         await page.keyboard.press('Escape');
         await drawer.waitFor({ state: 'detached' });
-        expect((await focusInfo()).isToggle, 'focus is not back on the toggle');
+        expect((await focusInfo()).isToggle, 'focus is not back on the rail button');
         await page.keyboard.press('Escape');
         expect((await drawer.count()) === 0, 'Escape on a closed drawer did something');
       });
@@ -179,14 +184,14 @@ export const responsive: Scenario = {
         await drawer.waitFor({ state: 'visible' });
         await page.mouse.click(4, h - 4);
         await drawer.waitFor({ state: 'detached' });
-        expect((await focusInfo()).isToggle, 'focus is not back on the toggle after the backdrop');
+        expect((await focusInfo()).isToggle, 'focus is not back on the rail button after the backdrop');
       });
       await ctx.step(`close button closes it at ${w}`, async () => {
         await toggle.click();
         await drawer.waitFor({ state: 'visible' });
         await page.getByRole('button', { name: 'Close sidebar' }).click();
         await drawer.waitFor({ state: 'detached' });
-        expect((await focusInfo()).isToggle, 'focus is not back on the toggle after the close button');
+        expect((await focusInfo()).isToggle, 'focus is not back on the rail button after the close button');
       });
     }
 
@@ -206,6 +211,17 @@ export const responsive: Scenario = {
       await ctx.screenshot('drawer-indicators');
       await drawer.getByRole('button', { name: 'Watchlist', exact: true }).click();
       await ctx.screenshot('drawer');
+      await page.keyboard.press('Escape');
+      await drawer.waitFor({ state: 'detached' });
+    });
+
+    await ctx.step('the Indicators rail button opens the drawer on Indicators', async () => {
+      await page.setViewportSize({ width: 360, height: 740 });
+      await page.getByRole('toolbar', { name: 'Side panel' }).getByRole('button', { name: 'Indicators', exact: true }).click();
+      await drawer.waitFor({ state: 'visible' });
+      expect((await drawer.getByRole('button', { name: 'Indicators', exact: true }).getAttribute('aria-pressed')) === 'true', 'Indicators not pressed in the drawer');
+      await drawer.locator('#add-indicator-select').waitFor({ state: 'visible' });
+      await drawer.getByRole('button', { name: 'Watchlist', exact: true }).click();
       await page.keyboard.press('Escape');
       await drawer.waitFor({ state: 'detached' });
     });
@@ -315,7 +331,7 @@ export const responsive: Scenario = {
     await ctx.step('widening past 900 closes the drawer', async () => {
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.waitForTimeout(250);
-      await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+      await page.getByRole('toolbar', { name: 'Side panel' }).getByRole('button', { name: 'Data and library', exact: true }).click();
       await drawer.waitFor({ state: 'visible' });
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.waitForTimeout(300);
@@ -330,7 +346,7 @@ export const responsive: Scenario = {
       await page.waitForTimeout(250);
       const rail = page.getByRole('toolbar', { name: 'Side panel' });
       const pressed = async (name: string) => (await rail.getByRole('button', { name, exact: true }).getAttribute('aria-pressed')) === 'true';
-      // the drawer steps above left the stored section on Data and library: the rail shows the same stored section
+      // the drawer opened from the Data and library rail button left the stored section on it: the rail shows the same stored section
       expect(await pressed('Data and library'), 'the rail does not follow the section chosen in the drawer');
       await rail.getByRole('button', { name: 'Watchlist', exact: true }).click();
       expect(await pressed('Watchlist'), 'Watchlist did not become pressed');

@@ -916,7 +916,7 @@ button.icon {
   margin-top: 16px;
 }
 
-/* The icon rail at the right edge (desktop only; the drawer carries the same buttons in its head). */
+/* The icon rail at the right edge, at every width. Above 900px it switches the panel's section; at 900px and below it opens the drawer (which covers it and carries the same buttons in its head). */
 .side-rail {
   display: flex;
   flex-direction: column;

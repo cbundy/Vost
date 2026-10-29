@@ -1,28 +1,85 @@
-start: no overflow
-provider binance: no overflow
-provider coinbase: no overflow
-provider kraken: no overflow
-provider bybit: no overflow
-provider okx: no overflow
-provider yahoo: no overflow
-provider stooq: no overflow
-csv modal: no overflow
-backtest tab: no overflow
-results tab: no overflow
+start: 
+  - div.brand scrollWidth=62 clientWidth=54 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,235.95"
+  - span.wl-change.pos scrollWidth=44 clientWidth=42 overflow-x=visible "+149.68"
+provider binance: 
+  - div.brand scrollWidth=62 clientWidth=41 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,235.95"
+  - span.wl-change.pos scrollWidth=44 clientWidth=42 overflow-x=visible "+149.68"
+provider coinbase: 
+  - div.brand scrollWidth=62 clientWidth=53 overflow-x=visible "Vost"
+provider kraken: 
+  - div.brand scrollWidth=62 clientWidth=42 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+provider bybit: 
+  - div.brand scrollWidth=62 clientWidth=41 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+provider okx: 
+  - div.brand scrollWidth=62 clientWidth=41 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
+provider yahoo: 
+  - div.brand scrollWidth=62 clientWidth=53 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
+provider stooq: 
+  - div.brand scrollWidth=62 clientWidth=55 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
+csv modal: 
+  - div.brand scrollWidth=62 clientWidth=41 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
+backtest tab: 
+  - div.brand scrollWidth=62 clientWidth=45 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
+results tab: 
+  - div.brand scrollWidth=62 clientWidth=45 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
 optimizer tab: 
+  - div.brand scrollWidth=62 clientWidth=45 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "58,004.77"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-228.27"
+  - span.wl-change.neg scrollWidth=44 clientWidth=42 overflow-x=visible "-146.67"
   - div scrollWidth=1767 clientWidth=1408 overflow-x=visible "Grid-search strategy parameters in your "
   - div.mt-3 scrollWidth=1767 clientWidth=1408 overflow-x=visible "Top results · Sharpe176 combos#fastslowd"
   - div scrollWidth=1767 clientWidth=1408 overflow-x=visible "#fastslowdirectionSharpeReturnMax DDTrad"
   - div scrollWidth=916 clientWidth=557 overflow-x=visible "Rows: fast · Columns: slow · colour = Sh"
   - div.heatmap scrollWidth=916 clientWidth=557 overflow-x=visible "151719212325272931333537394143455-2.29-1"
-pine tab: no overflow
-status popover: no overflow
-zone clock popover: no overflow
+pine pane: 
+  - div.brand scrollWidth=62 clientWidth=39 overflow-x=visible "Vost"
+  - div scrollWidth=1767 clientWidth=1408 overflow-x=visible "Grid-search strategy parameters in your "
+  - div.mt-3 scrollWidth=1767 clientWidth=1408 overflow-x=visible "Top results · Sharpe176 combos#fastslowd"
+  - div scrollWidth=1767 clientWidth=1408 overflow-x=visible "#fastslowdirectionSharpeReturnMax DDTrad"
+  - div scrollWidth=916 clientWidth=557 overflow-x=visible "Rows: fast · Columns: slow · colour = Sh"
+  - div.heatmap scrollWidth=916 clientWidth=557 overflow-x=visible "151719212325272931333537394143455-2.29-1"
+status popover: 
+  - div.brand scrollWidth=62 clientWidth=42 overflow-x=visible "Vost"
+zone clock popover: 
+  - div.brand scrollWidth=62 clientWidth=42 overflow-x=visible "Vost"
 symbol list: 
+  - div.brand scrollWidth=62 clientWidth=42 overflow-x=visible "Vost"
   - div.symbol-search scrollWidth=460 clientWidth=150 overflow-x=visible "USDTBNBUSDTBNB / USDTBinancecrypto+BTCUS"
-dock collapsed: no overflow
-settled app: no overflow
-dock tab Backtest: no overflow
-dock tab Pine: no overflow
-dock tab Optimizer: no overflow
-dock tab Results: no overflow
+dock collapsed: 
+  - div.brand scrollWidth=62 clientWidth=42 overflow-x=visible "Vost"
+settled app: 
+  - div.brand scrollWidth=62 clientWidth=54 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "57,860.77"
+dock tab Backtest: 
+  - div.brand scrollWidth=62 clientWidth=54 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "57,860.77"
+dock tab Optimizer: 
+  - div.brand scrollWidth=62 clientWidth=54 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "57,860.77"
+dock tab Results: 
+  - div.brand scrollWidth=62 clientWidth=54 overflow-x=visible "Vost"
+  - span.wl-quote scrollWidth=57 clientWidth=54 overflow-x=visible "57,860.77"

@@ -11,10 +11,6 @@ export const pinePane: Scenario = {
     const pane = page.getByRole(narrow ? 'dialog' : 'region', { name: 'Pine editor' });
     const toggle = page.getByRole('button', { name: 'Pine Editor', exact: true });
     const openSidebar = async () => {
-      if (narrow) {
-        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
-      }
       await showSideSection(page, 'Indicators', narrow);
     };
 

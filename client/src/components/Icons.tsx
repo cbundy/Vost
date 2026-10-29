@@ -20,13 +20,6 @@ function Svg({ size = 14, children }: { size?: number; children: ReactNode }) {
   );
 }
 
-export const SidebarIcon = () => (
-  <Svg size={15}>
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <line x1="15" y1="4" x2="15" y2="20" />
-  </Svg>
-);
-
 export const ListIcon = () => (
   <Svg size={16}>
     <line x1="8" y1="6" x2="21" y2="6" />

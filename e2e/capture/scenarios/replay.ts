@@ -15,10 +15,6 @@ export const replay: Scenario = {
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.step('add an oscillator Pine indicator in its own pane', async () => {
-      if (narrow) {
-        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
-      }
       await showSideSection(page, 'Indicators', narrow);
       await page.locator('#add-indicator-select').selectOption('pine');
       await page.locator('.pine-pane .pine-editor .cm-content').waitFor();
