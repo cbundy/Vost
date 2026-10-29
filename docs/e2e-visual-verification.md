@@ -23,6 +23,7 @@ npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.we
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-pane            # docs/evidence/pine-pane/pine-pane-{editor,error,reopened,resized,empty}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-convert        # docs/evidence/pine-convert/pine-convert-{legacy,converted}-{desktop,narrow}.png
+npm run -s e2e:capture -- pine-libraries    # docs/evidence/pine-libraries/pine-libraries-{fetched,missing,dialog,pasted,removed}-{desktop,narrow}.png (a script importing an open-source library from the fake TradingView runs, a closed-source one shows the error and Paste library, pasting it makes the script run, Remove brings the error back)
 npm run -s e2e:capture -- compare             # docs/evidence/compare/compare-{empty,two,four,reference,reloaded}-{desktop,narrow}.png + compare-requests-{desktop,narrow}.txt (the /compare page; proves it requests no market data)
 npm run -s e2e:capture -- replay              # docs/evidence/replay/replay-{before,picking,start,stepped,played,repick,restarted,exited}-{desktop,narrow}.png + a desktop webm
 npm run -s e2e:capture -- pane-resize         # docs/evidence/pane-resize/pane-resize-{seeded,dragged,sidebar-focus,sidebar-max,dock-max,dock-collapsed,reset,small-window,small-window-max}-desktop.png + pane-resize-checks-desktop.txt + pane-resize.webm

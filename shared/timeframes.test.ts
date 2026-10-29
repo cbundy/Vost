@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROVIDER_CATALOG, catalogEntry } from './providerCatalog.ts';
-import { TIMEFRAME_SECONDS, type Candle, type Timeframe } from './market.ts';
+import { TIMEFRAME_SECONDS, canonicalInterval, intervalSeconds, parseInterval, type Candle, type Timeframe } from './market.ts';
 import { UTC_CALENDAR, baseTimeframe, parseSource, sourceBase, bucketStart, buildBars, builtTimeframes, type Calendar } from './timeframes.ts';
 
 const ts = (iso: string): number => Date.parse(iso) / 1000;
@@ -250,5 +250,100 @@ describe('parseSource', () => {
     expect(parseSource('native')).toBe('native');
     expect(parseSource('built')).toBe('built');
     expect(parseSource('bogus')).toBeNull();
+  });
+});
+
+describe('intervals', () => {
+  it.each(['1m', '7h', '36h', '365d', '52w', '12M', '1440m', '168h'])('parses %s', (raw) => {
+    expect(parseInterval(raw)).not.toBeNull();
+  });
+  it.each(['0m', '01h', '2x', 'h', '1.5h', '1441m', '169h', '366d', '53w', '13M', '', '-1h', '2H'])('rejects %s', (raw) => {
+    expect(parseInterval(raw)).toBeNull();
+    expect(canonicalInterval(raw)).toBeNull();
+  });
+  it.each([['120m', '2h'], ['1440m', '1d'], ['48h', '2d'], ['168h', '7d'], ['7d', '7d'], ['90m', '90m'], ['36h', '36h'], ['12M', '12M']])('folds %s to %s', (raw, out) => {
+    expect(canonicalInterval(raw)).toBe(out);
+  });
+  it('has interval seconds equal to TIMEFRAME_SECONDS for the nine', () => {
+    for (const tf of TIMEFRAME_LIST) {
+      expect(canonicalInterval(tf)).toBe(tf);
+      expect(intervalSeconds(tf)).toBe(TIMEFRAME_SECONDS[tf]);
+    }
+  });
+
+  it('buckets UTC m/h intervals', () => {
+    expect(bucketStart(ts('2024-03-05T03:59:59Z'), '2h')).toBe(ts('2024-03-05T02:00:00Z'));
+    // 7h restarts at midnight: 00, 07, 14, 21 (3h long)
+    expect(bucketStart(ts('2024-03-05T06:59:00Z'), '7h')).toBe(ts('2024-03-05T00:00:00Z'));
+    expect(bucketStart(ts('2024-03-05T07:00:00Z'), '7h')).toBe(ts('2024-03-05T07:00:00Z'));
+    expect(bucketStart(ts('2024-03-05T23:59:00Z'), '7h')).toBe(ts('2024-03-05T21:00:00Z'));
+    expect(bucketStart(ts('2024-03-06T00:00:00Z'), '7h')).toBe(ts('2024-03-06T00:00:00Z'));
+    // 36h counts from the epoch
+    expect(bucketStart(ts('1970-01-02T11:59:00Z'), '36h')).toBe(0);
+    expect(bucketStart(ts('1970-01-02T12:00:00Z'), '36h')).toBe(ts('1970-01-02T12:00:00Z'));
+  });
+
+  it('buckets UTC d/w/M intervals from fixed starting points', () => {
+    expect(bucketStart(ts('1970-01-02T10:00:00Z'), '2d')).toBe(0);
+    expect(bucketStart(ts('1970-01-03T10:00:00Z'), '2d')).toBe(ts('1970-01-03T00:00:00Z'));
+    expect(bucketStart(ts('1970-01-11T10:00:00Z'), '2w')).toBe(ts('1970-01-05T00:00:00Z'));
+    expect(bucketStart(ts('1970-01-19T00:00:00Z'), '2w')).toBe(ts('1970-01-19T00:00:00Z'));
+    expect(bucketStart(ts('2024-02-15T00:00:00Z'), '3M')).toBe(ts('2024-01-01T00:00:00Z'));
+    expect(bucketStart(ts('2024-04-01T00:00:00Z'), '3M')).toBe(ts('2024-04-01T00:00:00Z'));
+    expect(bucketStart(ts('2024-12-31T00:00:00Z'), '3M')).toBe(ts('2024-10-01T00:00:00Z'));
+    expect(bucketStart(ts('2024-09-30T00:00:00Z'), '6M')).toBe(ts('2024-07-01T00:00:00Z'));
+    expect(bucketStart(ts('2024-09-30T00:00:00Z'), '12M')).toBe(ts('2024-01-01T00:00:00Z'));
+  });
+
+  it('keeps the general rule equal to the old rule for the nine', () => {
+    const oldStart = (t: number, tf: Timeframe): number => {
+      const day = Math.floor(t / 86400);
+      if (tf === '1w') return (day - ((((day + 3) % 7) + 7) % 7)) * 86400;
+      if (tf === '1M') {
+        const d = new Date(t * 1000);
+        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
+      }
+      return Math.floor(t / TIMEFRAME_SECONDS[tf]) * TIMEFRAME_SECONDS[tf];
+    };
+    for (let i = 0; i < 4000; i++) {
+      const t = 1_000_000_000 + i * 1_234_567 + (i % 7) * 31;
+      for (const tf of TIMEFRAME_LIST) expect(bucketStart(t, tf), `${tf} ${t}`).toBe(oldStart(t, tf));
+    }
+  });
+
+  it('buckets on the session calendar across a DST change', () => {
+    const ny: Calendar = { kind: 'session', timeZone: 'America/New_York', openSeconds: 9.5 * 3600 };
+    // 2h from the 9:30 open: 9:30, 11:30, 13:30, 15:30 local
+    expect(bucketStart(ts('2024-03-08T17:00:00Z'), '2h', ny)).toBe(ts('2024-03-08T16:30:00Z')); // EST 12:00 -> 11:30
+    expect(bucketStart(ts('2024-03-11T17:00:00Z'), '2h', ny)).toBe(ts('2024-03-11T15:30:00Z')); // EDT 13:00 -> 11:30
+    expect(bucketStart(ts('2024-03-11T19:45:00Z'), '2h', ny)).toBe(ts('2024-03-11T19:30:00Z')); // EDT 15:45 -> 15:30
+    // a 3-month bucket and a 2-day bucket are stamped at the session open of their first day
+    expect(bucketStart(ts('2024-05-20T15:00:00Z'), '3M', ny)).toBe(ts('2024-04-01T13:30:00Z'));
+    expect(bucketStart(ts('2024-02-20T15:00:00Z'), '3M', ny)).toBe(ts('2024-01-01T14:30:00Z'));
+    expect(bucketStart(ts('1970-01-02T15:00:00Z'), '2d', ny)).toBe(ts('1970-01-01T14:30:00Z'));
+    // an h interval longer than a day uses the UTC rule
+    expect(bucketStart(ts('1970-01-02T11:59:00Z'), '36h', ny)).toBe(0);
+  });
+
+  it('chooses bases', () => {
+    expect(baseTimeframe(native('binance'), '2h')).toBe('1h');
+    expect(baseTimeframe(native('binance'), '8h')).toBe('4h');
+    expect(baseTimeframe(native('binance'), '7h')).toBe('1h');
+    expect(baseTimeframe(native('binance'), '2d')).toBe('1d');
+    expect(baseTimeframe(native('binance'), '2w')).toBe('1d');
+    expect(baseTimeframe(native('binance'), '3M')).toBe('1M');
+    expect(baseTimeframe(native('coinbase'), '3M')).toBe('1d');
+    expect(baseTimeframe(['1h', '1d'], '7m')).toBeNull();
+    expect(baseTimeframe(['1w'], '14d')).toBeNull();
+    expect(baseTimeframe(native('binance'), '1h')).toBeNull();
+    expect(baseTimeframe(native('binance'), '2x' as never)).toBeNull();
+    expect(sourceBase(native('binance'), '2h', 'built')).toBe('1h');
+  });
+
+  it('builds 7h bars across midnight', () => {
+    const hours = Array.from({ length: 48 }, (_, i) => bar(ts('2024-03-05T00:00:00Z') + i * 3600, i, i + 1, i - 1, i));
+    const out = buildBars(hours, '7h');
+    expect(out.map((b) => b.time)).toEqual([0, 7, 14, 21, 24, 31, 38, 45].map((h) => ts('2024-03-05T00:00:00Z') + h * 3600));
+    expect(out[3].volume).toBe(3);
   });
 });

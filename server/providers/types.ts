@@ -1,4 +1,4 @@
-import type { Candle, SymbolSuggestion, Timeframe } from '../../shared/market.ts';
+import type { Candle, Interval, SymbolSuggestion, Timeframe } from '../../shared/market.ts';
 import type { Calendar } from '../../shared/timeframes.ts';
 import type { SymbolCache } from './symbolCache.ts';
 import type { UpstreamContext } from './upstream.ts';
@@ -23,6 +23,9 @@ export interface HistoryRequest {
   /** Newest candle time wanted (unix seconds, inclusive). Without it: now. With `bars` only, `bars` candles end here. */
   to?: number;
 }
+
+/** A history request for a built interval: any interval, not only a native timeframe. */
+export type BuiltHistoryRequest = Omit<HistoryRequest, 'timeframe'> & { timeframe: Interval };
 
 /** One REST adapter: the server-side half of a provider in the catalog. */
 export interface ProviderAdapter {

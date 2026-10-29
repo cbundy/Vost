@@ -11,15 +11,25 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 - `client/src/lib/pine/runtime.ts` exports `runPine(source, candles, inputs?)`. It feeds Vost candles (time in seconds) to PineTS as custom data and resolves to a typed result (`types.ts`).
 - Indicators return their declaration (title, overlay), inputs with defaults and plots. Each plot has one value per candle, `null` where the script gave na.
 - Strategies also return trades (closed and open) and the signed position at the close of each candle.
-- Compile and runtime errors resolve to `{ ok: false, error: { message, line?, column? } }`. `runPine` never throws.
+- Compile and runtime errors resolve to `{ ok: false, error: { message, line?, column?, library? } }`. `runPine` never throws.
 - The backtest worker handles a `pine` request asynchronously and replies with `pineResult`. The main thread never executes Pine.
 - `inputs` overrides input defaults by input title.
+- `runPine(source, candles, inputs, opts?)` takes an optional `opts.resolver` that finds the source of an imported library. The default asks the Vost server (see Libraries below); with no page to ask (Node), it resolves nothing and says there is no Vost server.
 
 ## Coverage
 
-Vost runs the Pine v6 language (library imports excepted) and its `ta`, `math`, `str`, `array`, `matrix`, `map` and `color` libraries, strategies (orders, exits, commission, pyramiding) and the basic plots: `plot`, `hline`, `bgcolor`, `plotshape`. It does not yet show `fill`, `barcolor`, `plotcandle`, `plotbar`, `plotarrow` or the drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`), alerts or logs, and `request.security` to another timeframe or symbol returns the chart's own data. The script always sees ticker `VOST` and timeframe `D`.
+Vost runs the Pine v6 language and its `ta`, `math`, `str`, `array`, `matrix`, `map` and `color` libraries, strategies (orders, exits, commission, pyramiding) and the basic plots: `plot`, `hline`, `bgcolor`, `plotshape`. It does not yet show `fill`, `barcolor`, `plotcandle`, `plotbar`, `plotarrow` or the drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`), alerts or logs, and `request.security` to another timeframe or symbol returns the chart's own data. The script always sees ticker `VOST` and timeframe `D`.
 
 The full table, with a rerunnable probe, is in [spikes/pine-coverage/README.md](spikes/pine-coverage/README.md).
+
+## Libraries
+
+A script can `import user/name/version as x` a TradingView library. Where the code comes from:
+
+- The Vost server looks the library up on TradingView (its search at `www.tradingview.com` and its script service at `pine-facade.tradingview.com`), saves a copy in `pine-libraries.json` in `VOST_DATA_DIR`, and serves it to the browser at `/api/pine/libraries/<user>/<name>/<version>`. A published library version never changes, so a saved copy is kept for good and the script keeps running when TradingView cannot be reached. The browser never contacts TradingView.
+- Only open-source libraries can be fetched. These are TradingView's own web endpoints, not an official API, so they may change or stop working.
+- A library the server cannot fetch (closed source, not found, TradingView unreachable) makes the run fail with a message that names it, for example `Library "alice/MyLib/1" could not be loaded: TradingView has no open-source copy of it. Paste its source under Pine libraries.` The Pine pane then shows a Paste library button.
+- To paste one, open Libraries in the Pine pane head (or press Paste library under the error), give the path as `user/name/version` and paste the library source, which needs a `//@version=5` or `6` line and a `library(` declaration. Saving it keeps it on the server for every tab and every script, replaces a fetched copy of the same path, and re-runs every Pine indicator. Remove drops a stored library (an open-source one is fetched again the next time a script needs it).
 
 ## Editing
 

@@ -8,11 +8,11 @@
  * is dropped unless the data starts at its start, so every built bar except the newest (the forming bar, as with
  * native bars) covers its whole bucket.
  */
-import { MAX_BARS, TIMEFRAME_SECONDS, type Candle, type Timeframe } from '../../shared/market.ts';
+import { MAX_BARS, TIMEFRAME_SECONDS, type Candle, type Interval, type Timeframe } from '../../shared/market.ts';
 import { UTC_CALENDAR, baseTimeframe, bucketSecondsMax, buildBars, type Calendar } from '../../shared/timeframes.ts';
 import { NotFoundError } from './errors.ts';
 import { cropToSpan } from './range.ts';
-import type { HistoryRequest } from './types.ts';
+import type { BuiltHistoryRequest, HistoryRequest } from './types.ts';
 
 /** Most base bars one built request reads, however many bars it asks for. */
 export const MAX_BUILT_BASE_BARS = 100_000;
@@ -34,11 +34,11 @@ function merge(chunks: Candle[][]): Candle[] {
 }
 
 /** The provider's own wording for "nothing found", with the base timeframe it asked for renamed to the built one. */
-function renamed(err: NotFoundError, base: Timeframe, target: Timeframe): NotFoundError {
+function renamed(err: NotFoundError, base: Timeframe, target: Interval): NotFoundError {
   return new NotFoundError(err.message.replace(new RegExp(`\\b${base}\\b`, 'g'), target));
 }
 
-export async function builtHistory(deps: BuiltDeps, native: readonly Timeframe[], req: HistoryRequest): Promise<Candle[]> {
+export async function builtHistory(deps: BuiltDeps, native: readonly Timeframe[], req: BuiltHistoryRequest): Promise<Candle[]> {
   const target = req.timeframe;
   const base = baseTimeframe(native, target);
   if (!base) throw new Error(`${target} cannot be built from ${native.join(', ')}`);
@@ -50,7 +50,7 @@ export async function builtHistory(deps: BuiltDeps, native: readonly Timeframe[]
   };
 
   const chunks: Candle[][] = [];
-  const fetchChunk = async (chunkReq: Omit<HistoryRequest, 'timeframe'>, first: boolean): Promise<Candle[]> => {
+  const fetchChunk = async (chunkReq: Omit<BuiltHistoryRequest, 'timeframe'>, first: boolean): Promise<Candle[]> => {
     try {
       return await deps.fetchBase({ ...chunkReq, timeframe: base }, onCalendar);
     } catch (err) {

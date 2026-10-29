@@ -276,6 +276,58 @@ describe('relay: built timeframes', () => {
   });
 });
 
+describe('relay: custom intervals', () => {
+  const H = 3600;
+  const T0 = Date.UTC(2024, 0, 1) / 1000; // a multiple of 2h
+  const flush = async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
+  const makeIv = () => createRelay({ WebSocket: FakeWebSocket, timers, log: (l) => lines.push(l), now: () => (T0 + 3600) * 1000, history: async () => [] });
+
+  it('streams a Binance 2h bar on the 1h socket and closes it once when the next bucket begins', async () => {
+    const relay = makeIv();
+    const a = sub();
+    relay.subscribe('binance', 'BTCUSDT', '2h', a.s);
+    expect(FakeWS.instances).toHaveLength(1);
+    expect(FakeWS.last.url).toContain('1h');
+    FakeWS.last.open();
+    await flush();
+    FakeWS.last.message(frame((T0 + H) * 1000));
+    expect(a.got.kline.at(-1)).toMatchObject({ candle: { time: T0 }, closed: false });
+    FakeWS.last.message(frame((T0 + 2 * H) * 1000));
+    expect(a.got.kline.filter((k) => k.closed)).toHaveLength(1);
+    FakeWS.last.message(frame((T0 + 3 * H) * 1000));
+    expect(a.got.kline.filter((k) => k.closed)).toHaveLength(1);
+  });
+
+  it('shares the entry between two 2h subscribers', async () => {
+    const relay = makeIv();
+    relay.subscribe('binance', 'BTCUSDT', '2h', sub().s);
+    FakeWS.last.open();
+    await flush();
+    FakeWS.last.message(frame((T0 + H) * 1000));
+    const late = sub();
+    relay.subscribe('binance', 'BTCUSDT', '2h', late.s);
+    expect(FakeWS.instances).toHaveLength(1);
+    expect(late.got.kline).toHaveLength(1);
+  });
+
+  it('refuses a non-canonical, a malformed and a non-nesting interval with no socket opened', () => {
+    const relay = makeIv();
+    expect(relay.subscribe('binance', 'BTCUSDT', '120m', sub().s)).toEqual({ error: 'Live data does not support 120m' });
+    expect(relay.subscribe('binance', 'BTCUSDT', '2x', sub().s)).toEqual({ error: 'Live data does not support 2x' });
+    const info = PROVIDER_CATALOG.find((p) => p.id === 'coinbase')!;
+    const saved = info.timeframes;
+    info.timeframes = ['1h', '1d']; // no 1m: 7m nests in nothing
+    try {
+      expect(relay.subscribe('coinbase', 'BTC-USD', '7m', sub().s)).toEqual({ error: 'Live data does not support 7m' });
+    } finally {
+      info.timeframes = saved;
+    }
+    expect(FakeWS.instances).toHaveLength(0);
+  });
+});
+
 describe('relay: built source', () => {
   const makeSrc = () => createRelay({ WebSocket: FakeWebSocket, timers, log: (l) => lines.push(l), history: async () => [] });
 

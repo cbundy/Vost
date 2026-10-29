@@ -14,6 +14,7 @@ import { layouts } from './layouts.ts';
 import { networkAudit } from './network-audit.ts';
 import { paneResize } from './pane-resize.ts';
 import { pineConvert } from './pine-convert.ts';
+import { pineLibraries } from './pine-libraries.ts';
 import { pinePane } from './pine-pane.ts';
 import { replay } from './replay.ts';
 import { responsive } from './responsive.ts';
@@ -22,7 +23,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, btRange, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, drawings, layouts, networkAudit, outage, paneResize, pineConvert, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, btRange, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, drawings, layouts, networkAudit, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();

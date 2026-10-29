@@ -177,3 +177,58 @@ describe('convertToV6 end to end', () => {
     expectParity(a.plots[5].values, b.plots[5].values, 100);
   });
 });
+
+describe('runPine library imports', () => {
+  const INNER = '//@version=6\nlibrary("Inner")\nexport double(float x) => x * 2\n';
+  const OUTER = '//@version=6\nlibrary("Outer")\nimport bob/Inner/1 as inner\nexport plusOne(float x) => inner.double(x) + 1\n';
+  const libs: Record<string, string> = { 'alice/Outer/1': OUTER, 'bob/Inner/1': INNER };
+  const resolver = (p: string) => libs[p] ?? null;
+  const script = '//@version=6\nindicator("uses lib")\nimport alice/Outer/1 as o\nplot(o.plusOne(close))\n';
+
+  it('runs a script through a library that imports another library', async () => {
+    const r = await runPine(script, candles, {}, { resolver });
+    if (!r.ok) throw new Error(r.error.message);
+    const plot = r.plots[0].values;
+    expect(plot.slice(0, 5)).toEqual(closes.slice(0, 5).map((c) => c * 2 + 1));
+  });
+
+  it('a missing library gives a plain error that names it', async () => {
+    const r = await runPine(script, candles, {}, { resolver: () => null });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.library).toBe('alice/Outer/1');
+    expect(r.error.message).toMatch(/^Library "alice\/Outer\/1" could not be loaded/);
+  });
+
+  it('a library that imports a missing library names the inner one', async () => {
+    const r = await runPine(script, candles, {}, { resolver: (p) => (p === 'alice/Outer/1' ? OUTER : null) });
+    if (r.ok) throw new Error('should fail');
+    expect(r.error.library).toBe('bob/Inner/1');
+  });
+
+  it('with no resolver and no location the message says there is no Vost server', async () => {
+    const r = await runPine(script, candles);
+    if (r.ok) throw new Error('should fail');
+    expect(r.error.library).toBe('alice/Outer/1');
+    expect(r.error.message).toContain('no Vost server');
+  });
+
+  it('a strategy that imports a library still returns trades, and inputs are still reported', async () => {
+    const src = [
+      '//@version=6',
+      'strategy("lib strat", overlay=true, initial_capital=10000)',
+      'import bob/Inner/1 as inner',
+      'len = input.int(10, "Len")',
+      'ma = ta.sma(inner.double(close) / 2, len)',
+      'if ta.crossover(close, ma)',
+      '    strategy.entry("L", strategy.long)',
+      'if ta.crossunder(close, ma)',
+      '    strategy.close("L")',
+    ].join('\n');
+    const r = await runPine(src, candles, { Len: 5 }, { resolver });
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.kind).toBe('strategy');
+    expect(r.trades.length).toBeGreaterThan(0);
+    expect(r.inputs.map((i) => i.name)).toEqual(['Len']);
+  });
+});
