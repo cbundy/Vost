@@ -32,6 +32,7 @@ export const alerts: Scenario = {
 
     await ctx.step('open Binance BTCUSDT and the empty panel', async () => {
       await page.addInitScript(() => {
+        localStorage.removeItem('vost.layout.v1');
         localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1m' }));
       });
       await page.goto('/');

@@ -16,7 +16,17 @@ import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import { sanitizeTimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
 import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
-import { createChartStore, defaultChartInitial, type ChartEnv, type ChartStore } from './chart';
+import {
+  DEFAULT_ARRANGEMENT_ID,
+  LAYOUT_KEY,
+  LAYOUT_VERSION,
+  evenSizes,
+  getArrangement,
+  parseLayout,
+  sanitizeSizes,
+  type LayoutSizes,
+} from '../lib/layouts';
+import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial, type ChartStore } from './chart';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
@@ -80,6 +90,22 @@ const defaultPrefs: Prefs = {
   showTrades: defaultChart.showTrades,
 };
 
+/** A chart's starting state from a saved record (`prefs.v1`, or one chart of `layout.v1`); bad fields fall back. */
+function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
+  // A chart left on a provider that is gone opens on the default market, not on a fallback with the old symbol.
+  const known = providers.some((x) => x.id === p.providerId);
+  return {
+    providerId: known ? (p.providerId as string) : defaultPrefs.providerId,
+    symbol: known ? (p.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
+    timeframe: known ? (typeof p.timeframe === 'string' && canonicalInterval(p.timeframe) === p.timeframe ? p.timeframe : defaultPrefs.timeframe) : defaultPrefs.timeframe,
+    bars: p.bars ?? defaultPrefs.bars,
+    indicators: Array.isArray(p.indicators) && p.indicators.length > 0 ? p.indicators : defaultPrefs.indicators,
+    btConfig: { ...defaultPrefs.btConfig, ...(p.btConfig ?? {}) },
+    showTrades: p.showTrades ?? true,
+    btRange: sanitizeTimeRange(p.btRange),
+  };
+}
+
 /** The id of the one chart the app opens with. */
 export const FIRST_CHART_ID = 'chart-1';
 
@@ -108,6 +134,10 @@ export interface AppState {
   /** The chart stores by id, and which one the panels outside the chart are bound to. */
   charts: Record<string, ChartStore>;
   activeChartId: string;
+  /** The layout: which arrangement (lib/layouts), the chart ids in cell order, and the grid's track sizes. */
+  arrangementId: string;
+  chartOrder: string[];
+  layoutSizes: LayoutSizes;
 
   /* saved local datasets */
   datasets: Dataset[];
@@ -144,6 +174,11 @@ export interface AppState {
   init(): void;
   /** Run any pending debounced saves (prefs, watchlists, datasets) now. */
   flushPersist(): void;
+  /** Shows this arrangement: new charts copy the active chart's market, dropped ones (from the end) are stopped and removed. */
+  setArrangement(id: string): void;
+  /** Makes a chart the one the top bar and panels act on. */
+  setActiveChart(id: string): void;
+  setLayoutSizes(sizes: LayoutSizes): void;
   /** Turns building higher timeframes from lower ones on or off; reloads every remote chart whose source changes. */
   setBuildTimeframes(v: boolean): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
@@ -206,6 +241,30 @@ export const useStore = create<AppState>()((set, get) => {
     } satisfies Prefs);
   }, 400);
 
+  const persistLayout = debounce(() => {
+    const s = get();
+    saveJson(LAYOUT_KEY, {
+      version: LAYOUT_VERSION,
+      arrangementId: s.arrangementId,
+      activeChartId: s.activeChartId,
+      charts: s.chartOrder.map((id) => {
+        const c = s.charts[id].getState();
+        return {
+          id,
+          providerId: c.providerId,
+          symbol: c.symbol,
+          timeframe: c.timeframe,
+          bars: c.bars,
+          indicators: c.indicators,
+          btConfig: c.btConfig,
+          showTrades: c.showTrades,
+          btRange: c.btRange,
+        };
+      }),
+      sizes: s.layoutSizes,
+    });
+  }, 400);
+
   const persistWatchlists = debounce(() => {
     wl.saveWatchlists(get().watchlists);
   }, 400);
@@ -238,7 +297,10 @@ export const useStore = create<AppState>()((set, get) => {
       set({ datasets: get().datasets.filter((d) => d.id !== id) });
       persistDatasets();
     },
-    onPrefsChange: () => persistPrefs(),
+    onPrefsChange: () => {
+      persistPrefs();
+      persistLayout();
+    },
   };
 
   return {
@@ -257,6 +319,9 @@ export const useStore = create<AppState>()((set, get) => {
     customTimeframes: [],
     charts: { [FIRST_CHART_ID]: createChartStore(FIRST_CHART_ID, defaultChart, chartEnv) },
     activeChartId: FIRST_CHART_ID,
+    arrangementId: DEFAULT_ARRANGEMENT_ID,
+    chartOrder: [FIRST_CHART_ID],
+    layoutSizes: evenSizes(getArrangement(DEFAULT_ARRANGEMENT_ID)!),
     datasets: [],
     toasts: [],
     messages: [],
@@ -295,6 +360,7 @@ export const useStore = create<AppState>()((set, get) => {
 
     flushPersist() {
       persistPrefs.flush();
+      persistLayout.flush();
       persistWatchlists.flush();
       persistDatasets.flush();
     },
@@ -304,26 +370,16 @@ export const useStore = create<AppState>()((set, get) => {
       for (const id of ['binance', 'coinbase', 'kraken', 'bybit', 'okx']) removeKey(`${id}.symbols.v1`);
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
       const datasets = loadJson<Dataset[]>(DATASETS_KEY, []);
-      // A chart left on a provider that is gone opens on the default market, not on a fallback with the old symbol.
-      const known = providers.some((p) => p.id === prefs.providerId);
-      const btConfig = { ...defaultPrefs.btConfig, ...(prefs.btConfig ?? {}) };
-      // The chart is built from the saved prefs: a fresh one replaces the placeholder the store opened with.
-      const old = get().charts[FIRST_CHART_ID];
-      old.getState().clearData();
-      const chart = createChartStore(
-        FIRST_CHART_ID,
-        {
-          providerId: known ? prefs.providerId : defaultPrefs.providerId,
-          symbol: known ? (prefs.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
-          timeframe: known ? (typeof prefs.timeframe === 'string' && canonicalInterval(prefs.timeframe) === prefs.timeframe ? prefs.timeframe : defaultPrefs.timeframe) : defaultPrefs.timeframe,
-          bars: prefs.bars ?? defaultPrefs.bars,
-          indicators: Array.isArray(prefs.indicators) && prefs.indicators.length > 0 ? prefs.indicators : defaultPrefs.indicators,
-          btConfig,
-          showTrades: prefs.showTrades ?? true,
-          btRange: sanitizeTimeRange(prefs.btRange),
-        },
-        chartEnv,
-      );
+      // The charts are built from the saved layout, else from the saved prefs as one chart: they replace the placeholder the store opened with.
+      for (const old of Object.values(get().charts)) old.getState().clearData();
+      const layout = parseLayout(loadJson<unknown>(LAYOUT_KEY, null));
+      const arrangement = layout?.arrangement ?? getArrangement(DEFAULT_ARRANGEMENT_ID)!;
+      const records: Array<Partial<Prefs> & { id?: string }> = layout ? layout.charts : [{ ...prefs, id: FIRST_CHART_ID }];
+      const built = records.map((rec) => {
+        const id = rec.id ?? FIRST_CHART_ID;
+        return [id, createChartStore(id, chartInitialFrom(rec), chartEnv)] as const;
+      });
+      const charts = Object.fromEntries(built);
       set({
         watchlists: wl.loadWatchlists(providers),
         timeZone: isValidTimeZone(prefs.timeZone) ? prefs.timeZone : browserTimeZone(),
@@ -337,9 +393,66 @@ export const useStore = create<AppState>()((set, get) => {
         buildTimeframes: prefs.buildTimeframes === true,
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
-        charts: { ...get().charts, [FIRST_CHART_ID]: chart },
+        charts,
+        chartOrder: built.map(([id]) => id),
+        activeChartId: layout?.activeChartId ?? built[0][0],
+        arrangementId: arrangement.id,
+        layoutSizes: layout?.sizes ?? evenSizes(arrangement),
       });
-      void chart.getState().loadData();
+      for (const chart of Object.values(charts)) void chart.getState().loadData();
+    },
+
+    setArrangement(id) {
+      const arrangement = getArrangement(id);
+      const s = get();
+      if (!arrangement || arrangement.id === s.arrangementId) return;
+      const charts = { ...s.charts };
+      let order = [...s.chartOrder];
+      const created: ChartStore[] = [];
+      if (arrangement.count > order.length) {
+        const from = activeChart().getState();
+        while (order.length < arrangement.count) {
+          const cid = uid('chart-');
+          const store = createChartStore(
+            cid,
+            { ...defaultChartInitial(), providerId: from.providerId, symbol: from.symbol, timeframe: from.timeframe, bars: from.bars },
+            chartEnv,
+          );
+          charts[cid] = store;
+          created.push(store);
+          order.push(cid);
+        }
+      } else {
+        for (const cid of order.slice(arrangement.count)) {
+          charts[cid].getState().clearData();
+          delete charts[cid];
+        }
+        order = order.slice(0, arrangement.count);
+      }
+      set({
+        arrangementId: arrangement.id,
+        chartOrder: order,
+        charts,
+        activeChartId: order.includes(s.activeChartId) ? s.activeChartId : order[0],
+        layoutSizes: evenSizes(arrangement),
+      });
+      for (const store of created) void store.getState().loadData();
+      persistPrefs();
+      persistLayout();
+    },
+
+    setActiveChart(id) {
+      if (!get().charts[id] || id === get().activeChartId) return;
+      set({ activeChartId: id });
+      persistPrefs();
+      persistLayout();
+    },
+
+    setLayoutSizes(sizes) {
+      const arrangement = getArrangement(get().arrangementId);
+      if (!arrangement) return;
+      set({ layoutSizes: sanitizeSizes(sizes, arrangement) });
+      persistLayout();
     },
 
     setBuildTimeframes(v) {

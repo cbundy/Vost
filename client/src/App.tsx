@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BottomDock } from './components/BottomDock';
-import { ChartPanel } from './components/ChartPanel';
+import { ChartGrid } from './components/ChartGrid';
 import { AlertPopup } from './components/AlertPopup';
 import { AlertsPanel } from './components/AlertsPanel';
 import { Inbox } from './components/Inbox';
@@ -89,7 +89,7 @@ export default function App() {
             />
           )}
           <main className="chart-area">
-            <ChartPanel onImportCsv={() => setCsvOpen(true)} onAddAlert={(level) => setAlertsPanel({ level })} />
+            <ChartGrid onImportCsv={() => setCsvOpen(true)} onAddAlert={(level) => setAlertsPanel({ level })} />
             {isDrawer && pineOpen && <PinePane dialog onClose={closePine} />}
           </main>
           {!isDrawer && pineOpen && (
