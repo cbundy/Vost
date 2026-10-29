@@ -35,6 +35,7 @@ import {
   replayIntervalMs,
   replayStartIndex,
   replayVisible,
+  runIsPrefixOf,
   stepReplay as stepPosition,
 } from '../lib/replay';
 import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
@@ -437,6 +438,11 @@ export const useStore = create<AppState>()((set, get) => {
     set({ pineRuns: next });
   };
 
+  const sameInputs = (a: Record<string, unknown>, b: Record<string, unknown>) => {
+    const ka = Object.keys(a);
+    return ka.length === Object.keys(b).length && ka.every((k) => k in b && Object.is(a[k], b[k]));
+  };
+
   const runPineIndicator = async (id: string): Promise<void> => {
     const spec = get().indicators.find((i) => i.id === id);
     if (!spec || spec.kind !== 'pine') return;
@@ -444,11 +450,12 @@ export const useStore = create<AppState>()((set, get) => {
     if (candles.length === 0) return;
     pineInflight.add(id);
     pineDirty.delete(id);
+    const { source, inputs } = { source: spec.source ?? '', inputs: spec.inputs ?? {} };
     const prev = get().pineRuns[id];
     setPineRun(id, { ...prev, running: true });
     let outcome: PineRunOutcome;
     try {
-      const res = await workerCall({ type: 'pine', source: spec.source ?? '', candles, inputs: spec.inputs ?? {} });
+      const res = await workerCall({ type: 'pine', source, candles, inputs });
       outcome =
         res.type === 'pineResult' ? res.outcome : { ok: false, error: { message: 'Unexpected worker reply' } };
     } catch (err) {
@@ -460,7 +467,19 @@ export const useStore = create<AppState>()((set, get) => {
       return;
     }
     if (pineDirty.has(id)) {
-      // Source, inputs or candles changed while this ran: its result is stale.
+      // Source or inputs changed, or newer bars were requested, while this ran. A result that still holds
+      // for the current bars (same source and inputs, bars a prefix of the current ones) is kept so a slow
+      // run shows during a replay; the usual draw filter hides anything past the visible bars.
+      const now = get().indicators.find((i) => i.id === id);
+      if (
+        outcome.ok &&
+        now &&
+        (now.source ?? '') === source &&
+        sameInputs(now.inputs ?? {}, inputs) &&
+        runIsPrefixOf(candles, get().candles)
+      ) {
+        setPineRun(id, { running: true, result: outcome, candles });
+      }
       void runPineIndicator(id);
       return;
     }

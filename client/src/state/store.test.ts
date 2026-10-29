@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fmtTime } from '../lib/format';
+import type { Candle } from '../types';
 
 function stubStorage() {
   const store: Record<string, string> = {};
@@ -926,6 +927,90 @@ describe('replay', () => {
     expect(useStore.getState().replay?.phase).toBe('picking');
     expect(useStore.getState().startReplayAt(candles[index].time)).toBe(true);
   };
+
+  /** A Worker whose pine runs take `delayMs` and queue one after another, like the real single worker. */
+  function stubSlowWorker(delayMs: number, onRun?: (source: string) => void) {
+    class FakeWorker {
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: (() => void) | null = null;
+      private tail: Promise<void> = Promise.resolve();
+      postMessage(req: { id: string; type: string; source: string; candles: Candle[]; inputs: Record<string, unknown> }) {
+        onRun?.(req.source);
+        this.tail = this.tail.then(async () => {
+          const { runPine } = await import('../lib/pine/runtime');
+          const outcome = await runPine(req.source, req.candles, req.inputs as never);
+          await new Promise((r) => setTimeout(r, delayMs));
+          this.onmessage?.({ data: { id: req.id, type: 'pineResult', outcome } } as MessageEvent);
+        });
+      }
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+  }
+
+  it('lands Pine results while a replay plays, even when a run is slower than the tick', async () => {
+    stubSlowWorker(150);
+    const { useStore, candles } = await setup();
+    useStore.getState().addIndicator('pine');
+    useStore.getState().addIndicator('pine');
+    const ids = useStore.getState().indicators.filter((i) => i.kind === 'pine').map((i) => i.id);
+    useStore.getState().updateIndicator(ids[1], { source: '//@version=5\nindicator("rsi", overlay=false)\nplot(ta.rsi(close, 14))\n' });
+    await vi.waitFor(() => {
+      for (const id of ids) expect(useStore.getState().pineRuns[id]?.running).toBe(false);
+    }, { timeout: 20000 });
+    start(useStore, 40, candles);
+    useStore.getState().setReplaySpeed(10);
+    useStore.getState().playReplay();
+    await vi.waitFor(() => {
+      const s = useStore.getState();
+      expect(s.replay!.playing).toBe(true);
+      for (const id of ids) {
+        const run = s.pineRuns[id];
+        expect(run.candles!.length).toBeGreaterThan(41);
+        expect(run.candles!.length).toBeLessThanOrEqual(s.candles.length);
+      }
+    }, { timeout: 15000 });
+    useStore.getState().pauseReplay();
+  }, 30000);
+
+  it('drops a run whose source changed while it was in flight', async () => {
+    stubSlowWorker(100);
+    const { useStore, candles } = await setup();
+    useStore.getState().addIndicator('pine');
+    const id = useStore.getState().indicators.find((i) => i.kind === 'pine')!.id;
+    await vi.waitFor(() => expect(useStore.getState().pineRuns[id]?.running).toBe(false), { timeout: 20000 });
+    start(useStore, 40, candles);
+    await vi.waitFor(() => expect(useStore.getState().pineRuns[id]?.running).toBe(false), { timeout: 20000 });
+    useStore.getState().stepReplay(1);
+    const src = '//@version=5\nindicator("b", overlay=false)\nplot(ta.rsi(close, 14), title="NEWSRC")\n';
+    useStore.getState().updateIndicator(id, { source: src });
+    const before = useStore.getState().pineRuns[id].result;
+    await vi.waitFor(() => {
+      const r = useStore.getState().pineRuns[id];
+      expect(!r.running && r.result !== before).toBe(true);
+      expect(r.result!.plots[0].name).toBe('NEWSRC');
+    }, { timeout: 20000 });
+  }, 30000);
+
+  it('does not store a run longer than the visible bars after stepping back', async () => {
+    stubSlowWorker(100);
+    const { useStore, candles } = await setup();
+    useStore.getState().addIndicator('pine');
+    const id = useStore.getState().indicators.find((i) => i.kind === 'pine')!.id;
+    await vi.waitFor(() => expect(useStore.getState().pineRuns[id]?.running).toBe(false), { timeout: 20000 });
+    start(useStore, 40, candles);
+    useStore.getState().stepReplay(-5);
+    const seen: number[] = [];
+    const unsub = useStore.subscribe((s) => {
+      const r = s.pineRuns[id];
+      if (r?.candles && r.candles.length > s.candles.length && r.candles.length < candles.length) seen.push(r.candles.length);
+    });
+    await vi.waitFor(() => {
+      const r = useStore.getState().pineRuns[id];
+      expect(!r.running && r.candles!.length === useStore.getState().candles.length).toBe(true);
+    }, { timeout: 20000 });
+    unsub();
+    expect(seen).toEqual([]);
+  }, 30000);
 
   it('shows only the bars up to the picked time and keeps the source', async () => {
     const { useStore, candles } = await setup();
