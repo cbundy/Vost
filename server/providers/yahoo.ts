@@ -17,6 +17,7 @@ interface YahooChartResponse {
   chart?: {
     result?: Array<{
       meta?: {
+        dataGranularity?: string;
         exchangeTimezoneName?: string;
         currentTradingPeriod?: { regular?: { start?: number } };
       };
@@ -55,6 +56,18 @@ const YAHOO_INTERVALS: Partial<Record<Timeframe, string>> = {
   '1d': '1d',
   '1w': '1wk',
   '1M': '1mo',
+};
+
+/** The granularity code Yahoo reports in `meta.dataGranularity` for each interval it was asked. */
+const EXPECTED_GRANULARITY: Record<string, string> = {
+  '1m': '1m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '60m': '1h',
+  '1d': '1d',
+  '1wk': '1wk',
+  '1mo': '1mo',
 };
 
 /**
@@ -205,7 +218,9 @@ export const yahooAdapter: ProviderAdapter = {
       }
       window = `period1=${period1}&period2=${req.to + 1}`;
     } else {
-      window = `range=${pickRange(interval, req.bars)}`;
+      // `range=max` makes Yahoo coarsen daily and up to 1mo/3mo bars, so full history is a dated window from 0.
+      const picked = pickRange(interval, req.bars);
+      window = picked === 'max' ? `period1=0&period2=${now + 1}` : `range=${picked}`;
     }
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${window}&includePrePost=false&events=div%2Csplit`;
 
@@ -226,6 +241,10 @@ export const yahooAdapter: ProviderAdapter = {
     const result = data.chart?.result?.[0];
     if (!result?.timestamp || !result.indicators?.quote?.[0]) {
       throw new NotFoundError(`No data for "${symbol}". Try symbols like AAPL, ^GSPC, BTC-USD, EURUSD=X.`);
+    }
+    const got = result.meta?.dataGranularity;
+    if (got && got !== EXPECTED_GRANULARITY[interval]) {
+      throw new UpstreamError(PROVIDER, 'query1.finance.yahoo.com', 200, '', `${PROVIDER} sent ${got} bars for a ${req.timeframe} request`);
     }
     const calendar = sessionCalendar(result.meta);
     if (calendar) ctx.onCalendar?.(calendar);
