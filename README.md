@@ -89,8 +89,8 @@ npm run -s e2e:capture -- chart  # screenshots/video into docs/evidence (see doc
 | Provider | Coverage | Key needed | Live | Notes |
 |---|---|---|---|---|
 | **Binance** | Crypto (1000+ pairs) | No | ✅ | Public REST + websocket. Falls back to `data-api.binance.vision` when the main host is region-blocked. |
-| **Coinbase** | Crypto spot | No | Yes (built from trades) | Public REST candles (300 per request). The public feed has no candle channel, so the server builds live candles from its trade stream, starting each bar from Coinbase's own candle. 30m, 4h, 1w and 1M are built from lower timeframes (marked `*` in the picker). |
-| **Kraken** | Crypto spot | No | ✅ | Public REST + websocket v2. History is limited to the latest 720 candles per timeframe. 1M is built from daily candles (marked `*`). |
+| **Coinbase** | Crypto spot | No | Yes (built from trades) | Public REST candles (300 per request). The public feed has no candle channel, so the server builds live candles from its trade stream, starting each bar from Coinbase's own candle. 30m, 4h, 1w and 1M are built from lower timeframes (marked `*` in the picker) and stream live too. |
+| **Kraken** | Crypto spot | No | ✅ | Public REST + websocket v2. History is limited to the latest 720 candles per timeframe. 1M is built from daily candles (marked `*`) and streams live too. |
 | **Bybit** | Crypto spot | No | ✅ | Public v5 REST (1000 per request) + websocket. |
 | **OKX** | Crypto spot | No | ✅ | Public v5 history candles (100 per request) + websocket. |
 | **Hyperliquid Perps** | Crypto perpetuals | No | ✅ | Public info API (POST) + websocket. Only the latest 5000 candles per timeframe are kept. |

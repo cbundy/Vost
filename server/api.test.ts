@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_BARS, TIMEFRAMES } from '../shared/market.ts';
 import { PROVIDER_CATALOG } from '../shared/providerCatalog.ts';
-import { createApiDeps, handleApi } from './api.ts';
+import { createApiDeps, handleApi, providerHistory } from './api.ts';
 import { openCandleStore } from './candles/store.ts';
 import { fakeFetch, type FakeFetch } from './providers/testing.ts';
 
@@ -431,6 +431,32 @@ describe('built timeframes', () => {
       expect(current.urls.length).toBe(fetched); // the base series came from disk
     } finally {
       await new Promise<void>((r) => srv.close(() => r()));
+      candles.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('providerHistory reads a recorded base series through the candle store, without the exchange', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'vost-api-'));
+    const candles = await openCandleStore({ dir, log: () => undefined });
+    const outcomes2: string[] = [];
+    const deps = createApiDeps({
+      fetch: current.fetch,
+      candles,
+      isRecorded: (p, s, t) => `${p}:${s}:${t}` === 'coinbase:BTC-USD:1h',
+      onOutcome: (p, f, r) => outcomes2.push(`${p}:${f}:${r.ok}`),
+    });
+    try {
+      upstream = series(T0, H, 24 * 10);
+      const req = { symbol: 'BTC-USD', timeframe: '1h' as const, bars: 4, from: T0 + 48 * H, to: T0 + 51 * H };
+      const first = await providerHistory(deps, 'coinbase', req);
+      expect(first.map((c) => c.time)).toEqual([T0 + 48 * H, T0 + 49 * H, T0 + 50 * H, T0 + 51 * H]);
+      expect(outcomes2).toContain('coinbase:history:true');
+      const fetched = current.urls.length;
+      expect(await providerHistory(deps, 'coinbase', req)).toEqual(first);
+      expect(current.urls.length).toBe(fetched); // the second read came from disk
+      await expect(providerHistory(deps, 'nope', req)).rejects.toThrow(/Unknown provider/);
+    } finally {
       candles.close();
       await rm(dir, { recursive: true, force: true });
     }

@@ -21,7 +21,7 @@ Calendar rules:
 - Crypto providers use UTC: intraday and daily buckets are multiples of their length, weeks start on Monday 00:00 UTC, months on the 1st 00:00 UTC. (Kraken's own weekly bars start on Thursday; Kraken 1w is native and is not rebuilt.)
 - Yahoo uses the exchange calendar from the chart `meta` (`exchangeTimezoneName` and the regular session start): a trading day is the exchange-local date and 4h buckets count from that day's session open, so a US stock gets 9:30-13:30 and 13:30-16:00 ET, DST included.
 - No partial bar passes as complete: the base fetch reaches one bucket before the oldest wanted bar and the oldest bucket present is dropped. Only the newest bar, still forming, may be partial, as with native bars.
-- Live candles are not built (a built timeframe has no live feed yet).
+- Live candles of a built timeframe are built by the server from the live stream of its base timeframe, which is shared with any chart on that base. Each update sends the whole higher bar. On every connect and reconnect the bar in progress is seeded from the base history (so it never looks smaller than the real one; a failed seed is retried every 15 s and nothing is shown for that bar meanwhile). The bar is closed once, when the first base update of the next bucket arrives (no close flag is needed).
 
 A probe on live data is in `docs/spikes/built-timeframes/`: Binance 4h, 1w and 1M built from lower bars equal the native ones exactly.
 
@@ -97,7 +97,7 @@ Dropped on 2026-10-29: its CSV download is behind a browser challenge that a ser
 - History: at most 300 candles per request; paginate by `start`/`end`. Candles are only returned for periods with trades. A span steps fixed 300-candle windows from `to` back to `from` by time, so a window without trades does not end it early.
 - Rate limits: public endpoints 10 requests per second per IP (burst 15). [Docs](https://docs.cdp.coinbase.com/exchange/docs/rest-rate-limits).
 - Server hosts: `api.exchange.coinbase.com` (CORS `*` was observed, but the server makes the call).
-- Live: websocket `wss://ws-feed.exchange.coinbase.com`. [Docs](https://docs.cdp.coinbase.com/exchange/docs/websocket-overview). The feed has no candle channel, so the server subscribes to the `matches` channel (`{"type":"subscribe","product_ids":["BTC-USD"],"channels":["matches"]}`; a `last_match` first, then one `match` per trade, no ping needed) and builds each candle itself: open is the first trade, high and low the extremes, close the latest, volume the sum of sizes, in buckets aligned to the granularity (1d at UTC midnight). On every connect and reconnect the bar in progress is seeded from Coinbase's REST candle for that bucket (trades seen before the socket opened only widen high and low, so nothing is counted twice), so it never looks smaller than the real one; if the seed fails it is retried every 15 s and nothing is shown for that bar meanwhile.
+- Live: websocket `wss://ws-feed.exchange.coinbase.com`. [Docs](https://docs.cdp.coinbase.com/exchange/docs/websocket-overview). The feed has no candle channel, so the server subscribes to the `matches` channel (`{"type":"subscribe","product_ids":["BTC-USD"],"channels":["matches"]}`; a `last_match` first, then one `match` per trade, no ping needed) and builds each candle itself: open is the first trade, high and low the extremes, close the latest, volume the sum of sizes, in buckets aligned to the granularity (1d at UTC midnight). On every connect and reconnect the bar in progress is seeded from Coinbase's REST candle for that bucket (trades seen before the socket opened only widen high and low, so nothing is counted twice), so it never looks smaller than the real one; if the seed fails it is retried every 15 s and nothing is shown for that bar meanwhile. The built timeframes (30m, 4h, 1w, 1M) stream live from this feed's 15m, 1h and 1d bars.
 - Key: none for market data.
 - ToS: market data is for use by the user; redistribution is restricted. [Terms](https://www.coinbase.com/legal/market_data).
 - Docs: [API reference](https://docs.cdp.coinbase.com/exchange/docs/welcome).
@@ -112,7 +112,7 @@ Dropped on 2026-10-29: its CSV download is behind a browser challenge that a ser
 - History: the last 720 candles only, regardless of `since`. Longer history needs the trades endpoint or the downloadable CSV files. Vost therefore caps Kraken history at 720 bars. A span is cropped from those 720; a span that ends before them is a 404 naming the earliest time served.
 - Rate limits: public calls share a counter per IP; roughly 1 call per second sustained. [Docs](https://docs.kraken.com/api/docs/guides/spot-rest-ratelimits).
 - Server hosts: `api.kraken.com` (no CORS headers seen).
-- Live: websocket v2 `wss://ws.kraken.com/v2`. [Docs](https://docs.kraken.com/api/docs/websocket-v2/ohlc).
+- Live: websocket v2 `wss://ws.kraken.com/v2`. [Docs](https://docs.kraken.com/api/docs/websocket-v2/ohlc). The built 1M streams live from the 1d feed.
 - Key: none for public data.
 - ToS: [Kraken terms](https://www.kraken.com/legal); redistribution not permitted without agreement.
 - Docs: [REST API](https://docs.kraken.com/api/).
