@@ -11,7 +11,7 @@ How to read it:
 
 ## Time ranges
 
-`GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / timeframe seconds) + 1`) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists.
+`GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / timeframe seconds) + 1`) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists. A series the server records is served from the server's own candle store under the same contract, fetching from the exchange only what the store lacks.
 
 ## Summary
 

@@ -29,6 +29,15 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
+describe('GET /api/status candles', () => {
+  it('is absent without stats and present with them', async () => {
+    const base = { version: '1', intervalSeconds: 0, log: () => undefined };
+    expect(createStatusService(base).response()).not.toHaveProperty('candles');
+    const stats = { on: true, series: 2, rows: 30, bytes: 4096 };
+    expect(createStatusService({ ...base, candleStats: () => stats }).response().candles).toEqual(stats);
+  });
+});
+
 describe('GET /api/status', () => {
   it('answers the server block and one check per provider and feed, without refreshed', async () => {
     const res = await fetch(`${base}/api/status`);
