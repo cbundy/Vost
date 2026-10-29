@@ -163,7 +163,7 @@ The client calls `/api/...` with absolute paths, so it assumes it's served from 
 You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by deploying `client/dist/` anywhere, but only the offline features work there:
 
 - **CSV import, the Demo provider and all backtesting work** - they never touch the network.
-- **Every remote provider (Binance, Coinbase, Kraken, Bybit, OKX, Yahoo, Stooq) needs the Node server**: the browser no longer calls those APIs itself, so without `/api/*` they fail to load.
+- **Every remote provider (Binance, Coinbase, Kraken, Bybit, OKX, Hyperliquid Perps, Hyperliquid Spot, Yahoo, Stooq) needs the Node server**: the browser no longer calls those APIs itself, so without `/api/*` they fail to load.
 
 `npm run dev` automatically proxies `/api/*` from Vite (:5173) to the Node server (:8787).
 
@@ -175,7 +175,7 @@ You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by
 | `HOST` | server (runtime) | `0.0.0.0` | Bind address; use `127.0.0.1` behind a proxy |
 | `VOST_STATUS_INTERVAL` | server (runtime) | `60` | Seconds between background health checks of the exchanges (see `/api/status`); `0` turns them off, and the status then stays `unknown` until someone presses "Test now" or real requests report in |
 | `VOST_DATA_DIR` | server (runtime) | `<repo>/data` (`/data` in the Docker image) | Folder for `alerts.json` and `candles.sqlite`, created on first write. If it is not writable the server still starts, alerts can be listed but every change answers `503` naming this variable, and the candle store is off (charts then come from the exchange as before) |
-| `VOST_ALERT_POLL` | server (runtime) | `60` | Seconds between price polls for alerts on providers without a live feed (Yahoo, Stooq); values below 10 count as 10. Binance, Coinbase, Kraken, Bybit and OKX alerts use the shared live stream instead |
+| `VOST_ALERT_POLL` | server (runtime) | `60` | Seconds between price polls for alerts on providers without a live feed (Yahoo, Stooq); values below 10 count as 10. Binance, Coinbase, Kraken, Bybit, OKX and Hyperliquid alerts use the shared live stream instead |
 | `VOST_TELEGRAM_BOT_TOKEN` | server (runtime) | unset | Bot token from [@BotFather](https://t.me/BotFather) (`/newbot`). With `VOST_TELEGRAM_CHAT_ID` also set, every alert that fires sends one Telegram message. **A secret**: it is never logged or returned by the API, but keep it out of git and tickets. Needs outbound access to `api.telegram.org` |
 | `VOST_TELEGRAM_CHAT_ID` | server (runtime) | unset | Chat that receives the messages. Send your bot a message, then open `https://api.telegram.org/bot<token>/getUpdates` and read `message.chat.id`. If only one of the two Telegram variables is set the server logs a warning and sends nothing |
 | `VOST_SERVER_URL` | Vite dev server | `http://localhost:8787` | Upstream for the dev-time `/api` proxy |
@@ -203,4 +203,4 @@ Variables are read once at process start. See [`.env.example`](../.env.example).
 
 ## Data provider terms
 
-The bundled providers use only public, keyless endpoints (Binance, Coinbase, Kraken, Bybit and OKX REST/WS, Yahoo chart API, Stooq CSV downloads). They are intended for **personal research use**; if you run a heavily-trafficked public instance, review each provider's terms of service and rate limits first — or plug in your own licensed data API (see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-data-provider)).
+The bundled providers use only public, keyless endpoints (Binance, Coinbase, Kraken, Bybit, OKX and Hyperliquid REST/WS, Yahoo chart API, Stooq CSV downloads). They are intended for **personal research use**; if you run a heavily-trafficked public instance, review each provider's terms of service and rate limits first — or plug in your own licensed data API (see [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-data-provider)).

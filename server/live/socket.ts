@@ -12,6 +12,8 @@ import type { LiveFeed } from './feeds.ts';
 export const MAX_ATTEMPTS = 8;
 /** Pause between attempts once the feed gave up. */
 export const SLOW_RETRY_MS = 60_000;
+/** Pause before an async subscribe that failed to resolve is tried again (the socket stays open). */
+export const SUBSCRIBE_RETRY_MS = 15_000;
 
 export function backoffMs(attempts: number): number {
   return Math.min(15000, 700 * 2 ** (attempts - 1));
@@ -124,6 +126,31 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
     retryTimer = timers.setTimeout(connect, backoffMs(attempts));
   };
 
+  /** Awaits the feed's subscribe message and sends it if `sock` is still the current socket; retries a failed lookup. */
+  const sendResolved = (sock: WsLike, resolve: () => Promise<string>): void => {
+    resolve().then(
+      (message) => {
+        if (ws !== sock || stopped) return;
+        try {
+          sock.send(message);
+        } catch {
+          /* onclose handles it */
+        }
+      },
+      (err: unknown) => {
+        if (ws !== sock || stopped) return;
+        log(
+          'error',
+          `Could not look up the subscription for ${label}: ${err instanceof Error ? err.message : String(err)}. Retrying in ${SUBSCRIBE_RETRY_MS / 1000} s.`,
+        );
+        const timer = timers.setTimeout(() => {
+          if (ws === sock && !stopped) sendResolved(sock, resolve);
+        }, SUBSCRIBE_RETRY_MS);
+        connClosers.push(() => timers.clearTimeout(timer));
+      },
+    );
+  };
+
   const connect = (): void => {
     if (stopped) return;
     retryTimer = undefined;
@@ -142,10 +169,14 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
       if (ws !== sock) return;
       attempts = 0;
       status({ status: 'live' });
-      try {
-        if (feed.subscribe) sock.send(feed.subscribe);
-      } catch {
-        /* onclose handles it */
+      if (typeof feed.subscribe === 'function') {
+        sendResolved(sock, feed.subscribe);
+      } else {
+        try {
+          if (feed.subscribe) sock.send(feed.subscribe);
+        } catch {
+          /* onclose handles it */
+        }
       }
       if (feed.pingMs && feed.ping !== undefined) {
         const ping = feed.ping;

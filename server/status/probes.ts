@@ -78,7 +78,7 @@ export function probeSymbols(provider: string, env: ProbeEnv = {}): Promise<Chec
 export function probeLive(provider: string, env: ProbeEnv = {}): Promise<CheckResult> {
   const info = catalogEntry(provider);
   if (!info) return Promise.resolve({ ok: false, error: `Unknown provider "${provider}"` });
-  const built = liveFeed(provider, info.defaultSymbol, info.defaultTimeframe);
+  const built = liveFeed(provider, info.defaultSymbol, info.defaultTimeframe, { fetch: env.fetch });
   if ('error' in built) return Promise.resolve({ ok: false, error: built.error });
   const { feed } = built;
   const Ctor = env.WebSocket ?? (globalThis.WebSocket as unknown as WebSocketCtor);
@@ -119,6 +119,21 @@ export function probeLive(provider: string, env: ProbeEnv = {}): Promise<CheckRe
     }
     sock.onopen = () => {
       opened = true;
+      const target = sock;
+      if (typeof feed.subscribe === 'function') {
+        feed.subscribe().then(
+          (message) => {
+            if (done) return;
+            try {
+              target?.send(message);
+            } catch {
+              /* onclose reports it */
+            }
+          },
+          (err: unknown) => finish({ ok: false, error: err instanceof Error ? err.message : String(err), latencyMs: now() - started }),
+        );
+        return;
+      }
       try {
         if (feed.subscribe) sock?.send(feed.subscribe);
       } catch {
