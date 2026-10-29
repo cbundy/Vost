@@ -825,6 +825,45 @@ button.icon {
   flex: 1 1 0 !important;
 }
 
+.replay-label-short {
+  display: none;
+}
+
+/* Narrow screens: tighten the strip so the replay bar date stays readable. */
+@media (max-width: 600px) {
+  .replay-strip {
+    gap: 2px;
+  }
+
+  .replay-strip button {
+    padding: 0 3px;
+  }
+
+  .replay-strip button.icon {
+    width: 20px;
+    padding: 0;
+  }
+
+  .replay-strip .replay-speed {
+    padding: 0;
+    font-size: 11px;
+  }
+
+  .replay-strip .replay-label-long {
+    display: none;
+  }
+
+  .replay-strip .replay-label-short {
+    display: inline;
+  }
+
+  .replay-date-text {
+    margin-left: 2px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+}
+
 .chart-toolbar {
   position: absolute;
   top: 8px;
