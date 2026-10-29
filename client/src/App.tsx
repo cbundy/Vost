@@ -25,11 +25,10 @@ export default function App() {
   const [alertsPanel, setAlertsPanel] = useState<{ level?: number } | null>(null);
   // The desktop panel's collapsed state is a saved pref; the narrow-screen drawer's open state is local.
   const panelCollapsed = useStore((s) => s.sidePanelCollapsed);
-  const setPanelCollapsed = useStore((s) => s.setSidePanelCollapsed);
   const desktopSidebarOpen = !panelCollapsed;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isDrawer = useMediaQuery(DRAWER_QUERY);
-  const toggleRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
   const drawerShown = isDrawer && drawerOpen;
 
   const sidebarWidth = useStore((s) => s.sidebarWidth);
@@ -56,7 +55,7 @@ export default function App() {
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
-    toggleRef.current?.focus();
+    openerRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -71,9 +70,6 @@ export default function App() {
   return (
     <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px`, ['--pine-width' as string]: `${effectivePine}px` }}>
       <TopBar onImportCsv={() => setCsvOpen(true)}
-        onToggleSidebar={() => (isDrawer ? setDrawerOpen((v) => !v) : setPanelCollapsed(desktopSidebarOpen))}
-        sidebarExpanded={isDrawer ? drawerShown : desktopSidebarOpen}
-        toggleRef={toggleRef}
         pineToggleRef={pineToggleRef}
         onOpenInbox={() => setInboxOpen(true)}
         onOpenAlerts={() => setAlertsPanel({})}
@@ -119,7 +115,9 @@ export default function App() {
           />
         )}
         {!isDrawer && desktopSidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
-        {!isDrawer && <SideRail />}
+        <SideRail
+          drawer={isDrawer ? { open: drawerShown, onOpen: (btn) => { openerRef.current = btn; setDrawerOpen(true); } } : undefined}
+        />
       </div>
       <BottomDock />
       {csvOpen && <CsvImportModal onClose={() => setCsvOpen(false)} />}

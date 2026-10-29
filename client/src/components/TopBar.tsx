@@ -9,7 +9,7 @@ import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { selectDataCandles, useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
-import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, SidebarIcon, StarIcon, UploadIcon } from './Icons';
+import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
@@ -18,19 +18,13 @@ const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
 
 export function TopBar({
   onImportCsv,
-  onToggleSidebar,
   onOpenInbox,
   onOpenAlerts,
-  sidebarExpanded,
-  toggleRef,
   pineToggleRef,
 }: {
   onImportCsv: () => void;
-  onToggleSidebar: () => void;
   onOpenInbox: () => void;
   onOpenAlerts: () => void;
-  sidebarExpanded: boolean;
-  toggleRef?: Ref<HTMLButtonElement>;
   pineToggleRef?: Ref<HTMLButtonElement>;
 }) {
   const tier = topbarTier(useViewportSize().width);
@@ -148,18 +142,6 @@ export function TopBar({
 
   return (
     <header className="topbar">
-      <button
-        ref={toggleRef}
-        className="ghost icon"
-        title="Toggle sidebar"
-        aria-label="Toggle sidebar"
-        aria-expanded={sidebarExpanded}
-        aria-controls="sidebar"
-        onClick={onToggleSidebar}
-      >
-        <SidebarIcon />
-      </button>
-
       <div className="brand" title={`Vost v${APP_VERSION} — self-hosted charts & backtesting`}>
         <span className="brand-logo">
           <svg width="16" height="16" viewBox="0 0 32 32">

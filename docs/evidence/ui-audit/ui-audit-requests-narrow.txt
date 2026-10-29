@@ -1,28 +1,33 @@
-74 requests; slow (> 1000 ms): 0; failed or status >= 400: 8
+98 requests; slow (> 1000 ms): 0; failed or status >= 400: 13
 
 failed or status >= 400 (action, status, failure, url):
   [live on #1] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
   [live on #2] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
   [live on #3] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
   [live on (final)] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
   [load with the upstream down] 502  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
   [switch provider with the upstream down] 502  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
   [search with the upstream down] 502  GET /api/search?provider=kraken&q=XBTUSD
   [search with the upstream down] 502  GET /api/search?provider=kraken&q=ETH
 
 slowest 12 (ms, action, url):
-    446 ms  [slow history] /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
-     60 ms  [startup] /assets/index-imkNH7nM.js
-     45 ms  [pine remove] /assets/index-imkNH7nM.js
+    426 ms  [slow history] /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
+     66 ms  [startup] /assets/index-CAVRzMsA.js
+     56 ms  [pine remove] /assets/index-CAVRzMsA.js
+     49 ms  [pine remove] /assets/index-CAVRzMsA.js
+     49 ms  [slow history] /assets/index-CVdPwwU4.css
+     48 ms  [slow history] /assets/index-CAVRzMsA.js
+     47 ms  [startup] /api/status
      43 ms  [backtest] /assets/backtest.worker-BCrNRwDO.js
-     43 ms  [slow history] /assets/index-imkNH7nM.js
-     41 ms  [pine remove] /assets/index-imkNH7nM.js
-     31 ms  [startup] /api/status
-     30 ms  [provider okx] /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=5000
-     26 ms  [pine remove] /api/status
-     25 ms  [slow history] /api/status
-     23 ms  [rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m] /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
-     22 ms  [rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m] /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
+     33 ms  [provider okx] /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=5000
+     32 ms  [pine remove] /api/history?provider=kraken&symbol=XDGUSD&timeframe=1d&bars=5
+     27 ms  [pine remove] /api/history?provider=bybit&symbol=BTCUSDT&timeframe=1d&bars=5
+     27 ms  [slow history] /api/status
 
 identical /api requests (excluding /api/live) inside one user action:
   rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
@@ -32,9 +37,11 @@ identical /api requests (excluding /api/live) inside one user action:
 
 count per distinct request (time bounds masked):
     4  GET /
-    4  GET /assets/index-imkNH7nM.js
-    4  GET /assets/index-BaAJo4cK.css
+    4  GET /assets/index-CAVRzMsA.js
+    4  GET /assets/index-CVdPwwU4.css
     6  GET /api/status
+    4  GET /api/alerts/events
+    4  GET /api/alerts
     1  GET /api/providers
    12  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
     2  GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1h&bars=5000
@@ -60,5 +67,21 @@ count per distinct request (time bounds masked):
     1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=3
     4  GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
     1  GET /assets/backtest.worker-BCrNRwDO.js
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
+    1  GET /api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
+    1  GET /api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
+    1  GET /api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
+    1  GET /api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5
+    1  GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
+    1  GET /api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
+    1  GET /api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
+    1  GET /api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
+    1  GET /api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
+    1  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1d&bars=5
+    1  GET /api/history?provider=kraken&symbol=ETHUSD&timeframe=1d&bars=5
+    1  GET /api/history?provider=kraken&symbol=SOLUSD&timeframe=1d&bars=5
+    1  GET /api/history?provider=kraken&symbol=XRPUSD&timeframe=1d&bars=5
+    1  GET /api/history?provider=kraken&symbol=XDGUSD&timeframe=1d&bars=5
+    1  GET /api/history?provider=bybit&symbol=BTCUSDT&timeframe=1d&bars=5
     1  GET /api/search?provider=kraken&q=XBTUSD
     1  GET /api/search?provider=kraken&q=ETH

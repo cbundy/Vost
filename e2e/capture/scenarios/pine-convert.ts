@@ -13,10 +13,6 @@ export const pineConvert: Scenario = {
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
     await ctx.step('add a Pine indicator', async () => {
-      if (viewport === 'narrow') {
-        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-        await page.getByRole('dialog', { name: 'Sidebar' }).waitFor();
-      }
       await showSideSection(page, 'Indicators', viewport === 'narrow');
       await page.locator('#add-indicator-select').selectOption('pine');
       // the add closes the narrow drawer and opens the editor pane (a dialog on narrow)
