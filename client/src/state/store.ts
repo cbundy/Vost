@@ -13,6 +13,7 @@ import { sourceBase } from '../../../shared/timeframes.ts';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
 import { loadJson, saveJson, debounce, removeKey } from '../lib/storage';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
+import type { SyncChange } from '../lib/layoutSync';
 import { sanitizeTimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
 import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
@@ -20,6 +21,9 @@ import {
   DEFAULT_ARRANGEMENT_ID,
   LAYOUT_KEY,
   LAYOUT_VERSION,
+  DEFAULT_SYNC,
+  sanitizeSync,
+  type LayoutSync,
   evenSizes,
   getArrangement,
   parseLayout,
@@ -30,7 +34,7 @@ import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
-import { MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
+import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
 import { canonicalInterval } from '../../../shared/market.ts';
 import type { TimeRange } from '../lib/timeRange';
 
@@ -137,6 +141,8 @@ export interface AppState {
   /** The layout: which arrangement (lib/layouts), the chart ids in cell order, and the grid's track sizes. */
   arrangementId: string;
   chartOrder: string[];
+  /** Which changes on one chart carry to every chart of the layout (persisted with it). */
+  sync: LayoutSync;
   layoutSizes: LayoutSizes;
 
   /* saved local datasets */
@@ -179,6 +185,7 @@ export interface AppState {
   /** Makes a chart the one the top bar and panels act on. */
   setActiveChart(id: string): void;
   setLayoutSizes(sizes: LayoutSizes): void;
+  setSync(key: keyof LayoutSync, on: boolean): void;
   /** Turns building higher timeframes from lower ones on or off; reloads every remote chart whose source changes. */
   setBuildTimeframes(v: boolean): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
@@ -262,6 +269,7 @@ export const useStore = create<AppState>()((set, get) => {
         };
       }),
       sizes: s.layoutSizes,
+      sync: s.sync,
     });
   }, 400);
 
@@ -277,9 +285,67 @@ export const useStore = create<AppState>()((set, get) => {
     }
   }, 600);
 
+  /**
+   * Toast texts already shown for the sync being applied: the receiving charts raise the same refusal (live on,
+   * too few bars), and it should reach the person once. Cleared when every pending sync has settled.
+   */
+  const syncToasts = new Set<string>();
+  let syncPending = 0;
+
+  /** Resolves once the chart's load in flight (if any) has finished, so the toast window outlives the receivers' loads. */
+  function loadSettled(chart: ReturnType<typeof get>['charts'][string]): Promise<void> {
+    return new Promise((resolve) => {
+      if (chart.getState().loadState !== 'loading') return resolve();
+      const unsub = chart.subscribe((st) => {
+        if (st.loadState !== 'loading') {
+          unsub();
+          resolve();
+        }
+      });
+    });
+  }
+
+  /** Applies a change made on chart `sourceId` to every other chart, when its switch is on. Receivers never announce again. */
+  function applySync(sourceId: string, change: SyncChange): void {
+    const s = get();
+    const flag = change.kind === 'range' ? s.sync.dateRange : s.sync[change.kind];
+    if (!flag) return;
+    const others = s.chartOrder.filter((id) => id !== sourceId && s.charts[id]);
+    if (others.length === 0) return;
+    const quiet = { broadcast: false };
+    const pending: Array<Promise<unknown>> = [];
+    const kept: string[] = [];
+    syncPending++;
+    for (const id of others) {
+      const chart = s.charts[id].getState();
+      if (change.kind === 'symbol') {
+        chart.openWatchItem(change.providerId, change.symbol, quiet);
+        pending.push(loadSettled(s.charts[id]));
+      } else if (change.kind === 'interval') {
+        if (servable(getProvider(chart.providerId), change.timeframe)) {
+          chart.setTimeframe(change.timeframe, quiet);
+          pending.push(loadSettled(s.charts[id]));
+        } else kept.push(`Chart ${s.chartOrder.indexOf(id) + 1}`);
+      } else if (change.range) pending.push(chart.setChartRange(change.range, quiet));
+      else pending.push(chart.clearChartRange(quiet));
+    }
+    if (kept.length && change.kind === 'interval') {
+      get().pushToast('info', `${kept.join(', ')} kept their own interval: their data source does not serve ${change.timeframe}.`);
+    }
+    void Promise.allSettled(pending).then(() => {
+      if (--syncPending === 0) syncToasts.clear();
+    });
+  }
+
   /** What every chart sees of the app. */
   const chartEnv: ChartEnv = {
-    pushToast: (kind, text) => get().pushToast(kind, text),
+    pushToast: (kind, text) => {
+      if (syncPending > 0) {
+        if (syncToasts.has(text)) return;
+        syncToasts.add(text);
+      }
+      get().pushToast(kind, text);
+    },
     pushMessage: (source, severity, text) => get().pushMessage(source, severity, text),
     timeZone: () => get().timeZone,
     buildTimeframes: () => get().buildTimeframes,
@@ -301,6 +367,7 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
       persistLayout();
     },
+    onSync: applySync,
   };
 
   return {
@@ -321,6 +388,7 @@ export const useStore = create<AppState>()((set, get) => {
     activeChartId: FIRST_CHART_ID,
     arrangementId: DEFAULT_ARRANGEMENT_ID,
     chartOrder: [FIRST_CHART_ID],
+    sync: DEFAULT_SYNC,
     layoutSizes: evenSizes(getArrangement(DEFAULT_ARRANGEMENT_ID)!),
     datasets: [],
     toasts: [],
@@ -398,6 +466,7 @@ export const useStore = create<AppState>()((set, get) => {
         activeChartId: layout?.activeChartId ?? built[0][0],
         arrangementId: arrangement.id,
         layoutSizes: layout?.sizes ?? evenSizes(arrangement),
+        sync: layout?.sync ?? DEFAULT_SYNC,
       });
       for (const chart of Object.values(charts)) void chart.getState().loadData();
     },
@@ -448,6 +517,12 @@ export const useStore = create<AppState>()((set, get) => {
       persistLayout();
     },
 
+    setSync(key, on) {
+      if (get().sync[key] === on) return;
+      set({ sync: sanitizeSync({ ...get().sync, [key]: on }) });
+      persistLayout();
+    },
+
     setLayoutSizes(sizes) {
       const arrangement = getArrangement(get().arrangementId);
       if (!arrangement) return;
@@ -483,7 +558,7 @@ export const useStore = create<AppState>()((set, get) => {
       for (const chart of Object.values(get().charts)) {
         const { timeframe, providerId, activeDatasetId } = chart.getState();
         if (timeframe !== iv) continue;
-        chart.getState().setTimeframe(getProvider(providerId).defaultTimeframe, { load: activeDatasetId == null });
+        chart.getState().setTimeframe(getProvider(providerId).defaultTimeframe, { load: activeDatasetId == null, broadcast: false });
       }
     },
 

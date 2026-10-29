@@ -1111,6 +1111,7 @@ describe('two chart stores stay apart', () => {
       addDataset: () => {},
       removeDataset: () => {},
       onPrefsChange: () => void prefsChanges++,
+      onSync: () => {},
     };
     return { env, toasts, messages, prefsChanges: () => prefsChanges };
   }

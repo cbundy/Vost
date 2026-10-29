@@ -39,6 +39,7 @@ import {
 } from '../lib/replay';
 import { nextPineSelection } from '../lib/pineSelection';
 import { workerCall } from './worker';
+import type { BroadcastOpt, SyncChange } from '../lib/layoutSync';
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
 export interface PineRunState {
@@ -113,6 +114,8 @@ export interface ChartEnv {
   removeDataset(id: string): void;
   /** A persisted per-chart field changed: the app should save the prefs. */
   onPrefsChange(): void;
+  /** A committed change on chart `sourceId` that the other charts of the layout may follow (see lib/layoutSync). */
+  onSync(sourceId: string, change: SyncChange): void;
 }
 
 export interface ChartState {
@@ -174,11 +177,11 @@ export interface ChartState {
   symbolSuggestions: SymbolSuggestion[];
 
   /* actions */
-  setProvider(id: string): void;
+  setProvider(id: string, opts?: BroadcastOpt): void;
   /** Switches to a watchlist item's provider and symbol and loads the chart once. */
-  openWatchItem(providerId: string, symbol: string): void;
-  setSymbol(symbol: string, opts?: { load?: boolean }): void;
-  setTimeframe(tf: Interval, opts?: { load?: boolean }): void;
+  openWatchItem(providerId: string, symbol: string, opts?: BroadcastOpt): void;
+  setSymbol(symbol: string, opts?: { load?: boolean } & BroadcastOpt): void;
+  setTimeframe(tf: Interval, opts?: { load?: boolean } & BroadcastOpt): void;
   setBars(bars: number): void;
   loadData(): Promise<void>;
   clearData(): void;
@@ -197,8 +200,8 @@ export interface ChartState {
    * Shows a time window of the chart: crops the loaded bars, or fetches the span from the provider
    * when it lies outside them; an open range clears. Resolves true when applied.
    */
-  setChartRange(range: TimeRange): Promise<boolean>;
-  clearChartRange(): Promise<void>;
+  setChartRange(range: TimeRange, opts?: BroadcastOpt): Promise<boolean>;
+  clearChartRange(opts?: BroadcastOpt): Promise<void>;
   /** Replay: wait for a start bar, begin at a time, step, play, pause, change speed, leave. */
   startReplayPick(): void;
   cancelReplay(): void;
@@ -224,6 +227,7 @@ export type ChartStore = StoreApi<ChartState>;
 
 export function createChartStore(id: string, initial: ChartInitial, env: ChartEnv): ChartStore {
   return createStore<ChartState>()((set, get) => {
+  const id0 = id; // the chart's id, for actions whose own argument is named id
   /* Per-chart singletons: each chart owns its own live stream, replay timer and request tokens. */
   let liveHandle: LiveHandle | null = null;
   /** The replay play timer; every path that ends replay clears it. */
@@ -386,7 +390,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     symbolQuery: '',
     symbolSuggestions: [],
 
-    setProvider(id) {
+    setProvider(id, opts) {
       const provider = getProvider(id);
       stopLive();
       set({
@@ -396,26 +400,34 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       });
       env.onPrefsChange();
       void get().loadData();
+      if (opts?.broadcast !== false) env.onSync(id0, { kind: 'symbol', providerId: id, symbol: provider.defaultSymbol });
     },
 
-    openWatchItem(providerId, symbol) {
+    openWatchItem(providerId, symbol, opts) {
       stopLive();
       set({ providerId, symbol });
       env.onPrefsChange();
       void get().loadData();
+      if (opts?.broadcast !== false) env.onSync(id0, { kind: 'symbol', providerId, symbol });
     },
 
     setSymbol(symbol, opts) {
       set({ symbol });
       env.onPrefsChange();
-      if (opts?.load) void get().loadData();
+      if (opts?.load) {
+        void get().loadData();
+        if (opts.broadcast !== false) env.onSync(id0, { kind: 'symbol', providerId: get().providerId, symbol });
+      }
     },
 
     setTimeframe(tf, opts) {
       stopLive();
       set({ timeframe: tf });
       env.onPrefsChange();
-      if (opts?.load !== false) void get().loadData();
+      if (opts?.load !== false) {
+        void get().loadData();
+        if (opts?.broadcast !== false) env.onSync(id0, { kind: 'interval', timeframe: tf });
+      }
     },
     setBars(bars) {
       set({ bars });
@@ -562,12 +574,16 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       env.onPrefsChange();
     },
 
-    async setChartRange(range) {
+    async setChartRange(range, opts) {
       const state = get();
       const full = selectDataCandles(state);
       const open = range.from == null && range.to == null;
+      const announce = (change: SyncChange) => {
+        if (opts?.broadcast !== false) env.onSync(id0, change);
+      };
       if (open) {
-        await get().clearChartRange();
+        await get().clearChartRange({ broadcast: false });
+        announce({ kind: 'range', range: null });
         return true;
       }
       if (state.live) {
@@ -577,6 +593,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       const crop = cropToChartRange(full, range);
       if (crop.ok) {
         applyRange(crop.slice, full, range, state.chartRangeFetched);
+        announce({ kind: 'range', range });
         return true;
       }
       if (crop.error !== 'outside' || state.activeDatasetId != null) {
@@ -612,6 +629,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           env.pushMessage(provider.name, 'warning', text);
           env.pushToast('info', text);
         }
+        announce({ kind: 'range', range });
         return true;
       } catch (err) {
         if (token !== requestToken) return false;
@@ -621,8 +639,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
     },
 
-    async clearChartRange() {
+    async clearChartRange(opts) {
       const { fullCandles, chartRangeFetched } = get();
+      if (opts?.broadcast !== false) env.onSync(id0, { kind: 'range', range: null });
       if (!fullCandles) return;
       if (chartRangeFetched) {
         await get().loadData(); // back to the latest bars; setCandles resets the range state
@@ -857,7 +876,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         });
         return;
       }
-      void get().clearChartRange(); // live bars land at the end of the full data
+      void get().clearChartRange({ broadcast: false }); // live bars land at the end of the full data
       liveSession++;
       const session = liveSession;
       liveHandle?.stop();

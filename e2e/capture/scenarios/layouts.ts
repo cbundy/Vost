@@ -49,6 +49,7 @@ export const layouts: Scenario = {
       await page.getByRole('button', { name: 'Select layout' }).click();
       await page.getByRole('dialog', { name: 'Select layout' }).waitFor();
     };
+    const syncSwitch = (name: string) => page.getByRole('switch', { name, exact: true });
     const cells = page.locator('.chart-cell');
     const waitLoaded = async (n: number) => {
       await page.waitForFunction((count) => document.querySelectorAll('.chart-cell .legend-title').length === count, n);
@@ -154,6 +155,16 @@ export const layouts: Scenario = {
         check('narrow reloaded', p);
         if (p.cells !== 4 || p.topBarSymbol !== 'DEMO-BEAR' || !(await page.locator('.chart-switcher').innerText()).includes('2 / 4')) throw new Error('layout not restored');
         await openPicker();
+      });
+      await ctx.step('the Sync in layout section fits the narrow picker with Crosshair on', async () => {
+        const rows = await page.locator('.layout-sync-label').allInnerTexts();
+        if (rows.join(',') !== 'Symbol,Interval,Crosshair,Time,Date range') throw new Error(`sync rows ${rows.join(',')}`);
+        const box = await page.locator('.layout-menu').boundingBox();
+        const lastRow = await page.locator('.layout-sync-row').last().boundingBox();
+        const vp = page.viewportSize()!;
+        if (!box || box.x < 0 || box.x + box.width > vp.width + 0.5 || (await probe(page)).overflowX) throw new Error(`the sync section overflows: ${JSON.stringify(box)}`);
+        await page.locator('.layout-sync-row').last().scrollIntoViewIfNeeded();
+        log.push(`narrow sync: rows=${rows.join('|')} crosshair=${await syncSwitch('Crosshair').getAttribute('aria-checked')} lastRow=${JSON.stringify(lastRow)}`);
       });
       await ctx.screenshot('picker-open');
       await ctx.writeText('checks', `${log.join('\n')}\n`);
@@ -266,6 +277,58 @@ export const layouts: Scenario = {
       if (sixteen.cells !== 16 || sixteen.boxes.some((b) => b.w < 100 || b.h < 60)) throw new Error('16 cells are too small');
     });
     await ctx.screenshot('sixteen');
+
+    const timeframes = () => page.evaluate(() => [...document.querySelectorAll('.chart-cell .legend-title')].map((e) => (e.textContent ?? '').split(' · ')[2] ?? ''));
+    await ctx.step('the picker has a Sync in layout section: Crosshair on, the rest off; a switch keeps it open', async () => {
+      await openPicker();
+      await pick('4 charts: 2 columns by 2 rows').click();
+      await page.getByRole('dialog', { name: 'Select layout' }).waitFor({ state: 'detached' });
+      await waitLoaded(4);
+      await openPicker();
+      const heading = await page.locator('.layout-sync-heading').innerText();
+      const states: string[] = [];
+      for (const n of ['Symbol', 'Interval', 'Crosshair', 'Time', 'Date range']) states.push(`${n}=${await syncSwitch(n).getAttribute('aria-checked')}`);
+      log.push(`sync defaults: ${heading} ${states.join(' ')}`);
+      if (states.join(' ') !== 'Symbol=false Interval=false Crosshair=true Time=false Date range=false') throw new Error(`defaults ${states.join(' ')}`);
+      await syncSwitch('Interval').focus();
+      await page.keyboard.press('Space');
+      if ((await syncSwitch('Interval').getAttribute('aria-checked')) !== 'true') throw new Error('Space did not turn Interval on');
+      if (!(await page.getByRole('dialog', { name: 'Select layout' }).isVisible())) throw new Error('a switch closed the picker');
+      await page.waitForTimeout(300); // let the switch finish its slide before the picture
+    });
+    await ctx.screenshot('sync-picker');
+    await ctx.step('with Interval synced, chart 3 on 1h puts all four charts on 1h', async () => {
+      await page.keyboard.press('Escape');
+      await page.getByRole('dialog', { name: 'Select layout' }).waitFor({ state: 'detached' });
+      await activate(2);
+      await page.locator('.topbar select[title="Timeframe"]').selectOption('1h');
+      await page.waitForFunction(() => [...document.querySelectorAll('.chart-cell .legend-title')].every((e) => (e.textContent ?? '').endsWith('1h')));
+      await page.waitForTimeout(300);
+      const tfs = await timeframes();
+      log.push(`interval synced: ${tfs.join('|')}`);
+      if (tfs.join(',') !== '1h,1h,1h,1h') throw new Error(`timeframes ${tfs.join(',')}`);
+    });
+    await ctx.screenshot('sync-interval');
+    await ctx.step('with Crosshair synced, the pointer over chart 1 draws the crosshair on every chart', async () => {
+      const box = await cells.nth(0).boundingBox();
+      if (!box) throw new Error('no cell');
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 6 });
+      await page.waitForTimeout(400);
+    });
+    await ctx.screenshot('sync-crosshair');
+    await ctx.step('the switches are still set after a reload', async () => {
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(800);
+      await page.reload();
+      await page.locator('.chart-cell').nth(3).waitFor({ state: 'attached' });
+      await waitLoaded(4);
+      await openPicker();
+      const states: string[] = [];
+      for (const n of ['Symbol', 'Interval', 'Crosshair', 'Time', 'Date range']) states.push(`${n}=${await syncSwitch(n).getAttribute('aria-checked')}`);
+      log.push(`sync reloaded: ${states.join(' ')} timeframes=${(await timeframes()).join('|')}`);
+      if (states.join(' ') !== 'Symbol=false Interval=true Crosshair=true Time=false Date range=false') throw new Error(`after reload ${states.join(' ')}`);
+    });
+    await ctx.screenshot('sync-reloaded');
     await ctx.writeText('checks', `${log.join('\n')}\n`);
   },
 };

@@ -60,6 +60,14 @@ export const UploadIcon = () => (
   </Svg>
 );
 
+export const InfoIcon = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5" />
+    <path d="M12 7.5v.01" />
+  </Svg>
+);
+
 export const RefreshIcon = () => (
   <Svg>
     <path d="M21 12a9 9 0 1 1-2.64-6.36" />

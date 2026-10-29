@@ -38,7 +38,7 @@ export function ChartRangeControl() {
         {active ? 'Range on' : 'Range'}
       </button>
       {active && (
-        <button className="ghost" onClick={clearChartRange} title="Show all loaded bars again">
+        <button className="ghost" onClick={() => void clearChartRange()} title="Show all loaded bars again">
           Clear range
         </button>
       )}
