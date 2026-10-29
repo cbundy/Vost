@@ -1645,7 +1645,9 @@ a:hover {
 .wl-row.wl-head { min-height: 20px; cursor: default; font-size: 10px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.4px; }
 .wl-row.wl-head:hover { background: transparent; }
 .wl-row.wl-head span:not(:first-child) { text-align: right; }
-.symbol-card { margin-top: 12px; padding: 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--panel-2); font-size: 12px; }
+.sidebar-watchlist { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.sidebar-watchlist .watchlist { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.symbol-card { flex: none; margin-top: 12px; padding: 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--panel-2); font-size: 12px; }
 .sc-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .sc-title strong { font-size: 13px; }
 .sc-sub { color: var(--muted-2); font-size: 11px; }

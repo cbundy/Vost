@@ -39,5 +39,28 @@ export const watchlist: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('after-drag');
+    await ctx.step('card stays pinned while the list scrolls', async () => {
+      await page.setViewportSize({ width: 1440, height: 560 });
+      for (let i = 0; i < 12; i++) {
+        page.once('dialog', (d) => void d.accept(`Section ${i + 1}`));
+        await panel.getByTitle('Add section').click();
+        await panel.locator('.wl-section-head', { hasText: `Section ${i + 1}` }).waitFor({ state: 'visible' });
+      }
+      const measure = () =>
+        page.evaluate(() => {
+          const wl = document.querySelector('.watchlist') as HTMLElement;
+          const card = document.querySelector('.symbol-card') as HTMLElement;
+          const sb = document.querySelector('.sidebar') as HTMLElement;
+          const c = card.getBoundingClientRect();
+          return { top: c.top, bottom: c.bottom, sidebarBottom: sb.getBoundingClientRect().bottom, sh: wl.scrollHeight, ch: wl.clientHeight };
+        });
+      const before = await measure();
+      await panel.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+      const after = await measure();
+      if (!(after.sh > after.ch)) throw new Error(`watchlist does not overflow (${after.sh} <= ${after.ch})`);
+      if (before.top !== after.top) throw new Error(`card moved while scrolling: ${before.top} -> ${after.top}`);
+      if (after.bottom > after.sidebarBottom + 0.5) throw new Error(`card bottom ${after.bottom} is below the sidebar ${after.sidebarBottom}`);
+    });
+    await ctx.screenshot('pinned-card');
   },
 };

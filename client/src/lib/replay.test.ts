@@ -8,6 +8,7 @@ import {
   replayStartIndex,
   replayVisible,
   runFitsVisible,
+  runIsPrefixOf,
   stepReplay,
 } from './replay';
 
@@ -72,5 +73,21 @@ describe('runFitsVisible', () => {
   it('accepts when there is no replay or no run', () => {
     expect(runFitsVisible(run, null)).toBe(true);
     expect(runFitsVisible(undefined, 5)).toBe(true);
+  });
+});
+
+describe('runIsPrefixOf', () => {
+  const cur = bars(10);
+  it('is true for a strict prefix and for equal arrays', () => {
+    expect(runIsPrefixOf(cur.slice(0, 5), cur)).toBe(true);
+    expect(runIsPrefixOf(cur, cur.slice())).toBe(true);
+  });
+  it('is false for a longer run or an empty run', () => {
+    expect(runIsPrefixOf(cur, cur.slice(0, 5))).toBe(false);
+    expect(runIsPrefixOf([], cur)).toBe(false);
+  });
+  it('is false for a different first bar or a different bar at the last index', () => {
+    expect(runIsPrefixOf(cur.slice(1, 5), cur)).toBe(false);
+    expect(runIsPrefixOf([cur[0], cur[1], { ...cur[2], time: cur[2].time + 1 }], cur)).toBe(false);
   });
 });

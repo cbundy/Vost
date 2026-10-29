@@ -59,3 +59,14 @@ export function runFitsVisible(runCandles: Candle[] | undefined, lastVisibleTime
   if (lastVisibleTime == null || !runCandles || runCandles.length === 0) return true;
   return runCandles[runCandles.length - 1].time <= lastVisibleTime;
 }
+
+/**
+ * Whether a Pine run computed on `runCandles` is still true for `currentCandles`: the run's bars are a
+ * prefix of the current ones (same first bar, same bar at the run's last index). A run that is a prefix
+ * never reaches past the current bars, so keeping it shows no look-ahead.
+ */
+export function runIsPrefixOf(runCandles: Candle[], currentCandles: Candle[]): boolean {
+  const n = runCandles.length;
+  if (n === 0 || currentCandles.length < n) return false;
+  return runCandles[0].time === currentCandles[0].time && runCandles[n - 1].time === currentCandles[n - 1].time;
+}
