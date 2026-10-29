@@ -1,9 +1,13 @@
+import { mkdtemp, rm } from 'node:fs/promises';
 import http from 'node:http';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_BARS, TIMEFRAMES } from '../shared/market.ts';
 import { PROVIDER_CATALOG } from '../shared/providerCatalog.ts';
 import { createApiDeps, handleApi } from './api.ts';
+import { openCandleStore } from './candles/store.ts';
 import { fakeFetch, type FakeFetch } from './providers/testing.ts';
 
 let server: http.Server;
@@ -284,5 +288,37 @@ describe('outcome hook (feeds /api/status)', () => {
     const r = await get('/api/history?provider=binance&symbol=NOPE&timeframe=1h&bars=2');
     expect(r.status).toBe(404);
     expect(outcomes).toEqual([]);
+  });
+});
+
+describe('recorded series (candle store)', () => {
+  it('serves a recorded series from the store on the second request, an unrecorded one never', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'vost-api-'));
+    const candles = await openCandleStore({ dir, log: () => undefined });
+    const recorded = new Set(['binance:BTCUSDT:1h']);
+    const srv = http.createServer((req, res) => {
+      const deps = createApiDeps({ fetch: current.fetch, candles, isRecorded: (p, s, t) => recorded.has(`${p}:${s}:${t}`) });
+      void handleApi(req, res, new URL(req.url!, 'http://x'), deps);
+    });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+    try {
+      upstream = () => [kline(0), kline(3_600_000)];
+      const q = '/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=2&to=3600';
+      const first = await (await fetch(url + q)).json();
+      expect(current.urls).toHaveLength(1);
+      expect(candles.stats().rows).toBe(2);
+      const second = await (await fetch(url + q)).json();
+      expect(second).toEqual(first);
+      expect(current.urls).toHaveLength(1); // served from disk
+      await fetch(url + q.replace('BTCUSDT', 'ETHUSDT'));
+      await fetch(url + q.replace('BTCUSDT', 'ETHUSDT'));
+      expect(current.urls).toHaveLength(3); // not recorded: always the exchange
+      expect(candles.stats().rows).toBe(2);
+    } finally {
+      await new Promise<void>((r) => srv.close(() => r()));
+      candles.close();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

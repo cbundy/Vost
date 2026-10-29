@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeWS, FakeWebSocket, fakeTimers } from '../live/testing.ts';
 import { fakeFetch } from '../providers/testing.ts';
 import { probeHistory, probeLive, probeSymbols, runProbe } from './probes.ts';
@@ -104,8 +104,21 @@ describe('live probe', () => {
   });
 
   it('fails for a provider without live data', async () => {
-    expect(await probeLive('coinbase', env().env)).toMatchObject({ ok: false });
+    expect(await probeLive('yahoo', env().env)).toMatchObject({ ok: false });
     expect(FakeWS.instances).toHaveLength(0);
+  });
+
+  it('succeeds for Coinbase on the subscriptions frame, without any REST call', async () => {
+    const { env: e, timers } = env();
+    const spy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('no REST call expected'));
+    const p = probeLive('coinbase', e);
+    FakeWS.last.open();
+    expect(JSON.parse(FakeWS.last.sent[0])).toMatchObject({ type: 'subscribe', channels: ['matches'] });
+    FakeWS.last.message(JSON.stringify({ type: 'subscriptions', channels: [] }));
+    expect((await p).ok).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    expect(timers.pending).toBe(0);
   });
 });
 

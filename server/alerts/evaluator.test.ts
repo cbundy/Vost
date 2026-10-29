@@ -198,19 +198,16 @@ describe('live subscriptions', () => {
 
 describe('polling', () => {
   it('polls the smallest timeframe at the interval, once per symbol', async () => {
-    const cb = fakeAdapter('coinbase', () => 90);
-    const yh = fakeAdapter('yahoo', () => 90);
+    const cb = fakeAdapter('yahoo', () => 90);
     const st = fakeAdapter('stooq', () => 90);
     const f = fakeRelay();
-    const a = await start(f.relay, [cb.adapter, yh.adapter, st.adapter], { pollSeconds: 30 });
-    await a.service.create(body({ provider: 'coinbase', symbol: 'BTC-USD' }));
-    await a.service.create(body({ provider: 'coinbase', symbol: 'BTC-USD', level: 500 }));
+    const a = await start(f.relay, [cb.adapter, st.adapter], { pollSeconds: 30 });
     await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL' }));
+    await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL', level: 500 }));
     await a.service.create(body({ provider: 'stooq', symbol: 'AAPL.US' }));
     expect(f.subs).toHaveLength(0);
     expect(cb.calls).toHaveLength(1); // first price at once, shared by both alerts
-    expect(cb.calls[0]).toMatchObject({ symbol: 'BTC-USD', timeframe: '1m' });
-    expect(yh.calls[0].timeframe).toBe('1m');
+    expect(cb.calls[0]).toMatchObject({ symbol: 'AAPL', timeframe: '1m' });
     expect(st.calls[0].timeframe).toBe('1d');
     expect(timers.delays()).toEqual([30_000]);
     timers.advance(30_000);
@@ -219,18 +216,18 @@ describe('polling', () => {
   });
 
   it('clamps a poll interval below 10 s to 10 s', async () => {
-    const cb = fakeAdapter('coinbase', () => 90);
+    const cb = fakeAdapter('yahoo', () => 90);
     const a = await start(fakeRelay().relay, [cb.adapter], { pollSeconds: 1 });
-    await a.service.create(body({ provider: 'coinbase', symbol: 'BTC-USD' }));
+    await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL' }));
     expect(timers.delays()).toEqual([10_000]);
   });
 
   it('fires when a polled price crosses, and stops polling', async () => {
     let price = 90;
-    const cb = fakeAdapter('coinbase', () => price);
+    const cb = fakeAdapter('yahoo', () => price);
     const { fired, listener, reached } = firings();
     const a = await start(fakeRelay().relay, [cb.adapter], { onTriggered: listener });
-    await a.service.create(body({ provider: 'coinbase', symbol: 'BTC-USD' }));
+    await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL' }));
     price = 105;
     timers.advance(60_000);
     await reached(1);
@@ -241,18 +238,18 @@ describe('polling', () => {
 
   it('a failing or throwing poll never fires and is logged once', async () => {
     let fail = true;
-    const cb = fakeAdapter('coinbase', () => (fail ? new Error('HTTP 500') : 90));
+    const cb = fakeAdapter('yahoo', () => (fail ? new Error('HTTP 500') : 90));
     const fired: Alert[] = [];
     const a = await start(fakeRelay().relay, [cb.adapter], { onTriggered: (x) => fired.push(x) });
-    await a.service.create(body({ provider: 'coinbase', symbol: 'BTC-USD' }));
+    await a.service.create(body({ provider: 'yahoo', symbol: 'AAPL' }));
     await vi.waitFor(() => expect(cb.calls).toHaveLength(1));
-    await vi.waitFor(() => expect(logs.filter((l) => l.includes('coinbase BTC-USD HTTP 500'))).toHaveLength(1));
+    await vi.waitFor(() => expect(logs.filter((l) => l.includes('yahoo AAPL HTTP 500'))).toHaveLength(1));
     timers.advance(60_000);
     await vi.waitFor(() => expect(cb.calls).toHaveLength(2));
     await new Promise<void>((r) => setImmediate(r)); // let the second failure be handled (and not logged again)
     expect(fired).toHaveLength(0);
     expect(a.service.list()[0]).toMatchObject({ status: 'active', lastPrice: null });
-    expect(logs.filter((l) => l.includes('coinbase BTC-USD HTTP 500'))).toHaveLength(1);
+    expect(logs.filter((l) => l.includes('yahoo AAPL HTTP 500'))).toHaveLength(1);
     fail = false;
     timers.advance(60_000);
     await vi.waitFor(() => expect(a.service.list()[0].lastPrice).toBe(90));

@@ -4,11 +4,25 @@
  * `liveFeed()` is the only entry point the relay needs.
  */
 import { catalogEntry } from '../../shared/providerCatalog.ts';
-import type { Candle } from '../../shared/market.ts';
+import type { Candle, LiveLogEvent } from '../../shared/market.ts';
+import { COINBASE_GRANULARITY } from '../providers/coinbase.ts';
+import type { FetchFn } from '../providers/upstream.ts';
+import { coinbaseCandleFeed } from './coinbaseCandles.ts';
+import type { Timers } from './socket.ts';
 
 export interface ParsedKline {
   candle: Candle;
   closed: boolean;
+}
+
+/** What a feed gets each time its socket opens: output that dies with that connection. */
+export interface FeedOpenContext {
+  /** Publishes candles; a no-op once this connection closed or a newer one opened. */
+  emit(items: ParsedKline[]): void;
+  log(severity: LiveLogEvent['severity'], text: string): void;
+  timers: Timers;
+  /** Registers `fn` to run once when this connection ends (closed, dropped or replaced). */
+  onClose(fn: () => void): void;
 }
 
 export interface LiveFeed {
@@ -23,6 +37,14 @@ export interface LiveFeed {
   ping?: string;
   /** Maps one raw frame to zero or more candles; may throw on a malformed frame. */
   parse: (raw: string) => ParsedKline[];
+  /** Runs on every open (first connect and each reconnect), after `subscribe` was sent. */
+  onOpen?: (ctx: FeedOpenContext) => void;
+}
+
+export interface LiveFeedDeps {
+  fetch?: FetchFn;
+  /** Clock in ms; defaults to `Date.now`. */
+  now?: () => number;
 }
 
 /** What a feed needs to be built: the provider's own wording of the error otherwise. */
@@ -170,7 +192,7 @@ export function parseOkxWs(raw: string): ParsedKline[] {
 const unsupported = (timeframe: string): FeedResult => ({ error: `Live data does not support ${timeframe}` });
 
 /** `symbol` is the trimmed, upper-cased symbol as the provider's REST API spells it. */
-export function liveFeed(provider: string, symbol: string, timeframe: string): FeedResult {
+export function liveFeed(provider: string, symbol: string, timeframe: string, deps: LiveFeedDeps = {}): FeedResult {
   switch (provider) {
     case 'binance': {
       const interval = BINANCE_INTERVALS[timeframe];
@@ -219,6 +241,17 @@ export function liveFeed(provider: string, symbol: string, timeframe: string): F
           pingMs: 20000,
           ping: 'ping',
           parse: parseOkxWs,
+        },
+      };
+    }
+    case 'coinbase': {
+      const granularity = COINBASE_GRANULARITY[timeframe];
+      if (!granularity) return unsupported(timeframe);
+      return {
+        feed: {
+          url: 'wss://ws-feed.exchange.coinbase.com',
+          subscribe: JSON.stringify({ type: 'subscribe', product_ids: [symbol], channels: ['matches'] }),
+          ...coinbaseCandleFeed(symbol, granularity, deps),
         },
       };
     }

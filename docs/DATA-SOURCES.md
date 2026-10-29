@@ -11,7 +11,7 @@ How to read it:
 
 ## Time ranges
 
-`GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / timeframe seconds) + 1`) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists.
+`GET /api/history` takes an optional `from` (unix seconds). With it, `bars` is optional and ignored, and every remote provider returns exactly the candles with `from <= time <= to`, ascending, no duplicates; `to` defaults to now and a later `to` is clamped to now. With `to` and `bars` but no `from`, the result is `bars` candles ending at `to`. A span of more than 20000 bars (`floor((to - from) / timeframe seconds) + 1`) is a 400 advising a shorter span or a larger timeframe. A span with no candles is a 404 naming the provider, symbol and span; a span only partly covered by history returns what exists. A series the server records is served from the server's own candle store under the same contract, fetching from the exchange only what the store lacks.
 
 ## Summary
 
@@ -20,7 +20,7 @@ How to read it:
 | Binance | Crypto spot | No | Yes (ws) | 1000 | Yes (`*`) | Yes |
 | Yahoo Finance | Stocks, ETFs, indices, FX, crypto | No | No (delayed) | Range based | No | Yes |
 | Stooq | Stocks, indices, FX, crypto | No | No | Whole history (CSV) | Bot check blocks | Yes |
-| Coinbase Exchange | Crypto spot | No | Yes (ws, no candle channel) | 300 | Yes (`*`) | Yes (history only) |
+| Coinbase Exchange | Crypto spot | No | Yes (ws trades, candles built by Vost) | 300 | Yes (`*`) | Yes |
 | Kraken | Crypto spot | No | Yes (ws) | 720 | No | Yes |
 | Bybit | Crypto spot, derivatives | No | Yes (ws) | 1000 | Echoes origin | Yes (spot) |
 | OKX | Crypto spot, derivatives | No | Yes (ws) | 100 (history) | Echoes origin | Yes (spot) |
@@ -73,7 +73,7 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - ToS: no API terms published; treat as personal use. [Site](https://stooq.com).
 - Checked 2026-10-23: `stooq.com/q/d/l/?s=aapl.us&i=d` returned HTTP 200 but the body was an HTML page saying "This site requires JavaScript to verify your browser", not CSV. Stooq is blocked from this container; the README already names Yahoo and CSV import as fallbacks.
 
-## Coinbase Exchange (supported, history only)
+## Coinbase Exchange (supported, live candles built from trades)
 
 - Assets: crypto spot (`BTC-USD`, USD, EUR, GBP and stablecoin quotes).
 - Symbol listing: `GET https://api.exchange.coinbase.com/products`.
@@ -82,7 +82,7 @@ Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX so
 - History: at most 300 candles per request; paginate by `start`/`end`. Candles are only returned for periods with trades. A span steps fixed 300-candle windows from `to` back to `from` by time, so a window without trades does not end it early.
 - Rate limits: public endpoints 10 requests per second per IP (burst 15). [Docs](https://docs.cdp.coinbase.com/exchange/docs/rest-rate-limits).
 - Server hosts: `api.exchange.coinbase.com` (CORS `*` was observed, but the server makes the call).
-- Live: websocket `wss://ws-feed.exchange.coinbase.com`. [Docs](https://docs.cdp.coinbase.com/exchange/docs/websocket-overview). The feed has no candle channel, so Vost does not offer live streaming for Coinbase.
+- Live: websocket `wss://ws-feed.exchange.coinbase.com`. [Docs](https://docs.cdp.coinbase.com/exchange/docs/websocket-overview). The feed has no candle channel, so the server subscribes to the `matches` channel (`{"type":"subscribe","product_ids":["BTC-USD"],"channels":["matches"]}`; a `last_match` first, then one `match` per trade, no ping needed) and builds each candle itself: open is the first trade, high and low the extremes, close the latest, volume the sum of sizes, in buckets aligned to the granularity (1d at UTC midnight). On every connect and reconnect the bar in progress is seeded from Coinbase's REST candle for that bucket (trades seen before the socket opened only widen high and low, so nothing is counted twice), so it never looks smaller than the real one; if the seed fails it is retried every 15 s and nothing is shown for that bar meanwhile.
 - Key: none for market data.
 - ToS: market data is for use by the user; redistribution is restricted. [Terms](https://www.coinbase.com/legal/market_data).
 - Docs: [API reference](https://docs.cdp.coinbase.com/exchange/docs/welcome).

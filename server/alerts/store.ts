@@ -3,9 +3,10 @@
  * Saves are serialized and atomic (temp file, then rename). A bad file is moved
  * aside, never overwritten.
  */
-import { access, mkdir, readFile, rename, stat, writeFile, constants } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Alert } from '../../shared/alerts.ts';
+import { canWrite } from '../fsutil.ts';
 
 export const FILE_VERSION = 1;
 export const LAZY_FLUSH_MS = 60_000;
@@ -27,24 +28,6 @@ export interface StoreDeps {
   dir: string;
   now?: () => number;
   log?: (line: string) => void;
-}
-
-/** Walks up to the nearest existing path: the dir is writable when that is a writable directory. */
-async function canWrite(dir: string): Promise<boolean> {
-  let p = path.resolve(dir);
-  for (;;) {
-    try {
-      const st = await stat(p);
-      if (!st.isDirectory()) return false;
-      await access(p, constants.W_OK);
-      return true;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return false;
-      const parent = path.dirname(p);
-      if (parent === p) return false;
-      p = parent;
-    }
-  }
 }
 
 export function createAlertStore(deps: StoreDeps): AlertStore {
