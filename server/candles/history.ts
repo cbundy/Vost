@@ -103,16 +103,20 @@ export async function readThroughHistory(
   async function barsMode(r: HistoryRequest): Promise<Candle[]> {
     const to = Math.min(r.to ?? nowSec, nowSec);
     const closedEnd = Math.min(to, lastClosed);
-    // Bars after the last closed one are forming: always from the exchange.
-    const forming = to > closedEnd ? await deps.fetch({ symbol: r.symbol, timeframe: r.timeframe, bars: 1, from: closedEnd + 1, to }).catch((err) => {
-      if (err instanceof NotFoundError) return [] as Candle[];
-      throw err;
-    }) : [];
-    const need = r.bars - forming.length;
+    // Check coverage first, so a short store costs one exchange call, not two.
+    const hasForming = to > closedEnd; // at most one bar forms, since `to` is not after now
+    const need = r.bars - (hasForming ? 1 : 0);
     const rows = guard('read', () => store!.lastN(series, closedEnd, need));
     const unbroken = need <= 0 || (rows.length === need && guard('read', () => store!.covered(series, rows[0]!.time, closedEnd)).length === 0);
     if (unbroken) {
-      return need <= 0 ? forming.slice(-r.bars) : merge(rows, forming);
+      // Bars after the last closed one are forming: always from the exchange.
+      const forming = hasForming ? await deps.fetch({ symbol: r.symbol, timeframe: r.timeframe, bars: 1, from: closedEnd + 1, to }).catch((err) => {
+        if (err instanceof NotFoundError) return [] as Candle[];
+        throw err;
+      }) : [];
+      if (forming.length > 0) log(`[candles] ${label} bars ${r.bars} to ${to}: fetched ${forming.length} forming bars`);
+      if (forming.length > 0 || !hasForming) return merge(rows, forming).slice(-r.bars);
+      // No forming bar came back: the closed rows are one short, so fall through to the whole fetch.
     }
     const all = await deps.fetch({ ...r, to });
     const closed = all.filter((c) => c.time <= lastClosed);

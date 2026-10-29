@@ -57,6 +57,15 @@ describe('candle store', () => {
     store.close();
   });
 
+  it('joins intervals that end and start on consecutive bars', async () => {
+    const store = await open();
+    for (const t of [0, H, 2 * H, 3 * H]) store.upsert(S, [candle(t)], t, t);
+    expect(store.covered(S, 0, 3 * H)).toEqual([]);
+    store.upsert(S, [candle(5 * H)], 5 * H, 5 * H);
+    expect(store.covered(S, 0, 5 * H)).toEqual([{ from: 3 * H + 1, to: 5 * H - 1 }]);
+    store.close();
+  });
+
   it('never covers the forming bar', async () => {
     const store = await open();
     store.upsert(S, [candle(NOW - H), candle(NOW)], NOW - 5 * H, NOW + 10 * H);

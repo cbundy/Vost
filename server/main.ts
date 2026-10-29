@@ -239,7 +239,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → market data: /api/providers, /api/history, /api/symbols, /api/search, /api/status`);
   console.log(`  → live candles: /api/live`);
   console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
-  console.log(`  → candle store: ${candles.on ? `on (${candles.file})` : 'off'}`);
+  console.log(`  → candle store: ${`${candles.on ? 'on' : 'off'} (${candles.file})`}`);
   console.log('');
   status.scheduler.start();
 });

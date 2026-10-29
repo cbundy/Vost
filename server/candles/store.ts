@@ -193,11 +193,12 @@ export async function openCandleStore(deps: CandleStoreDeps): Promise<CandleStor
         if (coveredFrom > to) return;
         let from = coveredFrom;
         let end = to;
-        for (const row of selCover.all(s.provider, s.symbol, s.timeframe, coveredFrom - 1, to + 1) as unknown as Interval[]) {
+        const step = tfSeconds(s.timeframe); // intervals on consecutive bars join
+        for (const row of selCover.all(s.provider, s.symbol, s.timeframe, coveredFrom - step, to + step) as unknown as Interval[]) {
           from = Math.min(from, row.from);
           end = Math.max(end, row.to);
         }
-        delCover.run(s.provider, s.symbol, s.timeframe, coveredFrom - 1, to + 1);
+        delCover.run(s.provider, s.symbol, s.timeframe, coveredFrom - step, to + step);
         insCover.run(s.provider, s.symbol, s.timeframe, from, end);
       });
     },
@@ -213,9 +214,13 @@ export async function openCandleStore(deps: CandleStoreDeps): Promise<CandleStor
       if (from > to) return [];
       if (!open) return [{ from, to }];
       const missing: Interval[] = [];
+      const step = tfSeconds(s.timeframe);
       let cursor = from;
+      let prevTo: number | undefined; // end of the previous interval: a bar time
       for (const row of selCover.all(s.provider, s.symbol, s.timeframe, from, to) as unknown as Interval[]) {
-        if (row.from > cursor) missing.push({ from: cursor, to: row.from - 1 });
+        // A gap between two intervals narrower than one bar holds no bar time.
+        if (row.from > cursor && !(prevTo !== undefined && row.from - prevTo <= step)) missing.push({ from: cursor, to: row.from - 1 });
+        prevTo = row.to;
         cursor = Math.max(cursor, row.to + 1);
         if (cursor > to) break;
       }

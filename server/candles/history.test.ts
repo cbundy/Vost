@@ -115,6 +115,14 @@ describe('bars mode', () => {
     expect(out).toEqual(await direct(barsReq(30)));
     expect(ex.calls).toHaveLength(1);
     expect(ex.calls[0]).toMatchObject({ from: NOW - H + 1 });
+    expect(logs.some((l) => l.includes('forming'))).toBe(true);
+  });
+
+  it('a short store makes one exchange call, not a forming fetch and a whole one', async () => {
+    await readThroughHistory(deps(fakeExchange()), 'Fake', barsReq(10));
+    const ex = fakeExchange();
+    await readThroughHistory(deps(ex), 'Fake', barsReq(40));
+    expect(ex.calls).toHaveLength(1);
   });
 
   it('refetches when coverage is too short or broken', async () => {
