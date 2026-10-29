@@ -79,3 +79,17 @@ describe('OKX live', () => {
     expect(parseOkxWs('pong')).toEqual([]);
   });
 });
+
+describe('coinbase feed', () => {
+  it('pins the url and the matches subscription, with no ping', () => {
+    const r = liveFeed('coinbase', 'BTC-USD', '1h');
+    if (!('feed' in r)) throw new Error(r.error);
+    expect(r.feed.url).toBe('wss://ws-feed.exchange.coinbase.com');
+    expect(JSON.parse(r.feed.subscribe!)).toEqual({ type: 'subscribe', product_ids: ['BTC-USD'], channels: ['matches'] });
+    expect(r.feed.pingMs).toBeUndefined();
+    expect(r.feed.onOpen).toBeTypeOf('function');
+  });
+  it('refuses a timeframe Coinbase has no candles for', () => {
+    expect(liveFeed('coinbase', 'BTC-USD', '4h')).toEqual({ error: 'Live data does not support 4h' });
+  });
+});

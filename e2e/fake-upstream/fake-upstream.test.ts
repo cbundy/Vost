@@ -78,7 +78,7 @@ describe('fake upstream REST, through the real adapters and the real fetch', () 
 
 /** Collects what an upstream socket reports and lets a test wait for the next matching event. */
 function watch(provider: string, host?: 'fallback') {
-  const found = liveFeed(provider, provider === 'okx' ? 'BTC-USDT' : provider === 'kraken' ? 'XBTUSD' : 'BTCUSDT', '1m');
+  const found = liveFeed(provider, provider === 'coinbase' ? 'BTC-USD' : provider === 'okx' ? 'BTC-USDT' : provider === 'kraken' ? 'XBTUSD' : 'BTCUSDT', '1m');
   if ('error' in found) throw new Error(found.error);
   const feed = host === 'fallback' ? { ...found.feed, url: found.feed.fallbackUrl! } : found.feed;
   const klines: Candle[] = [];
@@ -123,7 +123,7 @@ function watch(provider: string, host?: 'fallback') {
 }
 
 describe('fake upstream live feeds, through the real socket and WebSocket', () => {
-  for (const provider of ['binance', 'kraken', 'bybit', 'okx']) {
+  for (const provider of ['binance', 'coinbase', 'kraken', 'bybit', 'okx']) {
     it(`${provider}: a kline arrives, then a new one with a different close`, async () => {
       const w = watch(provider);
       try {
@@ -160,6 +160,7 @@ describe('fake upstream live feeds, through the real socket and WebSocket', () =
     expect(hosts).toContain('ws.kraken.com');
     expect(hosts).toContain('stream.bybit.com');
     expect(hosts).toContain('ws.okx.com:8443');
+    expect(hosts).toContain('ws-feed.exchange.coinbase.com');
   });
 
   it('stop() makes the socket report a failure and start() brings the klines back', async () => {

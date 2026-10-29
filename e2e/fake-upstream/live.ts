@@ -1,5 +1,5 @@
 /**
- * Live kline frames in the four live providers' real formats, with the
+ * Live frames in the five live providers' real formats (klines, and trades for Coinbase), with the
  * subscribe and ping messages each one speaks. One call to `frame()` per push.
  */
 import { barAt, TIMEFRAME_SECONDS } from './data.ts';
@@ -86,10 +86,43 @@ export function okxSubscription(msg: unknown): Subscription | null {
   };
 }
 
+/**
+ * Coinbase Exchange: `{type:'subscribe', product_ids:[..], channels:['matches']}`. The first frame is
+ * the `last_match`, then one `match` per push, priced at the fake forming bar's close, with rising ids.
+ */
+export function coinbaseSubscription(msg: unknown): Subscription | null {
+  const m = msg as { type?: string; product_ids?: string[]; channels?: unknown[] };
+  if (m?.type !== 'subscribe' || !m.product_ids?.[0] || !m.channels?.includes('matches')) return null;
+  const symbol = m.product_ids[0];
+  const step = 60;
+  let tradeId = 1000;
+  return {
+    symbol,
+    step,
+    frame(nowSec) {
+      const b = forming(symbol, step, nowSec);
+      const first = tradeId === 1000;
+      return JSON.stringify({
+        type: first ? 'last_match' : 'match',
+        trade_id: ++tradeId,
+        sequence: tradeId * 10,
+        maker_order_id: 'm',
+        taker_order_id: 't',
+        time: new Date(nowSec * 1000).toISOString().replace('Z', '000Z'),
+        product_id: symbol,
+        size: '0.01',
+        price: String(b.close),
+        side: 'buy',
+      });
+    },
+  };
+}
+
 /** The reply to a subscribe, per provider (the real services acknowledge it). */
 export function subscribeAck(host: string, msg: unknown): string | null {
   if (host === 'ws.kraken.com') return JSON.stringify({ method: 'subscribe', result: (msg as { params?: unknown }).params, success: true });
   if (host === 'stream.bybit.com') return JSON.stringify({ success: true, ret_msg: '', op: 'subscribe' });
+  if (host === 'ws-feed.exchange.coinbase.com') return JSON.stringify({ type: 'subscriptions', channels: [{ name: 'matches', product_ids: (msg as { product_ids?: string[] }).product_ids }] });
   if (host === 'ws.okx.com') return JSON.stringify({ event: 'subscribe', arg: (msg as { args?: unknown[] }).args?.[0] });
   return null;
 }

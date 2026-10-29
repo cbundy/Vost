@@ -72,6 +72,20 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
   let retryTimer: unknown;
   let pingTimer: unknown;
   let lastStatus = '';
+  let connClosers: Array<() => void> = [];
+
+  /** Ends the current connection's feed state (its seed retry, its emit). */
+  const endConn = (): void => {
+    const fns = connClosers;
+    connClosers = [];
+    for (const fn of fns) {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    }
+  };
 
   const log = (severity: LiveLogEvent['severity'], text: string): void => opts.onLog({ severity, text });
 
@@ -123,6 +137,7 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
       return;
     }
     ws = sock;
+    endConn();
     sock.onopen = () => {
       if (ws !== sock) return;
       attempts = 0;
@@ -142,6 +157,21 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
           }
         }, feed.pingMs);
       }
+      if (feed.onOpen) {
+        try {
+          feed.onOpen({
+            emit: (items) => {
+              if (ws !== sock || stopped) return;
+              for (const k of items) opts.onKline(k.candle, k.closed);
+            },
+            log,
+            timers,
+            onClose: (fn) => connClosers.push(fn),
+          });
+        } catch {
+          /* a broken hook must not drop the connection */
+        }
+      }
     };
     sock.onmessage = (ev) => {
       if (ws !== sock) return;
@@ -160,6 +190,7 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
       if (ws !== sock) return;
       ws = null;
       clearPing();
+      endConn();
       if (stopped) return;
       fail(formatClose(ev));
     };
@@ -173,6 +204,7 @@ export function openUpstream(opts: SocketOptions): UpstreamSocket {
       if (retryTimer !== undefined) timers.clearTimeout(retryTimer);
       retryTimer = undefined;
       clearPing();
+      endConn();
       const sock = ws;
       ws = null;
       if (sock) {

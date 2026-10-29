@@ -12,7 +12,8 @@ import type { ProviderAdapter } from './types.ts';
 import { upstreamJson } from './upstream.ts';
 
 const PROVIDER = 'Coinbase';
-const HOST = 'https://api.exchange.coinbase.com';
+export const COINBASE_HOST = 'https://api.exchange.coinbase.com';
+const HOST = COINBASE_HOST;
 const MAX_PER_REQUEST = 300;
 const POPULAR = catalogEntry('coinbase')!.popularSymbols;
 
