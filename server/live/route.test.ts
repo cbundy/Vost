@@ -143,3 +143,118 @@ describe('GET /api/live source', () => {
     void res.body?.cancel();
   });
 });
+
+describe('GET /api/live?sub=', () => {
+  const q = (...keys: string[]) => `${base}/api/live?${keys.map((k) => `sub=${encodeURIComponent(k)}`).join('&')}`;
+  const open = (n: number) => {
+    for (const ws of FakeWS.instances.slice(0, n)) ws.open();
+  };
+
+  it('serves several subscriptions on one stream, each event tagged with its own sub', async () => {
+    const keys = ['binance:1m:native:BTCUSDT', 'binance:1m:native:ETHUSDT', 'coinbase:1m:native:BTC-USD'];
+    const res = await fetch(q(...keys));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('text/event-stream');
+    await waitFor(() => FakeWS.instances.length === 3);
+    expect(relay.stats().map((s) => s.subscribers)).toEqual([1, 1, 1]);
+    open(3);
+    const ws = FakeWS.instances[1];
+    ws.message(JSON.stringify({ k: { t: 60000, o: '1', h: '2', l: '1', c: '2', v: '3', x: true } }));
+    const text = await readUntil(res, (t) => t.includes('event: kline'));
+    const evs = events(text);
+    expect(evs.filter((e) => e.event === 'status' && e.data.status === 'live').map((e) => e.data.sub).sort()).toEqual([...keys].sort());
+    expect(evs.filter((e) => e.event === 'kline')).toEqual([
+      { event: 'kline', data: { candle: { time: 60, open: 1, high: 2, low: 1, close: 2, volume: 3 }, closed: true, sub: keys[1] } },
+    ]);
+    expect(evs.every((e) => keys.includes(e.data.sub))).toBe(true);
+  });
+
+  it('gives a refused key one tagged fatal status while the others keep streaming', async () => {
+    const res = await fetch(q('binance:1m:native:BTCUSDT', 'binance:9x:native:BTCUSDT', 'garbage', 'binance:1m:bogus:BTCUSDT'));
+    await waitFor(() => FakeWS.instances.length === 1);
+    FakeWS.last.open();
+    FakeWS.last.message(JSON.stringify({ k: { t: 60000, o: '1', h: '2', l: '1', c: '2', v: '3', x: true } }));
+    const text = await readUntil(res, (t) => t.includes('event: kline'));
+    const evs = events(text);
+    const fatal = evs.filter((e) => e.data.fatal);
+    expect(fatal.map((e) => e.data.sub).sort()).toEqual(['binance:1m:bogus:BTCUSDT', 'binance:9x:native:BTCUSDT', 'garbage']);
+    expect(fatal.every((e) => e.event === 'status' && e.data.status === 'error')).toBe(true);
+    expect(evs.some((e) => e.event === 'kline' && e.data.sub === 'binance:1m:native:BTCUSDT')).toBe(true);
+  });
+
+  it('ends the response when every key failed', async () => {
+    const res = await fetch(q('nope:1m:native:X', 'binance:9x:native:BTCUSDT'));
+    const evs = events(await res.text());
+    expect(evs).toHaveLength(2);
+    expect(evs.every((e) => e.data.fatal === true)).toBe(true);
+    expect(FakeWS.instances).toHaveLength(0);
+  });
+
+  it('answers more than 16 distinct keys with a 400 JSON body, and counts duplicates once', async () => {
+    const many = Array.from({ length: 17 }, (_, i) => `binance:1m:native:S${i}`);
+    const bad = await fetch(q(...many));
+    expect(bad.status).toBe(400);
+    expect(bad.headers.get('content-type')).toContain('application/json');
+    expect(((await bad.json()) as { error: string }).error).toMatch(/16/);
+    expect(FakeWS.instances).toHaveLength(0);
+    const ctl = new AbortController();
+    const ok = await fetch(q(...many.slice(0, 16), many[0], many[0]), { signal: ctl.signal });
+    expect(ok.status).toBe(200);
+    await waitFor(() => FakeWS.instances.length === 16);
+    ctl.abort();
+  });
+
+  it('round-trips a symbol containing ":" unchanged in sub', async () => {
+    const key = 'binance:1m:native:BTC:USDT/X';
+    const res = await fetch(q(key));
+    const text = await readUntil(res, (t) => t.includes('connecting'));
+    expect(events(text)[0].data).toEqual({ status: 'connecting', sub: key });
+  });
+
+  it('subscribes the built timeframe for source built', async () => {
+    const seen: Array<{ source?: string } | undefined> = [];
+    const inner = relay;
+    relay = { ...inner, subscribe: (p, s, t, sub, opts) => (seen.push(opts), inner.subscribe(p, s, t, sub, opts)) };
+    const res = await fetch(q('binance:4h:built:BTCUSDT'));
+    const text = await readUntil(res, (t) => t.includes('connecting'));
+    expect(seen).toEqual([{ source: 'built' }]);
+    expect(events(text)[0].data.sub).toBe('binance:4h:built:BTCUSDT');
+  });
+
+  it('unsubscribes every key when the client goes away, closing the sockets', async () => {
+    const ctl = new AbortController();
+    await fetch(q('binance:1m:native:BTCUSDT', 'binance:1m:native:ETHUSDT'), { signal: ctl.signal });
+    await waitFor(() => relay.stats().length === 2);
+    ctl.abort();
+    await waitFor(() => relay.stats().length === 0);
+    expect(FakeWS.instances.every((w) => w.closed)).toBe(true);
+  });
+
+  it('ends the response when the relay shuts down', async () => {
+    const res = await fetch(q('binance:1m:native:BTCUSDT', 'binance:1m:native:ETHUSDT'));
+    await waitFor(() => relay.stats().length === 2);
+    relay.closeAll();
+    const evs = events(await res.text());
+    expect(evs.length).toBeGreaterThan(0);
+  });
+
+  it('sends one ping per stream, not per subscription', async () => {
+    heartbeat = 20;
+    const res = await fetch(q('binance:1m:native:BTCUSDT', 'binance:1m:native:ETHUSDT', 'binance:1m:native:SOLUSDT'));
+    const text = await readUntil(res, (t) => t.split(': ping\n\n').length > 3);
+    // within the time three pings took, a per-subscription timer would have sent about three times as many
+    expect(text.split(': ping\n\n').length - 1).toBeGreaterThanOrEqual(3);
+  });
+
+  it('does not mutate the relay event shared with a legacy stream', async () => {
+    const legacy = await fetch(`${base}/api/live?provider=binance&symbol=BTCUSDT&timeframe=1m`);
+    const multi = await fetch(q('binance:1m:native:BTCUSDT'));
+    await waitFor(() => relay.stats()[0]?.subscribers === 2);
+    FakeWS.last.open();
+    FakeWS.last.message(JSON.stringify({ k: { t: 60000, o: '1', h: '2', l: '1', c: '2', v: '3', x: true } }));
+    const l = events(await readUntil(legacy, (t) => t.includes('event: kline'))).filter((e) => e.event === 'kline');
+    const m = events(await readUntil(multi, (t) => t.includes('event: kline'))).filter((e) => e.event === 'kline');
+    expect(l[0].data.sub).toBeUndefined();
+    expect(m[0].data.sub).toBe('binance:1m:native:BTCUSDT');
+  });
+});
