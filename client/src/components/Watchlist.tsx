@@ -5,6 +5,7 @@ import { exportList, filterByTag, type WatchItem } from '../lib/watchlist';
 import { quoteFromBars, ROW_BARS } from '../lib/quotes';
 import { quoteKey, useQuotes } from '../state/quotes';
 import { useStore } from '../state/store';
+import { useChart, useChartStore } from '../state/chartContext';
 
 const TAG_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6'];
 type Key = { providerId: string; symbol: string };
@@ -71,14 +72,15 @@ function useVisibleRows() {
 }
 
 export function Watchlist() {
-  const providerId = useStore((s) => s.providerId);
-  const symbol = useStore((s) => s.symbol);
-  const candles = useStore((s) => s.candles);
-  const timeframe = useStore((s) => s.timeframe);
+  const providerId = useChart((s) => s.providerId);
+  const symbol = useChart((s) => s.symbol);
+  const candles = useChart((s) => s.candles);
+  const timeframe = useChart((s) => s.timeframe);
   const entries = useQuotes((s) => s.entries);
   const { visible, rowRef } = useVisibleRows();
   const wls = useStore((s) => s.watchlists);
   const st = useStore.getState;
+  const chartStore = useChartStore();
   const [filter, setFilter] = useState('');
   const [menu, setMenu] = useState<Menu | null>(null);
   const [editing, setEditing] = useState<Key | null>(null);
@@ -228,7 +230,7 @@ export function Watchlist() {
                 onDragStart={(e) => { e.stopPropagation(); drag.current = { kind: 'item', key: it }; }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (drag.current?.kind === 'item') dropItem(sec.id, ii); else dropSection(si); }}
-                onClick={() => st().openWatchItem(it.providerId, it.symbol)}
+                onClick={() => chartStore.getState().openWatchItem(it.providerId, it.symbol)}
                 onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, item: it, sectionId: sec.id }); }}
               >
                 <span className="wl-id">

@@ -3,20 +3,22 @@ import { useDialogKeys } from '../lib/useDialogKeys';
 import { detectPineVersion } from '../lib/pine/version';
 import { resolvePineSelection } from '../lib/pineSelection';
 import type { PineInput, PineInputValue } from '../lib/pine/types';
-import { useStore, type PineRunState } from '../state/store';
+import { useStore } from '../state/store';
+import { type PineRunState } from '../state/chart';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
+import { useChart } from '../state/chartContext';
 
 /**
  * The Pine editor pane beside the chart: one Pine indicator at a time in a full-height editor.
  * `dialog` is the narrow-window form: a modal dialog covering the chart area.
  */
 export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => void }) {
-  const indicators = useStore((s) => s.indicators);
-  const selectedPineId = useStore((s) => s.selectedPineId);
-  const pineRuns = useStore((s) => s.pineRuns);
-  const updateIndicator = useStore((s) => s.updateIndicator);
-  const addIndicator = useStore((s) => s.addIndicator);
+  const indicators = useChart((s) => s.indicators);
+  const selectedPineId = useChart((s) => s.selectedPineId);
+  const pineRuns = useChart((s) => s.pineRuns);
+  const updateIndicator = useChart((s) => s.updateIndicator);
+  const addIndicator = useChart((s) => s.addIndicator);
   const openPineEditor = useStore((s) => s.openPineEditor);
   const rootRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);

@@ -16,8 +16,10 @@ import { useMediaQuery } from './lib/useMediaQuery';
 import { useViewportSize } from './lib/useViewportSize';
 import { useAlerts } from './state/alerts';
 import { useStore } from './state/store';
+import { ChartStoreProvider } from './state/chartContext';
 
 export default function App() {
+  const chart = useStore((s) => s.charts[s.activeChartId]);
   const init = useStore((s) => s.init);
   const [csvOpen, setCsvOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -68,63 +70,65 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px`, ['--pine-width' as string]: `${effectivePine}px` }}>
-      <TopBar onImportCsv={() => setCsvOpen(true)}
-        pineToggleRef={pineToggleRef}
-        onOpenInbox={() => setInboxOpen(true)}
-        onOpenAlerts={() => setAlertsPanel({})}
-      />
-      <div className="app-body">
-        {drawerShown && <div className="drawer-backdrop" onMouseDown={(e) => { e.preventDefault(); closeDrawer(); }} />}
-        {drawerShown && (
-          <Sidebar
-            drawer={{ onClose: closeDrawer }}
-            onImportCsv={() => {
-              setDrawerOpen(false);
-              setCsvOpen(true);
-            }}
-          />
-        )}
-        <main className="chart-area">
-          <ChartPanel onImportCsv={() => setCsvOpen(true)} onAddAlert={(level) => setAlertsPanel({ level })} />
-          {isDrawer && pineOpen && <PinePane dialog onClose={closePine} />}
-        </main>
-        {!isDrawer && pineOpen && (
-          <Splitter
-            orientation="vertical"
-            grow="start"
-            label="Resize Pine editor"
-            value={effectivePine}
-            min={pineLim.min}
-            max={pineLim.max}
-            onChange={(n) => setPineWidth(clamp(n, pineLim.min, pineLim.max))}
-            onReset={() => setPineWidth(PINE_DEFAULT)}
-          />
-        )}
-        {!isDrawer && pineOpen && <PinePane dialog={false} onClose={closePine} />}
-        {!isDrawer && desktopSidebarOpen && (
-          <Splitter
-            orientation="vertical"
-            grow="start"
-            label="Resize sidebar"
-            value={effectiveSidebar}
-            min={limits.min}
-            max={limits.max}
-            onChange={(n) => setSidebarWidth(clamp(n, limits.min, limits.max))}
-            onReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
-          />
-        )}
-        {!isDrawer && desktopSidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
-        <SideRail
-          drawer={isDrawer ? { open: drawerShown, onOpen: (btn) => { openerRef.current = btn; setDrawerOpen(true); } } : undefined}
+    <ChartStoreProvider store={chart}>
+      <div className="app" style={{ ['--sidebar-width' as string]: `${effectiveSidebar}px`, ['--pine-width' as string]: `${effectivePine}px` }}>
+        <TopBar onImportCsv={() => setCsvOpen(true)}
+          pineToggleRef={pineToggleRef}
+          onOpenInbox={() => setInboxOpen(true)}
+          onOpenAlerts={() => setAlertsPanel({})}
         />
+        <div className="app-body">
+          {drawerShown && <div className="drawer-backdrop" onMouseDown={(e) => { e.preventDefault(); closeDrawer(); }} />}
+          {drawerShown && (
+            <Sidebar
+              drawer={{ onClose: closeDrawer }}
+              onImportCsv={() => {
+                setDrawerOpen(false);
+                setCsvOpen(true);
+              }}
+            />
+          )}
+          <main className="chart-area">
+            <ChartPanel onImportCsv={() => setCsvOpen(true)} onAddAlert={(level) => setAlertsPanel({ level })} />
+            {isDrawer && pineOpen && <PinePane dialog onClose={closePine} />}
+          </main>
+          {!isDrawer && pineOpen && (
+            <Splitter
+              orientation="vertical"
+              grow="start"
+              label="Resize Pine editor"
+              value={effectivePine}
+              min={pineLim.min}
+              max={pineLim.max}
+              onChange={(n) => setPineWidth(clamp(n, pineLim.min, pineLim.max))}
+              onReset={() => setPineWidth(PINE_DEFAULT)}
+            />
+          )}
+          {!isDrawer && pineOpen && <PinePane dialog={false} onClose={closePine} />}
+          {!isDrawer && desktopSidebarOpen && (
+            <Splitter
+              orientation="vertical"
+              grow="start"
+              label="Resize sidebar"
+              value={effectiveSidebar}
+              min={limits.min}
+              max={limits.max}
+              onChange={(n) => setSidebarWidth(clamp(n, limits.min, limits.max))}
+              onReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
+            />
+          )}
+          {!isDrawer && desktopSidebarOpen && <Sidebar onImportCsv={() => setCsvOpen(true)} />}
+          <SideRail
+            drawer={isDrawer ? { open: drawerShown, onOpen: (btn) => { openerRef.current = btn; setDrawerOpen(true); } } : undefined}
+          />
+        </div>
+        <BottomDock />
+        {csvOpen && <CsvImportModal onClose={() => setCsvOpen(false)} />}
+        {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} />}
+        {alertsPanel && <AlertsPanel key={alertsPanel.level ?? 'none'} initialLevel={alertsPanel.level} onClose={() => setAlertsPanel(null)} />}
+        <AlertPopup onOpenAlerts={() => setAlertsPanel({})} />
+        <Toasts />
       </div>
-      <BottomDock />
-      {csvOpen && <CsvImportModal onClose={() => setCsvOpen(false)} />}
-      {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} />}
-      {alertsPanel && <AlertsPanel key={alertsPanel.level ?? 'none'} initialLevel={alertsPanel.level} onClose={() => setAlertsPanel(null)} />}
-      <AlertPopup onOpenAlerts={() => setAlertsPanel({})} />
-      <Toasts />
-    </div>
+    </ChartStoreProvider>
   );
 }

@@ -24,6 +24,7 @@ import {
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { ANCHOR_COUNTS, TEXT_TOOLS, getTool, type DrawingTool } from './tools';
+import { useChart, useChartStore } from '../../state/chartContext';
 
 export const CURSOR = 'cursor';
 /** Pixels a press must travel to count as a drag (a trend line press-drag-release rather than click, click). */
@@ -68,10 +69,11 @@ export function useDrawings(
   series: ISeriesApi<'Candlestick'> | null,
   containerRef: RefObject<HTMLDivElement | null>,
 ) {
-  const providerId = useStore((s) => s.providerId);
-  const symbol = useStore((s) => s.symbol);
-  const activeDatasetId = useStore((s) => s.activeDatasetId);
-  const hasData = useStore((s) => s.candles.length > 0);
+  const providerId = useChart((s) => s.providerId);
+  const chartStore = useChartStore();
+  const symbol = useChart((s) => s.symbol);
+  const activeDatasetId = useChart((s) => s.activeDatasetId);
+  const hasData = useChart((s) => s.candles.length > 0);
   const magnet = useStore((s) => s.drawingMagnet);
   const hidden = useStore((s) => s.drawingsHidden);
   const key = sourceKey({ providerId, symbol, activeDatasetId });
@@ -250,7 +252,7 @@ export function useDrawings(
     let cachedFor: unknown = null;
     let cachedTimes: number[] = [];
     const prim = new DrawingPrimitive(() => {
-      const candles = useStore.getState().candles;
+      const candles = chartStore.getState().candles;
       if (candles !== cachedFor) {
         cachedFor = candles;
         cachedTimes = candles.map((c) => c.time);
@@ -323,7 +325,7 @@ export function useDrawings(
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
     const snap = (a: Anchor, priceOnly = false): Anchor =>
-      magnetRef.current ? snapToBar(useStore.getState().candles, a, { priceOnly }) : a;
+      magnetRef.current ? snapToBar(chartStore.getState().candles, a, { priceOnly }) : a;
 
     const point = (e: PointerEvent): Pt => {
       const r = el.getBoundingClientRect();

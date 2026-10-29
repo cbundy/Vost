@@ -6,15 +6,16 @@ import { Splitter } from './Splitter';
 import { BacktestTab } from './BacktestTab';
 import { OptimizerTab } from './OptimizerTab';
 import { ResultsTab } from './ResultsTab';
+import { useChart } from '../state/chartContext';
 
 export function BottomDock() {
   const tab = useStore((s) => s.dockTab);
   const collapsed = useStore((s) => s.dockCollapsed);
   const setDockTab = useStore((s) => s.setDockTab);
   const setDockCollapsed = useStore((s) => s.setDockCollapsed);
-  const btResult = useStore((s) => s.btResult);
-  const btRunning = useStore((s) => s.btRunning);
-  const optResult = useStore((s) => s.optResult);
+  const btResult = useChart((s) => s.btResult);
+  const btRunning = useChart((s) => s.btRunning);
+  const optResult = useChart((s) => s.optResult);
 
   const dockHeight = useStore((s) => s.dockHeight);
   const setDockHeight = useStore((s) => s.setDockHeight);
