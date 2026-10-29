@@ -38,7 +38,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { createAlerts, isAlertsPath } from './alerts/index.ts';
 import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
-import { createApiDeps, handleApi } from './api.ts';
+import { createApiDeps, handleApi, providerHistory } from './api.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
 import { describeRecord, readRecordConfig, recordedFilter } from './candles/recordConfig.ts';
@@ -176,7 +176,7 @@ npm start</pre>
 
 /* --------------------------------- server -------------------------------- */
 
-const relay = createRelay();
+const relay = createRelay({ history: (p, req) => providerHistory(apiDeps, p, req) });
 const intervalEnv = Number(process.env.VOST_STATUS_INTERVAL ?? 60);
 const status = createStatusService({
   version,

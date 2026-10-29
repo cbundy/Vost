@@ -37,7 +37,10 @@ export function createApiDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
 const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live', '/api/status', '/api/alerts'];
 
 function provider(url: URL) {
-  const id = url.searchParams.get('provider') ?? '';
+  return providerById(url.searchParams.get('provider') ?? '');
+}
+
+function providerById(id: string) {
   const info = catalogEntry(id);
   const adapter = adapters.get(id);
   if (!info || !adapter) {
@@ -98,6 +101,12 @@ function timeframeHistory(deps: ApiDeps, info: ProviderInfo, ctx: AdapterContext
     info.timeframes,
     req,
   );
+}
+
+/** One history request for a provider, the way `/api/history` makes it (read-through the candle store, outcomes tracked): the seed of a live built bar. */
+export async function providerHistory(deps: ApiDeps, providerId: string, req: HistoryRequest): Promise<Candle[]> {
+  const { info, adapter } = providerById(providerId);
+  return timeframeHistory(deps, info, { fetch: deps.fetch, symbols: deps.symbols }, adapter, req);
 }
 
 async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unknown> {
