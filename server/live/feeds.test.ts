@@ -23,13 +23,13 @@ describe('liveFeed', () => {
   });
   it('subscribes and pings as each exchange wants', () => {
     const kraken = liveFeed('kraken', 'XBTUSD', '1h');
-    expect('feed' in kraken && JSON.parse(kraken.feed.subscribe!)).toEqual({ method: 'subscribe', params: { channel: 'ohlc', symbol: ['BTC/USD'], interval: 60 } });
+    expect('feed' in kraken && JSON.parse(kraken.feed.subscribe as string)).toEqual({ method: 'subscribe', params: { channel: 'ohlc', symbol: ['BTC/USD'], interval: 60 } });
     expect('feed' in kraken && kraken.feed.pingMs).toBeUndefined();
     const bybit = liveFeed('bybit', 'BTCUSDT', '1d');
-    expect('feed' in bybit && JSON.parse(bybit.feed.subscribe!)).toEqual({ op: 'subscribe', args: ['kline.D.BTCUSDT'] });
+    expect('feed' in bybit && JSON.parse(bybit.feed.subscribe as string)).toEqual({ op: 'subscribe', args: ['kline.D.BTCUSDT'] });
     expect('feed' in bybit && bybit.feed.pingMs).toBe(20000);
     const okx = liveFeed('okx', 'BTC-USDT', '4h');
-    expect('feed' in okx && JSON.parse(okx.feed.subscribe!)).toEqual({ op: 'subscribe', args: [{ channel: 'candle4H', instId: 'BTC-USDT' }] });
+    expect('feed' in okx && JSON.parse(okx.feed.subscribe as string)).toEqual({ op: 'subscribe', args: [{ channel: 'candle4H', instId: 'BTC-USDT' }] });
     expect('feed' in okx && okx.feed.ping).toBe('ping');
   });
   it('words the errors the browser shows', () => {
@@ -85,11 +85,78 @@ describe('coinbase feed', () => {
     const r = liveFeed('coinbase', 'BTC-USD', '1h');
     if (!('feed' in r)) throw new Error(r.error);
     expect(r.feed.url).toBe('wss://ws-feed.exchange.coinbase.com');
-    expect(JSON.parse(r.feed.subscribe!)).toEqual({ type: 'subscribe', product_ids: ['BTC-USD'], channels: ['matches'] });
+    expect(JSON.parse(r.feed.subscribe as string)).toEqual({ type: 'subscribe', product_ids: ['BTC-USD'], channels: ['matches'] });
     expect(r.feed.pingMs).toBeUndefined();
     expect(r.feed.onOpen).toBeTypeOf('function');
   });
   it('refuses a timeframe Coinbase has no candles for', () => {
     expect(liveFeed('coinbase', 'BTC-USD', '4h')).toEqual({ error: 'Live data does not support 4h' });
+  });
+});
+
+describe('Hyperliquid live', () => {
+  const meta = { universe: [{ name: 'BTC' }, { name: 'kPEPE' }] };
+  const spotMeta = {
+    tokens: [
+      { name: 'USDC', index: 0 },
+      { name: 'HYPE', index: 150 },
+    ],
+    universe: [{ name: '@107', tokens: [150, 0], index: 107 }],
+  };
+  const fakeFetch = (async (_url: string, init: RequestInit) => {
+    const type = (JSON.parse(String(init.body)) as { type: string }).type;
+    return new Response(JSON.stringify(type === 'meta' ? meta : spotMeta), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  const build = (provider: string, symbol: string, tf = '1h') => {
+    const r = liveFeed(provider, symbol, tf, { fetch: fakeFetch });
+    if (!('feed' in r)) throw new Error(r.error);
+    return r.feed;
+  };
+  const frame = (t: number, over: Record<string, unknown> = {}) =>
+    JSON.stringify({ channel: 'candle', data: { t, T: t + 3_599_999, s: 'BTC', i: '1h', o: '1', c: '2', h: '3', l: '0.5', v: '4', n: 7, ...over } });
+
+  it('resolves the exact subscribe message for a perp and for a spot pair', async () => {
+    const perp = build('hyperliquid-perps', 'BTC');
+    expect(perp.url).toBe('wss://api.hyperliquid.xyz/ws');
+    expect(typeof perp.subscribe).toBe('function');
+    expect(await (perp.subscribe as () => Promise<string>)()).toBe('{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1h"}}');
+    const spot = build('hyperliquid-spot', 'HYPE/USDC');
+    expect(await (spot.subscribe as () => Promise<string>)()).toBe('{"method":"subscribe","subscription":{"type":"candle","coin":"@107","interval":"1h"}}');
+  });
+  it('pings with a method ping every 20000 ms', () => {
+    const feed = build('hyperliquid-perps', 'BTC');
+    expect(feed.ping).toBe('{"method":"ping"}');
+    expect(feed.pingMs).toBe(20000);
+  });
+  it('parses candle frames and ignores other coins, intervals and channels', async () => {
+    const feed = build('hyperliquid-perps', 'BTC');
+    await (feed.subscribe as () => Promise<string>)();
+    expect(feed.parse(frame(3_600_000))).toEqual([{ candle: { time: 3600, open: 1, high: 3, low: 0.5, close: 2, volume: 4 }, closed: false }]);
+    expect(feed.parse(frame(3_600_000, { s: 'ETH' }))).toEqual([]);
+    expect(feed.parse(frame(3_600_000, { i: '1m' }))).toEqual([]);
+    expect(feed.parse('{"channel":"subscriptionResponse","data":{"method":"subscribe"}}')).toEqual([]);
+    expect(feed.parse('{"channel":"pong"}')).toEqual([]);
+  });
+  it('matches the resolved coin, not the typed symbol (kpepe -> kPEPE)', async () => {
+    const feed = build('hyperliquid-perps', 'KPEPE');
+    await (feed.subscribe as () => Promise<string>)();
+    expect(feed.parse(frame(0, { s: 'kPEPE' }))).toHaveLength(1);
+  });
+  it('closes a candle when a newer one arrives, and resets on reopen', async () => {
+    const feed = build('hyperliquid-perps', 'BTC');
+    await (feed.subscribe as () => Promise<string>)();
+    expect(feed.parse(frame(3_600_000, { c: '2' }))).toHaveLength(1);
+    expect(feed.parse(frame(3_600_000, { c: '5' }))).toEqual([{ candle: { time: 3600, open: 1, high: 3, low: 0.5, close: 5, volume: 4 }, closed: false }]);
+    const next = feed.parse(frame(7_200_000));
+    expect(next.map((k) => [k.candle.time, k.candle.close, k.closed])).toEqual([
+      [3600, 5, true],
+      [7200, 2, false],
+    ]);
+    feed.onOpen!({} as never);
+    expect(feed.parse(frame(10_800_000)).map((k) => k.closed)).toEqual([false]);
+  });
+  it('refuses a timeframe it has no interval for', () => {
+    expect(liveFeed('hyperliquid-spot', 'HYPE/USDC', '7y')).toEqual({ error: 'Live data does not support 7y' });
   });
 });

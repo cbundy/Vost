@@ -3,13 +3,14 @@ import { PROVIDER_CATALOG } from '../../shared/providerCatalog.ts';
 import { binanceAdapter } from './binance.ts';
 import { bybitAdapter } from './bybit.ts';
 import { coinbaseAdapter } from './coinbase.ts';
+import { hyperliquidPerpsAdapter, hyperliquidSpotAdapter } from './hyperliquid.ts';
 import { krakenAdapter } from './kraken.ts';
 import { okxAdapter } from './okx.ts';
 import { stooqAdapter } from './stooq.ts';
 import type { ProviderAdapter } from './types.ts';
 import { yahooAdapter } from './yahoo.ts';
 
-const ADAPTERS: ProviderAdapter[] = [binanceAdapter, coinbaseAdapter, krakenAdapter, bybitAdapter, okxAdapter, yahooAdapter, stooqAdapter];
+const ADAPTERS: ProviderAdapter[] = [binanceAdapter, coinbaseAdapter, krakenAdapter, bybitAdapter, okxAdapter, hyperliquidPerpsAdapter, hyperliquidSpotAdapter, yahooAdapter, stooqAdapter];
 
 export const adapters: ReadonlyMap<string, ProviderAdapter> = new Map(ADAPTERS.map((a) => [a.id, a]));
 

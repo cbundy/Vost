@@ -39,7 +39,7 @@ function make(opts: { intervalSeconds?: number; relay?: FeedStats[]; hold?: bool
   return { service, timers, calls, gates, advance, setClock: (ms: number) => (clock += ms) };
 }
 
-const roundMs = 18 * STAGGER_MS;
+const roundMs = 24 * STAGGER_MS;
 
 describe('background rounds', () => {
   it('runs a first round after the start delay, staggered, then one per interval', async () => {
@@ -50,11 +50,11 @@ describe('background rounds', () => {
     await t.advance(1);
     expect(t.calls).toHaveLength(1); // not all at once
     await t.advance(roundMs);
-    expect(t.calls).toHaveLength(18); // first round includes the symbol probes
+    expect(t.calls).toHaveLength(24); // first round includes the symbol probes
     const starts = t.calls.map((c) => c.at);
     expect(starts.slice(1).every((at, i) => at - starts[i] === STAGGER_MS)).toBe(true);
     await t.advance(60_000 - roundMs);
-    expect(t.calls.length).toBeGreaterThan(18);
+    expect(t.calls.length).toBeGreaterThan(24);
     t.service.scheduler.stop();
   });
 
@@ -62,12 +62,12 @@ describe('background rounds', () => {
     const t = make({ intervalSeconds: 60 });
     t.service.scheduler.start();
     await t.advance(FIRST_ROUND_DELAY_MS + roundMs);
-    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(6);
+    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(8);
     for (let i = 1; i < SYMBOLS_EVERY; i++) await t.advance(60_000);
     // rounds 2..10 had none; the 10th round after the first is still ahead
-    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(6);
+    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(8);
     await t.advance(60_000);
-    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(12);
+    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(16);
     t.service.scheduler.stop();
   });
 
@@ -87,7 +87,7 @@ describe('background rounds', () => {
     t.service.scheduler.start();
     await t.advance(FIRST_ROUND_DELAY_MS + roundMs);
     const live = t.calls.filter((c) => c.feed === 'live').map((c) => c.provider);
-    expect(live).toEqual(['coinbase', 'kraken', 'bybit', 'okx']);
+    expect(live).toEqual(['coinbase', 'kraken', 'bybit', 'okx', 'hyperliquid-perps', 'hyperliquid-spot']);
     expect(t.service.response().checks.find((c) => c.provider === 'binance' && c.feed === 'live')).toMatchObject({ state: 'ok', source: 'relay' });
   });
 
@@ -117,12 +117,12 @@ describe('refresh', () => {
     const t = make({ intervalSeconds: 0 });
     let done = false;
     const p = t.service.scheduler.refresh().then((r) => ((done = true), r));
-    await t.advance(STAGGER_MS * 16 - 1);
+    await t.advance(STAGGER_MS * 22 - 1);
     expect(done).toBe(false);
     await t.advance(STAGGER_MS * 2);
     expect(await p).toEqual({ refreshed: true });
-    expect(t.calls).toHaveLength(18);
-    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(6);
+    expect(t.calls).toHaveLength(24);
+    expect(t.calls.filter((c) => c.feed === 'symbols')).toHaveLength(8);
   });
 
   it('joins a round that is running instead of starting another', async () => {
@@ -136,7 +136,7 @@ describe('refresh', () => {
     expect(await first).toEqual({ refreshed: true });
     expect(await second).toEqual({ refreshed: false });
     expect(await third).toEqual({ refreshed: false });
-    expect(t.calls).toHaveLength(18);
+    expect(t.calls).toHaveLength(24);
   });
 
   it('reuses a round started within 15 s, and runs a new one after', async () => {
@@ -144,14 +144,14 @@ describe('refresh', () => {
     const first = t.service.scheduler.refresh();
     await t.advance(roundMs + 100);
     await first;
-    expect(t.calls).toHaveLength(18);
+    expect(t.calls).toHaveLength(24);
     expect(await t.service.scheduler.refresh()).toEqual({ refreshed: false });
-    expect(t.calls).toHaveLength(18);
+    expect(t.calls).toHaveLength(24);
     await t.advance(REFRESH_REUSE_MS);
     const again = t.service.scheduler.refresh();
     await t.advance(roundMs + 100);
     expect(await again).toEqual({ refreshed: true });
-    expect(t.calls).toHaveLength(36);
+    expect(t.calls).toHaveLength(48);
   });
 
   it('a refresh also reuses a background round that just started', async () => {
@@ -159,7 +159,7 @@ describe('refresh', () => {
     t.service.scheduler.start();
     await t.advance(FIRST_ROUND_DELAY_MS + roundMs + 100);
     expect(await t.service.scheduler.refresh()).toEqual({ refreshed: false });
-    expect(t.calls).toHaveLength(18);
+    expect(t.calls).toHaveLength(24);
   });
 });
 
@@ -169,6 +169,6 @@ describe('response', () => {
     const r = t.service.response();
     expect(r.server).toEqual({ state: 'ok', version: '1.2.3', uptimeSeconds: 42 });
     expect(r.intervalSeconds).toBe(60);
-    expect(r.checks).toHaveLength(18);
+    expect(r.checks).toHaveLength(24);
   });
 });
