@@ -222,7 +222,7 @@ PRs are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Pine Script
 
-Vost can run Pine Script indicators and strategies in the background worker, using [PineTS](https://github.com/QuantForgeOrg/PineTS). PineTS is licensed AGPL-3.0-only; Vost itself stays MIT. See [docs/PINE.md](docs/PINE.md).
+Vost can run Pine Script indicators and strategies in the background worker, using [PineTS](https://github.com/QuantForgeOrg/PineTS). PineTS is licensed AGPL-3.0-only; Vost itself stays MIT. See [docs/PINE.md](docs/PINE.md). The page at `/compare` shows 2 to 4 Pine scripts side by side and marks how each differs from a reference script.
 
 ## Disclaimer
 
