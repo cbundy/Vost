@@ -62,6 +62,8 @@ export function TopBar({
   const setProvider = useChart((s) => s.setProvider);
   const setTimeframe = useChart((s) => s.setTimeframe);
   const buildTimeframes = useStore((s) => s.buildTimeframes);
+  /** The Bars menu only exists when everything loads at once; in scroll mode history pages in as the chart is scrolled. */
+  const showBars = useStore((s) => s.historyLoading) === 'all';
   const customTimeframes = useStore((s) => s.customTimeframes);
   const [intervalOpen, setIntervalOpen] = useState(false);
   const setBuildTimeframes = useStore((s) => s.setBuildTimeframes);
@@ -209,7 +211,7 @@ export function TopBar({
 
       {!importInMore && !provider.offline && buildButton}
 
-      {!importInMore && barsSelect}
+      {!importInMore && showBars && barsSelect}
 
       {rangeText && (
         <span className="topbar-range" title={rangeText}>
@@ -285,10 +287,12 @@ export function TopBar({
                     {buildButton}
                   </div>
                 )}
-                <div className="more-row">
-                  <span className="more-label">Bars</span>
-                  {barsSelect}
-                </div>
+                {showBars && (
+                  <div className="more-row">
+                    <span className="more-label">Bars</span>
+                    {barsSelect}
+                  </div>
+                )}
                 {providerInMore && (
                   <div className="more-row">
                     <span className="more-label">Range</span>

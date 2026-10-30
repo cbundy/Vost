@@ -11,7 +11,15 @@ Pick a provider in the top bar. All remote data is fetched by the Vost server, s
 | Yahoo Finance | Stocks, ETFs, indices, FX (delayed) | No |
 | Demo (offline) | Synthetic, deterministic | No |
 
-Limits per provider (such as Kraken's latest 720 candles, or Yahoo's intraday history) are in the [data sources](../DATA-SOURCES.md) survey and the README's table. The **Number of bars** menu in the top bar sets how many bars to request (500 to 20k). The Demo provider needs no network.
+Limits per provider (such as Kraken's latest 720 candles, or Yahoo's intraday history) are in the [data sources](../DATA-SOURCES.md) survey and the README's table. The Demo provider needs no network.
+
+### How history loads
+
+By default a chart from a market provider (or Demo) opens on its latest 1000 bars and loads older bars in pages of 1000 as you scroll or zoom back, so a chart opens fast and the view stays where it is while older bars arrive. Paging stops at the start of the provider's history (or at 200000 loaded bars), and a failed page shows one warning in the inbox and is retried the next time you scroll back. There is no **Number of bars** menu in this mode. A local dataset, a chart range and bar replay never page.
+
+An app setting (saved in the app preferences, no screen for it yet) switches to the older behaviour: the **Number of bars** menu in the top bar (500 to 20k) sets how many bars one request loads, and nothing is paged in later.
+
+![Older bars paged in as the chart is zoomed out](../evidence/chart-history/chart-history-zoomed-out-desktop.png)
 
 ![A chart on Binance data](../evidence/chart/chart-desktop.png)
 

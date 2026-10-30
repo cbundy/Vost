@@ -33,6 +33,7 @@ import {
   type LayoutRecord,
   type ParsedLayout,
 } from '../lib/layouts';
+import type { HistoryLoading } from '../lib/historyPaging';
 import * as sl from '../lib/savedLayouts';
 import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial, type ChartStore } from './chart';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
@@ -90,6 +91,7 @@ interface Prefs {
   cursorKind?: CursorKind;
   favoritesBarPos?: BarPos;
   buildTimeframes?: boolean;
+  historyLoading?: HistoryLoading;
   customTimeframes?: Interval[];
 }
 
@@ -195,6 +197,8 @@ export interface AppState {
   favoritesBarPos: BarPos;
   /** Build every timeframe above the provider's lowest from the next lower native one, instead of the exchange's own bars. */
   buildTimeframes: boolean;
+  /** How a chart's history loads: the latest page and older pages on scroll, or everything at once. */
+  historyLoading: HistoryLoading;
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
   customTimeframes: Interval[];
 
@@ -269,6 +273,7 @@ export interface AppState {
   setSync(key: keyof LayoutSync, on: boolean): void;
   /** Turns building higher timeframes from lower ones on or off; reloads every remote chart whose source changes. */
   setBuildTimeframes(v: boolean): void;
+  setHistoryLoading(v: HistoryLoading): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
   addCustomTimeframe(iv: Interval): void;
   /** Forgets a custom interval and moves every chart showing it to its provider's default timeframe. */
@@ -346,6 +351,7 @@ export const useStore = create<AppState>()((set, get) => {
       cursorKind: s.cursorKind,
       favoritesBarPos: s.favoritesBarPos,
       buildTimeframes: s.buildTimeframes,
+      historyLoading: s.historyLoading,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
   }, 400);
@@ -456,6 +462,7 @@ export const useStore = create<AppState>()((set, get) => {
     pushMessage: (source, severity, text) => get().pushMessage(source, severity, text),
     timeZone: () => get().timeZone,
     buildTimeframes: () => get().buildTimeframes,
+    historyLoading: () => get().historyLoading,
     datasets: () => get().datasets,
     addDataset(dataset) {
       if (JSON.stringify(dataset).length > MAX_PERSISTED_DATASETS_BYTES) {
@@ -536,6 +543,7 @@ export const useStore = create<AppState>()((set, get) => {
     cursorKind: 'cross',
     favoritesBarPos: { ...DEFAULT_BAR_POS },
     buildTimeframes: false,
+    historyLoading: 'scroll',
     customTimeframes: [],
     charts: firstCharts,
     activeChartId: FIRST_CHART_ID,
@@ -627,6 +635,7 @@ export const useStore = create<AppState>()((set, get) => {
         cursorKind: sanitizeCursorKind(prefs.cursorKind),
         favoritesBarPos: sanitizeBarPos(prefs.favoritesBarPos),
         buildTimeframes: prefs.buildTimeframes === true,
+        historyLoading: prefs.historyLoading === 'all' ? 'all' : 'scroll',
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
         ...fields,
@@ -776,6 +785,11 @@ export const useStore = create<AppState>()((set, get) => {
       if (!arrangement) return;
       set({ layoutSizes: sanitizeSizes(sizes, arrangement) });
       persistLayout();
+    },
+
+    setHistoryLoading(v) {
+      set({ historyLoading: v === 'all' ? 'all' : 'scroll' });
+      persistPrefs();
     },
 
     setBuildTimeframes(v) {

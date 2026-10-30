@@ -10,6 +10,7 @@ import {
   createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
+  type LogicalRange,
   type ISeriesMarkersPluginApi,
   type LineWidth,
   type MouseEventParams,
@@ -27,7 +28,7 @@ import { fmtTick } from '../lib/time';
 import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
-import { selectDataCandles } from '../state/chart';
+import { canPageOlder, selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
@@ -38,7 +39,8 @@ import { isGlyphKind } from '../lib/iconSets/types';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
-import { resetLogicalRange } from '../lib/quickRange';
+import { historyNeededFrom, resetLogicalRange, resetRangeKey } from '../lib/quickRange';
+import { HISTORY_PREFETCH_BARS } from '../lib/historyPaging';
 import { useChart, useChartStore } from '../state/chartContext';
 import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
 
@@ -102,6 +104,7 @@ export function ChartPanel({
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const indMapRef = useRef(new Map<string, IndEntry>());
   const lastDataKeyRef = useRef('');
+  const lastLeftEdgeRef = useRef<number | null>(null);
   const lastIndicatorsRef = useRef<unknown>(null);
   const lastCandlesRef = useRef<typeof candles | null>(null);
   const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
@@ -308,9 +311,14 @@ export function ChartPanel({
       candles[prev.length - 1].time === prev[prev.length - 1].time;
     lastCandlesRef.current = candles;
 
+    // Older bars merged in at the start (a history page): the series is replaced and lightweight-charts keeps the view
+    // anchored to the last bar, so the visible time window stays; the left edge may still be near the first bar.
+    const prepended = !dataChanged && !incremental && prev != null && prev.length > 0 && candles[0].time < prev[0].time;
+
     if (dataChanged) {
       candleSeries.setData(candles.map(toCandleData));
       lastDataKeyRef.current = dataKey;
+      lastLeftEdgeRef.current = null; // the fit below is not a scroll back: do not page for it
       chart.timeScale().fitContent();
     } else if (incremental) {
       candleSeries.update(toCandleData(candles[candles.length - 1]));
@@ -343,9 +351,31 @@ export function ChartPanel({
       }
     }
 
+    if (prepended) {
+      const r = chart.timeScale().getVisibleLogicalRange();
+      lastLeftEdgeRef.current = r ? r.from : null;
+      if (r && r.from < HISTORY_PREFETCH_BARS) void chartStore.getState().loadOlder(); // still near the left edge: the next page
+    }
+
     updateLegend(candles[candles.length - 1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, candles, dataKey, indicators]);
+
+  /* Scrolling or zooming back to within a page's reach of the first loaded bar asks for the next older page. */
+  useEffect(() => {
+    if (!chartApi) return;
+    const ts = chartApi.timeScale();
+    const onRange = (r: LogicalRange | null) => {
+      if (!r) return;
+      const prevFrom = lastLeftEdgeRef.current;
+      lastLeftEdgeRef.current = r.from;
+      // Only a move of the left edge toward older bars counts: a prepend shifts it right, a fresh fit is the first sample.
+      if (prevFrom != null && r.from < prevFrom && r.from < HISTORY_PREFETCH_BARS) void chartStore.getState().loadOlder();
+    };
+    ts.subscribeVisibleLogicalRangeChange(onRange);
+    return () => ts.unsubscribeVisibleLogicalRangeChange(onRange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartApi]);
 
   /* Leaving replay: put the view back as it was (no refetch, no fitContent). */
   useEffect(() => {
@@ -535,7 +565,7 @@ export function ChartPanel({
 
   // Restore the fresh-load view: auto-scale every pane's price scales, default right offset, then show the window for the
   // timeframe (minutes: last day, hours: 5 days, days: a month), or all data for weeks, months or when the bars do not reach back.
-  function resetView() {
+  async function resetView() {
     if (!chartApi) return;
     const panes = chartApi.panes();
     for (let i = 0; i < panes.length; i++) {
@@ -548,7 +578,11 @@ export function ChartPanel({
       }
     }
     chartApi.timeScale().applyOptions({ rightOffset: RIGHT_OFFSET });
-    const range = resetLogicalRange(timeframe, candles, timeZone, RIGHT_OFFSET);
+    // Page in older bars until the timeframe's window is covered (or the history start stops it).
+    const st = chartStore.getState();
+    const need = canPageOlder(st, useStore.getState().historyLoading) ? historyNeededFrom(resetRangeKey(timeframe), st.candles, timeZone) : null;
+    if (need != null) await st.loadHistoryTo(need);
+    const range = resetLogicalRange(timeframe, chartStore.getState().candles, timeZone, RIGHT_OFFSET);
     if (range) chartApi.timeScale().setVisibleLogicalRange(range);
     else chartApi.timeScale().fitContent();
   }

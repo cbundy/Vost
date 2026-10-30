@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Candle } from '../types';
-import { quickRangeState, quickRangeWindow, resetLogicalRange, resetRangeKey } from './quickRange';
+import { historyNeededFrom, quickRangeState, quickRangeWindow, resetLogicalRange, resetRangeKey } from './quickRange';
 
 const utc = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1, d, h, mi) / 1000;
 const bars = (times: number[]): Candle[] => times.map((time) => ({ time, open: 1, high: 1, low: 1, close: 1, volume: 1 }));
@@ -58,6 +58,36 @@ describe('quickRangeState', () => {
     const c = bars(Array.from({ length: 48 }, (_, i) => utc(2024, 5, 14) + i * 3600));
     expect(quickRangeState('1D', c, 'UTC').enabled).toBe(true);
     expect(quickRangeState('All', bars([1, 2]), 'UTC').enabled).toBe(false);
+  });
+});
+
+describe('quickRangeState while older pages may load', () => {
+  const day = 86400;
+  const c = bars([0, 1, 2, 3, 4].map((i) => utc(2024, 5, 10 + i)));
+  it('enables a range that reaches before the first bar and marks it needsOlder', () => {
+    expect(quickRangeState('1M', c, 'UTC', true)).toMatchObject({ enabled: true, needsOlder: true });
+    // a bar sparse range that would be disabled without paging
+    const two = bars([utc(2024, 5, 14), utc(2024, 5, 15)]);
+    expect(quickRangeState('1M', two, 'UTC').enabled).toBe(false);
+    expect(quickRangeState('1M', two, 'UTC', true).enabled).toBe(true);
+  });
+  it('disables or shows all once the start is known (canPage false)', () => {
+    const s = quickRangeState('1M', c, 'UTC', false);
+    expect(s).toMatchObject({ enabled: true, showAll: true, needsOlder: false });
+    const two = bars([utc(2024, 5, 14), utc(2024, 5, 15)]);
+    expect(quickRangeState('1M', two, 'UTC', false).enabled).toBe(false);
+  });
+  it('does not page a range already covered, and All never pages', () => {
+    const dense = bars(Array.from({ length: 30 }, (_, i) => utc(2024, 4, 1) + i * day));
+    expect(quickRangeState('5D', dense, 'UTC', true).needsOlder).toBe(false);
+    expect(quickRangeState('All', c, 'UTC', true).needsOlder).toBe(false);
+    expect(historyNeededFrom('All', c, 'UTC')).toBeNull();
+  });
+  it('historyNeededFrom gives the time to reach, or null when covered', () => {
+    expect(historyNeededFrom('1M', c, 'UTC')).toBe(utc(2024, 4, 14));
+    const dense = bars(Array.from({ length: 60 }, (_, i) => utc(2024, 4, 1) + i * day));
+    expect(historyNeededFrom('5D', dense, 'UTC')).toBeNull();
+    expect(historyNeededFrom('1M', [], 'UTC')).toBeNull();
   });
 });
 
