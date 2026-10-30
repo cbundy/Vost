@@ -7,7 +7,7 @@ const fixture = (name: string) =>
 
 export const pineRender: Scenario = {
   name: 'pine-render',
-  description: 'Pine shapes and fills: a separate-pane script draws its shapes and characters in its own pane (none on the candles); an overlay script keeps them on the candles; fill() shades the RSI 30/70 band and a colour-changing moving-average cloud; plotcandle draws custom candles with plotarrow arrows in the script pane; barcolor recolours the chart candles, plotbar draws bars and plotarrow arrows sit on the price pane, and hiding the script restores the default candles',
+  description: 'Pine shapes and fills: a separate-pane script draws its shapes and characters in its own pane (none on the candles); an overlay script keeps them on the candles; fill() shades the RSI 30/70 band and a colour-changing moving-average cloud; plotcandle draws custom candles with plotarrow arrows in the script pane; barcolor recolours the chart candles, plotbar draws bars and plotarrow arrows sit on the price pane, hiding the script restores the default candles, and plot options draw: line width, offset, step lines, areas, columns, circles, plotshape text and sizes, plotchar characters (emoji included) and dashed, dotted and solid hlines',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -69,9 +69,9 @@ export const pineRender: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('fill-cloud');
-    /** Pixels of the barcolor blue (#2962FF) over every chart canvas. */
-    const bluePixels = () =>
-      page.evaluate(() => {
+    /** Pixels near `rgb` over every chart canvas. */
+    const colorPixels = (rgb: [number, number, number], tol = 12) =>
+      page.evaluate(([want, tolerance]) => {
         let n = 0;
         for (const cv of Array.from(document.querySelectorAll('canvas'))) {
           const copy = document.createElement('canvas');
@@ -81,10 +81,12 @@ export const pineRender: Scenario = {
           if (!g || cv.width === 0) continue;
           g.drawImage(cv, 0, 0);
           const d = g.getImageData(0, 0, cv.width, cv.height).data;
-          for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 0x29) < 12 && Math.abs(d[i + 1] - 0x62) < 12 && d[i + 2] > 0xf0 && d[i + 3] > 200) n++;
+          for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - want[0]) < tolerance && Math.abs(d[i + 1] - want[1]) < tolerance && Math.abs(d[i + 2] - want[2]) < tolerance && d[i + 3] > 200) n++;
         }
         return n;
-      });
+      }, [rgb, tol] as const);
+    /** Pixels of the barcolor blue (#2962FF). */
+    const bluePixels = () => colorPixels([0x29, 0x62, 0xff]);
     await ctx.step('plotcandle draws custom candles and plotarrow arrows in the script pane', async () => {
       await reopenEditor();
       await setSource(fixture('custom-candles'));
@@ -92,6 +94,31 @@ export const pineRender: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('candles');
+    // Collapse the dock so the script pane has room for the plot styles.
+    const dockToggle = page.locator('.dock-tabs ~ button[title="Collapse"], button[title="Collapse"]').first();
+    await ctx.step('plot options in a script pane: width, offset, step, area, columns, circles, shape text, characters and hline styles', async () => {
+      if (await dockToggle.count()) await dockToggle.click();
+      await reopenEditor();
+      await setSource(fixture('plot-styles'));
+      await closeEditor();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('plot-styles');
+    await ctx.step('the plotchar glyph is drawn in its colour in the script pane', async () => {
+      const orange = await colorPixels([0xff, 0x98, 0x00], 30);
+      if (orange < 30) throw new Error(`plotchar glyph not drawn (${orange} orange pixels)`);
+    });
+    await ctx.step('plotchar characters sit above and below the candles', async () => {
+      await reopenEditor();
+      await setSource(fixture('plot-styles-overlay'));
+      await closeEditor();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('plot-chars');
+    await ctx.step('the dock comes back', async () => {
+      const expand = page.locator('button[title="Expand"]').first();
+      if (await expand.count()) await expand.click();
+    });
     await ctx.step('barcolor recolours the candles; plotbar and plotarrow draw on the price pane', async () => {
       await reopenEditor();
       await setSource(fixture('bar-colors'));

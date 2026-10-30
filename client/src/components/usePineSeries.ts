@@ -1,9 +1,11 @@
 import {
   BarSeries,
+  BaselineSeries,
   CandlestickSeries,
   HistogramSeries,
   LineSeries,
   LineStyle,
+  LineType,
   createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
@@ -16,8 +18,9 @@ import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import { pineIndicatorName } from '../lib/pine/title';
 import { newPaneState, releasePanes, sizePanes, type PaneReg, type PaneState } from './usePaneLegends';
-import { buildPineChart, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
+import { buildPineChart, fadedColor, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
 import { PineFillPrimitive } from './pineFillPrimitive';
+import { PineCharPrimitive } from './pineCharPrimitive';
 import { attachPineDrawings, type PineDrawingsPrimitive } from './pineDrawingsPrimitive';
 import { drawingPriceRange, drawingsOfPane } from '../lib/pine/drawingObjects';
 import { useChartStore } from '../state/chartContext';
@@ -25,8 +28,8 @@ import { runFitsVisible } from '../lib/replay';
 import type { PineDrawings } from '../lib/pine/types';
 import type { PineRunState } from '../state/chart';
 
-type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'> | ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'>;
-type ValueSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
+type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Baseline'> | ISeriesApi<'Histogram'> | ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'>;
+type ValueSeries = ISeriesApi<'Line'> | ISeriesApi<'Baseline'> | ISeriesApi<'Histogram'>;
 
 interface BuiltFill {
   itemId: string;
@@ -43,6 +46,7 @@ interface BuiltDrawings {
 interface Built {
   series: PineSeries;
   plugin?: ISeriesMarkersPluginApi<Time>;
+  chars?: PineCharPrimitive;
 }
 
 const toData = (d: PineSeriesDesc) =>
@@ -64,11 +68,11 @@ const toData = (d: PineSeriesDesc) =>
 
 /** The marker panes a script uses, price first: one invisible carrier series each. */
 type MarkerKind = 'price' | 'separate' | 'scale';
-const kindOf = (m: PineChartModel['markers'][number]): MarkerKind =>
+const kindOf = (m: { pane: 'price' | 'separate'; onScale?: boolean }): MarkerKind =>
   m.pane === 'price' ? 'price' : m.onScale ? 'scale' : 'separate';
-/** 'scale' carries absolute marks at their value on the pane's own right scale. */
+/** 'scale' carries absolute marks at their value on the pane's own right scale. Plotchar glyphs ride the same carriers. */
 const markerPanes = (it: { model: PineChartModel }): MarkerKind[] =>
-  (['price', 'separate', 'scale'] as const).filter((p) => it.model.markers.some((m) => kindOf(m) === p));
+  (['price', 'separate', 'scale'] as const).filter((p) => it.model.markers.some((m) => kindOf(m) === p) || it.model.chars.some((c) => kindOf(c) === p));
 
 /**
  * The panes whose drawing objects need an invisible carrier series of their own: the price pane always, a
@@ -143,8 +147,8 @@ export function usePineSeries(
     const sig = JSON.stringify(
       items.map((it) => [
         it.id,
-        [...new Set(it.model.markers.map(kindOf))].sort(),
-        it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.dashed, s.pointsOnly, s.band]),
+        [...new Set([...it.model.markers, ...it.model.chars].map(kindOf))].sort(),
+        it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.lineStyle, s.lineType, s.base, s.pointsOnly, s.band]),
         it.model.fills.map((f) => [f.key1, f.key2, f.pane, f.color]),
         [it.drawings.price !== null, it.drawings.separate !== null],
       ]),
@@ -155,6 +159,7 @@ export function usePineSeries(
       for (const d of it.model.series) (built[i++].series as ISeriesApi<'Line'>).setData(toData(d) as never);
       for (const pane of markerPanes(it)) {
         const anchor = built[i++];
+        anchor.chars?.setData(it.model.chars.filter((c) => kindOf(c) === pane));
         if (pane === 'price') {
           anchor.series.setData(it.times.map((t, k) => ({ time: t as UTCTimestamp, value: it.closes[k] })) as never);
           anchor.plugin?.setMarkers(
@@ -165,7 +170,7 @@ export function usePineSeries(
         } else {
           const mk = it.model.markers.filter((m) => kindOf(m) === pane);
           if (pane === 'scale') {
-            const at = new Map(mk.map((m) => [m.time, m.price]));
+            const at = new Map([...mk, ...it.model.chars.filter((c) => kindOf(c) === pane)].map((m) => [m.time, m.price]));
             anchor.series.setData(
               it.times.map((t) => (at.has(t) ? { time: t as UTCTimestamp, value: at.get(t)! } : { time: t as UTCTimestamp })) as never,
             );
@@ -274,6 +279,7 @@ export function usePineSeries(
             HistogramSeries,
             {
               color: d.color,
+              base: d.base ?? 0,
               priceLineVisible: false,
               lastValueVisible: !d.band && d.pane === 'separate',
               priceScaleId: scaleId,
@@ -287,18 +293,40 @@ export function usePineSeries(
               scaleMargins: d.band ? { top: 0, bottom: 0 } : { top: 0.75, bottom: 0 },
             });
           }
+        } else if (d.type === 'area') {
+          const fade = fadedColor(d.color, 0.25);
+          series = chart.addSeries(
+            BaselineSeries,
+            {
+              baseValue: { type: 'price', price: d.base ?? 0 },
+              lineWidth: d.lineWidth as LineWidth,
+              topLineColor: d.color,
+              topFillColor1: fade,
+              topFillColor2: fade,
+              bottomLineColor: d.color,
+              bottomFillColor1: fade,
+              bottomFillColor2: fade,
+              priceLineVisible: false,
+              lastValueVisible: d.pane === 'separate',
+              crosshairMarkerVisible: false,
+              priceScaleId: 'right',
+            },
+            paneIndex,
+          );
         } else {
           series = chart.addSeries(
             LineSeries,
             {
               color: d.color,
               lineWidth: d.lineWidth as LineWidth,
-              lineStyle: d.dashed ? LineStyle.Dashed : LineStyle.Solid,
+              lineStyle: d.lineStyle === 'dotted' ? LineStyle.Dotted : d.lineStyle === 'dashed' ? LineStyle.Dashed : LineStyle.Solid,
+              lineType: d.lineType === 'steps' ? LineType.WithSteps : LineType.Simple,
               priceLineVisible: false,
-              lastValueVisible: d.pane === 'separate' || !d.dashed,
+              lastValueVisible: d.pane === 'separate' || !d.hline,
               crosshairMarkerVisible: false,
               lineVisible: !d.pointsOnly,
               pointMarkersVisible: Boolean(d.pointsOnly),
+              ...(d.pointsOnly && { pointMarkersRadius: d.lineWidth + 1 }),
               priceScaleId: 'right',
             },
             paneIndex,
@@ -330,7 +358,9 @@ export function usePineSeries(
         if (separate) {
           chart.priceScale(scaleId, paneIndex).applyOptions({ visible: false, scaleMargins: { top: 0.12, bottom: 0.12 } });
         }
-        mine.push({ series, plugin: createSeriesMarkers(series, []) });
+        const chars = new PineCharPrimitive();
+        series.attachPrimitive(chars);
+        mine.push({ series, plugin: createSeriesMarkers(series, []), chars });
       }
       fill(it, mine);
       const carried = drawingCarriers(it);

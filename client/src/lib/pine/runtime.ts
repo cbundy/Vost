@@ -55,6 +55,21 @@ function plotKind(style: unknown, opts: any = {}, data: any[] = []): PinePlotKin
   return 'plot';
 }
 
+/** Shift per-candle data `n` bars right (negative: left). Entries pushed past either end are dropped; vacated ones are null. */
+export function shift<T>(arr: readonly T[], n: number): (T | null)[] {
+  if (!n) return arr as (T | null)[];
+  return arr.map((_, i) => (i - n >= 0 && i - n < arr.length ? arr[i - n] : null));
+}
+
+const LINE_STYLES = ['solid', 'dashed', 'dotted'] as const;
+
+function lineStyleOf(v: unknown): PinePlot['lineStyle'] | undefined {
+  const s = String(v ?? '').toLowerCase().replace(/^(hline\.)?(style_)?/, '');
+  return LINE_STYLES.find((x) => x === s);
+}
+
+const strOrNull = (x: unknown) => (typeof x === 'string' && x !== '' ? x : null);
+
 function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolean): PinePlot[] {
   const out: PinePlot[] = [];
   /** PineTS plot key of each entry in `out`, and for a fill the keys it joins. */
@@ -68,7 +83,7 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
     if (kind === 'fill' && opts.gradient) continue;
     keys.push(key);
     joins.push(kind === 'fill' ? [String(opts.plot1), String(opts.plot2)] : null);
-    const byTime = new Map<number, { value: number | null; color: string | null; ohlc?: [number, number, number, number] | null; wick?: string | null; border?: string | null }>();
+    const byTime = new Map<number, { value: number | null; color: string | null; text?: string | null; ohlc?: [number, number, number, number] | null; wick?: string | null; border?: string | null }>();
     const isOhlc = kind === 'candle' || kind === 'bar';
     for (const p of plot.data) {
       if (isOhlc) {
@@ -83,23 +98,33 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
         kind === 'plotshape' && absolute
           ? p.value === true ? 1 : toNum(p.value)
           : kind === 'bgcolor' || kind === 'plotshape' || kind === 'barcolor' ? (p.value === true ? 1 : null) : toNum(p.value);
-      byTime.set(p.time, { value, color: typeof p.options?.color === 'string' ? p.options.color : null });
+      byTime.set(p.time, { value, color: typeof p.options?.color === 'string' ? p.options.color : null, text: strOrNull(p.options?.text) });
     }
     const pineOverlay = typeof opts.overlay === 'boolean' ? opts.overlay : overlay;
-    const colors = candles.map((c) => byTime.get(c.time * 1000)?.color ?? null);
+    const offset = Number.isFinite(Number(opts.offset)) ? Math.trunc(Number(opts.offset)) : 0;
+    const at = <T,>(pick: (e: NonNullable<ReturnType<typeof byTime.get>>) => T | null | undefined): (T | null)[] =>
+      shift(candles.map((c) => { const e = byTime.get(c.time * 1000); return e ? pick(e) ?? null : null; }), offset);
+    const colors = at((e) => e.color);
     const color = typeof opts.color === 'string' ? opts.color : kind === 'fill' ? colors.find((c) => c !== null) ?? COLOR_NA : COLOR_NA;
     const hasVaryingColor = colors.some((c) => c !== null && c !== color);
+    const lineWidth = toNum(opts.linewidth);
+    const histbase = toNum(opts.histbase);
+    const lineStyle = lineStyleOf(opts.linestyle);
+    const texts = kind === 'plotshape' ? at((e) => e.text) : [];
+    const text = strOrNull(opts.text);
+    const char = kind === 'plotshape' && opts.style === 'char' ? strOrNull(opts.char) ?? undefined : undefined;
+    const size = strOrNull(opts.size);
     out.push({
       name: plot.title ?? key,
       kind,
-      values: candles.map((c) => byTime.get(c.time * 1000)?.value ?? null),
+      values: at((e) => e.value),
       color,
       ...(hasVaryingColor && { colors }),
       ...(isOhlc && {
-        ohlc: candles.map((c) => byTime.get(c.time * 1000)?.ohlc ?? null),
+        ohlc: at((e) => e.ohlc),
         ...(kind === 'candle' && {
-          wickColors: candles.map((c) => byTime.get(c.time * 1000)?.wick ?? null),
-          borderColors: candles.map((c) => byTime.get(c.time * 1000)?.border ?? null),
+          wickColors: at((e) => e.wick),
+          borderColors: at((e) => e.border),
         }),
       }),
       ...(kind === 'plotarrow' && {
@@ -109,7 +134,15 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
       ...(kind === 'plotshape' && {
         shape: typeof opts.shape === 'string' ? opts.shape.replace(/^shape_/, '') : 'circle',
         location: typeof opts.location === 'string' ? opts.location : 'AboveBar',
+        ...(text && { text }),
+        ...(texts.some((t) => t !== null) && { texts }),
+        ...(size && { size: size.toLowerCase().replace(/^size\./, '') }),
+        ...(opts.style === 'char' && { char: char ?? '\u2605' }),
       }),
+      ...(lineWidth !== null && { lineWidth }),
+      ...(offset !== 0 && { offset }),
+      ...(histbase !== null && { histbase }),
+      ...(lineStyle && { lineStyle }),
       style: typeof opts.style === 'string' ? opts.style.replace(/^style_/, '') : 'line',
       pane: pineOverlay ? 'price' : 'separate',
     });

@@ -46,6 +46,20 @@ export interface PinePlot {
   /** plotshape only: PineTS shape name (e.g. "triangle_up") and location (e.g. "BelowBar"). */
   shape?: string;
   location?: string;
+  /** plotshape/plotchar: the `text` option (plot-level) and per-candle texts where they vary; the `size` option (`tiny`..`huge`, `auto`). */
+  text?: string;
+  texts?: (string | null)[];
+  size?: string;
+  /** plotchar only: the character drawn (Pine's default is a star). */
+  char?: string;
+  /** plot/hline `linewidth` option; absent when the script gave none. */
+  lineWidth?: number;
+  /** The `offset` option, already applied to the per-candle arrays; kept for information. */
+  offset?: number;
+  /** area/columns/histogram `histbase` option. */
+  histbase?: number;
+  /** hline `linestyle` option. */
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
   /** fill only: indices into `plots` of the two plots it joins; `values` are all null, `colors` hold the area colour. */
   plot1?: number;
   plot2?: number;

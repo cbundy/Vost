@@ -3,7 +3,7 @@ import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react'
 import { paneLegendHtml } from '../lib/paneLegend';
 import { paneFactors, recordFactors, type PaneFactors } from '../lib/subPaneSizes';
 
-type ValueSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
+type ValueSeries = ISeriesApi<'Line'> | ISeriesApi<'Baseline'> | ISeriesApi<'Histogram'>;
 
 /** One indicator sub pane as the legend and the size keeping see it. */
 export interface PaneReg {

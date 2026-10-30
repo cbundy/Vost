@@ -442,6 +442,64 @@ describe('runPine candle, bar, barcolor and arrow plots', () => {
   });
 });
 
+describe('runPine plot options', () => {
+  const style = async (code: string) => {
+    const r = await runPine(`//@version=6\nindicator("s", overlay=true)\n${code}`, candles);
+    if (!r.ok) throw new Error(r.error.message);
+    return r;
+  };
+
+  it('reads linewidth, offset, style, histbase, text, size, char and linestyle', async () => {
+    const r = await style([
+      'plot(close, "Step", linewidth=3, offset=2, style=plot.style_stepline)',
+      'plot(close, "Area", style=plot.style_area, histbase=100)',
+      'plot(close, "Cols", style=plot.style_columns, linewidth=4)',
+      'plotshape(close > open, "Sh", text="Up", size=size.small)',
+      'plotchar(close > open, "Ch", char="X", size=size.tiny)',
+      'plotchar(close > open, "Em", char="\u{1F680}", offset=-1)',
+      'plotchar(close > open, "Def")',
+      'hline(100, "H", linestyle=hline.style_dotted, linewidth=2)',
+    ].join('\n'));
+    const by = Object.fromEntries(r.plots.map((p) => [p.name, p]));
+    expect(by.Step).toMatchObject({ lineWidth: 3, offset: 2, style: 'stepline' });
+    expect(by.Area).toMatchObject({ style: 'area', histbase: 100 });
+    expect(by.Cols).toMatchObject({ style: 'columns', lineWidth: 4 });
+    expect(by.Sh).toMatchObject({ kind: 'plotshape', text: 'Up', size: 'small' });
+    expect(by.Sh.char).toBeUndefined();
+    expect(by.Ch).toMatchObject({ kind: 'plotshape', char: 'X', size: 'tiny' });
+    expect(by.Em.char).toBe('\u{1F680}');
+    expect(by.Def.char).toBe('\u2605');
+    expect(by.H).toMatchObject({ kind: 'hline', lineStyle: 'dotted', lineWidth: 2 });
+    expect(by.Area.lineWidth).toBeUndefined();
+  });
+
+  it('offset shifts the values right, dropping what passes the last bar; negative shifts left', async () => {
+    const r = await style('plot(close, "A")\nplot(close, "B", offset=2)\nplot(close, "C", offset=-3)');
+    const [a, b, c] = r.plots.map((p) => p.values);
+    const n = candles.length;
+    expect(b.slice(0, 2)).toEqual([null, null]);
+    expect(b.slice(2)).toEqual(a.slice(0, n - 2));
+    expect(b).toHaveLength(n);
+    expect(c.slice(0, n - 3)).toEqual(a.slice(3));
+    expect(c.slice(n - 3)).toEqual([null, null, null]);
+  });
+
+  it('offset shifts bgcolor colors and plotcandle ohlc', async () => {
+    const r = await style([
+      'bgcolor(close > open ? color.green : na, title="Bg", offset=1)',
+      'bgcolor(close > open ? color.green : na, title="Bg0")',
+      'plotcandle(open, high, low, close, title="Cn", offset=1)',
+      'plotcandle(open, high, low, close, title="Cn0")',
+    ].join('\n'));
+    const by = Object.fromEntries(r.plots.map((p) => [p.name, p]));
+    expect(by.Bg.values[0]).toBeNull();
+    expect(by.Bg.values.slice(1)).toEqual(by.Bg0.values.slice(0, -1));
+    expect(by.Cn.ohlc![0]).toBeNull();
+    expect(by.Cn.ohlc!.slice(1)).toEqual(by.Cn0.ohlc!.slice(0, -1));
+    expect(by.Cn.ohlc![1]).toEqual([candles[0].open, candles[0].high, candles[0].low, candles[0].close]);
+  });
+});
+
 describe('runPine messages', () => {
   const cross = `//@version=6
 indicator("Msg", overlay=true)
