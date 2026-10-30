@@ -9,6 +9,7 @@ import { selectBars } from '../state/chart';
 import { SIDE_SECTIONS } from './SideRail';
 import { useDialogKeys } from '../lib/useDialogKeys';
 import { useChart } from '../state/chartContext';
+import { pineIndicatorName } from '../lib/pine/title';
 
 export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; drawer?: { onClose: () => void } }) {
   const asideRef = useRef<HTMLElement>(null);
@@ -26,6 +27,7 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
   const candles = useChart(selectBars);
   const timeZone = useStore((s) => s.timeZone);
   const dataLabel = useChart((s) => s.dataLabel);
+  const pineRuns = useChart((s) => s.pineRuns);
   const datasets = useStore((s) => s.datasets);
   const activeDatasetId = useChart((s) => s.activeDatasetId);
   const indicators = useChart((s) => s.indicators);
@@ -185,6 +187,10 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
         </div>
         {indicators.map((spec) => {
           const meta = INDICATOR_META[spec.kind];
+          const name =
+            spec.kind === 'pine'
+              ? pineIndicatorName(spec.source ?? '', pineRuns[spec.id]?.result?.declaration.title)
+              : meta.name;
           return (
             <div className="indicator-item" key={spec.id}>
               <div className="indicator-head">
@@ -198,14 +204,14 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
                     updateIndicator(spec.id, { color: palette[(idx + 1) % palette.length] });
                   }}
                 />
-                <span className="indicator-name" title={meta.description}>
-                  {meta.name}
+                <span className="indicator-name" title={`${name} - ${meta.description}`}>
+                  {name}
                 </span>
                 {spec.kind === 'pine' && (
                   <button
                     className="ghost"
                     title="Open in the Pine editor"
-                    aria-label={`Edit ${meta.name} source`}
+                    aria-label={`Edit ${name} source`}
                     onClick={() => {
                       drawer?.onClose();
                       openPineEditor(spec.id);

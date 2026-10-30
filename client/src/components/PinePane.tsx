@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDialogKeys } from '../lib/useDialogKeys';
 import { detectPineVersion } from '../lib/pine/version';
+import { pineIndicatorName } from '../lib/pine/title';
 import { resolvePineSelection } from '../lib/pineSelection';
 import type { PineInput, PineInputValue } from '../lib/pine/types';
 import { useStore } from '../state/store';
@@ -35,7 +36,7 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
   const active = pines.find((i) => i.id === activeId);
 
   const label = (i: (typeof pines)[number], n: number) =>
-    `${n + 1}. ${pineRuns[i.id]?.result?.declaration.title || 'Pine indicator'} (${i.color})`;
+    `${n + 1}. ${pineIndicatorName(i.source ?? '', pineRuns[i.id]?.result?.declaration.title)} (${i.color})`;
 
   return (
     <section
