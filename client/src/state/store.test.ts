@@ -531,7 +531,7 @@ describe('chart registry and flat prefs', () => {
     track(useStore);
     const bars = Array.from({ length: 5 }, (_, i) => ({ time: 1_700_000_000 + i * 3600, open: 1, high: 2, low: 1, close: 2, volume: 1 }));
     const history = vi.spyOn(getProvider('binance'), 'fetchHistory').mockImplementation(async () => bars);
-    vi.spyOn(getProvider('binance'), 'startLive').mockImplementation(() => ({ stop() {} })); // charts load live by default: no real socket
+    vi.spyOn(getProvider('binance') as Required<ReturnType<typeof getProvider>>, 'startLive').mockImplementation(() => ({ stop() {} }) as never); // charts load live by default: no real socket
     const first = getActiveChart();
     first.setState({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '4h', bars: 100 });
     // a second chart in the registry: on the lowest timeframe, so the setting does not change its source
