@@ -58,11 +58,10 @@ export const builtTimeframe: Scenario = {
       await ctx.screenshot('setting-on');
       return;
     }
-    await ctx.step('turn Live on: LIVE and the last 4h bar updates from the 1h stream', async () => {
+    await ctx.step('charts open live: LIVE and the last 4h bar updates from the 1h stream', async () => {
       const liveButton = page.locator('.topbar button.badge').first();
       const ohlc = page.locator('.chart-legend .legend-ohlc');
       const before = await ohlc.innerText();
-      await liveButton.click();
       await liveButton.filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
       await page.waitForFunction(
         (text) => (document.querySelector('.chart-legend .legend-ohlc') as HTMLElement | null)?.innerText !== text,

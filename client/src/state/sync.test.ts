@@ -162,16 +162,20 @@ describe('Sync in layout', () => {
       for (const s of t.spies) expect(s.setChartRange).toHaveBeenCalledTimes(1);
     });
 
-    it('gives one toast, not one per chart, when receivers refuse', async () => {
+    it('gives one info toast, not one per chart, when live receivers pause', async () => {
       const t = await ranged({ dateRange: true });
-      for (const id of [t.ids[1], t.ids[2], t.ids[3]]) t.chart(id).setState({ live: true });
+      for (const id of t.ids) t.chart(id).setState({ live: true });
       const before = t.app.getState().toasts.length;
       const range = { from: t.start + 10 * DAY, to: t.start + 60 * DAY };
       await t.chart(t.ids[0]).getState().setChartRange(range);
-      const errors = t.app.getState().toasts.slice(before).filter((x) => x.kind === 'error');
-      expect(errors).toHaveLength(1);
-      expect(t.chart(t.ids[0]).getState().chartRange).toEqual(range);
-      expect(t.chart(t.ids[1]).getState().chartRange).toBeNull();
+      const added = t.app.getState().toasts.slice(before);
+      expect(added.filter((x) => x.kind === 'error')).toHaveLength(0);
+      expect(added.filter((x) => x.kind === 'info' && x.text.startsWith('Live is paused'))).toHaveLength(1);
+      for (const id of t.ids) {
+        expect(t.chart(id).getState().chartRange).toEqual(range);
+        expect(t.chart(id).getState().live).toBe(false);
+        expect(t.chart(id).getState().liveWanted).toBe(true);
+      }
     });
 
     it('the live path range clear does not reach the other charts', async () => {
