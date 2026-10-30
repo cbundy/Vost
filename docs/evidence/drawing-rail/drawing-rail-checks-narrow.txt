@@ -1,6 +1,7 @@
 ok   section Cursors is a button with aria-expanded
 ok   section Lines is a button with aria-expanded
 ok   section Fibonacci and Gann is a button with aria-expanded
+ok   section Patterns is a button with aria-expanded
 ok   section Forecasting and measurers is a button with aria-expanded
 ok   section Shapes is a button with aria-expanded
 ok   section Annotations is a button with aria-expanded

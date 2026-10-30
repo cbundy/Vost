@@ -26,7 +26,7 @@ ok   OK is enabled with no label
 ok   Arrow mark down keeps its label
 ok   undo removes the label
 ok   redo restores it
-ok   marker label and bold stored - {"id":"dmvur3j5e3twj8","tool":"arrowMarker","anchors":[{"time":1701302400,"price":172.86294744204707},{"time":1734393600,"price":219.62242218927668}],"text":"target","style":{"bold":true}}
+ok   marker label and bold stored - {"id":"dmvus953h3lj37","tool":"arrowMarker","anchors":[{"time":1701302400,"price":172.86294744204707},{"time":1734393600,"price":219.62242218927668}],"text":"target","style":{"bold":true}}
 ok   no style stored for a default arrow
 ok   rotated rectangle: the width handle moves only the third point
 ok   ellipse fill stored
@@ -48,5 +48,17 @@ ok   a body drag moves every point
 ok   undo is one step for the whole drag
 ok   Path end arrow stored
 ok   Polyline fill stored
-ok   fourteen drawings after reload
+ok   Brush stored with 2 to 200 anchors - 18
+ok   Highlighter stored with 2 to 200 anchors - 14
+ok   a body drag moves every brush point
+ok   undo puts the brush back
+ok   redo moves it again
+ok   Brush smoothing 0 stored
+ok   Brush smoothing stored
+ok   smoothing restyles without changing the stored points
+ok   Highlighter width stored
+ok   sixteen drawings after reload
+ok   both strokes keep 2 to 200 points - 18,14
+ok   both strokes keep their exact anchors after reload - 18,14
+ok   the brush keeps smoothing 20 after reload
 ok   unchanged by the timeframe change

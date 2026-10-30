@@ -103,9 +103,9 @@ describe('default styles equal the look drawings had before styles', () => {
   it('anchored text', () => {
     expect(defaults('anchoredText')).toMatchObject({ size: 14, bold: false, italic: false, align: 'left', wrap: false, wrapWidth: 240 });
   });
-  it('every default colour names a theme token, not a fixed hex (the pitchforks and the pitchfan keep TradingView\'s fixed palette)', () => {
+  it('every default colour names a theme token, not a fixed hex (the pitchforks, the pitchfan and the highlighter keep TradingView\'s fixed palette)', () => {
     for (const t of TOOLS) {
-      const fixed = t.id.toLowerCase().endsWith('pitchfork') || t.id === 'pitchfan' || NOTE_TOOLS.includes(t.id) || MARKER_TOOLS.includes(t.id);
+      const fixed = t.id.toLowerCase().endsWith('pitchfork') || t.id === 'pitchfan' || t.id === 'highlighter' || NOTE_TOOLS.includes(t.id) || MARKER_TOOLS.includes(t.id);
       for (const f of t.settings ?? []) {
         if (f.kind !== 'color') continue;
         if (fixed) expect(f.default).toMatch(/^#[0-9a-fA-F]{6}$/);

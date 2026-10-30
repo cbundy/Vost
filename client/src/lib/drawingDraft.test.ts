@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DRAG_PX, closesOnFirst, endDraft, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, undoPoint, type Draft } from './drawingDraft';
+import { DRAG_PX, closesOnFirst, endDraft, endFreehand, extendFreehand, startFreehand, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, undoPoint, type Draft } from './drawingDraft';
 
 const a = (n: number) => ({ time: n, price: n * 10 });
 const at = (x: number, y = 0) => ({ x, y });
@@ -157,5 +157,35 @@ describe('placing an open-ended drawing', () => {
 
   it('fixed-count drafting is unchanged by the number form', () => {
     expect(pressDraft(first(), a(2), 2).done).toEqual([a(1), a(2)]);
+  });
+});
+
+describe('freehand strokes', () => {
+  const at = (p: { x: number; y: number }) => ({ time: p.x, price: p.y });
+  const toAnchor = (p: { x: number; y: number }) => at(p);
+  it('start, extend and end give anchors from the press to the release', () => {
+    let d = startFreehand('brush', { x: 0, y: 0 }, at({ x: 0, y: 0 }));
+    for (let x = 5; x <= 100; x += 5) d = extendFreehand(d, { x, y: x % 10 === 0 ? 5 : 0 }, at({ x, y: 0 }));
+    const done = endFreehand(d, toAnchor, 200)!;
+    expect(done[0]).toEqual(at({ x: 0, y: 0 }));
+    expect(done[done.length - 1]).toEqual(at({ x: 100, y: 5 }));
+    expect(done.length).toBeGreaterThanOrEqual(2);
+  });
+  it('skips a sample under 1 px from the last', () => {
+    const d = startFreehand('brush', { x: 0, y: 0 }, at({ x: 0, y: 0 }));
+    expect(extendFreehand(d, { x: 0.5, y: 0.5 }, at({ x: 0.5, y: 0.5 }))).toBe(d);
+    expect(extendFreehand(d, { x: 2, y: 0 }, at({ x: 2, y: 0 })).samples).toHaveLength(2);
+  });
+  it('stores nothing for a stroke that stays within DRAG_PX of the press', () => {
+    let d = startFreehand('brush', { x: 10, y: 10 }, at({ x: 10, y: 10 }));
+    d = extendFreehand(d, { x: 10 + DRAG_PX - 1, y: 10 }, at({ x: 13, y: 10 }));
+    expect(endFreehand(d, toAnchor, 200)).toBeNull();
+    expect(endFreehand(startFreehand('brush', { x: 1, y: 1 }, at({ x: 1, y: 1 })), toAnchor, 200)).toBeNull();
+  });
+  it('keeps at most the cap and returns null when a point has no anchor', () => {
+    let d = startFreehand('brush', { x: 0, y: 0 }, at({ x: 0, y: 0 }));
+    for (let i = 1; i < 2000; i++) d = extendFreehand(d, { x: i, y: Math.sin(i / 5) * 40 }, at({ x: i, y: 0 }));
+    expect(endFreehand(d, toAnchor, 50)!.length).toBeLessThanOrEqual(50);
+    expect(endFreehand(d, () => null, 50)).toBeNull();
   });
 });

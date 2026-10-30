@@ -42,6 +42,12 @@ describe('railGroups', () => {
     expect(patterns.entries.slice(6).every((e) => e.section === 'Cycles')).toBe(true);
   });
 
+  it('opens the Shapes family with a Brushes section, Brush first', () => {
+    const shapes = groups.find((g) => g.id === 'shapes')!;
+    expect(shapes.sections.map((s) => s.title)).toEqual(['Brushes', 'Shapes']);
+    expect(shapes.entries.slice(0, 2).map((e) => e.key)).toEqual(['brush', 'highlighter']);
+  });
+
   it('holds Cross, Dot, Arrow and Eraser in the cursors family', () => {
     expect(groups[0].entries.map((e) => e.label)).toEqual(['Cross', 'Dot', 'Arrow', 'Eraser']);
     expect(groups[0].entries.at(-1)?.toolId).toBe(ERASER);
