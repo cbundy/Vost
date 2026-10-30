@@ -1,6 +1,6 @@
 # Forecasting and measuring tools
 
-The **Forecasting and measurers** family of the [drawing rail](drawings.md) holds the **Long position** and **Short position** tools (the Forecasting section) and the **Measure** tool (the Measurers section; see [Drawings](drawings.md)).
+The **Forecasting and measurers** family of the [drawing rail](drawings.md) holds the **Long position**, **Short position**, **Forecast** and **Projection** tools (the Forecasting section) and the **Measure** tool (the Measurers section; see [Drawings](drawings.md)).
 
 ## Positions
 
@@ -51,3 +51,41 @@ Double-click a position to open its settings.
 ![The Inputs tab](../evidence/drawing-positions/drawing-positions-inputs-desktop.png)
 
 **Save as default** keeps the inputs and the style for new positions of that tool. Positions are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
+
+## Forecast
+
+A forecast draws where you expect price to be at a later time: a line from a **source** (a price and time) to a **target**. The source label shows the source price; the target label shows the change, the percent, the target date and time and the number of bars to it.
+
+Pick **Forecast**, then press at the source, drag to the target and release, or click the source and click the target (tap, tap on a phone). A live preview follows the pointer, and with the magnet on the points snap to the bars.
+
+![A forecast placed by press, drag and release](../evidence/drawing-forecast/drawing-forecast-forecast-preview-desktop.png)
+
+Click it to select: both points show handles, the source and target prices show on the price axis and the target time on the time axis. Drag a handle to move that point, or the line to move the whole forecast.
+
+![A selected forecast](../evidence/drawing-forecast/drawing-forecast-forecast-selected-desktop.png)
+
+### Success or failure
+
+Once the chart holds a bar at or after the target time, the forecast says how it went:
+
+- **Success** (green): some bar after the source, up to the target time, reached the target price - its high for an upward forecast, its low for a downward one. A bar that only touches the price counts. A forecast whose target equals its source succeeds at once.
+- **Failure** (red): no bar did.
+- No label while the target time is still in the future (or beyond the loaded bars).
+
+![A reached target, a missed one and a future one](../evidence/drawing-forecast/drawing-forecast-verdicts-desktop.png)
+
+Double-click for settings: **Source colour**, **Target colour**, **Success colour**, **Failure colour**, **Line width**, **Text colour** and **Font size**, plus the Coordinates and Visibility tabs.
+
+![The Forecast settings](../evidence/drawing-forecast/drawing-forecast-forecast-settings-desktop.png)
+
+## Projection
+
+A projection measures a move against an earlier one. It has a **leg** from point 1 to point 2 and a **projection** from point 1 to point 3. An arc around point 1, as far out as the leg is long, spans the angle between the two, the wedge is filled, and a label gives the projection's length as a percent of the leg's (a projection as long as the leg reads 100%).
+
+Pick **Projection** and click three points: point 1, point 2, then point 3 (the preview follows the pointer before the third). Select it to see a handle at each point and their prices and times on the axes; point 3 may lie on either side of the leg.
+
+![A selected projection](../evidence/drawing-forecast/drawing-forecast-projection-selected-desktop.png)
+
+Settings: **Line colour**, **Line width**, **Fill colour**, **Fill opacity**, **Text colour** and **Font size**, plus Coordinates and Visibility.
+
+Forecasts and projections are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.

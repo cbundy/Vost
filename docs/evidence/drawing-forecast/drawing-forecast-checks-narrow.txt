@@ -1,0 +1,6 @@
+ok   one forecast with two anchors - [{"id":"dmvuxlzbd1e31i","tool":"forecast","anchors":[{"time":1769472000,"price":142.9724345257984},{"time":1780963200,"price":207.06296218752595}]}]
+ok   the target is later and higher than the source - 1769472000/142.9724345257984 -> 1780963200/207.06296218752595
+ok   one projection with three anchors - [{"id":"dmvuxm04u2ag1h","tool":"projection","anchors":[{"time":1767571200,"price":215.07428100807536},{"time":1777075200,"price":215.07428100807536},{"time":1773273600,"price":247.1195477017726}]}]
+ok   two forecasts and a projection are stored - ["forecast","projection","forecast"]
+ok   storage is unchanged after a reload
+ok   no console error

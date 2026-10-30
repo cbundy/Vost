@@ -76,7 +76,7 @@ function timeX(view: ToolView, x0: number, x1: number, t: number): number {
   return l1 === l0 ? x0 : x0 + ((timeToLogical(view.times, t) - l0) / (l1 - l0)) * (x1 - x0);
 }
 
-function drawLabel(ctx: CanvasRenderingContext2D, lines: string[], cx: number, y: number, above: boolean, border: string, view: ToolView): void {
+export function drawLabel(ctx: CanvasRenderingContext2D, lines: string[], cx: number, y: number, above: boolean, border: string, view: ToolView): void {
   const size = view.style.textSize as number;
   ctx.font = `${size}px ${FONT_FAMILY}`;
   const lh = size + 4;
