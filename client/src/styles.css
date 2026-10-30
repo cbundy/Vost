@@ -2728,6 +2728,12 @@ a:hover {
   color: var(--accent-2);
 }
 
+.menu-magnet {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px 4px;
+}
+
 .menu-switches {
   display: flex;
   justify-content: center;

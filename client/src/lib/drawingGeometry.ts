@@ -96,17 +96,22 @@ export type HitOpts = { handleRadius: number; tolerance: number };
 export const MOUSE_HIT: HitOpts = { handleRadius: HANDLE_HIT_RADIUS, tolerance: HIT_TOLERANCE };
 export const TOUCH_HIT: HitOpts = { handleRadius: TOUCH_HANDLE_HIT_RADIUS, tolerance: TOUCH_HIT_TOLERANCE };
 
+/** The weak magnet's reach, in screen pixels (vertical). */
+export const WEAK_MAGNET_PX = 10;
+
 export type OhlcBar = { time: number; open: number; high: number; low: number; close: number };
 
 /**
  * Magnet: when the anchor's fractional bar index is within half a bar of a real bar, moves it to that
  * bar's time and to the nearest of its open, high, low, close. Outside every bar it is returned as is.
  * `priceOnly` keeps the time (a horizontal line); `timeOnly` keeps the price (a vertical line).
+ * With `within` (the weak magnet) it snaps only when that OHLC value is within `px` pixels of the anchor price.
  */
 export function snapToBar(
   candles: readonly OhlcBar[],
   anchor: { time: number; price: number },
   opts: { priceOnly?: boolean; timeOnly?: boolean } = {},
+  within?: { px: number; y: (price: number) => number | null },
 ): { time: number; price: number } {
   const n = candles.length;
   if (n === 0) return anchor;
@@ -119,6 +124,14 @@ export function snapToBar(
   const bar = candles[i];
   let price = bar.open;
   for (const v of [bar.high, bar.low, bar.close]) if (Math.abs(v - anchor.price) < Math.abs(price - anchor.price)) price = v;
+  let near = true;
+  if (within && !opts.timeOnly) {
+    const a = within.y(anchor.price);
+    const b = within.y(price);
+    near = a !== null && b !== null && Math.abs(a - b) <= within.px;
+  }
+  // Weak magnet: a far price leaves the anchor exactly as is (time and price), except a vertical line's time.
+  if (!near) return anchor;
   return { time: opts.priceOnly ? anchor.time : bar.time, price: opts.timeOnly ? anchor.price : price };
 }
 
