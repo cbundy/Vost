@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { PineEditor } from './PineEditor';
 import { PANE_LABELS, describeCompare, loadCompareState, saveCompareState, savedPineScripts, type CompareState } from '../lib/pine/compare';
 import { debounce } from '../lib/storage';
@@ -33,7 +33,9 @@ const Pane = memo(function Pane({
   const isRef = index === reference;
   const fileInput = useRef<HTMLInputElement>(null);
   const [saved, setSaved] = useState(() => savedPineScripts());
-  const summary = useMemo(() => (isRef ? null : describeCompare(referenceText, text, PANE_LABELS[reference])), [isRef, referenceText, text, reference]);
+  // the diff of a long script is not worth a delay in the keystroke: the header catches up right after it
+  const shownText = useDeferredValue(text);
+  const summary = useMemo(() => (isRef ? null : describeCompare(referenceText, shownText, PANE_LABELS[reference])), [isRef, referenceText, shownText, reference]);
 
   return (
     <section className="compare-pane" aria-label={label}>

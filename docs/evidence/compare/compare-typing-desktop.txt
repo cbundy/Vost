@@ -1,2 +1,2 @@
-typing 20 characters in Code A at 6x CPU throttling: 1 long tasks, durations ms: 66
-typing 20 characters in Code B at 6x CPU throttling: 1 long tasks, durations ms: 62
+typing 20 characters in Code A at 6x CPU throttling: 2 long tasks, durations ms: 50, 53
+typing 20 characters in Code B at 6x CPU throttling: 1 long tasks, durations ms: 54

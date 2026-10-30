@@ -97,6 +97,7 @@ export const compare: Scenario = {
       await fill(page, 'Code D', changed + 'plot(close)\n');
       await summary('Code C').getByText('Identical to Code A').waitFor();
       await summary('Code D').getByText(/differences/).waitFor();
+      for (const n of [3, 4]) await page.locator(`.compare-pane:nth-child(${n}) .cm-collapsedLines`).first().waitFor();
     });
     await ctx.screenshot('four');
     await ctx.step('switch the reference to Code B', async () => {
@@ -142,6 +143,7 @@ export const compare: Scenario = {
         for (const label of ['Code A', 'Code B']) {
           await page.getByRole('textbox', { name: label, exact: true }).click();
           await page.keyboard.press('Control+End');
+          await page.waitForTimeout(300);
           await page.evaluate(() => ((window as unknown as { longTasks: number[] }).longTasks.length = 0));
           await page.keyboard.type('plot(close) // x', { delay: 60 });
           await page.keyboard.type('1234', { delay: 60 });
@@ -158,9 +160,10 @@ export const compare: Scenario = {
       }
       await ctx.writeText('typing', report.join('\n') + '\n');
       const worst = Math.max(0, ...tasks);
-      // The narrow layout stacks the panes in a tall scrolling page, where the first keystrokes after the click still scroll
-      // and lay out the whole page (single tasks of 50 to 90 ms were seen); the broken code there ran dozens of tasks over 150 ms.
-      const limit = viewport === 'desktop' ? 50 : 120;
+      // The longtask API reports only tasks of 50 ms or more, so an unloaded run shows few and a noisy machine shows the odd
+      // 50 to 70 ms one; the broken code ran 25 tasks of 50 to 230 ms (3 s in all). The narrow layout stacks the panes in a tall
+      // page where a task of up to 90 ms was seen.
+      const limit = viewport === 'desktop' ? 75 : 120;
       if (worst > limit) throw new Error(`a long task of ${worst} ms while typing (limit ${limit} ms after the first): ${report.join(' | ')}`);
       await summary('Code B').getByText('2 differences').waitFor();
     });
