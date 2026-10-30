@@ -11,8 +11,8 @@ ok   Gann box settings are titled for the tool
 ok   Gann box restyled - {"priceLevels":[{"value":0,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.382,"color":"accent","on":false},{"value":0.5,"color":"accent","on":true},{"value":0.618,"co
 ok   Gann box undo reverts the restyle
 ok   Gann box redo restores the restyle
-ok   Gann square fixed resized by a handle - [[{"time":1654905600,"price":1.4115679608958267},{"time":1668124800,"price":88.69590220548623}],[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.69590220548623}]]
-ok   Gann square fixed first point moved - [[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.69590220548623}],[{"time":1656979200,"price":1.4115679608958267},{"time":1679616000,"price":88.69590220548623}]]
+ok   Gann square fixed resized by a handle - [[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.69590220548623}],[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.64710729799451}]]
+ok   Gann square fixed first point moved - [[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.64710729799451}],[{"time":1656979200,"price":1.4115679608958267},{"time":1679616000,"price":88.64710729799451}]]
 ok   Gann square fixed undo reverts the move
 ok   Gann square fixed settings are titled for the tool
 ok   Gann square fixed restyled - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":false},{"value":0.618,"color":

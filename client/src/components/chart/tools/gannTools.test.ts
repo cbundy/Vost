@@ -119,12 +119,25 @@ describe('gann fan', () => {
 });
 
 describe('gann squares', () => {
-  it('keeps the fixed square square in handles and drags', () => {
+  it('makes the fixed square square once, when placed, and keeps it square in drags', () => {
     const b = { x: 250, y: 220 };
-    expect(gannSquareFixed.handles([A, b], view(gannSquareFixed))).toEqual([A, { x: 250, y: 150 }]);
+    expect(gannSquareFixed.settle!([A, b])).toEqual([A, { x: 250, y: 150 }]);
+    expect(gannSquare.settle).toBeUndefined();
+    expect(gannSquareFixed.handles([A, b], view(gannSquareFixed))).toEqual([A, b]);
     expect(gannSquare.handles([A, b], view(gannSquare))).toEqual([A, b]);
     expect(gannSquareFixed.dragHandle!([A, b], 1, { x: 180, y: 50 })).toEqual([A, { x: 350, y: 50 }]);
     expect(gannSquareFixed.dragHandle!([A, b], 0, { x: 10, y: 20 })).toEqual([{ x: 10, y: 20 }, b]);
+  });
+  it('draws the fixed square from its stored points, so a one-axis zoom does not change it', () => {
+    const sq = view(gannSquareFixed, { background: false, ...NONE, levels: [{ value: 0.5, color: 'accent', on: true }] });
+    const [p0, p1] = gannSquareFixed.settle!([A, { x: 250, y: 220 }]);
+    expect(gannSquareFixed.hit([p0, p1], { x: p0.x, y: (p0.y + p1.y) / 2 }, sq)).toBe(true); // border
+    expect(gannSquareFixed.hit([p0, p1], { x: (p0.x + p1.x) / 2, y: p0.y - 20 }, sq)).toBe(true); // grid line x = middle
+    expect(gannSquareFixed.hit([p0, p1], { x: p0.x + 20, y: p0.y - 20 }, sq)).toBe(false); // off every line
+    // the price axis zoomed to twice the pixels: the stored rectangle is drawn as it is, not squared again
+    const tall = { x: p1.x, y: p0.y + (p1.y - p0.y) * 2 };
+    expect(gannSquareFixed.hit([p0, tall], { x: p0.x + 30, y: tall.y }, sq)).toBe(true);
+    expect(gannSquareFixed.hit([p0, tall], { x: p0.x + 30, y: 60 }, sq)).toBe(false);
   });
   it('is hit on its border, grid, fan, arc and fill, and not outside', () => {
     const base = { background: false, ...NONE };

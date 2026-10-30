@@ -4,7 +4,7 @@ import { boxCoord, fanBands, fanEnd, fixedSquareCorner, ratioLabel, squareArc } 
 import { theme } from '../../../lib/theme';
 import { Svg } from '../../DrawingIcons';
 import { boolField, opacityField, widthField } from './fields';
-import { drawLevelLabel, enabledLevels } from './fibLevels';
+import { enabledLevels, labelPlacer } from './fibLevels';
 import type { DrawingTool, ToolView } from './types';
 
 type Square = {
@@ -15,11 +15,11 @@ type Square = {
   arcs: { ratio: number; pts: Pt[]; color: string }[];
 };
 
-/** The square as drawn: point 1 is the origin, the opposite corner is point 2 (held square when `fixed`). */
-function layout(pts: Pt[], view: ToolView, fixed: boolean): Square | null {
+/** The square as drawn: point 1 is the origin, the opposite corner is point 2. */
+function layout(pts: Pt[], view: ToolView): Square | null {
   if (pts.length < 2) return null;
   const a = pts[0];
-  const b = fixed ? fixedSquareCorner(a, pts[1]) : pts[1];
+  const b = pts[1];
   const grid = enabledLevels(view.style, 'levels').map((l) => ({ ratio: l.value, color: l.color, x: boxCoord(a.x, b.x, l.value), y: boxCoord(a.y, b.y, l.value) }));
   const fans = enabledLevels(view.style, 'fans').flatMap((l) => {
     const end = fanEnd(a, b, l.value);
@@ -31,7 +31,7 @@ function layout(pts: Pt[], view: ToolView, fixed: boolean): Square | null {
 
 /**
  * The square tools: a grid of level lines, fan lines from point 1 and quarter arcs around it, each its own table.
- * The fixed one keeps the square 1:1 in pixels.
+ * The fixed one is made 1:1 in pixels when it is placed or a handle is dragged, then stored by time and price.
  */
 export function squareTool(base: Pick<DrawingTool, 'id' | 'label' | 'icon'>, fixed: boolean): DrawingTool {
   return {
@@ -50,7 +50,7 @@ export function squareTool(base: Pick<DrawingTool, 'id' | 'label' | 'icon'>, fix
     ],
     axisLabels: (anchors, _style, selected) => (selected ? { price: anchors.map((a) => a.price), time: anchors.map((a) => a.time) } : {}),
     draw(ctx, pts, view, { selected }) {
-      const sq = layout(pts, view, fixed);
+      const sq = layout(pts, view);
       if (!sq) return;
       const { a, b } = sq;
       const style = view.style;
@@ -76,13 +76,14 @@ export function squareTool(base: Pick<DrawingTool, 'id' | 'label' | 'icon'>, fix
         ctx.strokeStyle = stroke(g.color);
         ctx.stroke();
       }
+      const put = labelPlacer(ctx, view.width, view.height);
       for (const f of sq.fans) {
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(f.end.x, f.end.y);
         ctx.strokeStyle = stroke(f.color);
         ctx.stroke();
-        if (style.showLabels === true) drawLevelLabel(ctx, ratioLabel(f.v), f.end.x + (f.end.x >= a.x ? 3 : -3), f.end.y, f.end.x >= a.x ? 'left' : 'right', 'middle');
+        if (style.showLabels === true) put(ratioLabel(f.v), f.end.x + (f.end.x >= a.x ? 3 : -3), f.end.y, f.end.x >= a.x ? 'left' : 'right', 'middle');
       }
       for (const arc of sq.arcs) {
         ctx.beginPath();
@@ -91,15 +92,14 @@ export function squareTool(base: Pick<DrawingTool, 'id' | 'label' | 'icon'>, fix
         ctx.stroke();
       }
       if (style.showLabels === true) {
-        const inside = (x: number, y: number) => x >= 0 && x <= view.width && y >= 0 && y <= view.height;
         for (const g of sq.grid) {
-          if (inside(g.x, Math.min(a.y, b.y))) drawLevelLabel(ctx, `${g.ratio}`, g.x, Math.min(a.y, b.y) - 3, 'center', 'bottom');
-          if (inside(Math.min(a.x, b.x), g.y)) drawLevelLabel(ctx, `${g.ratio}`, Math.min(a.x, b.x) - 3, g.y, 'right', 'middle');
+          put(`${g.ratio}`, g.x, Math.min(a.y, b.y) - 3, 'center', 'bottom');
+          put(`${g.ratio}`, Math.min(a.x, b.x) - 3, g.y, 'right', 'middle');
         }
       }
     },
     hit(pts, p, view, tolerance = HIT_TOLERANCE) {
-      const sq = layout(pts, view, fixed);
+      const sq = layout(pts, view);
       if (!sq) return false;
       const { a, b } = sq;
       const c = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }];
@@ -109,8 +109,10 @@ export function squareTool(base: Pick<DrawingTool, 'id' | 'label' | 'icon'>, fix
       if (sq.arcs.some((arc) => arc.pts.some((q, i) => i > 0 && distToSegment(p, arc.pts[i - 1], q) <= tolerance))) return true;
       return view.style.background === true && fanBands(a, b, sq.fans).some((poly) => inFanPolygon(p, poly));
     },
-    /** Point 1 and the opposite corner; the fixed square shows the corner it holds square. */
-    handles: (pts) => (pts.length < 2 ? pts : fixed ? [pts[0], fixedSquareCorner(pts[0], pts[1])] : pts),
+    /** Point 1 and the opposite corner. */
+    handles: (pts) => pts,
+    /** The fixed square is made square once, when placed; it is stored as time and price like any other and then follows the chart. */
+    settle: fixed ? (pts) => (pts.length < 2 ? pts : [pts[0], fixedSquareCorner(pts[0], pts[1])]) : undefined,
     dragHandle: fixed ? (orig, handle, p) => (handle === 0 ? [{ x: p.x, y: p.y }, orig[1]] : [orig[0], fixedSquareCorner(orig[0], p)]) : undefined,
   };
 }

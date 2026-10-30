@@ -4,7 +4,7 @@ import { fanEnd, farPoint, ratioLabel } from '../../../lib/geometry/gann';
 import { theme } from '../../../lib/theme';
 import { Svg } from '../../DrawingIcons';
 import { boolField, opacityField, widthField } from './fields';
-import { drawLevelLabel, enabledLevels } from './fibLevels';
+import { enabledLevels, labelPlacer } from './fibLevels';
 import type { DrawingTool, ToolView } from './types';
 
 type FanLine = { v: number; color: string; end: Pt; far: Pt };
@@ -60,15 +60,14 @@ export const gannFan: DrawingTool = {
       }
     }
     ctx.lineWidth = (view.style.width as number) + (selected ? 0.5 : 0);
+    const put = labelPlacer(ctx, view.width, view.height);
     for (const l of ls) {
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(l.far.x, l.far.y);
       ctx.strokeStyle = selected && !view.styled ? theme.accent2 : cssColor(l.color);
       ctx.stroke();
-      if (view.style.showLabels === true && l.end.x >= 0 && l.end.x <= view.width && l.end.y >= 0 && l.end.y <= view.height) {
-        drawLevelLabel(ctx, ratioLabel(l.v), l.end.x + 3, l.end.y - 2);
-      }
+      if (view.style.showLabels === true) put(ratioLabel(l.v), l.end.x + 3, l.end.y - 2);
     }
   },
   hit(pts, p, view, tolerance = HIT_TOLERANCE) {

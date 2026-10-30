@@ -4,7 +4,7 @@ import { boxCoord } from '../../../lib/geometry/gann';
 import { theme } from '../../../lib/theme';
 import { Svg } from '../../DrawingIcons';
 import { boolField, opacityField, widthField } from './fields';
-import { drawLevelLabel, enabledLevels } from './fibLevels';
+import { enabledLevels, labelPlacer } from './fibLevels';
 import type { DrawingTool, ToolView } from './types';
 
 type Line = { ratio: number; at: number; color: string };
@@ -89,14 +89,14 @@ export const gannBox: DrawingTool = {
       ctx.strokeStyle = stroke('accent');
       ctx.stroke();
     }
-    const inside = (x: number, y: number) => x >= 0 && x <= view.width && y >= 0 && y <= view.height;
+    const put = labelPlacer(ctx, view.width, view.height);
     for (const l of price) {
-      if (style.labelsLeft === true && inside(x0, l.at)) drawLevelLabel(ctx, `${l.ratio}`, x0 - 3, l.at, 'right', 'middle');
-      if (style.labelsRight === true && inside(x1, l.at)) drawLevelLabel(ctx, `${l.ratio}`, x1 + 3, l.at, 'left', 'middle');
+      if (style.labelsLeft === true) put(`${l.ratio}`, x0 - 3, l.at, 'right', 'middle');
+      if (style.labelsRight === true) put(`${l.ratio}`, x1 + 3, l.at, 'left', 'middle');
     }
     for (const l of time) {
-      if (style.labelsTop === true && inside(l.at, y0)) drawLevelLabel(ctx, `${l.ratio}`, l.at, y0 - 3, 'center', 'bottom');
-      if (style.labelsBottom === true && inside(l.at, y1)) drawLevelLabel(ctx, `${l.ratio}`, l.at, y1 + 3, 'center', 'top');
+      if (style.labelsTop === true) put(`${l.ratio}`, l.at, y0 - 3, 'center', 'bottom');
+      if (style.labelsBottom === true) put(`${l.ratio}`, l.at, y1 + 3, 'center', 'top');
     }
   },
   hit(pts, p, view, tolerance = HIT_TOLERANCE) {
