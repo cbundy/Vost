@@ -13,10 +13,17 @@ import {
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import { buildPineChart, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
+import { PineFillPrimitive } from './pineFillPrimitive';
 import { runFitsVisible } from '../lib/replay';
 import type { PineRunState } from '../state/chart';
 
 type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
+
+interface BuiltFill {
+  itemId: string;
+  index: number;
+  prim: PineFillPrimitive;
+}
 
 interface Built {
   series: PineSeries;
@@ -54,7 +61,7 @@ export function usePineSeries(
   /** During replay: a run reaching past this bar time is never drawn. */
   lastVisibleTime: number | null = null,
 ) {
-  const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], descs: [] as PineSeriesDesc[] });
+  const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], fills: [] as BuiltFill[], descs: [] as PineSeriesDesc[] });
 
   useEffect(() => {
     if (!chart) return;
@@ -76,6 +83,7 @@ export function usePineSeries(
         it.id,
         [...new Set(it.model.markers.map(kindOf))].sort(),
         it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.dashed, s.pointsOnly, s.band]),
+        it.model.fills.map((f) => [f.key1, f.key2, f.pane, f.color]),
       ]),
     );
 
@@ -117,7 +125,17 @@ export function usePineSeries(
       }
     };
 
+    const fillData = (it: (typeof items)[number], index: number) => {
+      const f = it.model.fills[index];
+      const values = (key: string) => it.model.series.find((d) => d.key === key)!.data.map((p) => p.value ?? null);
+      return { times: it.times, v1: values(f.key1), v2: values(f.key2), color: f.color, colors: f.colors };
+    };
+
     if (sig === st.sig && st.epoch === epochRef.current) {
+      for (const bf of st.fills) {
+        const it = items.find((x) => x.id === bf.itemId);
+        if (it) bf.prim.setData(fillData(it, bf.index));
+      }
       let offset = 0;
       for (const it of items) {
         const n = it.model.series.length + markerPanes(it).length;
@@ -135,6 +153,7 @@ export function usePineSeries(
       }
     }
     st.built = [];
+    st.fills = []; // detached with their series
     const base = 1 + indicators.filter((s) => s.visible && (s.kind === 'rsi' || s.kind === 'macd')).length;
     for (let i = chart.panes().length - 1; i >= base; i--) {
       try {
@@ -222,6 +241,16 @@ export function usePineSeries(
         mine.push({ series, plugin: createSeriesMarkers(series, []) });
       }
       fill(it, mine);
+      it.model.fills.forEach((f, index) => {
+        const at = (key: string) => mine[it.model.series.findIndex((d) => d.key === key)]?.series;
+        const first = at(f.key1);
+        const second = at(f.key2);
+        if (!first || !second) return;
+        const prim = new PineFillPrimitive(second);
+        first.attachPrimitive(prim);
+        prim.setData(fillData(it, index));
+        st.fills.push({ itemId: it.id, index, prim });
+      });
       st.built.push(...mine);
     }
     st.sig = sig;

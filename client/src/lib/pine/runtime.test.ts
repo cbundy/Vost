@@ -250,6 +250,63 @@ describe('runPine with onProgress (paged run)', () => {
   }
 });
 
+describe('runPine fill', () => {
+  it('rsi-band: one fill joining the two hlines in the separate pane', async () => {
+    const r = await ok('rsi-band');
+    const fills = r.plots.filter((p) => p.kind === 'fill');
+    expect(fills).toHaveLength(1);
+    const f = fills[0];
+    expect(f.pane).toBe('separate');
+    expect(r.plots[f.plot1!].name).toBe('Upper');
+    expect(r.plots[f.plot2!].name).toBe('Lower');
+    expect(r.plots[f.plot1!].kind).toBe('hline');
+    expect(f.color).toBe('#9C27B01A');
+    expect(f.values.every((v) => v === null)).toBe(true);
+    // no empty line plot named after the fill remains
+    expect(r.plots.filter((p) => p.kind === 'plot' && p.values.every((v) => v === null))).toEqual([]);
+  });
+
+  it('cloud: one fill joining the two SMAs on the price pane with varying colors', async () => {
+    const r = await ok('cloud');
+    const fills = r.plots.filter((p) => p.kind === 'fill');
+    expect(fills).toHaveLength(1);
+    const f = fills[0];
+    expect(f.pane).toBe('price');
+    expect(r.plots[f.plot1!].name).toBe('Fast');
+    expect(r.plots[f.plot2!].name).toBe('Slow');
+    expect(new Set((f.colors ?? []).filter((c) => c !== null)).size).toBe(2);
+  });
+
+  it('drops a gradient fill', async () => {
+    const grad = await runPine(
+      '//@version=6\nindicator("g", overlay=true)\np1 = plot(close)\np2 = plot(open)\nfill(p1, p2, close, open, color.green, color.red)\n',
+      candles,
+    );
+    if (!grad.ok) throw new Error(grad.error.message);
+    expect(grad.plots.map((p) => p.kind)).toEqual(['plot', 'plot']);
+  });
+
+  it('drops a fill whose plot cannot be resolved', async () => {
+    const r = await runPine(
+      '//@version=6\nindicator("u", overlay=true)\np1 = plot(close, "__x")\np2 = plot(open)\nfill(p1, p2, color.red)\n',
+      candles,
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.plots.some((p) => p.kind === 'fill')).toBe(false);
+    expect(r.plots.length).toBeGreaterThan(0);
+  });
+
+  it('drops a fill joining plots in different panes', async () => {
+    const r = await runPine(
+      '//@version=6\nindicator("x", overlay=false)\np1 = plot(close, force_overlay=true)\np2 = plot(ta.rsi(close, 14))\nfill(p1, p2, color.red)\n',
+      candles,
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.plots.map((p) => p.pane)).toEqual(['price', 'separate']);
+    expect(r.plots.some((p) => p.kind === 'fill')).toBe(false);
+  });
+});
+
 describe('runPine market context', () => {
   const hourly = Array.from({ length: 40 }, (_, i) => ({
     time: 1_700_000_000 + i * 3600, open: 100.25 + i, high: 102.5 + i, low: 99.1 + i, close: 101.05 + i, volume: 10,
