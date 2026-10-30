@@ -1,0 +1,5 @@
+//@version=5
+indicator("Custom candles", overlay=false)
+up = close > open
+plotcandle(open, high, low, close, title="Candles", color=up ? color.teal : color.orange, wickcolor=color.gray, bordercolor=up ? color.green : color.red)
+plotarrow(close - open, title="Body", colorup=color.lime, colordown=color.maroon)

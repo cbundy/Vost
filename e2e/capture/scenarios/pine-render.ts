@@ -7,7 +7,7 @@ const fixture = (name: string) =>
 
 export const pineRender: Scenario = {
   name: 'pine-render',
-  description: 'Pine shapes and fills: a separate-pane script draws its shapes and characters in its own pane (none on the candles); an overlay script keeps them on the candles; fill() shades the RSI 30/70 band and a colour-changing moving-average cloud',
+  description: 'Pine shapes and fills: a separate-pane script draws its shapes and characters in its own pane (none on the candles); an overlay script keeps them on the candles; fill() shades the RSI 30/70 band and a colour-changing moving-average cloud; plotcandle draws custom candles with plotarrow arrows in the script pane; barcolor recolours the chart candles, plotbar draws bars and plotarrow arrows sit on the price pane, and hiding the script restores the default candles',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -69,5 +69,48 @@ export const pineRender: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('fill-cloud');
+    /** Pixels of the barcolor blue (#2962FF) over every chart canvas. */
+    const bluePixels = () =>
+      page.evaluate(() => {
+        let n = 0;
+        for (const cv of Array.from(document.querySelectorAll('canvas'))) {
+          const copy = document.createElement('canvas');
+          copy.width = cv.width;
+          copy.height = cv.height;
+          const g = copy.getContext('2d');
+          if (!g || cv.width === 0) continue;
+          g.drawImage(cv, 0, 0);
+          const d = g.getImageData(0, 0, cv.width, cv.height).data;
+          for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 0x29) < 12 && Math.abs(d[i + 1] - 0x62) < 12 && d[i + 2] > 0xf0 && d[i + 3] > 200) n++;
+        }
+        return n;
+      });
+    await ctx.step('plotcandle draws custom candles and plotarrow arrows in the script pane', async () => {
+      await reopenEditor();
+      await setSource(fixture('custom-candles'));
+      await closeEditor();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('candles');
+    await ctx.step('barcolor recolours the candles; plotbar and plotarrow draw on the price pane', async () => {
+      await reopenEditor();
+      await setSource(fixture('bar-colors'));
+      await closeEditor();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('bar-colors');
+    const withScript = await bluePixels();
+    await ctx.step('hiding the script restores the default candles', async () => {
+      await showSideSection(page, 'Indicators', narrow);
+      await page.locator('button[title="Hide"]').last().click();
+      if (narrow) await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'hidden' }).catch(() => {});
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('bar-colors-off');
+    const without = await bluePixels();
+    await ctx.step('the candles lose the script colors when it is hidden', async () => {
+      if (withScript <= 200) throw new Error(`barcolor blue candles not drawn (${withScript} blue pixels)`);
+      if (without >= withScript / 10) throw new Error(`blue candles remain with the script hidden (${without} vs ${withScript})`);
+    });
   },
 };

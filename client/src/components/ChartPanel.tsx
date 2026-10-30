@@ -25,11 +25,13 @@ import { legendHtml } from '../lib/legend';
 import { ChartContextMenu } from './ChartContextMenu';
 import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
-import { computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
+import { newPaneState, releasePanes, sizePanes, usePaneLegends, type PaneReg, type PaneState } from './usePaneLegends';
+import { INDICATOR_META, computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
 import { canPageOlder, selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
+import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -53,13 +55,15 @@ const RIGHT_OFFSET = 3;
 const UP = UP_COLOR;
 const DOWN = DOWN_COLOR;
 
-function toCandleData(c: { time: number; open: number; high: number; low: number; close: number }) {
+function toCandleData(c: { time: number; open: number; high: number; low: number; close: number }, barColors?: Map<number, string>) {
+  const color = barColors?.get(c.time);
   return {
     time: c.time as UTCTimestamp,
     open: c.open,
     high: c.high,
     low: c.low,
     close: c.close,
+    ...(color && { color, wickColor: color, borderColor: color }),
   };
 }
 
@@ -110,6 +114,8 @@ export function ChartPanel({
   const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
   const paneEpochRef = useRef(0);
+  const paneStateRef = useRef<PaneState>(newPaneState());
+  const paneLegendsRef = useRef<HTMLDivElement | null>(null);
 
   const precision = useMemo(() => {
     const last = candles[candles.length - 1];
@@ -166,6 +172,7 @@ export function ChartPanel({
       priceLineStyle: LineStyle.Dotted,
     });
 
+    chart.panes()[0]?.setStretchFactor(1); // the price pane is 1; a new sub pane is DEFAULT_SUB_FACTOR of it
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     markersRef.current = createSeriesMarkers(candleSeries, []);
@@ -195,6 +202,8 @@ export function ChartPanel({
     const chart = chartApi;
     if (!chart) return;
     paneEpochRef.current++; // panes are dropped below: pine series must be rebuilt
+    // Keep the sizes the user dragged the sub panes to, per indicator id, before removing series empties and drops them.
+    releasePanes(chart, paneStateRef.current, 'all', new Set(indicators.map((i) => i.id)));
 
     for (const { series } of indMapRef.current.values()) {
       try {
@@ -217,6 +226,11 @@ export function ChartPanel({
     const visible = indicators.filter((i) => i.visible);
     const subCount = visible.filter((s) => s.kind === 'rsi' || s.kind === 'macd').length;
     for (let i = 0; i < subCount; i++) chart.addPane();
+    sizePanes(
+      chart,
+      paneStateRef.current,
+      visible.filter((s) => s.kind === 'rsi' || s.kind === 'macd').map((s, i) => ({ id: s.id, paneIndex: 1 + i })),
+    );
 
     let subIdx = 0;
     for (const spec of visible) {
@@ -227,6 +241,7 @@ export function ChartPanel({
         paneIndex = 1 + subIdx;
         subIdx++;
       }
+      const legendEntries: PaneReg['entries'] = [];
       for (const cs of computed) {
         const common = {
           priceLineVisible: false,
@@ -251,6 +266,7 @@ export function ChartPanel({
             chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
           }
           indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: 'histogram' });
+          if (cs.pane === 'sub') legendEntries.push({ title: cs.title, color: cs.color, series });
         } else {
           const series = chart.addSeries(
             LineSeries,
@@ -263,17 +279,36 @@ export function ChartPanel({
               color: pl.color,
               lineWidth: 1,
               lineStyle: LineStyle.Dashed,
-              axisLabelVisible: false,
+              axisLabelVisible: true,
               title: '',
             });
           }
           indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: 'line' });
+          if (cs.pane === 'sub') legendEntries.push({ title: cs.title, color: cs.color, series });
         }
+      }
+      if (paneIndex > 0 && legendEntries.length > 0) {
+        paneStateRef.current.panes.set(spec.id, {
+          id: spec.id,
+          source: 'builtin',
+          paneIndex,
+          name: INDICATOR_META[spec.kind].name,
+          params: INDICATOR_META[spec.kind].params.map((p) => String(spec.params[p.key])),
+          // One plot: the name already says what it is.
+          entries: legendEntries.length === 1 ? [{ ...legendEntries[0], title: '' }] : legendEntries,
+        });
       }
     }
   }, [chartApi, indicators]);
 
-  usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff);
+  usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff, paneStateRef);
+  /* barcolor() of the visible Pine scripts: kept as the same map while its content is unchanged. */
+  const mergedBarColors = useMemo(() => mergeBarColors(indicators, pineRuns, replayCutoff), [indicators, pineRuns, replayCutoff]);
+  const barColorsRef = useRef(mergedBarColors);
+  if (!sameBarColors(barColorsRef.current, mergedBarColors)) barColorsRef.current = mergedBarColors;
+  const barColors = barColorsRef.current;
+  /** The colors the candle series was last sent. */
+  const sentBarColorsRef = useRef<Map<number, string>>(barColors);
   const narrow = useMediaQuery('(max-width: 600px)');
   /* The crosshair lines follow the cursor kind (the price and time labels stay in every kind). */
   const cursorKind = useStore((s) => s.cursorKind);
@@ -316,14 +351,15 @@ export function ChartPanel({
     const prepended = !dataChanged && !incremental && prev != null && prev.length > 0 && candles[0].time < prev[0].time;
 
     if (dataChanged) {
-      candleSeries.setData(candles.map(toCandleData));
+      candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
       lastDataKeyRef.current = dataKey;
       lastLeftEdgeRef.current = null; // the fit below is not a scroll back: do not page for it
       chart.timeScale().fitContent();
-    } else if (incremental) {
-      candleSeries.update(toCandleData(candles[candles.length - 1]));
+    } else if (incremental && sentBarColorsRef.current === barColors) {
+      candleSeries.update(toCandleData(candles[candles.length - 1], barColors));
     } else {
-      candleSeries.setData(candles.map(toCandleData));
+      // Also when only the bar colors changed since the last send: the update path would recolor one bar.
+      candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
     }
 
     if (dataChanged || indChanged || !incremental) {
@@ -357,9 +393,20 @@ export function ChartPanel({
       if (r && r.from < HISTORY_PREFETCH_BARS) void chartStore.getState().loadOlder(); // still near the left edge: the next page
     }
 
+    sentBarColorsRef.current = barColors;
     updateLegend(candles[candles.length - 1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, candles, dataKey, indicators]);
+
+  /* Only the bar colors changed (new run, script hidden or removed, replay cutoff): re-send the bars, keep the view. */
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    if (!chartApi || !candleSeries || candles.length === 0) return;
+    if (sentBarColorsRef.current === barColors) return;
+    sentBarColorsRef.current = barColors;
+    candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartApi, barColors]);
 
   /* Scrolling or zooming back to within a page's reach of the first loaded bar asks for the next older page. */
   useEffect(() => {
@@ -613,11 +660,14 @@ export function ChartPanel({
     onDeleteAll: drawings.deleteAll,
   };
 
+  usePaneLegends(chartApi, paneStateRef, paneLegendsRef, [indicators, pineRuns, candles, replayCutoff]);
+
   return (
     <div className="chart-wrap">
       <DrawingRail {...drawingControls} />
       <div className="chart-main">
       <div className="chart-legend" ref={legendRef} />
+      <div className="pane-legends" ref={paneLegendsRef} />
       <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
       {drawings.editor && (
         <DrawingTextEditor

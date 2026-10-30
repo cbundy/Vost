@@ -1,0 +1,5 @@
+//@version=5
+indicator("Bar colors", overlay=true)
+barcolor(close > open ? color.blue : na)
+plotbar(ta.sma(open, 5), ta.sma(high, 5), ta.sma(low, 5), ta.sma(close, 5), title="Smoothed")
+plotarrow(ta.change(close), title="Change", colorup=color.green, colordown=color.red)
