@@ -5,12 +5,14 @@
  */
 import { Indicator, PineTS, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
+import { mapDrawings } from './drawingObjects';
 import { createMarketProvider } from './market';
 import type { MarketFeed } from './marketFeed';
 import { createServerResolver, libraryMessage, missingLibraryPath } from './libraries';
 import { mapMessages, takeLogs } from './messages';
 import { detectPineVersion, legacyMessage } from './version';
 import type {
+  PineDrawings,
   PineInput,
   PineInputValue,
   PineMarket,
@@ -228,6 +230,8 @@ export interface PineRunOptions {
   feed?: MarketFeed;
 }
 
+const drawingsField = (drawings: PineDrawings | undefined) => (drawings ? { drawings } : {});
+
 /** Run a Pine script over candles (time in seconds). `inputs` override defaults by input title. */
 export async function runPine(
   source: string,
@@ -284,6 +288,7 @@ export async function runPine(
       position: isStrategy ? positionSeries(trades, candles.length) : [],
       ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
       messages: mapMessages(ctx, takeLogs(ctx)),
+      ...drawingsField(mapDrawings(ctx.plots ?? {}, candles.map((c) => c.time))),
     };
   } catch (err) {
     const error = parseError(err);
