@@ -1,0 +1,32 @@
+ok   priceRange placed by press-drag-release, stored with two anchors - [{"id":"dmvuzx4la11zqh","tool":"priceRange","anchors":[{"time":1766707200,"price":135.0282657824019},{"time":1773446400,"price":191.0703157191844}]}]
+ok   priceRange dragged copy undone
+ok   priceRange placed by two clicks, stored with two anchors - [{"id":"dmvuzx5qz2l0ws","tool":"priceRange","anchors":[{"time":1766707200,"price":135.0282657824019},{"time":1773446400,"price":191.0703157191844}]}]
+ok   dateRange placed by press-drag-release, stored with two anchors - [{"id":"dmvuzx6hv3ahde","tool":"dateRange","anchors":[{"time":1775088000,"price":199.07632068509616},{"time":1781136000,"price":167.0522957629824}]}]
+ok   dateRange dragged copy undone
+ok   dateRange placed by two clicks, stored with two anchors - [{"id":"dmvuzx7n44j09a","tool":"dateRange","anchors":[{"time":1775088000,"price":199.07632068509616},{"time":1781136000,"price":167.0522957629824}]}]
+ok   datePriceRange placed by press-drag-release, stored with two anchors - [{"id":"dmvuzx8e55lb4x","tool":"datePriceRange","anchors":[{"time":1782518400,"price":207.08233070947466},{"time":1788566400,"price":143.03427074831365}]}]
+ok   datePriceRange dragged copy undone
+ok   datePriceRange placed by two clicks, stored with two anchors - [{"id":"dmvuzx9k26z9am","tool":"datePriceRange","anchors":[{"time":1782518400,"price":207.08233070947466},{"time":1788566400,"price":143.03427074831365}]}]
+ok   the first anchor stayed, the second moved
+ok   dateRange dialog titled for the tool
+ok   offers Line colour
+ok   offers Line width
+ok   offers Background
+ok   offers Background opacity
+ok   offers Text colour
+ok   offers Font size
+ok   offers Label background
+ok   offers Extend top
+ok   offers Extend bottom
+ok   dateRange colour, width, Background off and both extends stored - {"color":"#ff00ff","width":3,"fill":false,"extendTop":true,"extendBottom":true}
+ok   priceRange dialog titled for the tool
+ok   priceRange colour, width, Background off and both extends stored - {"color":"#ff00ff","width":3,"fill":false,"extendLeft":true,"extendRight":true}
+ok   priceRange figures are finite and the bars inside are counted - change 69.30251699980275, volume 4411879, bars 90
+info priceRange: change 69.30, pct 51.32, ticks 6930, seconds 7689600, bars inside 90, volume 4411879
+ok   dateRange figures are finite and the bars inside are counted - change -32.02402492211377, volume 3659577, bars 71
+info dateRange: change -32.02, pct -16.09, ticks -3202, seconds 6048000, bars inside 71, volume 3659577
+ok   datePriceRange figures are finite and the bars inside are counted - change -64.04805996116102, volume 3597086, bars 71
+info datePriceRange: change -64.05, pct -30.93, ticks -6405, seconds 6048000, bars inside 71, volume 3597086
+ok   storage is unchanged after a reload
+ok   and after a timeframe change
+ok   no console error
