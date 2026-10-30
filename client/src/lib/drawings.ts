@@ -4,6 +4,11 @@
  */
 import { debounce, loadJson, saveJson } from './storage';
 
+/**
+ * A point of a drawing. For most tools `time` (unix seconds) and `price` place it on the chart. A pane-anchored
+ * tool (`paneAnchored` on the tool) stores the point's x and y as fractions of the pane in `time` and `price`, each
+ * 0..1, so it stays at the same spot on the pane whatever the chart does.
+ */
 export type Anchor = { time: number; price: number };
 
 /** Anchors each known tool id needs; the registry (components/chart/tools) is the one source of it. */
@@ -246,7 +251,13 @@ const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v ==
  * nor hit). A known tool's drawing keeps every stored field, but its anchors and text are validated: a bad one
  * drops that drawing alone. A transient tool's drawing (the measure) is never kept.
  */
-function sanitizeDrawing(raw: unknown, counts: AnchorCounts, textTools: ReadonlySet<string>, transient: ReadonlySet<string>): Drawing | null {
+function sanitizeDrawing(
+  raw: unknown,
+  counts: AnchorCounts,
+  textTools: ReadonlySet<string>,
+  transient: ReadonlySet<string>,
+  paneTools: ReadonlySet<string>,
+): Drawing | null {
   if (!isPlain(raw)) return null;
   if (typeof raw.id !== 'string' || !raw.id || typeof raw.tool !== 'string') return null;
   if (transient.has(raw.tool)) return null;
@@ -258,7 +269,9 @@ function sanitizeDrawing(raw: unknown, counts: AnchorCounts, textTools: Readonly
     if (!isPlain(a)) return null;
     const { time, price } = a;
     if (!finite(time) || !finite(price)) return null;
-    anchors.push({ ...a, time, price });
+    // A pane-anchored point is a pair of pane fractions: one outside 0..1 is clamped onto the pane.
+    const pane = paneTools.has(raw.tool);
+    anchors.push({ ...a, time: pane ? Math.min(1, Math.max(0, time)) : time, price: pane ? Math.min(1, Math.max(0, price)) : price });
   }
   const { text: rawText, style: rawStyle, locked: rawLocked, name: rawName, ...rest } = raw;
   const out: Drawing = { ...(rest as Drawing), anchors };
@@ -278,6 +291,7 @@ export function parseStore(
   counts: AnchorCounts,
   textTools: ReadonlySet<string> = NO_TOOLS,
   transient: ReadonlySet<string> = NO_TOOLS,
+  paneTools: ReadonlySet<string> = NO_TOOLS,
 ): DrawingStore {
   const none: DrawingStore = { sources: {}, newer: false };
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return none;
@@ -291,7 +305,7 @@ export function parseStore(
     const seen = new Set<string>();
     const ok: Drawing[] = [];
     for (const item of list) {
-      const d = sanitizeDrawing(item, counts, textTools, transient);
+      const d = sanitizeDrawing(item, counts, textTools, transient, paneTools);
       if (d && !seen.has(d.id)) {
         seen.add(d.id);
         ok.push(d);
@@ -303,9 +317,14 @@ export function parseStore(
 }
 
 /** Reads version 2; when it has nothing yet, reads (and so migrates) version 1, which is left as it is. */
-export function loadDrawings(counts: AnchorCounts, textTools: ReadonlySet<string> = NO_TOOLS, transient: ReadonlySet<string> = NO_TOOLS): DrawingStore {
+export function loadDrawings(
+  counts: AnchorCounts,
+  textTools: ReadonlySet<string> = NO_TOOLS,
+  transient: ReadonlySet<string> = NO_TOOLS,
+  paneTools: ReadonlySet<string> = NO_TOOLS,
+): DrawingStore {
   const v2 = loadJson<unknown>(STORAGE_KEY, null);
-  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient);
+  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient, paneTools);
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */

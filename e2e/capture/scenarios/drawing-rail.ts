@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 const PREFS = `(() => JSON.parse(localStorage.getItem('vost.prefs.v1') || '{}'))()`;
 const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v1');
+  const raw = localStorage.getItem('vost.drawings.v2');
   const all = raw ? JSON.parse(raw).sources : {};
   return all['demo:DEMO'] ?? [];
 })()`;
@@ -17,7 +17,7 @@ type Prefs = {
 /** The rail families that have tools, with the tool each button shows at first. */
 const FAMILIES: { id: string; label: string; first: string; sections: string[] }[] = [
   { id: 'cursors', label: 'Cursors', first: 'Cross', sections: ['Cursors'] },
-  { id: 'lines', label: 'Lines', first: 'Trend line', sections: ['Lines'] },
+  { id: 'lines', label: 'Lines', first: 'Trend line', sections: ['Lines', 'Channels'] },
   { id: 'fib-gann', label: 'Fibonacci and Gann', first: 'Fibonacci retracement', sections: ['Fibonacci'] },
   { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Measure', sections: ['Measurers'] },
   { id: 'shapes', label: 'Shapes', first: 'Rectangle', sections: ['Shapes'] },
@@ -158,11 +158,11 @@ export const drawingRail: Scenario = {
       await page.keyboard.press('ArrowDown');
       check('ArrowDown moves to Ray', (await focused()).includes('Ray'));
       await page.keyboard.press('End');
-      check('End goes to Cross line', (await focused()).includes('Cross line'));
+      check('End goes to Disjoint channel', (await focused()).includes('Disjoint channel'));
       await page.keyboard.press('ArrowDown');
       check('ArrowDown wraps to Trend line', (await focused()).includes('Trend line'));
       await page.keyboard.press('ArrowUp');
-      check('ArrowUp wraps to Cross line', (await focused()).includes('Cross line'));
+      check('ArrowUp wraps to Disjoint channel', (await focused()).includes('Disjoint channel'));
       await page.keyboard.press('Home');
       check('Home goes to Trend line', (await focused()).includes('Trend line'));
       await ctx.screenshot('keyboard');

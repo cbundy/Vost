@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DrawingPrimitive } from './drawingPrimitive';
+import { getTool } from './tools';
 
 const TIMES = [100, 200, 300];
 const HEIGHT = 200;
@@ -29,8 +30,8 @@ describe('toPoint', () => {
     const prim = make();
     const off = { time: 200, price: 500 };
     expect(prim.toPoint(off)).toBeNull();
-    expect(prim.toPoint(off, false, true)).toEqual({ x: 10, y: 0 });
-    expect(prim.toPoint({ time: 200, price: -500 }, false, true)).toEqual({ x: 10, y: HEIGHT });
+    expect(prim.toPoint(off, getTool('verticalLine'))).toEqual({ x: 10, y: 0 });
+    expect(prim.toPoint({ time: 200, price: -500 }, getTool('verticalLine'))).toEqual({ x: 10, y: HEIGHT });
   });
   it('places a vertical line whose price is scrolled off the scale, and hits it', () => {
     const prim = make();
@@ -77,6 +78,48 @@ describe('axis views', () => {
     const prim = make();
     prim.set([{ ...hline, anchors: [{ time: 100, price: 900 }] }], null, null);
     expect(prim.priceAxisViews()[0].visible?.()).toBe(false);
+  });
+});
+
+describe('the tool view', () => {
+  const CANDLES = TIMES.map((time, i) => ({ time, open: i, high: i + 2, low: i - 1, close: i + 1 }));
+  it('hands the loaded candles to a tool, live', () => {
+    let candles = CANDLES;
+    const prim = new DrawingPrimitive(() => TIMES, () => '', () => ({}), () => candles);
+    attach(prim);
+    const d = { tool: 'regressionTrend', anchors: [] };
+    expect(prim.viewFor(d).candles).toBe(CANDLES);
+    candles = [...CANDLES, { time: 400, open: 1, high: 2, low: 0, close: 1 }];
+    expect(prim.viewFor(d).candles).toHaveLength(4);
+  });
+  it('has no candles when none are given', () => {
+    expect(make().viewFor({ tool: 'regressionTrend', anchors: [] }).candles).toEqual([]);
+  });
+});
+
+describe('a draft with several anchors', () => {
+  const draft = (anchors: { time: number; price: number }[]) => ({ id: 'draft', tool: 'parallelChannel', anchors });
+  function paint(prim: DrawingPrimitive) {
+    const arcs: number[][] = [];
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (t, k: string) => (k in t ? t[k] : (...a: number[]) => void (k === 'arc' && arcs.push([a[0], a[1]]))),
+      set: (t, k: string, v) => ((t[k] = v), true),
+    });
+    const target = { useMediaCoordinateSpace: (f: (s: unknown) => void) => f({ context: ctx, mediaSize: { width: 400, height: HEIGHT } }) };
+    (prim.paneViews()[0].renderer() as { draw(t: unknown): void }).draw(target);
+    return arcs;
+  }
+  it('shows the anchors placed so far as handles and not the moving one', () => {
+    const prim = make();
+    const a = { time: 100, price: 10 };
+    const b = { time: 200, price: 50 };
+    const c = { time: 300, price: 30 };
+    prim.set([], null, draft([a, b]));
+    expect(paint(prim)).toEqual([[0, 180]]);
+    prim.set([], null, draft([a, b, b]));
+    expect(paint(prim)).toEqual([[0, 180], [10, 100]]);
+    prim.set([], null, draft([a, b, c]));
+    expect(paint(prim)).toHaveLength(2);
   });
 });
 

@@ -56,7 +56,10 @@ describe('default styles equal the look drawings had before styles', () => {
     expect(colorHex(v.color)).toBe(theme.text);
     expect(cssColor(v.backgroundColor, v.backgroundOpacity as number)).toBe('rgba(23,23,27,0.92)');
     expect(colorHex(v.borderColor)).toBe(theme.border3);
-    expect(v).toMatchObject({ size: 12, bold: false, italic: false });
+    expect(v).toMatchObject({ size: 12, bold: false, italic: false, align: 'left', wrap: true, wrapWidth: 240 });
+  });
+  it('anchored text', () => {
+    expect(defaults('anchoredText')).toMatchObject({ size: 14, bold: false, italic: false, align: 'left', wrap: false, wrapWidth: 240 });
   });
   it('every default colour names a theme token, not a fixed hex', () => {
     for (const t of TOOLS) {
@@ -88,9 +91,25 @@ describe('every registered tool declares settings', () => {
   it('each default is valid for its own field', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
-  it('only the text tool stores text, and the line tools declare Text settings for their label', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle'].includes(t.id));
-    expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text']);
+  it('only the text tools store text, and they and the line tools declare Text settings', () => {
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText'].includes(t.id));
+    expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText']);
+  });
+});
+
+describe('choice settings', () => {
+  const align = fieldsOf('text').find((f) => f.key === 'align')!;
+  it('accepts only a listed value', () => {
+    for (const v of ['left', 'center', 'right']) expect(validateValue(align, v)).toBe(v);
+    for (const v of ['middle', '', 5, null, undefined]) expect(validateValue(align, v)).toBeUndefined();
+  });
+  it('a field with no options accepts nothing', () => {
+    expect(validateValue({ ...align, options: undefined }, 'left')).toBeUndefined();
+  });
+  it('falls back on the default for a bad stored value and survives sanitizeDefaults', () => {
+    expect(resolveStyle(fieldsOf('text'), { align: 'middle' }).values.align).toBe('left');
+    expect(resolveStyle(fieldsOf('text'), { align: 'right' }).values.align).toBe('right');
+    expect(sanitizeDefaults({ text: { align: 'center', size: 20 }, anchoredText: { align: 'bad' } }, (t) => getTool(t)?.settings)).toEqual({ text: { align: 'center', size: 20 } });
   });
 });
 
@@ -185,5 +204,28 @@ describe('sanitizeDefaults', () => {
   it('loads nothing from a wrong shape', () => {
     for (const bad of [null, 5, 'x', [], undefined, { __proto__: 1 }]) expect(sanitizeDefaults(bad, lookup)).toEqual({});
     expect(sanitizeDefaults({ toString: { width: 3 }, constructor: {} }, lookup)).toEqual({});
+  });
+});
+
+describe('the choice kind', () => {
+  const field = { key: 'source', label: 'Source', kind: 'choice', tab: 'style', default: 'close', options: [{ value: 'close', label: 'close' }, { value: 'open', label: 'open' }, { value: 'hl2', label: 'hl2' }] } as const;
+  it('keeps a listed value and drops an unlisted or non-string one', () => {
+    expect(validateValue(field, 'hl2')).toBe('hl2');
+    expect(validateValue(field, 'vwap')).toBeUndefined();
+    expect(validateValue(field, 3)).toBeUndefined();
+    expect(validateValue({ ...field, options: undefined }, 'close')).toBeUndefined();
+  });
+  it('is validated in a stored style and in saved defaults', () => {
+    const lookup = (id: string) => (id === 'regressionTrend' ? getTool(id)?.settings : undefined);
+    expect(resolveStyle([field], { source: 'open' }).values.source).toBe('open');
+    expect(resolveStyle([field], { source: 'nope' }).values.source).toBe('close');
+    expect(resolveStyle([field], undefined, { source: 'open' }).values.source).toBe('open');
+    expect(sanitizeDefaults({ regressionTrend: { source: 'hlc3', deviation: 3 } }, lookup)).toEqual({ regressionTrend: { source: 'hlc3', deviation: 3 } });
+    expect(sanitizeDefaults({ regressionTrend: { source: 'vwap', deviation: 3 } }, lookup)).toEqual({ regressionTrend: { deviation: 3 } });
+  });
+  it('the regression tool offers the seven sources with close as default', () => {
+    const f = getTool('regressionTrend')!.settings!.find((x) => x.key === 'source')!;
+    expect(f.options?.map((o) => o.value)).toEqual(['close', 'open', 'high', 'low', 'hl2', 'hlc3', 'ohlc4']);
+    expect(f.default).toBe('close');
   });
 });
