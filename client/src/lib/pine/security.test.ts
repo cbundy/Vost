@@ -107,6 +107,25 @@ describe('request.security on the chart symbol at another timeframe', () => {
     });
   });
 
+  it('a session market still gets the daily value on a Monday, the day after a weekend', async () => {
+    const days = Array.from({ length: 29 }, (_, d) => START + d * 86400).filter((t) => new Date(t * 1000).getUTCDay() % 6 !== 0);
+    const sess: Candle[] = days.flatMap((t, d) => Array.from({ length: 7 }, (_, h) => {
+      const close = 100 + d * 10 + h;
+      return { time: t + 13.5 * 3600 + h * 3600, open: close - 0.5, high: close + 1, low: close - 1, close, volume: 1 };
+    }));
+    const daily: Candle[] = days.map((t, d) => ({ time: t + 13.5 * 3600, open: 99.5 + d * 10, high: 107 + d * 10, low: 99 + d * 10, close: 106 + d * 10, volume: 7 }));
+    const feed = { bars: async (r: { fromMs: number; toMs: number }) => daily.filter((c) => c.time * 1000 >= r.fromMs && (c.time + 86400) * 1000 <= r.toMs + 1) };
+    const cut = sess.slice(0, sess.length - 5); // Monday Jan 29, two bars
+    expect(new Date(cut[cut.length - 1].time * 1000).getUTCDay()).toBe(1);
+    const fridayClose = daily[daily.length - 2].close;
+    const off = await values('plot(request.security(syminfo.tickerid, "D", close))', cut, feed);
+    expect(off.slice(-2)).toEqual([fridayClose, fridayClose]);
+    const on = await values('plot(request.security(syminfo.tickerid, "D", close, lookahead = barmerge.lookahead_on))', cut, feed);
+    // lookahead_on sees the whole day's bar on each of its bars: the last value is the last hourly close.
+    const last = cut[cut.length - 1].close;
+    expect(on.slice(-2)).toEqual([last, last]);
+  });
+
   it('an imported dataset builds higher bars from its own candles and cannot give lower ones', async () => {
     const ds: PineMarket = { providerId: 'csv', symbol: 'DATA', barSeconds: 3600, dataset: true };
     const feed = { bars: async () => { throw new Error('a dataset has no provider'); } };

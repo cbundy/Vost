@@ -178,7 +178,13 @@ export function higherKlines(chart: Kline[], candles: Candle[], finished: Candle
   // The forming bar: chart candles after the last finished bar's interval (else from the interval's UTC bucket start).
   const lastCandle = candles[candles.length - 1];
   const lastFinished = finished.length ? finished[finished.length - 1] : undefined;
-  const formingOpen = lastFinished ? intervalEndMs(lastFinished.time * 1000, interval) : buildBars([lastCandle], interval)[0].time * 1000;
+  let formingOpen = lastFinished ? intervalEndMs(lastFinished.time * 1000, interval) : buildBars([lastCandle], interval)[0].time * 1000;
+  if (lastFinished && lastCandle.time * 1000 >= formingOpen) {
+    // After a weekend or holiday the first forming candle lies several intervals on: open at the bucket that holds it,
+    // stepping from the finished bars' own stamps (a stock's daily bars are not at UTC midnight).
+    const first = candles.find((c) => c.time * 1000 >= formingOpen)!.time * 1000;
+    while (intervalEndMs(formingOpen, interval) <= first) formingOpen = intervalEndMs(formingOpen, interval);
+  }
   if (lastCandle.time * 1000 >= formingOpen) {
     const part = candles.filter((c) => c.time * 1000 >= formingOpen);
     const agg = part.reduce((a, c) => ({ ...a, high: Math.max(a.high, c.high), low: Math.min(a.low, c.low), close: c.close, volume: a.volume + c.volume }), { ...part[0] });
