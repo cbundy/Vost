@@ -173,7 +173,7 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
     label: 'Profit factor',
     what: 'Gross profit divided by gross loss. Infinite when there are no losing trades.',
     reading: 'Above 1 is profitable. Roughly 1.3 to 2 is solid; above 3 on few trades is often luck.',
-    profit: 'Above 1 the strategy made money before fees counted again; it says how many times winners paid for losers.',
+    profit: 'Above 1 the strategy made money after fees and slippage; it says how many times winners paid for losers.',
     related: [
       { key: 'winRate', note: 'a low win rate can still give a high profit factor with big winners' },
       { key: 'grossProfit', note: 'the numerator' },
@@ -265,7 +265,7 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
     label: 'Gross profit',
     what: 'Sum of the profit of all winning trades, after fees and slippage.',
     reading: 'Higher is better, but only against the Gross loss.',
-    profit: 'Gross profit plus gross loss (a negative number) is the net profit.',
+    profit: 'Gross profit minus gross loss is the net profit.',
     related: [
       { key: 'grossLoss', note: 'the other half of net profit' },
       { key: 'profitFactor', note: 'gross profit divided by gross loss' },
@@ -273,7 +273,7 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
   },
   grossLoss: {
     label: 'Gross loss',
-    what: 'Sum of the loss of all losing trades, after fees and slippage. Shown as a negative number.',
+    what: 'Sum of the loss of all losing trades, after fees and slippage. Shown as a positive amount: the size of the losses.',
     reading: 'Smaller in size is better, compared with the Gross profit.',
     profit: 'It is what winning trades must pay back before any net profit shows.',
     related: [
@@ -434,7 +434,7 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
   mcChanceOfLoss: {
     label: 'Chance of ending at a loss',
     what: 'Share of simulated runs whose final return is below zero.',
-    reading: 'Lower is better. Zero percent with a shuffle is normal since the same trades sum to the same profit; resampling gives a fuller test.',
+    reading: 'Lower is better. With a shuffle every run ends with the same profit, so the chance is either 0 or 100 percent, matching the sign of this run; resampling gives a fuller test.',
     profit: 'It estimates how likely the strategy is to lose money when trades come in another order or draw.',
     related: [
       { key: 'mcFinalReturn', note: 'the distribution this share is taken from' },

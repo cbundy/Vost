@@ -59,8 +59,12 @@ export const btResults: Scenario = {
     await ctx.screenshot('tip-card');
     await ctx.step('keyboard-focus a Long vs short row label and see its tooltip', async () => {
       await page.keyboard.press('Escape');
-      await page.getByText('Long vs short', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
-      await page.locator('.data-table .metric-tip-anchor', { hasText: 'Profit factor' }).first().focus();
+      const row = page.locator('.data-table .metric-tip-anchor', { hasText: 'Profit factor' }).first();
+      // Scroll the row fully into view first and let the scroll settle, then focus without scrolling:
+      // a focus that scrolls fires a scroll event, which closes the tooltip it just opened.
+      await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+      await row.evaluate((el) => (el as HTMLElement).focus({ preventScroll: true }));
       await page.getByRole('tooltip').waitFor();
       await page.waitForFunction(() => (document.querySelector('[role="tooltip"]') as HTMLElement | null)?.style.visibility !== 'hidden');
     });
