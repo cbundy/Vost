@@ -293,6 +293,41 @@ describe('btRange', () => {
       });
     });
 
+    it('a robustness run sends the setting and keeps it in the context', async () => {
+      const { useStore, candles } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const posts: Array<{ id: string; candles: unknown[]; optimize?: unknown }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        postMessage(req: { id: string; candles: unknown[] }) {
+          posts.push(req);
+          const validation = { method: 'robustness', radius: 2, rankByScore: true, scores: [] };
+          queueMicrotask(() => this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, validation } }));
+        }
+        terminate() {}
+      }
+      vi.stubGlobal('Worker', FakeW);
+      const robust = { method: 'robustness', radius: 2, rankByScore: true } as const;
+      st().setOptConfig({ validation: robust });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].candles).toHaveLength(candles.length);
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(robust);
+      expect(st().optResult!.validation?.method).toBe('robustness');
+      expect(st().optResult!.context.validation).toEqual(robust);
+    });
+
+    it('a bad neighbourhood toasts and posts nothing', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: { method: 'robustness', radius: 0, rankByScore: false } });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(0);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error' && /Neighbourhood/.test(t.text))).toBe(true);
+    });
+
     it('an invalid split toasts and posts nothing', async () => {
       const { useStore } = await setup();
       const st = () => chartOf(useStore).getState();

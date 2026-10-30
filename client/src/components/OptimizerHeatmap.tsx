@@ -3,7 +3,20 @@ import { METRIC_LABELS, type MetricKey, type OptimizeRow } from '../lib/backtest
 import { formatMetric } from '../lib/backtest/optimizerTable';
 import { fmtNum, fmtPct } from '../lib/format';
 
-export function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
+export function Heatmap({
+  rows,
+  keys,
+  metric,
+  onApply,
+  robustBest,
+}: {
+  rows: OptimizeRow[];
+  keys: string[];
+  metric: MetricKey;
+  onApply: (row: OptimizeRow) => void;
+  /** The most robust result when it is not the best one, with its robustness. */
+  robustBest?: { row: OptimizeRow; score: number | null } | null;
+}) {
   const [rowKey, setRowKey] = useState(keys[0]);
   const [colKey, setColKey] = useState(keys[1] ?? '');
   if (!rowKey) return null;
@@ -94,6 +107,11 @@ export function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; 
       {pinnedKeys.length > 0 && best && (
         <div className="hint mb-2">Other parameters fixed at the best result: {pinnedKeys.map((k) => `${k}=${best.params[k]}`).join(', ')}</div>
       )}
+      {robustBest && (
+        <div className="hint mb-2">
+          Most robust: {keys.map((k) => `${k}=${robustBest.row.params[k]}`).join(', ')} (Robustness {formatMetric(metric, robustBest.score)}) - dashed outline
+        </div>
+      )}
       <div className="heatmap" style={{ gridTemplateColumns: `52px repeat(${bVals.length}, minmax(52px, 1fr))` }}>
         <div className="hm-head" />
         {bVals.map((bv) => (
@@ -111,6 +129,7 @@ export function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; 
             lookup={lookup}
             color={color}
             metric={metric}
+            robustKey={robustBest && pinnedKeys.every((k) => robustBest.row.params[k] === best?.params[k]) ? `${robustBest.row.params[rowKey]}|${colKey ? robustBest.row.params[colKey] : ''}` : ''}
             bestKey={best ? `${best.params[rowKey]}|${colKey ? best.params[colKey] : ''}` : ''}
             onApply={onApply}
           />
@@ -128,6 +147,7 @@ function RowCells({
   color,
   metric,
   bestKey,
+  robustKey,
   onApply,
 }: {
   av: number;
@@ -138,6 +158,7 @@ function RowCells({
   color: (v: number | null) => string;
   metric: MetricKey;
   bestKey: string;
+  robustKey: string;
   onApply: (row: OptimizeRow) => void;
 }) {
   return (
@@ -150,10 +171,16 @@ function RowCells({
           <div
             key={String(bv)}
             className="hm-cell"
-            title={row ? `${aKey}=${av}${bKey ? `, ${bKey}=${bv}` : ''} → ${formatMetric(metric, row.value)}` : 'no result'}
+            title={
+              row
+                ? `${key === robustKey ? 'Most robust: ' : ''}${aKey}=${av}${bKey ? `, ${bKey}=${bv}` : ''} → ${formatMetric(metric, row.value)}`
+                : 'no result'
+            }
             style={{
               background: color(row?.value ?? null),
-              outline: key === bestKey ? '1px solid var(--accent-2)' : undefined,
+              outline:
+                key === bestKey ? '1px solid var(--accent-2)' : key === robustKey ? '2px dashed var(--text)' : undefined,
+              outlineOffset: key === robustKey && key !== bestKey ? -2 : undefined,
             }}
             onClick={() => row && onApply(row)}
           >
