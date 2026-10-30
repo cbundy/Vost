@@ -1,0 +1,18 @@
+loaded bars before and after the first prepend: 1,000 -> 1,500
+window before the first prepend (bar times under 50% and 90% of the plot): 2026-10-09T19:00:00.000Z 2026-10-26T11:00:00.000Z
+window after the first prepend:  2026-10-09T19:00:00.000Z 2026-10-26T11:00:00.000Z
+largest move: 0 bars (allowed: 1)
+history requests:
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000
+  http://127.0.0.1:35305/api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000&to=1789765199
+  http://127.0.0.1:35305/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000&to=1787965199

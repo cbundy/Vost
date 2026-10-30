@@ -9,6 +9,7 @@ It is not a test suite: it is in no gate and must never run from CI or a gate co
 npm ci
 npm run -s e2e:capture -- alerts                # docs/evidence/alerts/alerts-{demo,empty,created,popup,inbox,triggered,menu,prefilled}-{desktop,narrow}.png + alerts-{telegram,checks}-{desktop,narrow}.txt (Binance on the fake feed, real server)
 npm run -s e2e:capture -- chart                 # docs/evidence/chart/chart-desktop.png, chart-narrow.png
+npm run -s e2e:capture -- chart-history       # docs/evidence/chart-history/chart-history-{opened,before,after,zoomed-out}-desktop.png + chart-history-checks-desktop.txt (Binance on the fake upstream opens on its latest 1000 bars with no Bars menu; the first older page is held so the visible time window is read before and after it arrives and must match to within one bar; zooming out pages more older bars in, with the paged /api/history?...&to= requests logged)
 npm run -s e2e:capture -- chart-pan             # docs/evidence/chart-pan/chart-pan.webm (+ .gif if ffmpeg is on PATH)
 npm run -s e2e:capture -- chart-reset           # docs/evidence/chart-reset/{fresh,moved,reset,moved-minutes,reset-minutes}.png + chart-reset.webm
 npm run -s e2e:capture -- chart-range          # docs/evidence/chart-range/chart-range-{before,quick,applied,refused,fetched,cleared}-{desktop,narrow}.png

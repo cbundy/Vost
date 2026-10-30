@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TIMEFRAMES } from '../../../../shared/market.ts';
 import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog.ts';
 import { demoProvider, providers } from './index';
+import { ApiHttpError } from './api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -60,6 +61,15 @@ describe('REST client', () => {
   it("throws a non-2xx body's error message as the message", async () => {
     stubFetch(() => json({ error: 'Kraken: HTTP 503 - down' }, 502));
     await expect(providers[2].fetchHistory({ symbol: 'X', timeframe: '1h', bars: 1 })).rejects.toThrow('Kraken: HTTP 503 - down');
+  });
+
+  it('keeps the HTTP status on the error and the server text as the message', async () => {
+    stubFetch(() => json({ error: 'No Binance data at or before that time' }, 404));
+    const err = await providers[0].fetchHistory({ symbol: 'X', timeframe: '1h', bars: 1, to: 5 }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiHttpError);
+    expect(err).toMatchObject({ status: 404, message: 'No Binance data at or before that time' });
+    stubFetch(() => new Response('oops', { status: 500 }));
+    await expect(providers[0].searchSymbols!('x')).rejects.toMatchObject({ status: 500, message: 'HTTP 500' });
   });
 
   it('falls back to HTTP <status> when the error body is not JSON', async () => {
