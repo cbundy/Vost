@@ -27,6 +27,13 @@ export const btResults: Scenario = {
       await page.getByText('Long vs short', { exact: true }).waitFor();
       await page.getByText('Streaks', { exact: true }).waitFor();
       await page.getByText('Exit reasons', { exact: true }).waitFor();
+    });
+    await ctx.step('scroll to the equity chart and its legend', async () => {
+      await page.getByText('Buy & hold', { exact: false }).and(page.locator('.equity-legend-item')).waitFor();
+      await page.getByText('Equity curve & drawdown', { exact: false }).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    });
+    await ctx.screenshot('equity');
+    await ctx.step('scroll to the breakdown', async () => {
       await page.getByText('Long vs short', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     });
     await ctx.step('no horizontal page scroll', async () => {

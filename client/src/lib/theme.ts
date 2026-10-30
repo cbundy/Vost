@@ -63,6 +63,7 @@ export const chartTheme = {
   scaleBorder: theme.border,
   refLine: rgba(theme.muted, 0.7),
   exit: rgba(theme.muted, 0.9),
+  benchmark: theme.text,
 } as const;
 
 /** Colours for the Pine code editor. */
