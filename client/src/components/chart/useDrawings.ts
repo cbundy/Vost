@@ -31,6 +31,7 @@ import { DRAG_PX, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft,
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
+import { NotePopups } from './notePopups';
 import { editorStyle, type EditorTarget } from './textPlacement';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
@@ -128,6 +129,7 @@ export function useDrawings(
   const dragRef = useRef<Drag | null>(null);
   const measureRef = useRef<Drawing | null>(null);
   const editTargetRef = useRef<EditorTarget | null>(null);
+  const popupsRef = useRef(new NotePopups());
   const editorKeyRef = useRef(0);
   const [editor, setEditor] = useState<DrawingEditor | null>(null);
   const magnetRef = useRef(magnet);
@@ -150,6 +152,8 @@ export function useDrawings(
   }, []);
 
   const sync = useCallback(() => {
+    popupsRef.current.prune(getState().drawings);
+    primRef.current?.setPopups(popupsRef.current.hovered, popupsRef.current.pinned);
     if (hiddenRef.current) primRef.current?.set([], [], null);
     else {
       primRef.current?.set(
@@ -251,7 +255,7 @@ export function useDrawings(
       if (target.id === null) {
         if (text) {
           const id = newDrawingId();
-          setState(add(getState(), { id, tool: target.tool, anchors: [target.anchor], text }), true);
+          setState(add(getState(), { id, tool: target.tool, anchors: target.anchors, text }), true);
           selectedRef.current = only(id);
         }
       } else if (!text) {
@@ -268,12 +272,12 @@ export function useDrawings(
 
   /** Opens the note input at an anchor; for an existing note pass its id and text. Renders at once so it can take focus. */
   const openEditor = useCallback(
-    (id: string | null, toolId: string, anchor: Anchor, text: string, own?: Drawing['style']) => {
+    (id: string | null, toolId: string, anchors: Anchor[], text: string, own?: Drawing['style']) => {
       if (editTargetRef.current && editTargetRef.current.id === id && id !== null) return;
-      const pos = editorPos(anchor, toolId);
+      const pos = editorPos(anchors[0], toolId);
       if (!pos) return;
       const style = editorStyle(toolId, own, useStore.getState().drawingDefaults);
-      const target: EditorTarget = { id, tool: toolId, anchor, text, style, key: ++editorKeyRef.current };
+      const target: EditorTarget = { id, tool: toolId, anchors, text, style, key: ++editorKeyRef.current };
       editTargetRef.current = target;
       flushSync(() =>
         setEditor({
@@ -303,7 +307,7 @@ export function useDrawings(
     (id: string) => {
       const d = getState().drawings.find((x) => x.id === id);
       if (!d) return;
-      if (TEXT_TOOLS.has(d.tool)) openEditor(d.id, d.tool, d.anchors[0], d.text ?? '', d.style);
+      if (TEXT_TOOLS.has(d.tool)) openEditor(d.id, d.tool, d.anchors, d.text ?? '', d.style);
       else openSettings(d.id);
     },
     [getState, openEditor, openSettings],
@@ -318,7 +322,7 @@ export function useDrawings(
     if (!chart || !el) return;
     const place = () => {
       const target = editTargetRef.current;
-      const pos = target && editorPos(target.anchor, target.tool);
+      const pos = target && editorPos(target.anchors[0], target.tool);
       if (!pos) return;
       setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top) ? { ...cur, ...pos } : cur));
     };
@@ -368,6 +372,7 @@ export function useDrawings(
     dragRef.current = null;
     measureRef.current = null;
     editTargetRef.current = null;
+    popupsRef.current.clear();
     setEditor(null);
     setDrawingCount(getState().drawings.length);
     sync();
@@ -408,7 +413,7 @@ export function useDrawings(
     const el = containerRef.current;
     if (!chart || !el) return;
     let swallow = false;
-    let idle: { p: Pt; collapseTo?: string } | null = null;
+    let idle: { p: Pt; collapseTo?: string; /** A still release toggles this note's popup. */ pin?: string } | null = null;
     /** A Shift+press on empty chart: the corner it began at and where the pointer is now. */
     let box: { start: Pt; cur: Pt } | null = null;
     let touch = false;
@@ -417,6 +422,15 @@ export function useDrawings(
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
     const snap = (a: Anchor, def?: DrawingTool): Anchor =>
       magnetRef.current && !def?.paneAnchored ? snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }) : a;
+
+    /** Whether a drawing's tool has a popup (a note). */
+    const hasPopup = (id: string): boolean => {
+      const d = getState().drawings.find((x) => x.id === id);
+      return !!d && !!getTool(d.tool)?.popup;
+    };
+    const onLeave = () => {
+      if (popupsRef.current.hover(null)) sync();
+    };
 
     const point = (e: PointerEvent): Pt => {
       const r = el.getBoundingClientRect();
@@ -456,6 +470,13 @@ export function useDrawings(
         measureRef.current = { id: 'measure', tool: id, anchors };
         draftRef.current = null;
         setTool(CURSOR);
+        return;
+      }
+      if (getTool(id)?.text) {
+        // A text tool with several anchors (Callout) types its text now that all are placed; the drawing is added on commit.
+        draftRef.current = null;
+        setTool(CURSOR);
+        openEditor(null, id, anchors, '');
         return;
       }
       setState(add(getState(), { id: newDrawingId(), tool: id, anchors }), true);
@@ -514,10 +535,10 @@ export function useDrawings(
           }
           return; // the pointerup releases
         }
-        if (def.text) {
+        if (def.text && def.anchors === 1) {
           draftRef.current = null;
           setTool(CURSOR);
-          openEditor(null, toolId, anchor, '');
+          openEditor(null, toolId, [anchor], '');
           return; // the pointerup releases
         }
         if (def.anchors === 1) {
@@ -588,7 +609,7 @@ export function useDrawings(
       }
       if (items.length === 0) {
         // Only locked drawings: the press selects, nothing drags and the chart does not pan under it (the pointerup releases).
-        if (collapseTo) idle = { p, collapseTo };
+        if (collapseTo || hasPopup(d.id)) idle = { p, collapseTo: collapseTo ?? undefined, pin: hasPopup(d.id) ? d.id : undefined };
         sync();
         return;
       }
@@ -647,6 +668,9 @@ export function useDrawings(
       }
       if (e.buttons === 0) {
         const over = inPlot(p) && prim.hit(p);
+        // A note's popup shows while the pointer is on the note (or its open popup).
+        const hoverId = over && hasPopup(over.id) ? over.id : null;
+        if (popupsRef.current.hover(hoverId)) sync();
         el.style.cursor = toolRef.current === ERASER && over ? ERASE_CURSOR : toolRef.current === CURSOR && over ? 'pointer' : baseCursor(toolRef.current, cursorKindRef.current);
       }
     };
@@ -688,13 +712,17 @@ export function useDrawings(
           sync();
         }
         const lead = drag.items[0].id;
+        if (still && hasPopup(lead)) {
+          popupsRef.current.toggle(lead);
+          sync();
+        }
         if (touch && still) {
           const prev = lastTap;
           lastTap = { id: lead, t: e.timeStamp, p };
           const note = getState().drawings.find((x) => x.id === lead);
           if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === lead && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
             lastTap = null;
-            openEditor(note.id, note.tool, note.anchors[0], note.text ?? '', note.style);
+            openEditor(note.id, note.tool, note.anchors, note.text ?? '', note.style);
           }
         } else lastTap = null;
         return;
@@ -702,7 +730,11 @@ export function useDrawings(
       if (idle) {
         const p = point(e);
         if (Math.hypot(p.x - idle.p.x, p.y - idle.p.y) < DRAG_PX) {
-          if (idle.collapseTo) {
+          if (idle.pin) {
+            popupsRef.current.toggle(idle.pin);
+            if (idle.collapseTo) selectedRef.current = only(idle.collapseTo);
+            sync();
+          } else if (idle.collapseTo) {
             selectedRef.current = only(idle.collapseTo);
             sync();
           } else if (selectedRef.current.length > 0) {
@@ -727,7 +759,7 @@ export function useDrawings(
       e.stopPropagation();
       e.preventDefault();
       // A note is edited in place; Shift+double-click opens its settings instead.
-      if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors[0], d.text ?? '', d.style);
+      if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors, d.text ?? '', d.style);
       else openSettings(d.id);
     };
 
@@ -740,6 +772,7 @@ export function useDrawings(
     el.addEventListener('pointerup', onUp, true);
     el.addEventListener('pointercancel', onUp, true);
     el.addEventListener('dblclick', onDblClick, true);
+    el.addEventListener('pointerleave', onLeave);
     el.addEventListener('mousedown', eat, true);
     el.addEventListener('touchstart', eat, true);
     return () => {
@@ -748,6 +781,7 @@ export function useDrawings(
       el.removeEventListener('pointerup', onUp, true);
       el.removeEventListener('pointercancel', onUp, true);
       el.removeEventListener('dblclick', onDblClick, true);
+      el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('mousedown', eat, true);
       el.removeEventListener('touchstart', eat, true);
       el.style.cursor = '';

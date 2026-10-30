@@ -201,6 +201,27 @@ describe('storage', () => {
     saveDrawings({ s: [old, multi, pane] });
     expect(loadDrawings(counts, tools, TRANSIENT, panes).sources).toEqual({ s: [old, multi, pane] });
   });
+  it('round trips the note tools with their text and style, drops a 1-anchor callout and clamps an anchored note', () => {
+    const counts = { ...COUNTS, note: 1, anchoredNote: 1, callout: 2, comment: 1 };
+    const tools = new Set(['text', 'note', 'anchoredNote', 'callout', 'comment']);
+    const panes = new Set(['anchoredNote']);
+    const a = { time: 5, price: 6 };
+    const list = [
+      { id: 'n', tool: 'note', anchors: [a], text: 'pin\ntext', style: { markerColor: '#ff0000' } },
+      { id: 'p', tool: 'anchoredNote', anchors: [{ time: 0.25, price: 0.5 }], text: 'fixed' },
+      { id: 'c', tool: 'callout', anchors: [a, { time: 9, price: 1 }], text: 'box', style: { backgroundOpacity: 0.5 } },
+      { id: 'm', tool: 'comment', anchors: [a], text: 'bubble', style: { wrap: false } },
+    ];
+    saveDrawings({ s: list });
+    expect(loadDrawings(counts, tools, TRANSIENT, panes).sources).toEqual({ s: list });
+    const raw = {
+      version: 2,
+      sources: { s: [{ id: 'x', tool: 'callout', anchors: [a], text: 'one' }, { id: 'y', tool: 'anchoredNote', anchors: [{ time: -2, price: 3 }], text: 'hi' }, { id: 'z', tool: 'note', anchors: [a], text: '  ' }] },
+    };
+    const got = parseStore(raw, counts, tools, TRANSIENT, panes).sources.s;
+    expect(got.map((d) => d.id)).toEqual(['y']);
+    expect(got[0].anchors).toEqual([{ time: 0, price: 1 }]);
+  });
   it('clamps a pane-anchored anchor onto 0..1 and leaves other tools alone', () => {
     const counts = { ...COUNTS, anchoredText: 1 };
     const tools = new Set(['text', 'anchoredText']);

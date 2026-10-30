@@ -13,7 +13,7 @@ New here? Start with [Getting started](getting-started.md).
 | [Drawings](drawings.md) | Tool families with pop-out lists, favourites, trend lines, rays, rectangles, Fibonacci, text notes, measure, cursor kinds, the eraser, magnet and the touch tools |
 | [Fibonacci tools](drawing-fib-gann.md) | The time zone, speed resistance fan, circles, spiral, speed resistance arcs, trend-based extension, channel, trend-based time, wedge and pitchfan: placing them, their levels and their settings |
 | [Chart patterns](drawing-patterns.md) | The XABCD, Cypher and ABCD pattern tools: placing the points, the labels and ratios, and the settings |
-| [Text and Anchored text](drawing-annotations.md) | Typing a multi-line note, the Text tab, wrapping and alignment, and Anchored text that stays on the pane |
+| [Text and notes](drawing-annotations.md) | Typing a multi-line note, the Text tab, wrapping and alignment, Anchored text that stays on the pane, and the Note, Anchored note, Callout and Comment tools |
 | [Alerts](alerts.md) | Price alerts that fire around the clock, the popup, the inbox and Telegram messages |
 | [Watchlist](watchlist.md) | Lists, sections, tags, quotes, the symbol card, symbol search and import and export |
 | [Data](data.md) | Data providers, CSV import, the local library and recorded markets |
