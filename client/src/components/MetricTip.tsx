@@ -8,7 +8,8 @@ const HOVER_DELAY_MS = 300;
 /**
  * Wraps a figure and shows its help text: on mouse hover after a short delay,
  * at once on keyboard focus, and on tap for touch. Closes on leave, blur,
- * Escape, scroll and resize. The tooltip is portalled and fixed-positioned so
+ * Escape, scroll (except while its trigger is focused, when it follows the
+ * trigger) and resize. The tooltip is portalled and fixed-positioned so
  * the scrolling dock cannot clip it.
  */
 export function MetricTip({
@@ -43,8 +44,8 @@ export function MetricTip({
     setPlace(null);
   }, []);
 
-  useLayoutEffect(() => {
-    if (!open || !anchorRef.current || !tipRef.current) return;
+  const reposition = useCallback(() => {
+    if (!anchorRef.current || !tipRef.current) return;
     const a = anchorRef.current.getBoundingClientRect();
     const t = tipRef.current;
     setPlace(
@@ -54,7 +55,11 @@ export function MetricTip({
         { width: document.documentElement.clientWidth, height: window.innerHeight },
       ),
     );
-  }, [open]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) reposition();
+  }, [open, reposition]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,16 +69,22 @@ export function MetricTip({
       if (!anchorRef.current?.contains(n) && !tipRef.current?.contains(n)) close();
     };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
+    // A focus that scrolls its own trigger into view must keep the tip open (and
+    // follow the trigger); any other scroll closes it.
+    const onScroll = () => {
+      if (anchorRef.current && anchorRef.current === document.activeElement) reposition();
+      else close();
+    };
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', close);
     window.addEventListener('pointerdown', onDown);
     return () => {
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', close);
       window.removeEventListener('pointerdown', onDown);
     };
-  }, [open, close]);
+  }, [open, close, reposition]);
 
   useEffect(() => clearTimer, []);
 
