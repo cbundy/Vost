@@ -1224,6 +1224,36 @@ describe('replay', () => {
     expect(bad.getState().drawingMagnet).toBe(false);
     expect(bad.getState().drawingsHidden).toBe(false);
   });
+
+  it('drawing defaults: persisted per tool, bad or unknown entries load as nothing', async () => {
+    const load = async (prefs: Record<string, unknown>) => {
+      vi.resetModules();
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const st = track((await import('./store')).useStore);
+      st.getState().init();
+      return st;
+    };
+    const fresh = await load({});
+    expect(fresh.getState().drawingDefaults).toEqual({});
+    fresh.getState().setDrawingDefault('trendLine', { width: 3, color: '#ff0000', bogus: 1 });
+    fresh.getState().setDrawingDefault('ghost', { width: 3 });
+    expect(fresh.getState().drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+    fresh.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+
+    vi.resetModules();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const again = track((await import('./store')).useStore);
+    again.getState().init();
+    expect(again.getState().drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+    again.getState().setDrawingDefault('trendLine', null);
+    expect(again.getState().drawingDefaults).toEqual({});
+
+    for (const bad of ['x', 5, [], null, { ghost: { width: 3 }, trendLine: 'x', ray: { width: 'wide' }, rectangle: [] }]) {
+      expect((await load({ drawingDefaults: bad })).getState().drawingDefaults).toEqual({});
+    }
+  });
 });
 
 

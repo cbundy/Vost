@@ -373,6 +373,7 @@ describe('chart registry and flat prefs', () => {
     sidePanelCollapsed: true,
     drawingMagnet: true,
     drawingsHidden: true,
+    drawingDefaults: { trendLine: { width: 3 } },
     drawingFavorites: ['ray', 'eraser'],
     drawingLastTool: { lines: 'ray', cursors: 'cursor.dot' },
     cursorKind: 'dot',
