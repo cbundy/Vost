@@ -10,6 +10,41 @@ ok   anchors unchanged
 ok   the chart did not pan or change
 ok   the menu offers Unlock
 ok   unlocked
+ok   Lock all pressed
+ok   a body drag moved nothing
+ok   a handle drag moved nothing
+ok   the drawing has no flag of its own
+ok   the chart did not pan and no handles are drawn
+ok   the menu still offers Lock (own flag)
+ok   own lock stored
+ok   Lock all off
+ok   own lock still holds
+ok   unlocked again
+ok   now it drags
+ok   undo puts it back
+ok   Stay pressed
+ok   two more stored without picking again
+ok   Trend line still pressed
+ok   Escape returns to Cross
+ok   back to 1 drawing(s)
+ok   a Measure stores nothing
+ok   the Measure went back to the cursor
+ok   Stay off
+ok   title says weak
+ok   Magnet pressed
+ok   weak: far point 1 is not snapped - {"time":1652313600,"price":106.05919627675385}
+ok   weak: far point 2 is not snapped - {"time":1672185600,"price":4.475301863027656}
+ok   weak: a point on the high of a bar snaps to it - 74.938636 vs 74.938636
+ok   title says strong
+ok   strong: far point 1 snaps to an OHLC - {"time":1652313600,"price":68.052651}
+ok   strong: far point 2 snaps to an OHLC - {"time":1672185600,"price":91.126242}
+ok   Escape closes the menu and refocuses the Magnet button
+ok   back to 1 drawing(s)
+ok   strength survives a reload
+ok   Magnet survives a reload
+ok   Stay survives a reload
+ok   Lock all survives a reload
+ok   switches off for the steps below
 ok   name stored trimmed
 ok   menu titled by the name
 ok   two drawings

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barSlotTime, distToSegment, extendSegment, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
+import { barSlotTime, distToSegment, extendSegment, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, WEAK_MAGNET_PX, wrapText } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -93,6 +93,32 @@ describe('snapToBar', () => {
   it('returns the anchor for empty candles', () => {
     const a = { time: 5, price: 6 };
     expect(snapToBar([], a)).toBe(a);
+  });
+
+  describe('weak magnet (within)', () => {
+    // one price unit is one pixel
+    const within = { px: WEAK_MAGNET_PX, y: (price: number) => price };
+    it('snaps when the nearest OHLC value is within 10 px', () => {
+      expect(snapToBar(bars, { time: hourly[3] + 0.4 * H, price: 122.5 }, {}, within)).toEqual({ time: hourly[3], price: 113 });
+      expect(snapToBar(bars, { time: hourly[3], price: 123 }, {}, within)).toEqual({ time: hourly[3], price: 113 });
+    });
+    it('leaves the anchor untouched at 11 px', () => {
+      const a = { time: hourly[3] + 0.4 * H, price: 124 };
+      expect(snapToBar(bars, a, {}, within)).toBe(a);
+    });
+    it('priceOnly snaps the price only within 10 px', () => {
+      const near = { time: hourly[3] + 0.2 * H, price: 118 };
+      expect(snapToBar(bars, near, { priceOnly: true }, within)).toEqual({ time: near.time, price: 113 });
+      const far = { time: hourly[3] + 0.2 * H, price: 130 };
+      expect(snapToBar(bars, far, { priceOnly: true }, within)).toBe(far);
+    });
+    it('timeOnly snaps the time as the strong magnet does', () => {
+      expect(snapToBar(bars, { time: hourly[3] + 0.4 * H, price: 500 }, { timeOnly: true }, within)).toEqual({ time: hourly[3], price: 500 });
+    });
+    it('a null y does not snap', () => {
+      const a = { time: hourly[3], price: 113 };
+      expect(snapToBar(bars, a, {}, { px: 10, y: () => null })).toBe(a);
+    });
   });
 });
 
