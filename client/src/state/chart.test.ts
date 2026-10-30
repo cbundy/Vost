@@ -668,7 +668,7 @@ describe('chartRange', () => {
     const candles = candlesFromCsvText(text).candles;
     const { useStore } = await import('./store');
     track(useStore);
-    chartOf(useStore).setState({ candles });
+    chartOf(useStore).setState({ candles, liveWanted: false }); // these tests crop and clear locally; live has its own tests below
     return { useStore, candles };
   }
 
@@ -697,15 +697,60 @@ describe('chartRange', () => {
     expect(chartOf(useStore).getState().chartRange).toEqual({ from: candles[20].time, to: candles[80].time });
   });
 
-  it('refuses a chart range while live is on', async () => {
+  it('pauses live and crops when a range is picked on a live chart, then clearing resumes live', async () => {
     const { useStore, candles } = await setup();
-    chartOf(useStore).setState({ live: true });
+    const startLive = vi.fn(() => ({ stop: vi.fn() }));
+    const stub = vi.spyOn(await import('../lib/providers'), 'getProvider').mockReturnValue({
+      ...(await import('../lib/providers')).demoProvider,
+      supportsLive: true,
+      startLive,
+      fetchHistory: async () => candles,
+    } as never);
+    chartOf(useStore).setState({ live: true, liveStatus: 'live', liveWanted: true });
+    const before = useStore.getState().toasts.length;
     await chartOf(useStore).getState().setChartRange({ from: candles[20].time, to: candles[80].time });
     const s = snap(useStore);
-    expect(s.chartRange).toBeNull();
-    expect(s.candles).toHaveLength(candles.length);
-    expect(s.toasts[s.toasts.length - 1].text).toContain('Turn live off');
-    chartOf(useStore).setState({ live: false });
+    expect(s.chartRange).not.toBeNull();
+    expect(s.candles).toHaveLength(61);
+    expect(s.live).toBe(false);
+    expect(chartOf(useStore).getState().liveWanted).toBe(true);
+    const info = s.toasts.slice(before).filter((x) => x.kind === 'info');
+    expect(info.map((x) => x.text)).toEqual(['Live is paused while the chart is cropped. Clear the range to go live again.']);
+    expect(startLive).not.toHaveBeenCalled();
+    await chartOf(useStore).getState().clearChartRange();
+    expect(chartOf(useStore).getState().chartRange).toBeNull();
+    expect(startLive).toHaveBeenCalledOnce();
+    stub.mockRestore();
+  });
+
+  it('clicking Live with a range active clears it and opens exactly one stream', async () => {
+    const { useStore, candles } = await setup();
+    const startLive = vi.fn(() => ({ stop: vi.fn() }));
+    const stub = vi.spyOn(await import('../lib/providers'), 'getProvider').mockReturnValue({
+      ...(await import('../lib/providers')).demoProvider,
+      supportsLive: true,
+      startLive,
+      fetchHistory: async () => candles,
+    } as never);
+    await chartOf(useStore).getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    chartOf(useStore).getState().setLive(true);
+    await vi.waitFor(() => expect(startLive).toHaveBeenCalledOnce());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(startLive).toHaveBeenCalledOnce();
+    expect(chartOf(useStore).getState().chartRange).toBeNull();
+    chartOf(useStore).getState().setLive(false);
+    stub.mockRestore();
+  });
+
+  it('clearing with live turned off restores the crop locally without a reload', async () => {
+    const { useStore, candles } = await setup();
+    const fetchHistory = vi.fn(async () => candles);
+    const stub = vi.spyOn(await import('../lib/providers'), 'getProvider').mockReturnValue({ ...(await import('../lib/providers')).demoProvider, supportsLive: true, startLive: vi.fn(), fetchHistory } as never);
+    await chartOf(useStore).getState().setChartRange({ from: candles[20].time, to: candles[80].time });
+    await chartOf(useStore).getState().clearChartRange();
+    expect(fetchHistory).not.toHaveBeenCalled();
+    expect(chartOf(useStore).getState().candles).toBe(candles);
+    stub.mockRestore();
   });
 
   it('a second apply slices from the full set', async () => {
@@ -958,6 +1003,49 @@ describe('chartRange fetched from the provider', () => {
     expect(s.loadState).toBe('ready');
     expect(s.toasts.filter((t) => t.kind === 'error').map((t) => t.text)).toEqual(['Could not load range: boom']);
     expect(s.messages.filter((m) => m.severity === 'error')).toHaveLength(1);
+  });
+
+  async function liveStub(fetchHistory: (req: { from?: number; to?: number; bars: number }) => Promise<ReturnType<typeof mk>>) {
+    const stop = vi.fn();
+    const startLive = vi.fn(() => ({ stop }));
+    const { demoProvider } = await import('../lib/providers');
+    const stub = vi.spyOn(await import('../lib/providers'), 'getProvider').mockReturnValue({
+      ...demoProvider,
+      supportsLive: true,
+      startLive,
+      fetchHistory,
+    } as never);
+    return { stop, startLive, stub };
+  }
+
+  it('a fetched range on a live chart pauses live with one info toast', async () => {
+    const { useStore, base } = await setup();
+    const { stub } = await liveStub(async (req) => mk(req.from!, Math.floor((req.to! - req.from!) / DAY) + 1));
+    chartOf(useStore).setState({ live: true, liveStatus: 'live', liveWanted: true });
+    const before = useStore.getState().toasts.length;
+    expect(await chartOf(useStore).getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(true);
+    const s = snap(useStore);
+    expect(s.chartRangeFetched).toBe(true);
+    expect(s.live).toBe(false);
+    expect(chartOf(useStore).getState().liveWanted).toBe(true);
+    expect(s.toasts.slice(before).filter((x) => x.kind === 'info').map((x) => x.text)).toEqual([
+      'Live is paused while the chart is cropped. Clear the range to go live again.',
+    ]);
+    stub.mockRestore();
+  });
+
+  it('a failed range fetch leaves live on', async () => {
+    const { useStore, base } = await setup();
+    const { stop, stub } = await liveStub(async () => {
+      throw new Error('boom');
+    });
+    chartOf(useStore).setState({ live: true, liveStatus: 'live', liveWanted: true });
+    expect(await chartOf(useStore).getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(false);
+    expect(chartOf(useStore).getState().live).toBe(true);
+    expect(chartOf(useStore).getState().liveWanted).toBe(true);
+    expect(chartOf(useStore).getState().chartRange).toBeNull();
+    expect(stop).not.toHaveBeenCalled();
+    stub.mockRestore();
   });
 
   it('fewer than 2 bars returned is refused', async () => {
@@ -1662,9 +1750,7 @@ describe('two chart stores stay apart', () => {
     const a = make('a', 'AAA', stubEnv().env);
     const b = make('b', 'BBB', stubEnv().env);
     await Promise.all([a.getState().loadData(), b.getState().loadData()]);
-    a.getState().setLive(true);
-    b.getState().setLive(true);
-    expect(p.streams.map((s) => s.symbol)).toEqual(['AAA', 'BBB']);
+    expect(p.streams.map((s) => s.symbol)).toEqual(['AAA', 'BBB']); // each chart went live on its own after loading
     const [sa, sb] = p.streams;
     const lastA = a.getState().candles.at(-1)!;
     const bBefore = b.getState().candles;

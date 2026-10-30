@@ -33,8 +33,7 @@ export const outage: Scenario = {
         navigations = 0;
       });
 
-      await ctx.step('live on: LIVE and a moving last candle', async () => {
-        await liveButton(page).click();
+      await ctx.step('the chart opens live: LIVE and a moving last candle', async () => {
         await liveButton(page).filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
         await candleMovesFrom(await lastCandle(page));
       });

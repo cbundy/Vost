@@ -18,7 +18,7 @@ From left to right (on narrow screens the less used controls move into a **More*
 - The Vost logo with the running version.
 - **Symbol search**, the **Provider** menu and the **Number of bars** menu (500 to 20k bars).
 - The **timeframe picker** and the **Build** switch. See [Timeframes](timeframes.md).
-- **Load** reloads the data. **Live** streams new candles. See [Charts](charts.md).
+- **Load** reloads the data. **Live** streams new candles and is on by default for markets that support it. See [Charts](charts.md).
 - **Replay** starts bar replay. See [Bar replay](replay.md).
 - **Import CSV**. See [Data](data.md).
 - The loaded date range and bar count.
