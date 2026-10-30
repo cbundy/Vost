@@ -373,3 +373,66 @@ describe('request.currency_rate', () => {
     if (r.ok) expect(r.plots[0].values.every((v) => v === 1)).toBe(true);
   });
 });
+
+describe('request.security_lower_tf on the chart symbol', () => {
+  const lt = 'request.security_lower_tf(syminfo.tickerid, "15", close)';
+  const arrays = `a = ${lt}\nplot(array.size(a))\nplot(array.get(a, 0))\nplot(array.get(a, 1))\nplot(array.get(a, 2))\nplot(array.get(a, 3))`;
+  const run = (src: string, c: Candle[] = chart, m: PineMarket = market, s = fakeServer(base)) => runPine(head + src, c, {}, { market: m, feed: s.feed });
+
+  it('gives the 15 minute closes inside each hourly bar, in time order', async () => {
+    const r = await run(arrays);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const [size, ...parts] = r.plots.map((p) => p.values);
+    expect(size.every((v) => v === 4)).toBe(true);
+    for (const i of [0, 1, 7, 100, 1000, chart.length - 1]) {
+      parts.forEach((p, k) => expect(p[i], `bar ${i} part ${k}`).toBe(base[i * 4 + k].close));
+    }
+  });
+
+  it('holds on the last chart bar only 15 minute bars that close by the run end', async () => {
+    const cut = chart.slice(0, 50);
+    const r = await run(arrays, cut);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const last = cut.length - 1;
+    expect(r.plots[0].values[last]).toBe(4);
+    r.plots.slice(1).forEach((p, k) => expect(p.values[last]).toBe(base[last * 4 + k].close));
+  });
+
+  it('keeps earlier bars unchanged when later candles are cut', async () => {
+    const full = await run(arrays);
+    const cut = await run(arrays, chart.slice(0, 200));
+    expect(full.ok && cut.ok).toBe(true);
+    if (!full.ok || !cut.ok) return;
+    full.plots.forEach((p, k) => expect(cut.plots[k].values.slice(0, 199)).toEqual(p.values.slice(0, 199)));
+  });
+
+  it('fails on an imported dataset with cannot give lower ones', async () => {
+    const ds: PineMarket = { providerId: 'csv', symbol: 'DATA', barSeconds: 3600, dataset: true };
+    const r = await run(`plot(array.size(${lt}))`, chart, ds);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toContain('cannot give lower ones');
+  });
+
+  it('names request.security_lower_tf in the cap error, and request.security keeps its own name', async () => {
+    const low = await run('plot(array.size(request.security_lower_tf(syminfo.tickerid, "1", close)))');
+    expect(low.ok).toBe(false);
+    if (!low.ok) expect(low.error.message).toMatch(/^request\.security_lower_tf\(BTCUSDT, 1\).*86400.*20000/);
+    const sec = await run('plot(request.security(syminfo.tickerid, "1", close))');
+    expect(sec.ok).toBe(false);
+    if (!sec.ok) expect(sec.error.message).toMatch(/^request\.security\(BTCUSDT/);
+  });
+
+  it('names request.security_lower_tf in a failed fetch and a symbol not found', async () => {
+    const s = fakeServer(base, { markets: { 'binance|BTCUSDT': base } });
+    const nope = await run('plot(array.size(request.security_lower_tf("BYBIT:NOPE", "15", close)))', chart, market, s);
+    expect(nope.ok).toBe(false);
+    if (!nope.ok) expect(nope.error.message).toMatch(/^request\.security_lower_tf\(BYBIT:NOPE, 15\): symbol not found/);
+    const f = fakeServer(base);
+    f.failWith = 'HTTP 503';
+    const fail = await run('plot(array.size(request.security_lower_tf("BYBIT:BTCUSDT", "15", close)))', chart, market, f);
+    expect(fail.ok).toBe(false);
+    if (!fail.ok) expect(fail.error.message).toMatch(/^request\.security_lower_tf\(BYBIT:BTCUSDT, 15\).*HTTP 503/);
+  });
+});

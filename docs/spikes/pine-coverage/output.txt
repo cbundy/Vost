@@ -194,23 +194,23 @@ PineTS 0.13.0 - Pine v6 coverage probe: 160 cases, 120 synthetic daily candles f
 
 ## request / security-lower-tf
   pinets : ok  plots[1]: n=1
-  runPine: ERR request.security(VOST, 60) needs data Vost does not load yet
+  runPine: ERR request.security_lower_tf(VOST, 60) needs data Vost does not load yet
 
 ## request / request-financial
   pinets : ok  plots[1]: fin=NaN | warnings: 1
-  runPine: ok  plots[1]: fin:plot/line/price=na | all-null: fin | declaration overlay=true
+  runPine: ERR request.financial() is not available in Vost: it has no company financials data
 
 ## request / request-economic
   pinets : ok  plots[1]: gdp=NaN | warnings: 1
-  runPine: ok  plots[1]: gdp:plot/line/price=na | all-null: gdp | declaration overlay=true
+  runPine: ERR request.economic() is not available in Vost: it has no economic data
 
 ## request / request-seed
   pinets : ok  plots[1]: seed=NaN | warnings: 1
-  runPine: ok  plots[1]: seed:plot/line/price=na | all-null: seed | declaration overlay=true
+  runPine: ERR request.seed() is not available in Vost: it has no Pine Seeds data
 
 ## request / request-dividends-splits-earnings
   pinets : ok  plots[3]: div=NaN, spl=NaN, ear=NaN | warnings: 3
-  runPine: ok  plots[3]: div:plot/line/price=na, spl:plot/line/price=na, ear:plot/line/price=na | all-null: div, spl, ear | declaration overlay=true
+  runPine: ERR request.dividends() is not available in Vost: it has no dividend data
 
 ## plot / plot-styles
   pinets : ok  plots[6]: line=143.83, stepline=140.89, hist=145.43, cross=139.49, area=143.83, cols=143.83
@@ -218,7 +218,7 @@ PineTS 0.13.0 - Pine v6 coverage probe: 160 cases, 120 synthetic daily candles f
 
 ## plot / plot-color-linewidth-offset
   pinets : ok  plots[1]: p=143.83
-  runPine: ok  plots[1]: p:plot/line/price=143.83 | declaration overlay=true
+  runPine: ok  plots[1]: p:plot/line/price=140.5 | declaration overlay=true
 
 ## hline / hline-basic
   pinets : ok  plots[1]: h=100

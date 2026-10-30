@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { version as pinetsVersion } from '../../../../node_modules/pinets/package.json';
 import { candles15, fakeServer, hourlyOf } from './securityFixture';
 import { createMarketProvider } from './market';
+import { runPine } from './runtime';
 import {
-  PROVIDER_IDS, RoutedPineTS, RoutingError, assertHooked, decodeRoute, encodeRoute, installRouting, rewriteSymbolArg, routeSymbol,
+  PROVIDER_IDS, RoutedPineTS, RoutingError, UNAVAILABLE_REQUESTS, assertHooked, decodeRoute, encodeRoute, installRouting, rewriteSymbolArg, routeSymbol,
 } from './requestRouting';
 import type { PineMarket } from './types';
 
@@ -81,11 +82,40 @@ describe('the hook into the Pine engine (pinned to PineTS 0.13.0)', () => {
   });
 
   it('fails with a clear message when a request function is missing from the context', () => {
-    for (const name of ['security', 'security_lower_tf', 'currency_rate']) {
+    for (const name of ['security', 'security_lower_tf', 'currency_rate', ...Object.keys(UNAVAILABLE_REQUESTS)]) {
       const request: Record<string, unknown> = { security() {}, security_lower_tf() {}, currency_rate() {} };
+      for (const k of Object.keys(UNAVAILABLE_REQUESTS)) request[k] = () => {};
       delete request[name];
       expect(() => installRouting({ pine: { request } }, { market: binance, rates: null })).toThrow(new RegExp(`request.${name}.*pinned to PineTS 0.13.0`));
     }
     expect(() => installRouting({}, { market: binance, rates: null })).toThrow(/pinned to PineTS/);
+  });
+});
+
+describe('the request calls Vost has no data for', () => {
+  const chart = hourlyOf(candles15(96 * 3));
+  const run = (src: string) => runPine('//@version=6\nindicator("x")\n' + src, chart, {}, { market: binance, feed: fakeServer(candles15(96 * 3)).feed });
+  const calls: Record<string, [string, string]> = {
+    financial: ['request.financial("NASDAQ:AAPL", "TOTAL_REVENUE", "FY")', 'it has no company financials data'],
+    economic: ['request.economic("US", "GDP")', 'it has no economic data'],
+    seed: ['request.seed("seed_x", "SYM", close)', 'it has no Pine Seeds data'],
+    dividends: ['request.dividends("NASDAQ:AAPL", dividends.net)', 'it has no dividend data'],
+    splits: ['request.splits("NASDAQ:AAPL", splits.denominator)', 'it has no split data'],
+    earnings: ['request.earnings("NASDAQ:AAPL", earnings.actual)', 'it has no earnings data'],
+  };
+  for (const [name, [call, why]] of Object.entries(calls)) {
+    it(`request.${name} stops the run`, async () => {
+      const r = await run(`plot(${call})`);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toBe(`request.${name}() is not available in Vost: ${why}`);
+    });
+  }
+  it('stops from an if block that runs on one bar', async () => {
+    const r = await run('if bar_index == 70\n    plot(request.earnings("NASDAQ:AAPL", earnings.actual))\nplot(close)');
+    expect(r.ok).toBe(false);
+  });
+  it('still runs a script that only declares an unused function with the call', async () => {
+    const r = await run('f() => request.splits("NASDAQ:AAPL", splits.denominator)\nplot(close)');
+    expect(r.ok).toBe(true);
   });
 });

@@ -1,5 +1,9 @@
 /**
- * Where `request.security` and `request.security_lower_tf` read another symbol from.
+ * The hook on the request functions of a Pine run. It does three jobs:
+ * 1. `request.security` and `request.security_lower_tf` read another symbol from the provider its prefix names.
+ * 2. An error raised while `request.security_lower_tf` loads its bars names `request.security_lower_tf(`, not
+ *    `request.security(` (PineTS gives the provider no caller name).
+ * 3. The six calls Vost has no data for (`UNAVAILABLE_REQUESTS`) stop the run with a clear message instead of na.
  *
  * PineTS drops the exchange prefix of the symbol (`BYBIT:BTCUSDT` -> `BTCUSDT`) before its data source sees it, and
  * answers a request for the chart's own ticker from the chart's data. So the symbol is read here first, in a subclass
@@ -41,6 +45,19 @@ export function decodeRoute(id: unknown): Route | null {
 
 /** A symbol Vost cannot serve; the run stops with its message. */
 export class RoutingError extends Error {}
+
+/** A request call Vost has no data for; the run stops with its message. */
+export class UnavailableRequestError extends Error {}
+
+/** The request calls Vost has no data for, with the kind of data each asks for. */
+export const UNAVAILABLE_REQUESTS: Record<string, string> = {
+  financial: 'company financials',
+  economic: 'economic',
+  seed: 'Pine Seeds',
+  dividends: 'dividend',
+  splits: 'split',
+  earnings: 'earnings',
+};
 
 /** The plain symbol of a TradingView encoded ticker id (`={"session":"extended","symbol":"X"}`). */
 function plain(symbol: string): string {
@@ -110,7 +127,7 @@ const version = 'PineTS 0.13.0';
 /** Wraps the request functions of a primary run's context. Throws a clear error when the engine no longer has them. */
 export function installRouting(ctx: any, routing: Routing): void {
   const request = ctx?.pine?.request;
-  for (const name of ['security', 'security_lower_tf', 'currency_rate']) {
+  for (const name of ['security', 'security_lower_tf', 'currency_rate', ...Object.keys(UNAVAILABLE_REQUESTS)]) {
     if (typeof request?.[name] !== 'function') {
       throw new Error(`Vost routes request.${name} to other symbols and found no context.pine.request.${name} in the Pine engine (Vost is pinned to ${version}); other-symbol requests cannot be routed`);
     }
@@ -118,7 +135,21 @@ export function installRouting(ctx: any, routing: Routing): void {
   for (const name of ['security', 'security_lower_tf']) {
     const original = request[name];
     const fn = `request.${name}`;
-    request[name] = async (...args: any[]) => original(...rewriteSymbolArg(args, (s) => routeSymbol(s, routing.market, fn)));
+    request[name] = async (...args: any[]) => {
+      try {
+        return await original(...rewriteSymbolArg(args, (s) => routeSymbol(s, routing.market, fn)));
+      } catch (e) {
+        if (name === 'security_lower_tf' && e instanceof Error && e.message.startsWith('request.security(')) {
+          e.message = `request.security_lower_tf(${e.message.slice('request.security('.length)}`;
+        }
+        throw e;
+      }
+    };
+  }
+  for (const [name, noun] of Object.entries(UNAVAILABLE_REQUESTS)) {
+    request[name] = () => {
+      throw new UnavailableRequestError(`request.${name}() is not available in Vost: it has no ${noun} data`);
+    };
   }
   const rate = request.currency_rate;
   request.currency_rate = (...args: any[]) => {
