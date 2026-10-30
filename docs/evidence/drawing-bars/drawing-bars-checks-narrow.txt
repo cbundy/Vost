@@ -1,0 +1,6 @@
+ok   one bars pattern with three anchors - [{"id":"dmvuzwwux17wwh","tool":"barsPattern","anchors":[{"time":1771372800,"price":167.00637953611277},{"time":1777075200,"price":167.00637953611277},{"time":1777161600,"price":156.406356}]}]
+ok   the copy starts after the later source anchor - 1771372800 1777075200 1777161600
+ok   one ghost feed with at least three anchors - [{"id":"dmvuzwxpy2atgv","tool":"ghostFeed","anchors":[{"time":1785542400,"price":142.9724345257984},{"time":1789344000,"price":191.04033027209408},{"time":1793145600,"price":175.01769835666218}]}]
+ok   storage is unchanged after a reload
+ok   the ghost feed bars worked out from the stored anchors are identical after the reload
+ok   no console error

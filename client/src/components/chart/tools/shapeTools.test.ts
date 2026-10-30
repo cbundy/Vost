@@ -41,7 +41,7 @@ describe('registry', () => {
     const shapes = TOOLS.filter((t) => t.group === 'shapes').map((t) => t.id);
     expect(shapes).toEqual(['brush', 'highlighter', 'rectangle', 'circle', 'arrow', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'path', 'polyline', 'rotatedRectangle', 'ellipse', 'triangle', 'arc', 'curve', 'doubleCurve']);
     expect([...CAPTION_TOOLS].sort()).toEqual(['arrowMarkDown', 'arrowMarkUp', 'arrowMarker', 'priceNote', 'signpost']);
-    expect(TOOLS.filter((t) => t.barTime).map((t) => t.id)).toEqual(['arrowMarkUp', 'arrowMarkDown', 'signpost', 'flagMark', 'anchoredVwap', 'fixedRangeVolumeProfile', 'anchoredVolumeProfile']);
+    expect(TOOLS.filter((t) => t.barTime).map((t) => t.id)).toEqual(['arrowMarkUp', 'arrowMarkDown', 'signpost', 'flagMark', 'barsPattern', 'ghostFeed', 'anchoredVwap', 'fixedRangeVolumeProfile', 'anchoredVolumeProfile']);
   });
 });
 

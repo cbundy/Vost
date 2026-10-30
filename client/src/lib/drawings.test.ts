@@ -540,6 +540,24 @@ describe('the forecast tools', () => {
   });
 });
 
+describe('the bars tools', () => {
+  it('round trips Bars pattern with three anchors and Ghost feed with two to a hundred, drops a wrong count and a non-finite anchor', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    expect(ANCHOR_COUNTS.barsPattern).toBe(3);
+    expect(ANCHOR_COUNTS.ghostFeed).toEqual({ min: 2, max: 100 });
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: 10 + i }));
+    const ok = [{ id: 'b', tool: 'barsPattern', anchors: an(3) }, { id: 'g', tool: 'ghostFeed', anchors: an(2) }, { id: 'g2', tool: 'ghostFeed', anchors: an(100) }];
+    const bad = [
+      { id: 'b2', tool: 'barsPattern', anchors: an(2) },
+      { id: 'b3', tool: 'barsPattern', anchors: [...an(2), { time: 3, price: Number.NaN }] },
+      { id: 'g3', tool: 'ghostFeed', anchors: an(1) },
+      { id: 'g4', tool: 'ghostFeed', anchors: an(101) },
+      { id: 'g5', tool: 'ghostFeed', anchors: [{ time: 1, price: 1 }, { time: Number.POSITIVE_INFINITY, price: 2 }] },
+    ];
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS, undefined, undefined, undefined, undefined, VALIDATORS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('the cycle tools', () => {
   it('round trips each with two anchors and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');

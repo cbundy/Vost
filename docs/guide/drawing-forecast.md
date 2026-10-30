@@ -1,6 +1,6 @@
 # Forecasting and measuring tools
 
-The **Forecasting and measurers** family of the [drawing rail](drawings.md) holds the **Long position**, **Short position**, **Forecast** and **Projection** tools (the Forecasting section) and the **Measure** tool (the Measurers section; see [Drawings](drawings.md)).
+The **Forecasting and measurers** family of the [drawing rail](drawings.md) holds the **Long position**, **Short position**, **Forecast**, **Projection**, **Bars pattern** and **Ghost feed** tools (the Forecasting section) and the **Measure** tool (the Measurers section; see [Drawings](drawings.md)).
 
 ## Positions
 
@@ -89,3 +89,47 @@ Pick **Projection** and click three points: point 1, point 2, then point 3 (the 
 Settings: **Line colour**, **Line width**, **Fill colour**, **Fill opacity**, **Text colour** and **Font size**, plus Coordinates and Visibility.
 
 Forecasts and projections are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
+
+## Bars pattern
+
+A bars pattern copies a run of bars and shows it ahead, so you can lay an earlier move over where price may go next. The copy is worked out from the chart's bars every time it is drawn (nothing is stored but the three points), so it is the same after a reload, a zoom, a pan or a timeframe change.
+
+Pick **Bars pattern**, then click the two ends of the run you want to copy (or press at one end, drag and release at the other); the frame and the copy follow the pointer while you place the second point. The copy starts one bar after the end of the run, at the price of the run's first bar. A dashed frame marks the source run; the copy is drawn to its right. With no loaded bar in the run only the frame shows.
+
+![A bars pattern placed](../evidence/drawing-bars/drawing-bars-bars-placed-desktop.png)
+
+Click it to select: a handle shows at each of the three points. The first two move the run (and so what is copied); the third moves the copy - its time is the copy's first bar and its price the copy's first open. Drag the frame or a copied bar to move all three points together.
+
+![A selected bars pattern](../evidence/drawing-bars/drawing-bars-bars-selected-desktop.png)
+
+Double-click for settings (defaults in brackets):
+
+- **Colour** (the accent blue) and **Down colour** (red): copied bars that rise use the first, bars that fall the second (after any flipping);
+- **Opacity** (1);
+- **Display mode** (HL bars): HL bars, OC bars, or a line through the open, high, low or close;
+- **Mirrored** (off): the copy runs backwards in time, with each bar's open and close swapped so it still reads as one continuous series;
+- **Flipped** (off): prices turned upside down around the copy's first open. Both may be on.
+
+plus the Coordinates and Visibility tabs.
+
+![A mirrored bars pattern](../evidence/drawing-bars/drawing-bars-bars-mirrored-desktop.png)
+
+![A flipped bars pattern shown as OC bars](../evidence/drawing-bars/drawing-bars-bars-flipped-desktop.png)
+
+## Ghost feed
+
+A ghost feed is bars you draw by hand into the future, to sketch a scenario. Pick **Ghost feed** and click each point in turn (a tap on a phone); the bars up to the pointer show as you go. End it with a double-click, **Enter**, or a click on the first point; it takes up to 100 points. Between each two points there is one bar for every bar slot between them: the bars step along the straight line from one price to the next, each opening where the last closed, with a body and wicks that vary around the average height.
+
+![A ghost feed placed](../evidence/drawing-bars/drawing-bars-ghost-placed-desktop.png)
+
+The bars are not random each time: they come from a generator seeded by the two points of each segment, so the same points always give the same bars, and moving one point changes only the two segments next to it.
+
+Click it to select: a handle shows at every point and a dashed line joins them. Drag a handle to move that point or the body to move them all.
+
+![A selected ghost feed](../evidence/drawing-bars/drawing-bars-ghost-selected-desktop.png)
+
+Settings (defaults in brackets): **Up colour** (green), **Down colour** (red), **Border colour** (grey), **Opacity** (0.6), **Average height** (300 ticks - the instrument's tick size times this number, or price units when the chart has no tick size) and **Variance** (50 percent; 0 gives bars of exactly the average height, 100 lets a bar's height range from nothing to twice the average), plus Coordinates and Visibility. A bar is never shorter than its body.
+
+![The Ghost feed settings](../evidence/drawing-bars/drawing-bars-ghost-settings-desktop.png)
+
+Bars patterns and ghost feeds are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
