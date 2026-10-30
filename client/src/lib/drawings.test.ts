@@ -188,6 +188,28 @@ describe('storage', () => {
     const got = parseStore({ version: 1, sources: { s: [note('b', `  ${'x'.repeat(600)}  `), note('c', '  hi  ')] } }, COUNTS, TEXT);
     expect(got.sources.s.map((d) => d.text)).toEqual(['x'.repeat(500), 'hi']);
   });
+  it('round trips multi-line text of text and anchored text tools, and loads an old text drawing unchanged', () => {
+    const counts = { ...COUNTS, anchoredText: 1 };
+    const tools = new Set(['text', 'anchoredText']);
+    const panes = new Set(['anchoredText']);
+    const old = { id: 'o', tool: 'text', anchors: [{ time: 5, price: 6 }], text: 'old note' };
+    const multi = { id: 'm', tool: 'text', anchors: [{ time: 5, price: 6 }], text: 'a\nb\n\nc', style: { align: 'center', wrap: false } };
+    const pane = { id: 'p', tool: 'anchoredText', anchors: [{ time: 0.25, price: 0.5 }], text: 'x\ny' };
+    saveDrawings({ s: [old, multi, pane] });
+    expect(loadDrawings(counts, tools, TRANSIENT, panes).sources).toEqual({ s: [old, multi, pane] });
+  });
+  it('clamps a pane-anchored anchor onto 0..1 and leaves other tools alone', () => {
+    const counts = { ...COUNTS, anchoredText: 1 };
+    const tools = new Set(['text', 'anchoredText']);
+    const panes = new Set(['anchoredText']);
+    const raw = {
+      version: 2,
+      sources: { s: [{ id: 'p', tool: 'anchoredText', anchors: [{ time: -3, price: 1.7 }], text: 'hi' }, { id: 't', tool: 'text', anchors: [{ time: -3, price: 1.7 }], text: 'hi' }] },
+    };
+    const got = parseStore(raw, counts, tools, TRANSIENT, panes).sources.s;
+    expect(got[0].anchors).toEqual([{ time: 0, price: 1 }]);
+    expect(got[1].anchors).toEqual([{ time: -3, price: 1.7 }]);
+  });
   it('drops a text drawing with missing, numeric or blank text and keeps its neighbours', () => {
     const anchors = [{ time: 5, price: 6 }];
     const raw = { version: 1, sources: { s: [trend('a'), { id: 'm', tool: 'text', anchors }, { id: 'n', tool: 'text', anchors, text: 5 }, { id: 'b', tool: 'text', anchors, text: '   ' }, hline('z')] } };

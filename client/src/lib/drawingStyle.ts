@@ -23,8 +23,8 @@ export type SettingField = {
   min?: number;
   max?: number;
   step?: number;
-  /** The allowed values of a `choice`; the default is one of them. */
-  options?: readonly string[];
+  /** The listed values of a `choice`; it accepts only these. */
+  options?: readonly { value: string; label: string }[];
 };
 
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
@@ -123,7 +123,7 @@ export function validateValue(field: SettingField, v: unknown): unknown {
     case 'boolean':
       return typeof v === 'boolean' ? v : undefined;
     case 'choice':
-      return typeof v === 'string' && (field.options ?? []).includes(v) ? v : undefined;
+      return typeof v === 'string' && !!field.options?.some((o) => o.value === v) ? v : undefined;
     case 'levels':
       return cleanLevels(v);
   }

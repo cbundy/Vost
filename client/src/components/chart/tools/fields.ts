@@ -31,4 +31,4 @@ export function applyDash(ctx: CanvasRenderingContext2D, style: unknown): void {
 }
 
 /** A setting that is one of a list of values (a select in the dialog). */
-export const choiceField = (key: string, label: string, def: string, options: readonly string[], tab: SettingTab = 'style'): SettingField => ({ key, label, kind: 'choice', tab, default: def, options });
+export const choiceField = (key: string, label: string, def: string, options: readonly { value: string; label: string }[], tab: SettingTab = 'style'): SettingField => ({ key, label, kind: 'choice', tab, default: def, options });

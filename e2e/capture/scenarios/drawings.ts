@@ -169,7 +169,7 @@ export const drawings: Scenario = {
         check('the input is focused', await input.evaluate((el) => el === document.activeElement));
         await page.keyboard.type('touch note');
         await ctx.screenshot('touch-text-typing');
-        await page.keyboard.press('Enter');
+        await page.keyboard.press('Control+Enter');
         const list = await stored();
         check('one text drawing added', list.length === before + 1 && list.at(-1)!.tool === 'text');
         check('with its text', (list.at(-1) as unknown as { text: string }).text === 'touch note');
@@ -505,7 +505,7 @@ export const drawings: Scenario = {
       check('the input is focused', await input.evaluate((el) => el === document.activeElement));
       check('tool back to Cursor', (await toolState('Cross')).pressed === true);
       await page.keyboard.type('first note');
-      await page.keyboard.press('Enter');
+      await page.keyboard.press('Control+Enter');
       const list = await notes();
       check('one text drawing stored with the text', list.length === 1 && list[0].text === 'first note', JSON.stringify(list));
       check('exactly one drawing added', (await stored()).length === total + 1);
@@ -529,7 +529,7 @@ export const drawings: Scenario = {
       check('Ctrl+Z inside the input did not change storage', (await stored()).length === total && (await notes())[0].text === 'first note');
       await page.keyboard.press('Control+y');
       check('the input is still open', (await input.count()) === 1);
-      await page.keyboard.press('Enter');
+      await page.keyboard.press('Control+Enter');
       const list = await notes();
       check('the text changed', list.length === 1 && list[0].text === 'first noed', list[0]?.text);
       check('no drawing lost', (await stored()).length === total);

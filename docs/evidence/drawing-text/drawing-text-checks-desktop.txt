@@ -1,0 +1,30 @@
+ok   the editor is a textarea
+ok   plain Enter keeps the editor open
+ok   the editor grew with its lines and wrapping - 28 -> 76
+ok   it is as wide as the wrap width - 252
+ok   it keeps the newlines
+ok   one text drawing stored with its newlines - [{"id":"dmvum0ew31cpd7","tool":"text","anchors":[{"time":1628380800,"price":219.62242218927668}],"text":"first line\nsecond line\na long third line that has to wrap onto more than one line inside the box"}]
+ok   the editor is gone
+ok   titled for the tool
+ok   the Text tab holds every text setting - Text colour,Text size,Bold,Italic,Alignment,Wrap text,Wrap width
+ok   the Text tab has the textarea
+ok   nothing is stored before OK
+ok   bold and centre stored - {"bold":true,"align":"center"}
+ok   one undo reverts both
+ok   redo reapplies both
+ok   it does not wrap by default (wider than 252 px is not needed, narrower box follows the text) - 134
+ok   stored as anchoredText, not text - text,anchoredText
+ok   the anchor is pane fractions in 0..1 - [{"time":0.40808509811903104,"price":0.4770747141224715}]
+ok   multi-line text kept
+ok   the box still answers at its anchor after a pan
+ok   and after a zoom
+ok   and after a timeframe change
+ok   its stored anchor never changed
+ok   it moved in pane space - {"time":0.40808509811903104,"price":0.4770747141224715} -> {"time":0.48545456670469656,"price":0.5600622659896914}
+ok   X % and Y % match the stored fractions - 48.5/56
+ok   no price or time fields
+ok   undo puts it back
+ok   redo moves it again
+ok   storage is unchanged
+ok   both tools and their text survived
+ok   Anchored text still answers at its spot
