@@ -61,12 +61,12 @@ Columns: **PineTS** computes it (yes / partial / no); **runPine** passes it thro
 | `hline` | yes | yes | yes | `hline / hline-basic`: kind `hline`, dashed line (`chartSeries.ts:92`). Line style names are not read |
 | `fill` | yes (emits a `fill` plot with `plot1`, `plot2`, no values) | dropped | no | `fill / fill-plots, fill-hlines`: `runPine` returns a `Fill` plot, all null (`runtime.ts:49-54`, `toNum`), the colour and the two linked plots are not read |
 | `bgcolor` | yes | yes | yes | `bgcolor / bgcolor-basic`: kind `bgcolor`, band (`chartSeries.ts:101`) |
-| `barcolor` | yes | dropped | no | `barcolor / barcolor-basic`: PineTS returns booleans plus colours; `runPine` gives an all-null line plot named `barcolor#0` (`runtime.ts:49-54`) |
+| `barcolor` | yes | yes | yes | Drawn: the main candles take the colour (`barColors`, last visible script wins) |
 | `plotshape` | yes | partial | partial | `plotshape / plotshape-basic`: marker drawn. Shape is mapped to four marker shapes (`chartSeries.ts:69-75`), `text` is not passed on, `size` is fixed |
 | `plotchar` | yes | partial | partial | `plotchar / plotchar-basic`: drawn as the circle shape, the character is dropped |
-| `plotarrow` | yes | dropped | no | `plotarrow / plotarrow-basic`: PineTS returns a number per bar; `plotKind` maps it as a shape and `runtime.ts:64` keeps only `value === true`, so every bar is null |
-| `plotcandle` | yes | dropped | no | `plotcandle / plotcandle-basic`: PineTS returns `[o,h,l,c]` per bar; `toNum` makes them null, all-null line plot |
-| `plotbar` | yes | dropped | no | `plotbar / plotbar-basic`: same as `plotcandle` |
+| `plotarrow` | yes | yes | yes | Drawn: up arrow below the bar for a positive value, down arrow above for a negative one, sized by the value |
+| `plotcandle` | yes | yes | yes | Drawn: a candlestick series with per-bar body, wick and border colours |
+| `plotbar` | yes | yes | yes | Drawn: a bar series with per-bar colours |
 | `line` | yes | dropped | no | `line / line-basic`: PineTS collects the line in `__lines__`; `runtime.ts:59` skips it |
 | `label` | yes | dropped | no | `label / label-basic`: `__labels__`, skipped (`runtime.ts:59`) |
 | `box` | yes | dropped | no | `box / box-basic`: `__boxes__`, skipped |

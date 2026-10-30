@@ -33,8 +33,8 @@ export interface PineInput {
 
 export type PinePlotPane = 'price' | 'separate';
 
-/** What produced the plot: plot(), hline(), bgcolor(), plotshape()/plotchar() or fill(). */
-export type PinePlotKind = 'plot' | 'hline' | 'bgcolor' | 'plotshape' | 'fill';
+/** What produced the plot: plot(), hline(), bgcolor(), plotshape()/plotchar(), fill(), plotcandle(), plotbar(), barcolor() or plotarrow(). */
+export type PinePlotKind = 'plot' | 'hline' | 'bgcolor' | 'plotshape' | 'fill' | 'candle' | 'bar' | 'barcolor' | 'plotarrow';
 
 export interface PinePlot {
   name: string;
@@ -47,7 +47,15 @@ export interface PinePlot {
   /** fill only: indices into `plots` of the two plots it joins; `values` are all null, `colors` hold the area colour. */
   plot1?: number;
   plot2?: number;
-  /** One value per candle (1:1); `null` where the script produced na. For bgcolor and plotshape: 1 where drawn, else null. */
+  /** candle/bar only: [open, high, low, close] per candle (1:1); null when any of the four is na. `values` holds the close. */
+  ohlc?: ([number, number, number, number] | null)[];
+  /** candle only: per-candle wick and border colors (null = the body color). */
+  wickColors?: (string | null)[];
+  borderColors?: (string | null)[];
+  /** plotarrow only: `minheight`/`maxheight` options of the call (Pine defaults 5 and 100). */
+  minHeight?: number;
+  maxHeight?: number;
+  /** One value per candle (1:1); `null` where the script produced na. For bgcolor and plotshape: 1 where drawn, else null. For barcolor: 1 where colored. For plotarrow: the signed number. */
   values: (number | null)[];
   color: string | null;
   style: string;
