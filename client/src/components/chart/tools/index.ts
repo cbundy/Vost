@@ -31,6 +31,9 @@ import { gannFan } from './gannFan';
 import { gannSquare } from './gannSquare';
 import { gannSquareFixed } from './gannSquareFixed';
 import { abcdPattern } from './abcdPattern';
+import { cyclicLines } from './cyclicLines';
+import { sineLine } from './sineLine';
+import { timeCycles } from './timeCycles';
 import { cypherPattern } from './cypherPattern';
 import { xabcdPattern } from './xabcdPattern';
 import { fibTrendTime } from './fibTrendTime';
@@ -47,7 +50,7 @@ import type { AnchorSpec } from '../../../lib/drawings';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, text, anchoredText, note, anchoredNote, callout, comment, measure];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, cyclicLines, timeCycles, sineLine, text, anchoredText, note, anchoredNote, callout, comment, measure];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);

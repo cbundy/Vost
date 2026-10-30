@@ -1,0 +1,26 @@
+ok   nothing stored after Escape
+ok   Cyclic lines stored - cyclicLines:2
+ok   Time cycles stored - cyclicLines:2,timeCycles:2
+ok   Sine line stored - cyclicLines:2,timeCycles:2,sineLine:2
+ok   chart painted
+ok   Cyclic lines moved by its body
+ok   Cyclic lines point moved alone by its handle - [[{"time":1624924800,"price":126.10348200326989},{"time":1638144000,"price":110.51699972931245}],[{"time":1624924800,"price":115.12278474405468},{"time":1638144000,"price":110.51699972931245}]]
+ok   Cyclic lines settings are titled for the tool
+ok   Cyclic lines restyled - {"width":3}
+ok   Cyclic lines undo reverts the restyle
+ok   Cyclic lines redo restores the restyle
+ok   Time cycles moved by its body
+ok   Time cycles point moved alone by its handle - [[{"time":1651449600,"price":16.99805023485328},{"time":1667347200,"price":94.93049883845018}],[{"time":1651449600,"price":6.017352975638065},{"time":1667347200,"price":94.93049883845018}]]
+ok   Time cycles settings are titled for the tool
+ok   Time cycles restyled - {"width":3}
+ok   Time cycles undo reverts the restyle
+ok   Time cycles redo restores the restyle
+ok   Sine line moved by its body
+ok   Sine line point moved alone by its handle - [[{"time":1684540800,"price":188.44943902445695},{"time":1697846400,"price":235.20890911746028}],[{"time":1684540800,"price":177.46874176524173},{"time":1697846400,"price":235.20890911746028}]]
+ok   Sine line settings are titled for the tool
+ok   Sine line restyled - {"width":3}
+ok   Sine line undo reverts the restyle
+ok   Sine line redo restores the restyle
+ok   three drawings after reload
+ok   unchanged by the timeframe change
+ok   zoom keeps the drawings
