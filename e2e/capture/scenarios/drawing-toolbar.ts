@@ -242,6 +242,8 @@ export const drawingToolbar: Scenario = {
 
     await ctx.step('a press-drag on the toolbar neither draws nor pans the chart', async () => {
       await page.locator('button[title="Reset view"]').click();
+      // Reset view shows a timeframe window now; the trend line coordinates assume the fit-all view
+      await page.locator('button[title="Show all loaded bars"]').click();
       await page.waitForTimeout(500);
       await page.mouse.click(...(Object.values(mid(await at(TREND[0]), await at(TREND[1]))) as [number, number]));
       await anyToolbar().first().waitFor();

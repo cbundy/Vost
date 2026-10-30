@@ -30,7 +30,7 @@ The clock at the right of the bar under the chart shows the time in a chosen zon
 
 ## Reset view
 
-**Reset view** in the chart toolbar re-fits all the data and restores automatic price scaling on every pane.
+**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose loaded bars do not reach back that far. A freshly loaded chart still shows all data.
 
 ![A chart after Reset view](../evidence/chart-reset/chart-reset-reset-desktop.png)
 

@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const chartReset: Scenario = {
   name: 'chart-reset',
-  description: 'Video of pan, zoom and price-axis drag, then the Reset view button restoring the fresh view',
+  description: 'Video of pan, zoom and price-axis drag, then the Reset view button restoring the timeframe window (last month on the daily chart, last day on a minute chart)',
   video: true,
   viewports: ['desktop'],
   async run(ctx) {
@@ -34,5 +34,25 @@ export const chartReset: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('reset');
+    await ctx.step('switch to 5m and move the view', async () => {
+      await page.locator('.topbar select[title="Timeframe"]').selectOption('5m');
+      await ctx.waitForChart();
+      await page.waitForTimeout(800);
+      const box = await page.locator('.chart-container').boundingBox();
+      if (!box) throw new Error('chart container has no box');
+      const y = box.y + box.height / 2;
+      await page.mouse.move(box.x + box.width * 0.6, y);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.3, y, { steps: 30 });
+      await page.mouse.up();
+      await page.mouse.wheel(0, -400);
+      await page.waitForTimeout(500);
+    });
+    await ctx.screenshot('moved-minutes');
+    await ctx.step('click Reset view on the minute chart', async () => {
+      await page.locator('button[title="Reset view"]').click();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('reset-minutes');
   },
 };

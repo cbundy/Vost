@@ -1,6 +1,7 @@
 import type { Candle } from '../types';
 import { MIN_RANGE_BARS, sliceByTimeRange, toZonedInputValue } from './timeRange';
 import { zonedTimeToUtc } from './time';
+import { canonicalInterval, parseInterval } from '../../../shared/market.ts';
 
 export type QuickRangeKey = '1D' | '5D' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | '5Y' | 'All';
 
@@ -62,4 +63,33 @@ export function quickRangeState(key: QuickRangeKey, candles: Candle[], timeZone:
   const showAll = from <= candles[0].time;
   const count = showAll ? candles.length : sliceByTimeRange(candles, { from, to }).length;
   return { enabled: count >= MIN_RANGE_BARS, showAll, from, to };
+}
+
+const RESET_RANGE: Record<string, QuickRangeKey> = { m: '1D', h: '5D', d: '1M' };
+
+/** The quick range Reset view shows for a timeframe: minutes the last day, hours 5 days, days a month, weeks, months and unknown all data. */
+export function resetRangeKey(timeframe: string): QuickRangeKey {
+  const iv = canonicalInterval(timeframe);
+  const p = iv ? parseInterval(iv) : null;
+  return (p && RESET_RANGE[p.unit]) || 'All';
+}
+
+/**
+ * The logical bar range Reset view shows for a timeframe, or null to fit all data (All, fewer than the minimum bars in the
+ * window, or loaded bars that do not reach back that far). The range ends `rightOffset` bars past the last bar.
+ */
+export function resetLogicalRange(
+  timeframe: string,
+  candles: Candle[],
+  timeZone: string,
+  rightOffset: number,
+): { from: number; to: number } | null {
+  const key = resetRangeKey(timeframe);
+  if (key === 'All') return null;
+  const q = quickRangeState(key, candles, timeZone);
+  if (!q.enabled || q.showAll || q.from == null) return null;
+  const from = q.from;
+  const first = candles.findIndex((c) => c.time >= from);
+  if (first < 0) return null;
+  return { from: first, to: candles.length - 1 + rightOffset };
 }
