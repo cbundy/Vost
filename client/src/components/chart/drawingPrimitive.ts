@@ -14,6 +14,7 @@ import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/draw
 import { anchorRange, type Anchor, type Drawing } from '../../lib/drawings';
 import { inBox, type Rect } from '../../lib/drawingSelection';
 import { theme } from '../../lib/theme';
+import { drawingBox } from '../../lib/toolbarPlacement';
 import { fractionToPoint, pointToFraction } from './paneAnchor';
 import { getTool } from './tools';
 import type { DrawingTool, ToolView } from './tools/types';
@@ -141,8 +142,26 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return this.timeViews;
   }
 
+  /** Called on every chart repaint (pan, zoom, price-scale change, resize): the floating toolbar follows its drawing. */
+  onViewsUpdated: (() => void) | null = null;
+
   updateAllViews(): void {
     this.rebuildAxisViews();
+    this.onViewsUpdated?.();
+  }
+
+  /** The pixel box of a shown, placeable drawing (chart pixels), or null. */
+  boxOf(d: Drawing): Rect | null {
+    const tool = getTool(d.tool);
+    const pts = tool && this.shown(d) && this.points(d);
+    if (!tool || !pts) return null;
+    const size = this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 };
+    return drawingBox(pts, tool, size);
+  }
+
+  /** A drawing's effective style values: its own, else the user's default, else the tool's. */
+  styleValues(d: Pick<Drawing, 'tool' | 'style'>): Readonly<Record<string, unknown>> {
+    return this.styleOf(d).values;
   }
 
   /**

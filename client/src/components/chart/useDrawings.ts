@@ -39,6 +39,7 @@ import { editorStyle, type EditorTarget } from './textPlacement';
 import { usePublishDrawings } from './activeDrawings';
 import { cellRect, cellUnder } from './tableEditing';
 import { TABLE_DEFAULT_COLS, TABLE_DEFAULT_ROWS, emptyCells, stepCell } from '../../lib/geometry/table';
+import { useDrawingToolbar } from './useDrawingToolbar';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
 import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
@@ -166,6 +167,8 @@ export function useDrawings(
   hasDataRef.current = hasData;
 
   const publishRef = useRef<() => void>(() => {});
+  const toolbarRefreshRef = useRef<() => void>(() => {});
+  const toolbarFollowRef = useRef<(p: DrawingPrimitive) => () => void>(() => () => {});
 
   const getState = useCallback((): DrawingsState => {
     const k = keyRef.current;
@@ -196,6 +199,7 @@ export function useDrawings(
       );
     }
     publishRef.current();
+    toolbarRefreshRef.current();
   }, [getState]);
 
   const setState = useCallback(
@@ -403,6 +407,20 @@ export function useDrawings(
   actionsRef.current = actions;
   publishRef.current = usePublishDrawings({ active, sourceKey: key, getState, selectedRef, primRef, hiddenRef, actions });
 
+  const toolbar = useDrawingToolbar({
+    getState,
+    setState,
+    selectedRef,
+    primRef,
+    containerRef,
+    hiddenRef,
+    toolRef,
+    isDragging: () => dragRef.current != null,
+    isEditing: () => editTargetRef.current != null || settingsOpenRef.current != null,
+  });
+  toolbarRefreshRef.current = toolbar.refresh;
+  toolbarFollowRef.current = toolbar.follow;
+
   /* The input follows its anchor when the chart pans, zooms or resizes. */
   useEffect(() => {
     const el = containerRef.current;
@@ -442,8 +460,10 @@ export function useDrawings(
     prim.setLockAll(lockAllRef.current);
     series.attachPrimitive(prim);
     primRef.current = prim;
+    const unfollow = toolbarFollowRef.current(prim);
     sync();
     return () => {
+      unfollow();
       primRef.current = null;
       try {
         series.detachPrimitive(prim);
@@ -1130,6 +1150,9 @@ export function useDrawings(
     /** Lock, rename, order, clone, copy and paste, and the lookup behind the right-click menu. */
     actions,
     drawingCount,
+    /** The floating toolbar's model (null when it is hidden) and its quick style edit. */
+    toolbar: toolbar.model,
+    setStyleField: toolbar.setStyleField,
     /** The open settings dialog's model, or null. */
     settings,
     /** Opens the settings dialog of a drawing (a no-op for one without settings). */

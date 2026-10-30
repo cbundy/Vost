@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import type { ISeriesApi } from 'lightweight-charts';
 import { subscribeClipboard } from '../lib/drawingClipboard';
+import { drawingMenuItems } from './chart/drawingMenuItems';
 import type { DrawingActions, DrawingInfo } from './chart/useDrawingActions';
 
 interface Menu {
@@ -103,61 +104,62 @@ export function ChartContextMenu({
   const pos = shift ?? { left: menu.x, top: menu.y };
   const d = menu.drawing;
   if (d) {
-    const item = (label: string, f: () => void) => (
-      <button role="menuitem" onClick={run(f)}>
-        {label}
-      </button>
+    const items = drawingMenuItems(d, actions.current);
+    const rename = (
+      <input
+        key="rename"
+        className="chart-context-menu-input"
+        aria-label="Name"
+        autoFocus
+        defaultValue={d.name}
+        maxLength={60}
+        onKeyDown={(ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            const name = ev.currentTarget.value;
+            close();
+            actions.current.rename(d.ids[0], name);
+          }
+        }}
+      />
+    );
+    const table = d.table && (
+      <Fragment key="table">
+        <button role="menuitem" disabled={!d.table.canAddRow} onClick={run(() => actions.current.editTable(d.ids[0], 'addRow', d.table!.row, d.table!.col))}>
+          Add row below
+        </button>
+        <button role="menuitem" disabled={!d.table.canAddColumn} onClick={run(() => actions.current.editTable(d.ids[0], 'addColumn', d.table!.row, d.table!.col))}>
+          Add column right
+        </button>
+        <button role="menuitem" disabled={!d.table.canDeleteRow} onClick={run(() => actions.current.editTable(d.ids[0], 'deleteRow', d.table!.row, d.table!.col))}>
+          Delete row
+        </button>
+        <button role="menuitem" disabled={!d.table.canDeleteColumn} onClick={run(() => actions.current.editTable(d.ids[0], 'deleteColumn', d.table!.row, d.table!.col))}>
+          Delete column
+        </button>
+      </Fragment>
     );
     return (
       <div ref={menuRef} className="chart-context-menu" role="menu" aria-label={d.title} style={pos}>
         <div className="chart-context-menu-title">{d.title}</div>
-        {d.hasSettings && item('Settings', () => actions.current.edit(d.ids[0]))}
-        {d.count > 1 ? null : renaming ? (
-          <input
-            className="chart-context-menu-input"
-            aria-label="Name"
-            autoFocus
-            defaultValue={d.name}
-            maxLength={60}
-            onKeyDown={(ev) => {
-              if (ev.key === 'Enter') {
-                ev.preventDefault();
-                const name = ev.currentTarget.value;
-                close();
-                actions.current.rename(d.ids[0], name);
-              }
-            }}
-          />
-        ) : (
-          <button role="menuitem" onClick={() => setRenaming(true)}>
-            Rename
-          </button>
+        {items.map((it) =>
+          it.special === 'rename' ? (
+            <Fragment key={it.key}>
+              {renaming ? (
+                rename
+              ) : (
+                <button role="menuitem" onClick={() => setRenaming(true)}>
+                  {it.label}
+                </button>
+              )}
+              {table}
+            </Fragment>
+          ) : (
+            <button key={it.key} role="menuitem" onClick={run(it.run)}>
+              {it.label}
+            </button>
+          ),
         )}
-        {d.table && (
-          <>
-            <button role="menuitem" disabled={!d.table.canAddRow} onClick={run(() => actions.current.editTable(d.ids[0], 'addRow', d.table!.row, d.table!.col))}>
-              Add row below
-            </button>
-            <button role="menuitem" disabled={!d.table.canAddColumn} onClick={run(() => actions.current.editTable(d.ids[0], 'addColumn', d.table!.row, d.table!.col))}>
-              Add column right
-            </button>
-            <button role="menuitem" disabled={!d.table.canDeleteRow} onClick={run(() => actions.current.editTable(d.ids[0], 'deleteRow', d.table!.row, d.table!.col))}>
-              Delete row
-            </button>
-            <button role="menuitem" disabled={!d.table.canDeleteColumn} onClick={run(() => actions.current.editTable(d.ids[0], 'deleteColumn', d.table!.row, d.table!.col))}>
-              Delete column
-            </button>
-          </>
-        )}
-        {item('Clone', () => actions.current.clone(d.ids))}
-        {item('Copy', () => actions.current.copy(d.ids))}
-        {item(d.locked ? 'Unlock' : 'Lock', () => actions.current.toggleLock(d.ids))}
-        {item('Hide', () => actions.current.setHidden(d.ids, true))}
-        {item('Bring to front', () => actions.current.reorder(d.ids, 'front'))}
-        {item('Bring forward', () => actions.current.reorder(d.ids, 'forward'))}
-        {item('Send backward', () => actions.current.reorder(d.ids, 'backward'))}
-        {item('Send to back', () => actions.current.reorder(d.ids, 'back'))}
-        {item('Delete', () => actions.current.remove(d.ids))}
       </div>
     );
   }

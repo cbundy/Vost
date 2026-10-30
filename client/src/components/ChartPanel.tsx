@@ -31,6 +31,7 @@ import { selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
+import { DrawingToolbar } from './DrawingToolbar';
 import { DrawingSettingsDialog } from './DrawingSettingsDialog';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { FavoritesBar } from './FavoritesBar';
@@ -588,6 +589,9 @@ export function ChartPanel({
           width={drawings.editor.width}
           onTab={drawings.editor.onTab}
         />
+      )}
+      {drawings.toolbar && !drawings.settings && !drawings.editor && (
+        <DrawingToolbar model={drawings.toolbar} actions={drawings.actions} onStyle={drawings.setStyleField} />
       )}
       {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}
       {active && favorites.length > 0 && <FavoritesBar {...drawingControls} />}

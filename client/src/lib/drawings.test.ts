@@ -35,6 +35,7 @@ import {
   setCell,
   setCells,
 } from './drawings';
+import { withStyleValue } from './toolbarPickers';
 import { VALIDATORS } from '../components/chart/tools';
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, gannBox: 2, gannSquareFixed: 2, gannSquare: 2, gannFan: 2, text: 1 };
@@ -346,6 +347,15 @@ describe('setStyle', () => {
     const plain = add(emptyState(), trend('a'));
     expect(setStyle(plain, 'a', {})).toBe(plain);
     expect(setStyle(plain, 'a', undefined)).toBe(plain);
+  });
+  it('a quick edit keeps the other keys, is one undo step, works on a locked drawing and is a no-op when unchanged', () => {
+    const s0 = setLocked(setStyle(add(emptyState(), trend('a')), 'a', { width: 3, lineStyle: 'dashed' }), ['a'], true);
+    const s1 = setStyle(s0, 'a', withStyleValue(s0.drawings[0].style, 'color', 'red'));
+    expect(s1.drawings[0].style).toEqual({ width: 3, lineStyle: 'dashed', color: 'red' });
+    expect(s1.drawings[0].locked).toBe(true);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(undo(s1).drawings[0].style).toEqual({ width: 3, lineStyle: 'dashed' });
+    expect(setStyle(s1, 'a', withStyleValue(s1.drawings[0].style, 'color', 'red'))).toBe(s1);
   });
   it('clears the style with an empty one', () => {
     const s1 = setStyle(add(emptyState(), trend('a')), 'a', { width: 3 });

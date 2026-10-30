@@ -1,0 +1,33 @@
+ok   above the drawing
+ok   centred over its box - 123 vs 98
+ok   inside the chart area
+ok   a colour, a width and a line style picker, the gear, lock, clone, delete and more
+ok   stored green - {"color":"green"}
+ok   one undo reverts it
+ok   width 3 and dashed stored - {"width":3,"lineStyle":"dashed"}
+ok   one undo reverts the line style only - {"width":3}
+ok   another reverts the width
+ok   toolbar hidden
+ok   toolbar back after Cancel
+ok   stored locked
+ok   aria-pressed
+ok   colour applied to the locked drawing
+ok   unlocked
+ok   every item listed - Settings,Rename,Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   Escape closes it
+ok   focus returns to More
+ok   the pan kept the selection
+ok   moved with the pan - 4,156.25 -> 5.75,134.390625
+ok   moved with a price-scale drag - 134.390625 -> 165.28125
+ok   two trend lines
+ok   the toolbar follows the selected copy
+ok   one left
+ok   no toolbar after delete
+ok   below the drawing
+ok   inside the chart area
+ok   no toolbar for two
+ok   a horizontal line has its colour, width and line style - Colour,Width,Line style,Settings,Lock,Clone,Delete,More
+ok   a note has no line style picker - Text colour,Settings,Lock,Clone,Delete,More
+ok   no drawing was added
+ok   the chart did not pan: the toolbar that follows the drawing has not moved - {"x":4,"y":156.25,"width":238,"height":36}
+ok   inside the chart area with no horizontal overflow - {"t":{"x":4,"y":118.03125,"width":238,"height":36},"main":{"x":0,"y":41,"width":320,"height":379}}
