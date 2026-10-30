@@ -171,7 +171,7 @@ export interface ChartState {
   optConfig: OptimizeConfig;
   optRunning: boolean;
   optProgress: number;
-  optResult: { rows: OptimizeRow[]; metric: MetricKey; combos: number; errored: number } | null;
+  optResult: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; combos: number; errored: number } | null;
 
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
@@ -838,7 +838,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         });
         if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
         set({
-          optResult: { rows: msg.rows, metric: msg.metric, combos: msg.combos, errored: msg.errored },
+          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored },
           optRunning: false,
           optProgress: 1,
         });

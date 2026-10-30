@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { METRIC_LABELS, paramValues, type MetricKey, type OptimizeRow } from '../lib/backtest/optimizer';
+import { gridSize, MAX_GRID_COMBOS, METRIC_LABELS, type MetricKey, type OptimizeRow } from '../lib/backtest/optimizer';
 import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtPct, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
@@ -37,8 +37,8 @@ export function OptimizerTab() {
   const numericParams = strategy.pine
     ? pineInputs
         .filter((i) => i.type === 'int' || i.type === 'float')
-        .map((i) => ({ key: i.name, label: i.name }))
-    : strategy.params.filter((p) => p.type !== 'select');
+        .map((i) => ({ key: i.name, label: i.name, isInt: i.type === 'int' }))
+    : strategy.params.filter((p) => p.type !== 'select').map((p) => ({ key: p.key, label: p.label, isInt: p.type === 'int' }));
   const refreshPineInputs = useChart((s) => s.refreshPineInputs);
   useEffect(() => {
     if (strategy.pine && pineInputs.length === 0) void refreshPineInputs();
@@ -54,12 +54,20 @@ export function OptimizerTab() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategy.pine, firstKey]);
-  const combos = paramValues(optConfig.sweepA).length * (optConfig.sweepB ? paramValues(optConfig.sweepB).length : 1);
+  const combos = gridSize(optConfig);
+  const isIntKey = (key: string) => numericParams.find((p) => p.key === key)?.isInt === true;
+  const fractionalInt = (sw: { key: string; step: number } | null) => sw != null && isIntKey(sw.key) && !Number.isInteger(sw.step);
+  const stepProblem = fractionalInt(optConfig.sweepA)
+    ? optConfig.sweepA.key
+    : fractionalInt(optConfig.sweepB)
+      ? optConfig.sweepB!.key
+      : null;
+  const overLimit = combos > MAX_GRID_COMBOS;
 
   return (
     <div>
       <div className="hint mb-2">
-        Grid-search strategy parameters in your browser — thousands of backtests, no limits, no server. Click a result to apply it and
+        Grid-search strategy parameters in your browser — up to {fmtNum(MAX_GRID_COMBOS, 0)} backtests per run, no server. Click a result to apply it and
         re-run instantly.
       </div>
 
@@ -123,10 +131,20 @@ export function OptimizerTab() {
       </div>
 
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0} onClick={() => void runOptimizer()}>
+        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0 || overLimit || stepProblem != null} onClick={() => void runOptimizer()}>
           {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : `Optimize ${combos} combinations`}
         </button>
-        {combos > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
+        {overLimit && (
+          <span className="hint" style={{ color: 'var(--amber)' }}>
+            Grid too large: {fmtNum(combos, 0)} combinations, the limit is {fmtNum(MAX_GRID_COMBOS, 0)}. Narrow a range or raise a step.
+          </span>
+        )}
+        {stepProblem != null && (
+          <span className="hint" style={{ color: 'var(--amber)' }}>
+            {stepProblem} is a whole-number parameter: use a whole-number step.
+          </span>
+        )}
+        {!overLimit && combos > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
         <span className="hint">{rangeText}</span>
         <span className="hint">{numericParams.length === 0 ? 'This strategy has no numeric parameters to sweep.' : ''}</span>
       </div>
@@ -148,8 +166,8 @@ export function OptimizerTab() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 16, alignItems: 'start' }}>
-            <TopResultsTable rows={optResult.rows} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
-            <Heatmap rows={optResult.rows} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
+            <TopResultsTable rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
+            <Heatmap rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
           </div>
         </div>
       )}
@@ -192,9 +210,9 @@ export function formatMetric(metric: MetricKey, value: number | null): string {
   return fmtNum(value, 2);
 }
 
-function TopResultsTable({ rows, metric, onApply }: { rows: OptimizeRow[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
+function TopResultsTable({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
   const top = rows.slice(0, 12);
-  const paramKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r.params)))).slice(0, 4);
+  const paramKeys = keys;
   return (
     <div className="table-wrap" style={{ maxHeight: 220 }}>
       <table className="data-table">
@@ -235,10 +253,9 @@ function TopResultsTable({ rows, metric, onApply }: { rows: OptimizeRow[]; metri
   );
 }
 
-function Heatmap({ rows, metric, onApply }: { rows: OptimizeRow[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
-  const withB = rows.filter((r) => Object.keys(r.params).length >= 2);
-  const aKey = Object.keys(rows[0]?.params ?? {})[0];
-  const bKey = Object.keys(rows[0]?.params ?? {})[1];
+function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
+  const aKey = keys[0];
+  const bKey = keys[1];
   if (!aKey) return null;
 
   const values = rows.map((r) => r.value).filter((v): v is number => v != null && Number.isFinite(v));
@@ -274,7 +291,7 @@ function Heatmap({ rows, metric, onApply }: { rows: OptimizeRow[]; metric: Metri
           </>
         ) : null}{' '}
         · colour = {METRIC_LABELS[metric]}
-        {withB.length === 0 ? ' (1D sweep)' : ''}
+        {bKey ? '' : ' (1D sweep)'}
       </div>
       <div className="heatmap" style={{ gridTemplateColumns: `52px repeat(${bVals.length}, minmax(52px, 1fr))` }}>
         <div className="hm-head" />
