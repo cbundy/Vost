@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_BARS } from '../../../shared/market.ts';
 import type { Candle } from '../types';
-import { HISTORY_MAX_BARS, HISTORY_PAGE_BARS, belowHistoryCap, isHistoryStart, nextPageRequest } from './historyPaging';
+import { HISTORY_MAX_BARS, HISTORY_PAGE_BARS, belowHistoryCap, isHistoryStart, nextPageRequest, runPageBars } from './historyPaging';
 
 const bar = (time: number): Candle => ({ time, open: 1, high: 1, low: 1, close: 1, volume: 1 });
 
@@ -8,6 +9,15 @@ describe('historyPaging', () => {
   it('asks for one page ending just before the first loaded bar', () => {
     expect(nextPageRequest(5000)).toEqual({ bars: HISTORY_PAGE_BARS, to: 4999 });
     expect(HISTORY_PAGE_BARS).toBe(1000);
+  });
+  it('asks for an explicit bar count when given one', () => {
+    expect(nextPageRequest(5000, 7000)).toEqual({ bars: 7000, to: 4999 });
+  });
+  it('sizes a run page to the gap, within one scroll page and MAX_BARS', () => {
+    expect(runPageBars('1h', 0, 3600 * 5000)).toBe(5000);
+    expect(runPageBars('1h', 3600 * 4900, 3600 * 5000)).toBe(HISTORY_PAGE_BARS);
+    expect(runPageBars('1h', 0, 3600 * 90000)).toBe(MAX_BARS);
+    expect(runPageBars('bogus' as never, 0, 3600 * 5000)).toBe(HISTORY_PAGE_BARS);
   });
   it('treats an empty reply or one with nothing older as the history start', () => {
     expect(isHistoryStart([], 100)).toBe(true);

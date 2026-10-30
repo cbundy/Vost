@@ -398,6 +398,23 @@ export function ChartPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, candles, dataKey, indicators]);
 
+  /* A backtest or optimizer run that loaded older history asks the chart to show its range (once). */
+  const viewRequest = useChart((s) => s.viewRequest);
+  useEffect(() => {
+    if (!chartApi || !viewRequest) return;
+    // One frame later: a range set in the same frame as the merged bars is overridden by the chart's own update for them.
+    const frame = requestAnimationFrame(() => {
+      try {
+        chartApi.timeScale().setVisibleRange({ from: viewRequest.from as UTCTimestamp, to: viewRequest.to as UTCTimestamp });
+      } catch {
+        /* no data to place the range on */
+      }
+      chartStore.getState().clearViewRequest();
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartApi, viewRequest]);
+
   /* Only the bar colors changed (new run, script hidden or removed, replay cutoff): re-send the bars, keep the view. */
   useEffect(() => {
     const candleSeries = candleSeriesRef.current;
