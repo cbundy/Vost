@@ -3,6 +3,7 @@
  * time zone, circle, arc and spiral shapes, and the distances the tools hit test with. No chart or React imports.
  */
 import { distToSegment, type Pt } from '../drawingGeometry';
+import { clipLine, clipPolygon } from './pitchfork';
 
 /** Fibonacci retracement ratios, from the end anchor (0) to the start anchor (1). */
 export const FIB_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
@@ -34,6 +35,13 @@ export const FIB_SPEED_LEVELS: readonly number[] = [0, 0.25, 0.382, 0.5, 0.618, 
 export const FIB_CIRCLE_LEVELS: readonly number[] = [0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618, 2.618, 3.618, 4.236];
 /** The speed resistance arcs' default radii, as multiples of the distance between the points. */
 export const FIB_ARC_LEVELS: readonly number[] = [0.236, 0.382, 0.5, 0.618, 0.786, 1];
+
+/** The trend-based extension's (and the Fib channel's) default ratios. */
+export const FIB_EXTENSION_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618, 2.618, 3.618, 4.236];
+/** The trend-based time's default ratios. */
+export const FIB_TREND_TIME_LEVELS: readonly number[] = [0, 0.382, 0.5, 0.618, 1, 1.382, 1.618, 2, 2.382, 2.618, 3, 3.618, 4.236];
+/** The wedge's default radii, as multiples of the length of the edge A-B. */
+export const FIB_WEDGE_LEVELS: readonly number[] = [0.236, 0.382, 0.5, 0.618, 0.786, 1];
 
 /** The golden ratio. */
 export const GOLDEN = (1 + Math.sqrt(5)) / 2;
@@ -127,4 +135,118 @@ export function distToSpiral(p: Pt, center: Pt, through: Pt, ccw: boolean): numb
   let best = Infinity;
   for (let i = 1; i < pts.length; i++) best = Math.min(best, distToSegment(p, pts[i - 1], pts[i]));
   return best;
+}
+
+/* ------------------------- three-point Fibonacci tools ------------------------- */
+
+/** Price of each trend-based extension level: C + (B - A) * r; reversed, C + (A - B) * r. */
+export function extensionPrices(a: number, b: number, c: number, levels: readonly number[] = FIB_EXTENSION_LEVELS, reverse = false): number[] {
+  const unit = reverse ? a - b : b - a;
+  return levels.map((r) => c + unit * r);
+}
+
+/** The vertical offset of each Fib channel level from the line A-B: ratio times `d` (the pixel offset of C from A-B). */
+export function fibChannelOffsets(d: number, levels: readonly number[] = FIB_EXTENSION_LEVELS): number[] {
+  return levels.map((r) => d * r);
+}
+
+/** Pixel x of the trend-based time line r: x_C + (x_B - x_A) * r. */
+export function trendTimeX(xa: number, xb: number, xc: number, r: number): number {
+  return xc + (xb - xa) * r;
+}
+
+/** Fractional logical bar index of the trend-based time line r. */
+export function trendTimeLogical(la: number, lb: number, lc: number, r: number): number {
+  return lc + (lb - la) * r;
+}
+
+export type WedgeGeometry = {
+  /** The length of the edge A-B: the radius of level 1. */
+  radius: number;
+  /** Angle of the edge A-B. */
+  start: number;
+  /** Signed angle from the edge A-B to the edge A-C, the smaller way round (-pi, pi]. */
+  sweep: number;
+  /** Angle of the edge A-C. */
+  end: number;
+};
+
+/** The wedge's apex A, radius unit and sweep; null when A-B or A-C has no length. */
+export function wedgeGeometry(a: Pt, b: Pt, c: Pt): WedgeGeometry | null {
+  const radius = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!(radius > 1e-9) || !Number.isFinite(radius)) return null;
+  if (!(Math.hypot(c.x - a.x, c.y - a.y) > 1e-9)) return null;
+  const start = Math.atan2(b.y - a.y, b.x - a.x);
+  const end = Math.atan2(c.y - a.y, c.x - a.x);
+  let sweep = end - start;
+  while (sweep > Math.PI) sweep -= 2 * Math.PI;
+  while (sweep <= -Math.PI) sweep += 2 * Math.PI;
+  return Number.isFinite(sweep) ? { radius, start, sweep, end } : null;
+}
+
+/** Whether the angle of p around a is within the wedge's sweep. */
+export function inWedgeSweep(p: Pt, a: Pt, g: WedgeGeometry): boolean {
+  let rel = Math.atan2(p.y - a.y, p.x - a.x) - g.start;
+  while (rel > Math.PI) rel -= 2 * Math.PI;
+  while (rel <= -Math.PI) rel += 2 * Math.PI;
+  return g.sweep >= 0 ? rel >= 0 && rel <= g.sweep : rel <= 0 && rel >= g.sweep;
+}
+
+/** Distance from p to the wedge arc of radius r around a; the arc's ends count. */
+export function distToWedgeArc(p: Pt, a: Pt, g: WedgeGeometry, r: number): number {
+  if (inWedgeSweep(p, a, g)) return Math.abs(Math.hypot(p.x - a.x, p.y - a.y) - r);
+  const e = (ang: number) => Math.hypot(p.x - (a.x + r * Math.cos(ang)), p.y - (a.y + r * Math.sin(ang)));
+  return Math.min(e(g.start), e(g.end));
+}
+
+/** The two points of pitchfan level r on the line B-C: M + r(C - M) and M - r(C - M), M being the midpoint. */
+export function pitchfanPoints(b: Pt, c: Pt, r: number): [Pt, Pt] {
+  const m = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
+  return [{ x: m.x + r * (c.x - m.x), y: m.y + r * (c.y - m.y) }, { x: m.x - r * (c.x - m.x), y: m.y - r * (c.y - m.y) }];
+}
+
+export type PitchfanLevel = { value: number; color: string; on: boolean };
+export type PitchfanShape = {
+  /** The median A-M (clipped to the pane when extended, else ending at M). */
+  median: [Pt, Pt] | null;
+  /** Two lines per enabled level. */
+  lines: { value: number; color: string; seg: [Pt, Pt] }[];
+  /** Fills between neighbouring lines on each side, from the median outward. */
+  fills: { color: string; poly: Pt[] }[];
+};
+
+/** Every line and fill of a pitchfan on a pane of the given size; empty when A, B and C do not span a fan. */
+export function pitchfanShape(a: Pt, b: Pt, c: Pt, levels: readonly PitchfanLevel[], width: number, height: number, extend: boolean): PitchfanShape {
+  const out: PitchfanShape = { median: null, lines: [], fills: [] };
+  const m = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
+  if (![a, b, c].every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return out;
+  const seg = (to: Pt): [Pt, Pt] | null => {
+    const d = { x: to.x - a.x, y: to.y - a.y };
+    if (d.x === 0 && d.y === 0) return null;
+    return extend ? clipLine(a, d, width, height, false) : [{ ...a }, { ...to }];
+  };
+  out.median = seg(m);
+  const on = levels.filter((l) => l.on && Number.isFinite(l.value) && l.value !== 0).sort((x, y) => Math.abs(x.value) - Math.abs(y.value));
+  const far = (to: Pt): Pt => {
+    const len = Math.hypot(to.x - a.x, to.y - a.y);
+    if (!(len > 0)) return { ...to };
+    const k = (2 * (width + height + Math.abs(a.x) + Math.abs(a.y))) / len;
+    return { x: a.x + (to.x - a.x) * k, y: a.y + (to.y - a.y) * k };
+  };
+  for (const side of [0, 1] as const) {
+    let prevPt = m;
+    let prevVal = 0;
+    for (const l of on) {
+      const pt = pitchfanPoints(b, c, Math.abs(l.value))[side];
+      const s = seg(pt);
+      if (s) out.lines.push({ value: l.value, color: l.color, seg: s });
+      if (Math.abs(l.value) !== prevVal) {
+        const poly = clipPolygon(extend ? [a, far(prevPt), far(pt)] : [a, prevPt, pt], width, height);
+        if (poly.length >= 3) out.fills.push({ color: l.color, poly });
+      }
+      prevPt = pt;
+      prevVal = Math.abs(l.value);
+    }
+  }
+  return out;
 }

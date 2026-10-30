@@ -11,7 +11,7 @@ New here? Start with [Getting started](getting-started.md).
 | [Timeframes](timeframes.md) | The timeframe picker, built timeframes marked `*`, the Build setting and custom intervals |
 | [Layouts](layouts.md) | 1 to 16 charts, the active chart, dividers, the narrow-screen switcher, Sync in layout and named layouts |
 | [Drawings](drawings.md) | Tool families with pop-out lists, favourites, trend lines, rays, rectangles, Fibonacci, text notes, measure, cursor kinds, the eraser, magnet and the touch tools |
-| [Fibonacci tools](drawing-fib-gann.md) | The time zone, speed resistance fan, circles, spiral and speed resistance arcs: placing them, their levels and their settings |
+| [Fibonacci tools](drawing-fib-gann.md) | The time zone, speed resistance fan, circles, spiral, speed resistance arcs, trend-based extension, channel, trend-based time, wedge and pitchfan: placing them, their levels and their settings |
 | [Chart patterns](drawing-patterns.md) | The XABCD, Cypher and ABCD pattern tools: placing the points, the labels and ratios, and the settings |
 | [Text and Anchored text](drawing-annotations.md) | Typing a multi-line note, the Text tab, wrapping and alignment, and Anchored text that stays on the pane |
 | [Alerts](alerts.md) | Price alerts that fire around the clock, the popup, the inbox and Telegram messages |

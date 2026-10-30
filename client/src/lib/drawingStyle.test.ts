@@ -66,6 +66,23 @@ describe('default styles equal the look drawings had before styles', () => {
     }
     expect(fieldsOf('fibSpiral').some((f) => f.tab === 'text')).toBe(false);
   });
+  it('the three-point fibonacci tools resolve their tables and Text-tab settings', () => {
+    const vals = (v: Record<string, unknown>) => (v.levels as { value: number }[]).map((l) => l.value);
+    const ext = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618, 2.618, 3.618, 4.236];
+    expect(vals(defaults('fibExtension'))).toEqual(ext);
+    expect(vals(defaults('fibChannel'))).toEqual(ext);
+    expect(vals(defaults('fibTrendTime'))).toEqual([0, 0.382, 0.5, 0.618, 1, 1.382, 1.618, 2, 2.382, 2.618, 3, 3.618, 4.236]);
+    expect(vals(defaults('fibWedge'))).toEqual([0.236, 0.382, 0.5, 0.618, 0.786, 1]);
+    const on = (v: Record<string, unknown>) => (v.levels as { value: number; on: boolean }[]).filter((l) => l.on).map((l) => l.value);
+    expect(on(defaults('pitchfan'))).toEqual([0.5, 1]);
+    expect(defaults('fibExtension')).toMatchObject({ reverse: false, extendLeft: false, extendRight: false, background: false, showLevels: true, showPrices: true, showPercent: false });
+    expect(defaults('fibChannel')).toMatchObject({ extendLeft: false, extendRight: false, showLevels: true });
+    expect(defaults('fibTrendTime')).toMatchObject({ showLabels: true });
+    expect(defaults('pitchfan')).toMatchObject({ showMedian: true, extendLines: false, background: true });
+    for (const [id, keys] of [['fibExtension', ['showLevels', 'showPrices', 'showPercent']], ['fibChannel', ['showLevels']], ['fibTrendTime', ['showLabels']], ['fibWedge', ['showLabels']]] as const) {
+      expect(fieldsOf(id).filter((f) => f.tab === 'text').map((f) => f.key)).toEqual(keys);
+    }
+  });
   it('text', () => {
     const v = defaults('text');
     expect(colorHex(v.color)).toBe(theme.text);
@@ -76,9 +93,9 @@ describe('default styles equal the look drawings had before styles', () => {
   it('anchored text', () => {
     expect(defaults('anchoredText')).toMatchObject({ size: 14, bold: false, italic: false, align: 'left', wrap: false, wrapWidth: 240 });
   });
-  it('every default colour names a theme token, not a fixed hex (the pitchforks keep TradingView\'s fixed palette)', () => {
+  it('every default colour names a theme token, not a fixed hex (the pitchforks and the pitchfan keep TradingView\'s fixed palette)', () => {
     for (const t of TOOLS) {
-      const fixed = t.id.toLowerCase().endsWith('pitchfork');
+      const fixed = t.id.toLowerCase().endsWith('pitchfork') || t.id === 'pitchfan';
       for (const f of t.settings ?? []) {
         if (f.kind !== 'color') continue;
         if (fixed) expect(f.default).toMatch(/^#[0-9a-fA-F]{6}$/);
@@ -112,7 +129,7 @@ describe('every registered tool declares settings', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
   it('only the text tools store text, and they, the line tools and the labelled Fibonacci tools declare Text settings', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'xabcdPattern', 'cypherPattern', 'abcdPattern'].includes(t.id));
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'xabcdPattern', 'cypherPattern', 'abcdPattern'].includes(t.id));
     expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText']);
     expect(TOOLS.filter((t) => t.caption).map((t) => t.id)).toEqual(['arrowMarker', 'arrowMarkUp', 'arrowMarkDown']);
   });
