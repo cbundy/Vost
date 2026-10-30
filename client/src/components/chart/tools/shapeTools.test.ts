@@ -12,6 +12,7 @@ import { rotatedRectangle } from './rotatedRectangle';
 import { triangle } from './triangle';
 import { startDraft, releaseDraft } from '../../../lib/drawingDraft';
 import { anchorRange } from '../../../lib/drawings';
+import { sideDistance } from '../../../lib/geometry/shapes';
 import { CAPTION_TOOLS, TOOLS } from './index';
 import type { DrawingTool, ToolView } from './types';
 
@@ -203,6 +204,16 @@ describe('rotated rectangle', () => {
     const [a, b, c] = rotatedRectangle.dragHandle!(pts, 3, pt(150, 190));
     expect([a, b]).toEqual([pts[0], pts[1]]);
     expect(near(c, pt(100, 190))).toBe(true);
+  });
+  it('keeps the width on a zero drag of any width handle and follows the pointer', () => {
+    const hs = rotatedRectangle.handles(pts, view(rotatedRectangle));
+    for (const i of [2, 3, 4]) {
+      const [a, b, c] = rotatedRectangle.dragHandle!(pts, i, hs[i]);
+      expect([a, b]).toEqual([pts[0], pts[1]]);
+      expect(Math.abs(sideDistance(a, b, c))).toBeCloseTo(Math.abs(sideDistance(pts[0], pts[1], pts[2])));
+    }
+    const moved = rotatedRectangle.dragHandle!(pts, 2, pt(hs[2].x, hs[2].y + 10));
+    expect(near(moved[2], pt(150, 200))).toBe(true);
   });
   it('draws the first side with two points and throws nothing for equal or collinear points', () => {
     expect(() => rotatedRectangle.draw(stub, [pt(1, 1), pt(5, 5)], view(rotatedRectangle), { selected: false })).not.toThrow();

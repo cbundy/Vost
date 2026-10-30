@@ -42,6 +42,8 @@ export const rotatedRectangle: DrawingTool = {
     const w = sideDistance(a, b, c);
     if (handle === 0) return [p, b, pointAtWidth(p, b, w)];
     if (handle === 1) return [a, p, pointAtWidth(a, p, w)];
-    return [a, b, pointAtWidth(a, b, sideDistance(a, b, p))];
+    // The side middles (handles 2 and 4) sit at half the width, the far one (3) at the full width.
+    const d = sideDistance(a, b, p);
+    return [a, b, pointAtWidth(a, b, handle === 3 ? d : d * 2)];
   },
 };
