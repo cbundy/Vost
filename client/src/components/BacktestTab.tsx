@@ -11,7 +11,7 @@ import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange, timeRangeErrorText } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
 import { useStore } from '../state/store';
-import { selectBars } from '../state/chart';
+import { runNeedsHistoryOf, selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 
 export function BacktestTab() {
@@ -33,6 +33,8 @@ export function BacktestTab() {
 
   const isPine = !!strategy.pine;
 
+  const historyLoading = useStore((s) => s.historyLoading);
+  const needsHistory = useChart((s) => runNeedsHistoryOf(s, historyLoading, btRange));
   const range = describeTimeRange(candles, btRange);
   const hasData = candles.length >= 3;
   const rangeSet = btRange.from != null || btRange.to != null;
@@ -40,14 +42,18 @@ export function BacktestTab() {
   const hint = (() => {
     if (!hasData) return 'Load data first (provider above or CSV import).';
     const tail = "signals execute at the next bar's open · fees & slippage applied";
-    if (range.error === 'too-few-bars') return `Fewer than 3 bars in range · ${fmtNum(range.total, 0)} bars loaded · ${tail}`;
+    if (range.error === 'too-few-bars' && !needsHistory) return `Fewer than 3 bars in range · ${fmtNum(range.total, 0)} bars loaded · ${tail}`;
     const count = rangeSet ? `${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars` : `${fmtNum(range.total, 0)} bars`;
     const span =
       range.count > 0
         ? ` · ${fmtTime(inRange[0].time, { timeZone })} → ${fmtTime(inRange[inRange.length - 1].time, { timeZone })}`
         : '';
     const clips = [
-      range.clippedStart ? 'range starts before the data, using the first bar' : '',
+      range.clippedStart
+        ? needsHistory
+          ? 'range starts before the loaded bars, older history loads on run'
+          : 'range starts before the data, using the first bar'
+        : '',
       range.clippedEnd ? 'range ends after the data, using the last bar' : '',
     ].filter(Boolean);
     return `${count}${span}${clips.length ? ` · ${clips.join(' · ')}` : ''} · ${tail}`;
@@ -213,7 +219,7 @@ export function BacktestTab() {
       </div>
 
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={btRunning || !hasData || range.error != null} onClick={() => void runBacktest()}>
+        <button className="primary" disabled={btRunning || !hasData || (range.error != null && !(range.error === 'too-few-bars' && needsHistory))} onClick={() => void runBacktest()}>
           {btRunning ? (
             <>
               <span className="spinner" style={{ marginRight: 8 }} />

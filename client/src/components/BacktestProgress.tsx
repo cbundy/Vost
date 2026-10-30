@@ -2,9 +2,11 @@ import type { BacktestStage } from '../lib/backtest/types';
 import { useChart } from '../state/chartContext';
 
 /** Label of a stage; the percent is shown for the stages that advance bar by bar. */
-export function progressLabel(stage: BacktestStage | null, pct: number): string {
+export function progressLabel(stage: BacktestStage | 'history' | null, pct: number): string {
   const percent = `${Math.round(pct * 100)}%`;
   switch (stage) {
+    case 'history':
+      return 'Loading history';
     case 'signals':
       return 'Computing signals';
     case 'simulating':
@@ -23,7 +25,7 @@ export function BacktestProgress() {
   const pct = useChart((s) => s.btProgress);
   const stage = useChart((s) => s.btStage);
   const label = progressLabel(stage, pct);
-  const indeterminate = stage == null;
+  const indeterminate = stage == null || stage === 'history';
   return (
     <div className="bt-progress">
       <div

@@ -4,7 +4,7 @@ import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
 import { useStore } from '../state/store';
-import { selectBars } from '../state/chart';
+import { runNeedsHistoryOf, selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 import { OptimizerResults } from './OptimizerResults';
 import { ValidationSettings } from './OptimizerValidation';
@@ -18,6 +18,9 @@ export function OptimizerTab() {
   const optConfig = useChart((s) => s.optConfig);
   const optRunning = useChart((s) => s.optRunning);
   const optProgress = useChart((s) => s.optProgress);
+  const optStage = useChart((s) => s.optStage);
+  const historyLoading = useStore((s) => s.historyLoading);
+  const needsHistory = useChart((s) => runNeedsHistoryOf(s, historyLoading, s.btRange));
   const optResult = useChart((s) => s.optResult);
   const candles = useChart(selectBars);
   const btRange = useChart((s) => s.btRange);
@@ -31,14 +34,17 @@ export function OptimizerTab() {
   const rangeSet = btRange.from != null || btRange.to != null;
   const rangeText = !rangeSet
     ? 'Range: full data (set in Backtest)'
-    : range.error === 'from-after-to'
+    : needsHistory
+      ? 'Range: starts before the loaded bars, older history loads on run (set in Backtest)'
+      : range.error === 'from-after-to'
       ? 'Range: From is later than To (set in Backtest)'
       : range.error === 'too-few-bars'
         ? 'Range: fewer than 3 bars (set in Backtest)'
         : `Range: ${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars · ${fmtTime(range.slice[0].time, { timeZone })} → ${fmtTime(range.slice[range.slice.length - 1].time, { timeZone })} (set in Backtest)`;
 
   const validation = optConfig.validation ?? { method: 'none' as const };
-  const validationText = range.error == null ? validationProblem(validation, range.count) : null;
+  const validationText = range.error == null && !needsHistory ? validationProblem(validation, range.count) : null;
+  const rangeBlocked = range.error != null && !(range.error === 'too-few-bars' && needsHistory);
   const rangeSpans = (() => {
     if (validation.method === 'walk-forward' && range.error == null && validationText == null) {
       const { isLen, oosLen } = walkForwardSizes(range.count, validation);
@@ -150,7 +156,7 @@ export function OptimizerTab() {
       </div>
 
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0 || overLimit || stepProblem != null || validationText != null} onClick={() => void runOptimizer()}>
+        <button className="primary" disabled={optRunning || candles.length < 3 || rangeBlocked || combos === 0 || overLimit || stepProblem != null || validationText != null} onClick={() => void runOptimizer()}>
           {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : walking && Number.isFinite(total) ? `Optimize ${fmtNum(total, 0)} backtests (${validation.windows} windows x ${fmtNum(combos, 0)} combinations)` : `Optimize ${combos} combinations`}
         </button>
         {overLimit && (
@@ -178,9 +184,10 @@ export function OptimizerTab() {
 
       {optRunning && (
         <div className="row mt-3">
-          <div className="progress" style={{ maxWidth: 420, flex: 1 }}>
-            <div style={{ width: `${Math.round(optProgress * 100)}%` }} />
+          <div className={`progress${optStage === 'history' ? ' indeterminate' : ''}`} style={{ maxWidth: 420, flex: 1 }}>
+            <div style={optStage === 'history' ? undefined : { width: `${Math.round(optProgress * 100)}%` }} />
           </div>
+          {optStage === 'history' && <span className="hint">Loading history</span>}
           <button className="ghost" aria-label="Cancel" onClick={() => cancelOptimizer()}>
             Cancel
           </button>
