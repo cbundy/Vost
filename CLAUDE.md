@@ -111,7 +111,7 @@ Install first with `npm ci` (the gate commands in `.claude/factory-loop.json` in
 | Build | `npm run build` | step "Build client" |
 
 Non-gate command (UI evidence; never in a gate or CI; see `docs/e2e-visual-verification.md`):
-`npm run -s e2e:capture -- <scenario>` (scenarios: `alerts`, `chart`, `chart-pan`, `chart-reset`, `chart-range`, `drawing-rail`, `drawing-lines`, `drawing-shapes`, `drawing-channels`, `drawing-fib`, `drawing-fib-trend`, `drawing-pitchforks`, `drawing-patterns`, `drawing-manage`, `drawing-text`, `drawings`, `drawing-settings`, `layouts`, `conn-status`, `zone-clock`, `bt-range`, `bt-progress`, `bt-results`, `monte-carlo`, `optimizer`, `built-timeframe`, `custom-timeframe`, `pine-pane`, `pine-convert`, `pine-libraries`, `compare`, `replay`, `pane-resize`, `responsive`, `network-audit`, `outage`, `watchlist`, `ui-audit`).
+`npm run -s e2e:capture -- <scenario>` (scenarios: `alerts`, `chart`, `chart-pan`, `chart-reset`, `chart-range`, `drawing-rail`, `drawing-lines`, `drawing-shapes`, `drawing-channels`, `drawing-fib`, `drawing-fib-trend`, `drawing-gann`, `drawing-pitchforks`, `drawing-patterns`, `drawing-manage`, `drawing-text`, `drawings`, `drawing-settings`, `layouts`, `conn-status`, `zone-clock`, `bt-range`, `bt-progress`, `bt-results`, `monte-carlo`, `optimizer`, `built-timeframe`, `custom-timeframe`, `pine-pane`, `pine-convert`, `pine-libraries`, `compare`, `replay`, `pane-resize`, `responsive`, `network-audit`, `outage`, `watchlist`, `ui-audit`).
 
 One suite while debugging: `npm test -- client/src/lib/csv.test.ts`. Test output settings
 (dot reporter, silent) live in `vitest.config.ts`.

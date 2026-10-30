@@ -460,7 +460,15 @@ export function useDrawings(
         }
       }
     };
-    const finish = (anchors: Anchor[], id: string) => {
+    const finish = (placed: Anchor[], id: string) => {
+      let anchors = placed;
+      const settle = getTool(id)?.settle;
+      const prim = primRef.current;
+      if (settle && prim) {
+        const def = getTool(id);
+        const pts = placed.map((a) => prim.toPoint(a, def));
+        if (pts.every((q) => q)) anchors = settle(pts as Pt[]).map((q, i) => prim.toAnchor(q, def) ?? placed[i]);
+      }
       if (getTool(id)?.transient) {
         // A measure is shown, never stored: it stays until the next press, Escape or a rail pick.
         measureRef.current = { id: 'measure', tool: id, anchors };

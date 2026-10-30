@@ -18,7 +18,7 @@ type Prefs = {
 const FAMILIES: { id: string; label: string; first: string; sections: string[] }[] = [
   { id: 'cursors', label: 'Cursors', first: 'Cross', sections: ['Cursors'] },
   { id: 'lines', label: 'Lines', first: 'Trend line', sections: ['Lines', 'Channels'] },
-  { id: 'fib-gann', label: 'Fibonacci and Gann', first: 'Fibonacci retracement', sections: ['Fibonacci'] },
+  { id: 'fib-gann', label: 'Fibonacci and Gann', first: 'Fibonacci retracement', sections: ['Fibonacci', 'Gann'] },
   { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Measure', sections: ['Measurers'] },
   { id: 'shapes', label: 'Shapes', first: 'Rectangle', sections: ['Shapes'] },
   { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text'] },

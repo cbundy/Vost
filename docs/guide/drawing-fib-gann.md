@@ -1,6 +1,6 @@
-# Fibonacci tools
+# Fibonacci and Gann tools
 
-The **Fibonacci and Gann** family of the [drawing rail](drawings.md) holds the Fibonacci retracement, five more two-point tools and five three-point tools. Pick one, then click two points on the chart (three for the three-point tools), or press, drag and release and then click (or tap the points on a phone). A preview follows the pointer until the last point. Escape cancels.
+The **Fibonacci and Gann** family of the [drawing rail](drawings.md) holds the Fibonacci retracement, five more two-point tools and five three-point tools, and under a second heading the four Gann tools. Pick one, then click two points on the chart (three for the three-point tools), or press, drag and release and then click (or tap the points on a phone). A preview follows the pointer until the last point. Escape cancels.
 
 All of them select, move by their lines, curves or fills, resize by their handles (two or three), snap to the bars with the magnet, undo and redo, and are saved with the chart. Double-click one to open its settings: levels, colours and switches are on the **Style** tab and the level labels on the **Text** tab.
 
@@ -29,6 +29,17 @@ Click or tap the points A, B and C in turn. While you place them, the segment A-
 ![The Fib wedge restyled: a level and its labels off](../evidence/drawing-fib-trend/drawing-fib-trend-styled-fibWedge-desktop.png)
 
 ![The speed resistance fan restyled: a level off and a label side off](../evidence/drawing-fib/drawing-fib-styled-fibSpeedFan-desktop.png)
+
+## Gann tools
+
+The Gann box, Gann square fixed, Gann square and Gann fan are placed, selected, moved, resized, undone and saved like the Fibonacci tools, and show the time and price of their points on the axes while selected.
+
+- **Gann box**: the two points are opposite corners. Price levels and time levels (0, 0.25, 0.382, 0.5, 0.618, 0.75, 1) are two tables, **Angles** draws the box diagonals, each band can be filled, and **Reverse** measures the levels from the other side. Left, right, top and bottom labels are on the Text tab. It has eight handles: the corners, and the side midpoints, which move only their own side.
+- **Gann square**: a free rectangle whose first point is the origin of its three tables: grid levels, fans (1x4, 1x2, 1x1, 2x1, 4x1) and quarter arcs. Each entry has its own switch and colour.
+- **Gann square fixed**: the same, held square on screen: its side is the larger of the two point distances, so the second point only picks the direction and the size.
+- **Gann fan**: lines from the first point at 1x8, 1x4, 1x3, 1x2, 1x1, 2x1, 3x1, 4x1 and 8x1 of the box the points span (1x1 runs through the second point), continuing to the edge of the pane, with a fill between neighbouring lines and the ratio as a label.
+
+![The four Gann tools drawn together](../evidence/drawing-gann/drawing-gann-all-desktop.png)
 
 ## Levels
 

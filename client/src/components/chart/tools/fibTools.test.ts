@@ -44,7 +44,7 @@ const B = { x: 200, y: 100 };
 
 describe('registry', () => {
   it('lists the eleven Fibonacci tools in TradingView order, in the Fibonacci section', () => {
-    const fib = TOOLS.filter((t) => t.group === 'fib-gann').map((t) => t.id);
+    const fib = TOOLS.filter((t) => t.section === 'Fibonacci').map((t) => t.id);
     expect(fib).toEqual(['fibRetracement', 'fibExtension', 'fibChannel', 'fibTimeZone', 'fibSpeedFan', 'fibTrendTime', 'fibCircles', 'fibSpiral', 'fibSpeedArcs', 'fibWedge', 'pitchfan']);
     for (const t of NEW) {
       expect(t.section).toBe('Fibonacci');
