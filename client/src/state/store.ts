@@ -39,6 +39,8 @@ import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
 import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
+import { sanitizeDefaults } from '../lib/drawingStyle';
+import { toolSettings } from '../components/chart/tools';
 import { canonicalInterval } from '../../../shared/market.ts';
 import type { TimeRange } from '../lib/timeRange';
 
@@ -74,6 +76,8 @@ interface Prefs {
   sidePanelCollapsed?: boolean;
   drawingMagnet?: boolean;
   drawingsHidden?: boolean;
+  /** The style new drawings of a tool start with, per tool id (see lib/drawingStyle). */
+  drawingDefaults?: Record<string, Record<string, unknown>>;
   drawingFavorites?: string[];
   drawingLastTool?: Record<string, string>;
   cursorKind?: CursorKind;
@@ -163,6 +167,7 @@ export interface AppState {
   sidePanelCollapsed: boolean;
   drawingMagnet: boolean;
   drawingsHidden: boolean;
+  drawingDefaults: Record<string, Record<string, unknown>>;
   /** Rail entry keys (see lib/drawingRail.ts) the person starred, in the order the favourites bar shows them. */
   drawingFavorites: string[];
   /** The last entry used from each rail family, shown on the family's button. */
@@ -265,6 +270,8 @@ export interface AppState {
   togglePineEditor(): void;
   setDrawingMagnet(v: boolean): void;
   setDrawingsHidden(v: boolean): void;
+  /** Saves (or with null clears) the style new drawings of a tool start with. */
+  setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
   toggleDrawingFavorite(key: string): void;
   setDrawingLastTool(group: string, key: string): void;
   setCursorKind(kind: CursorKind): void;
@@ -306,6 +313,7 @@ export const useStore = create<AppState>()((set, get) => {
       sidePanelCollapsed: s.sidePanelCollapsed,
       drawingMagnet: s.drawingMagnet,
       drawingsHidden: s.drawingsHidden,
+      drawingDefaults: s.drawingDefaults,
       drawingFavorites: s.drawingFavorites,
       drawingLastTool: s.drawingLastTool,
       cursorKind: s.cursorKind,
@@ -490,6 +498,7 @@ export const useStore = create<AppState>()((set, get) => {
     sidePanelCollapsed: false,
     drawingMagnet: false,
     drawingsHidden: false,
+    drawingDefaults: {},
     drawingFavorites: [],
     drawingLastTool: {},
     cursorKind: 'cross',
@@ -575,6 +584,7 @@ export const useStore = create<AppState>()((set, get) => {
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
         drawingMagnet: prefs.drawingMagnet === true,
         drawingsHidden: prefs.drawingsHidden === true,
+        drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
         drawingFavorites: sanitizeFavorites(prefs.drawingFavorites),
         drawingLastTool: sanitizeLastTool(prefs.drawingLastTool),
         cursorKind: sanitizeCursorKind(prefs.cursorKind),
@@ -823,6 +833,17 @@ export const useStore = create<AppState>()((set, get) => {
 
     setDrawingsHidden(v) {
       set({ drawingsHidden: v });
+      persistPrefs();
+    },
+
+    setDrawingDefault(tool, style) {
+      const fields = toolSettings(tool);
+      if (!fields) return;
+      const next = { ...get().drawingDefaults };
+      delete next[tool];
+      const valid = style ? sanitizeDefaults({ [tool]: style }, toolSettings)[tool] : undefined;
+      if (valid) next[tool] = valid;
+      set({ drawingDefaults: next });
       persistPrefs();
     },
 

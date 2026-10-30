@@ -9,8 +9,12 @@ export type Anchor = { time: number; price: number };
 /** Anchors each known tool id needs; the registry (components/chart/tools) is the one source of it. */
 export type AnchorCounts = Readonly<Record<string, number>>;
 
-/** `text` is only set by tools that store text (a note). */
-export type Drawing = { id: string; tool: string; anchors: Anchor[]; text?: string };
+/**
+ * `text` is only set by tools that store text (a note). `style` holds the drawing's own style values (colour, width
+ * and so on, see lib/drawingStyle); a drawing without it looks like the tool's default. A stored drawing may carry
+ * more fields than these, or belong to a tool this app does not know: those are kept as they were stored.
+ */
+export type Drawing = { id: string; tool: string; anchors: Anchor[]; text?: string; style?: Record<string, unknown> };
 
 /** Longest stored text of a note. */
 export const TEXT_MAX = 500;
@@ -21,8 +25,10 @@ export function cleanText(text: string): string {
 }
 
 export const HISTORY_LIMIT = 100;
-export const STORAGE_KEY = 'drawings.v1';
-export const STORAGE_VERSION = 1;
+export const STORAGE_KEY = 'drawings.v2';
+export const STORAGE_VERSION = 2;
+/** Where version 1 kept the drawings; read once when version 2 has nothing yet, and never written or removed. */
+export const LEGACY_KEY_V1 = 'drawings.v1';
 
 /** The drawings of one chart source with their undo and redo stacks (snapshots, newest last). */
 export type DrawingsState = { drawings: Drawing[]; past: Drawing[][]; future: Drawing[][] };
@@ -62,6 +68,38 @@ export function setText(s: DrawingsState, id: string, text: string): DrawingsSta
   const d = s.drawings.find((x) => x.id === id);
   if (!d || d.text === clean) return s;
   return record(s, s.drawings, s.drawings.map((x) => (x.id === id ? { ...x, text: clean } : x)));
+}
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Replaces one drawing's style as an undoable step (no style at all, or an empty one, clears it); the same state when unchanged. */
+export function setStyle(s: DrawingsState, id: string, style: Record<string, unknown> | undefined): DrawingsState {
+  const next = style && Object.keys(style).length ? style : undefined;
+  const d = s.drawings.find((x) => x.id === id);
+  if (!d || sameJson(d.style, next)) return s;
+  return record(s, s.drawings, s.drawings.map((x) => (x.id === id ? withStyle(x, next) : x)));
+}
+
+function withStyle(d: Drawing, style: Record<string, unknown> | undefined): Drawing {
+  const { style: _old, ...rest } = d;
+  return style ? { ...rest, style } : rest;
+}
+
+/** What the settings dialog may change at once. */
+export type DrawingPatch = { anchors?: Anchor[]; text?: string; style?: Record<string, unknown> | undefined };
+
+/** Live preview of dialog edits: changes the drawing without touching history. Pair with {@link commit}. */
+export function previewPatch(s: DrawingsState, id: string, patch: DrawingPatch): DrawingsState {
+  return {
+    ...s,
+    drawings: s.drawings.map((d) => {
+      if (d.id !== id) return d;
+      let next: Drawing = patch.anchors ? { ...d, anchors: patch.anchors } : d;
+      if (patch.text !== undefined) next = { ...next, text: patch.text };
+      if ('style' in patch) next = withStyle(next, patch.style && Object.keys(patch.style).length ? patch.style : undefined);
+      return next;
+    }),
+  };
 }
 
 export function remove(s: DrawingsState, id: string): DrawingsState {
@@ -106,36 +144,51 @@ export type DrawingStore = {
   newer: boolean;
 };
 
-const NO_TEXT_TOOLS: ReadonlySet<string> = new Set();
+const NO_TOOLS: ReadonlySet<string> = new Set();
 
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
+const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
-function sanitizeDrawing(raw: unknown, counts: AnchorCounts, textTools: ReadonlySet<string>): Drawing | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.id !== 'string' || !r.id || typeof r.tool !== 'string') return null;
-  const need = Object.prototype.hasOwnProperty.call(counts, r.tool) ? counts[r.tool] : 0;
-  if (!need || !Array.isArray(r.anchors) || r.anchors.length !== need) return null;
+/**
+ * One stored drawing. A drawing of a tool this app does not know is kept exactly as stored (it is neither painted
+ * nor hit). A known tool's drawing keeps every stored field, but its anchors and text are validated: a bad one
+ * drops that drawing alone. A transient tool's drawing (the measure) is never kept.
+ */
+function sanitizeDrawing(raw: unknown, counts: AnchorCounts, textTools: ReadonlySet<string>, transient: ReadonlySet<string>): Drawing | null {
+  if (!isPlain(raw)) return null;
+  if (typeof raw.id !== 'string' || !raw.id || typeof raw.tool !== 'string') return null;
+  if (transient.has(raw.tool)) return null;
+  if (!Object.prototype.hasOwnProperty.call(counts, raw.tool)) return raw as Drawing;
+  const need = counts[raw.tool];
+  if (!need || !Array.isArray(raw.anchors) || raw.anchors.length !== need) return null;
   const anchors: Anchor[] = [];
-  for (const a of r.anchors) {
-    if (!a || typeof a !== 'object') return null;
-    const { time, price } = a as Record<string, unknown>;
+  for (const a of raw.anchors) {
+    if (!isPlain(a)) return null;
+    const { time, price } = a;
     if (!finite(time) || !finite(price)) return null;
-    anchors.push({ time, price });
+    anchors.push({ ...a, time, price });
   }
-  if (!textTools.has(r.tool)) return { id: r.id, tool: r.tool, anchors };
-  const text = typeof r.text === 'string' ? cleanText(r.text) : '';
+  const { text: rawText, style: rawStyle, ...rest } = raw;
+  const out: Drawing = { ...(rest as Drawing), anchors };
+  if (isPlain(rawStyle)) out.style = rawStyle;
+  if (!textTools.has(raw.tool)) return out;
+  const text = typeof rawText === 'string' ? cleanText(rawText) : '';
   if (!text) return null;
-  return { id: r.id, tool: r.tool, anchors, text };
+  return { ...out, text };
 }
 
-/** Parses a stored payload; anything unusable gives no drawings and a bad item is dropped alone. */
-export function parseStore(raw: unknown, counts: AnchorCounts, textTools: ReadonlySet<string> = NO_TEXT_TOOLS): DrawingStore {
+/** Parses a stored payload (version 1 or 2); anything unusable gives no drawings and a bad item is dropped alone. */
+export function parseStore(
+  raw: unknown,
+  counts: AnchorCounts,
+  textTools: ReadonlySet<string> = NO_TOOLS,
+  transient: ReadonlySet<string> = NO_TOOLS,
+): DrawingStore {
   const none: DrawingStore = { sources: {}, newer: false };
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return none;
   const r = raw as Record<string, unknown>;
   if (finite(r.version) && r.version > STORAGE_VERSION) return { sources: {}, newer: true };
-  if (r.version !== STORAGE_VERSION) return none;
+  if (r.version !== STORAGE_VERSION && r.version !== 1) return none;
   if (!r.sources || typeof r.sources !== 'object' || Array.isArray(r.sources)) return none;
   const sources: Record<string, Drawing[]> = {};
   for (const [key, list] of Object.entries(r.sources as Record<string, unknown>)) {
@@ -143,7 +196,7 @@ export function parseStore(raw: unknown, counts: AnchorCounts, textTools: Readon
     const seen = new Set<string>();
     const ok: Drawing[] = [];
     for (const item of list) {
-      const d = sanitizeDrawing(item, counts, textTools);
+      const d = sanitizeDrawing(item, counts, textTools, transient);
       if (d && !seen.has(d.id)) {
         seen.add(d.id);
         ok.push(d);
@@ -154,8 +207,10 @@ export function parseStore(raw: unknown, counts: AnchorCounts, textTools: Readon
   return { sources, newer: false };
 }
 
-export function loadDrawings(counts: AnchorCounts, textTools: ReadonlySet<string> = NO_TEXT_TOOLS): DrawingStore {
-  return parseStore(loadJson<unknown>(STORAGE_KEY, null), counts, textTools);
+/** Reads version 2; when it has nothing yet, reads (and so migrates) version 1, which is left as it is. */
+export function loadDrawings(counts: AnchorCounts, textTools: ReadonlySet<string> = NO_TOOLS, transient: ReadonlySet<string> = NO_TOOLS): DrawingStore {
+  const v2 = loadJson<unknown>(STORAGE_KEY, null);
+  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient);
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */

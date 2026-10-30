@@ -44,9 +44,35 @@ The rail also has:
 
 The rail scrolls when the window is short.
 
+## Settings
+
+Double-click a drawing (a note opens its text editor instead) to open its settings. Changes show on the chart as you make them; **OK** keeps them all as one undo step, and **Cancel** or Escape puts the drawing back as it was.
+
+![The trend line settings](../evidence/drawing-settings/drawing-settings-styled-dialog-desktop.png)
+
+- **Style**: each tool has its own settings, as on TradingView.
+  - Trend line and ray: colour, opacity, width, solid, dashed or dotted, extend left and right, an arrow at either end, and price change, angle and bars.
+  - Horizontal line: colour, opacity, width, line style, and the price label on the axis with its colour.
+  - Rectangle: border colour, width and style, fill colour and opacity, extend left and right.
+  - Fibonacci retracement: edit, add (up to 24), remove, colour and switch off each level, show prices and levels, reverse, extend lines and a background between levels.
+  - Text: colour, size, bold, italic, background and border.
+- **Text**: the text of a note.
+- **Coordinates**: the price and time (unix seconds) of each point. A value that is not a number is refused.
+- **Visibility**: the timeframe kinds (seconds, minutes, hours, days, weeks, months) that show the drawing. A drawing hidden on the current timeframe is neither drawn nor clickable.
+
+![A styled trend line and a Fibonacci retracement with a custom level and a background](../evidence/drawing-settings/drawing-settings-fib-desktop.png)
+
+**Save as default** keeps the dialog's style as the starting style of that tool for new drawings, and **Reset** returns the drawing to the tool's defaults. A drawing you have not styled looks as it always did and follows the theme.
+
+![The Visibility tab](../evidence/drawing-settings/drawing-settings-visibility-desktop.png)
+
+The dialog fits a phone screen.
+
+![The settings on a phone](../evidence/drawing-settings/drawing-settings-dialog-narrow.png)
+
 ## Where they are saved
 
-Drawings are saved per symbol in your browser, and keep their place across zoom, timeframe changes and live bars. Charts on the same market share their drawings.
+Drawings are saved per symbol in your browser, and keep their place across zoom, timeframe changes and live bars. Charts on the same market share their drawings. Drawings saved by an older version are carried over, and drawings from a newer version (a tool or a setting this version does not know) are kept as they are and written back unchanged, though this version does not show them.
 
 ## On phones
 

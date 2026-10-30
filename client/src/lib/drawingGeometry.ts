@@ -128,6 +128,18 @@ export function rayEnd(a: Pt, b: Pt, width: number, height: number): Pt {
   return { x: a.x + dx * t, y: a.y + dy * t };
 }
 
+/**
+ * The segment a-b drawn on the pane, optionally continued past b (`right`) and back past a (`left`) until it
+ * leaves the pane [0,width] x [0,height]. An end already outside the pane stays where it is.
+ */
+export function extendSegment(a: Pt, b: Pt, width: number, height: number, left: boolean, right: boolean): [Pt, Pt] {
+  const far = (from: Pt, to: Pt): Pt => {
+    const end = rayEnd(from, to, width, height);
+    return Math.hypot(end.x - from.x, end.y - from.y) < Math.hypot(to.x - from.x, to.y - from.y) ? { ...to } : end;
+  };
+  return [left ? far(b, a) : { ...a }, right ? far(a, b) : { ...b }];
+}
+
 /** Whether p is inside the rectangle with opposite corners a and b, or within tol of its border. */
 export function pointInRect(p: Pt, a: Pt, b: Pt, tol: number): boolean {
   return (
@@ -161,9 +173,13 @@ export function rectCornerDrag(a: Pt, b: Pt, corner: number, q: Pt): [Pt, Pt] {
 /** Fibonacci retracement ratios, from the end anchor (0) to the start anchor (1). */
 export const FIB_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 
-/** Price of each level: level r is end + (start - end) * r. */
-export function fibLevelPrices(start: number, end: number): number[] {
-  return FIB_LEVELS.map((r) => end + (start - end) * r);
+/**
+ * Price of each level: level r is end + (start - end) * r. Reversed, level r is measured from the start
+ * anchor instead: start + (end - start) * r.
+ */
+export function fibLevelPrices(start: number, end: number, levels: readonly number[] = FIB_LEVELS, reverse = false): number[] {
+  const [from, to] = reverse ? [start, end] : [end, start];
+  return levels.map((r) => from + (to - from) * r);
 }
 
 /**
