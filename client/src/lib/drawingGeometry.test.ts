@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distToSegment, extendSegment, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
+import { barSlotTime, distToSegment, extendSegment, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -191,5 +191,23 @@ describe('measureSummary', () => {
   it('is flat when price is unchanged and has no percent from a zero start', () => {
     expect(measureSummary({ time: 0, price: 5 }, { time: H, price: 5 }, times).direction).toBe('flat');
     expect(measureSummary({ time: 0, price: 0 }, { time: H, price: 3 }, times).pct).toBeNull();
+  });
+});
+
+describe('barSlotTime', () => {
+  it('rounds to the nearest bar inside the data', () => {
+    expect(barSlotTime(hourly, 3.4)).toBe(hourly[3]);
+    expect(barSlotTime(hourly, 3.6)).toBe(hourly[4]);
+    expect(barSlotTime(hourly, 5)).toBe(hourly[5]);
+  });
+  it('lands on a whole step past either end', () => {
+    expect(barSlotTime(hourly, 9.7)).toBe(hourly[7] + 3 * H);
+    expect(barSlotTime(hourly, 7.3)).toBe(hourly[7]);
+    expect(barSlotTime(hourly, -2.4)).toBe(hourly[0] - 2 * H);
+  });
+  it('gives 0 with no bars and the bar time with one bar', () => {
+    expect(barSlotTime([], 3.2)).toBe(0);
+    expect(barSlotTime([500], 0.3)).toBe(500);
+    expect(barSlotTime([500], -0.2)).toBe(500);
   });
 });

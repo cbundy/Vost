@@ -454,6 +454,19 @@ describe('the pattern tools', () => {
   });
 });
 
+describe('the pitchfork tools', () => {
+  it('round trips each with three anchors and a custom levels list and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['pitchfork', 'schiffPitchfork', 'modifiedSchiffPitchfork', 'insidePitchfork'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3, 3, 3]);
+    const style = { levels: [{ value: 0.5, color: '#112233', on: true }, { value: 3, color: 'accent', on: false }] };
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(3), style }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(2) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('drawing management edits', () => {
   const t = (id: string): Drawing => ({ id, tool: 'trendLine', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] });
   const three = () => emptyState([t('a'), t('b'), t('c')]);
@@ -578,5 +591,42 @@ describe('drawing management edits', () => {
     expect('name' in load({ name: 7 })).toBe(false);
     expect(load({ name: 'y'.repeat(90) }).name).toHaveLength(60);
     expect(load({})).toEqual(base);
+  });
+});
+
+describe('caption tools', () => {
+  const CAPTION = new Set(['arrowMarkUp', 'arrowMarker']);
+  const counts = { ...COUNTS, arrowMarkUp: 1, arrowMarker: 2, circle: 2, arrow: 2, arrowMarkDown: 1, text: 1 };
+  const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+  const parse = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, counts, TEXT, TRANSIENT, new Set(), CAPTION).sources.s;
+  it('round trips each new tool id', () => {
+    const list = [['circle', 2], ['arrow', 2], ['arrowMarker', 2], ['arrowMarkUp', 1], ['arrowMarkDown', 1]].map(([tool, n]) => ({ id: String(tool), tool, anchors: an(n as number) }));
+    expect(parse(list)).toEqual(list);
+  });
+  it('keeps a cleaned label and the drawing when it is empty, missing or not a string', () => {
+    const d = (id: string, text: unknown) => ({ id, tool: 'arrowMarkUp', anchors: an(1), ...(text === undefined ? {} : { text }) });
+    expect(parse([d('a', '  hi  '), d('b', '   '), d('c', undefined), d('e', 5), d('f', 'x'.repeat(600))])).toEqual([
+      { ...d('a', 'hi') },
+      d('b', undefined),
+      d('c', undefined),
+      d('e', undefined),
+      d('f', 'x'.repeat(500)),
+    ]);
+  });
+  it('drops a wrong anchor count alone', () => {
+    const ok = { id: 'k', tool: 'arrowMarker', anchors: an(2), text: 'a' };
+    expect(parse([{ id: 'x', tool: 'arrowMarker', anchors: an(1), text: 'a' }, ok])).toEqual([ok]);
+  });
+  it('a text tool still drops a drawing without text and a non-caption tool drops text', () => {
+    expect(parse([{ id: 't', tool: 'text', anchors: an(1) }, { id: 'c', tool: 'circle', anchors: an(2), text: 'x' }])).toEqual([{ id: 'c', tool: 'circle', anchors: an(2) }]);
+  });
+  it('keeps an unknown tool exactly as stored', () => {
+    const unknown = { id: 'u', tool: 'future', anchors: [], text: ' raw ' };
+    expect(parse([unknown])).toEqual([unknown]);
+  });
+  it('a label cleared in the settings dialog is removed from the drawing', () => {
+    const s = emptyState([{ id: 'a', tool: 'arrowMarkUp', anchors: an(1), text: 'hi' }]);
+    expect(previewPatch(s, 'a', { text: '' }).drawings[0]).toEqual({ id: 'a', tool: 'arrowMarkUp', anchors: an(1) });
+    expect(previewPatch(s, 'a', { text: 'yo' }).drawings[0].text).toBe('yo');
   });
 });

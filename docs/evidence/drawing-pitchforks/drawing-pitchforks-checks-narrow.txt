@@ -1,0 +1,7 @@
+ok   Pitchfork stored - pitchfork:3
+ok   Schiff pitchfork stored - pitchfork:3,schiffPitchfork:3
+ok   Modified Schiff pitchfork stored - pitchfork:3,schiffPitchfork:3,modifiedSchiffPitchfork:3
+ok   Inside pitchfork stored - pitchfork:3,schiffPitchfork:3,modifiedSchiffPitchfork:3,insidePitchfork:3
+ok   chart painted
+ok   four drawings after reload
+ok   unchanged by the timeframe change
