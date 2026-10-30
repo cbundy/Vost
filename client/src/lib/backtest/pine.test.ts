@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { candlesFromCsvText } from '../csv';
 import { runPine } from '../pine/runtime';
+import type { PineMarket } from '../pine/types';
+import { DEFAULT_WALK_FORWARD } from './walkForward';
+import { runValidatedOptimize } from './validation';
 import { defaultOptimizeConfig, runOptimizeAsync } from './optimizer';
 import { INDICATOR_MESSAGE, runPineBacktest } from './pine';
 import { runAnyBacktest } from './runner';
@@ -154,5 +157,48 @@ describe('runPineBacktest progress', () => {
     for (let i = 1; i < calls.length; i++) expect(calls[i][0]).toBeGreaterThanOrEqual(calls[i - 1][0]);
     expect(calls.filter(([, s]) => s === 'pine').every(([p]) => p <= 0.9)).toBe(true);
     expect(calls.length).toBeLessThanOrEqual(110);
+  });
+});
+
+describe('Pine strategies see the chart market', () => {
+  const intradayOnly = `//@version=6
+strategy("Intraday", overlay=true)
+n = input.int(5, "Bar")
+if timeframe.isintraday and bar_index % 25 == n
+    strategy.entry("L", strategy.long)
+if bar_index % 25 == n + 12
+    strategy.close("L")`;
+  const market = (interval: string): PineMarket => ({ providerId: 'binance', symbol: 'BTCUSDT', interval });
+  const sweep = { sweeps: [{ key: 'Bar', from: 1, to: 3, step: 1 }], metric: 'totalReturnPct' as const };
+
+  it('trades with a 1h market and not with a 1d one', async () => {
+    const hourly = await runPineBacktest(candles, cfg(intradayOnly, { market: market('1h') }));
+    const daily = await runPineBacktest(candles, cfg(intradayOnly, { market: market('1d') }));
+    expect(hourly.trades.length).toBeGreaterThan(0);
+    expect(daily.trades).toHaveLength(0);
+  });
+
+  it('every grid combination sees the market', async () => {
+    const run = (iv: string) => {
+      const base = cfg(intradayOnly, { market: market(iv) });
+      return runOptimizeAsync(candles, base, { ...defaultOptimizeConfig(base), ...sweep });
+    };
+    const [h, d] = [await run('1h'), await run('1d')];
+    expect(h.errored).toBe(0);
+    expect(h.rows).toHaveLength(3);
+    expect(h.rows.every((r) => r.metrics.trades > 0)).toBe(true);
+    expect(d.rows.every((r) => r.metrics.trades === 0)).toBe(true);
+  });
+
+  it('every walk-forward window sees the market', async () => {
+    const run = (iv: string) => {
+      const base = cfg(intradayOnly, { market: market(iv) });
+      return runValidatedOptimize(candles, base, { ...defaultOptimizeConfig(base), ...sweep, validation: { ...DEFAULT_WALK_FORWARD, windows: 3 } });
+    };
+    const [h, d] = [await run('1h'), await run('1d')];
+    expect(h.walkForward).toBeDefined();
+    expect(h.errored).toBe(0);
+    expect(h.rows.every((r) => r.metrics.trades > 0)).toBe(true);
+    expect(d.rows.every((r) => r.metrics.trades === 0)).toBe(true);
   });
 });

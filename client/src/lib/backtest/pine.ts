@@ -57,7 +57,7 @@ export async function runPineBacktest(
     config.pineCode ?? DEFAULT_PINE_CODE,
     candles,
     (config.params ?? {}) as Record<string, PineInputValue>,
-    onProgress ? { onProgress: (p) => onProgress(p * 0.9, 'pine') } : {},
+    { ...(onProgress && { onProgress: (p: number) => onProgress(p * 0.9, 'pine') }), market: config.market },
   );
   if (!outcome.ok) {
     const { message, line } = outcome.error;

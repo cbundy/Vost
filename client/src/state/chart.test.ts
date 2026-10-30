@@ -1928,3 +1928,75 @@ describe('runBacktest progress', () => {
     expect(chartOf(useStore).getState().btRunning).toBe(false);
   });
 });
+
+describe('Pine market context', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  async function boot() {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const text = readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8');
+    const candles = candlesFromCsvText(text).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    chartOf(useStore).setState({ candles });
+    const posts: Array<{ type: string; market?: unknown; config?: { market?: unknown } }> = [];
+    class FakeWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string; type: string }) {
+        posts.push(req);
+        const data = req.type === 'pine' ? { type: 'pineResult', outcome: { ok: false, error: { message: 'stub' } } } : { type: 'error', message: 'stub' };
+        queueMicrotask(() => this.onmessage?.({ data: { id: req.id, ...data } }));
+      }
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    return { useStore, candles, posts };
+  }
+
+  const marketsOf = (posts: Awaited<ReturnType<typeof boot>>['posts']) =>
+    Object.fromEntries(posts.map((p) => [p.type, p.type === 'pine' ? p.market : p.config?.market]));
+
+  it('the indicator run, backtest, input refresh and optimizer all carry the chart market, never saved', async () => {
+    const written: string[] = [];
+    const set = localStorage.setItem.bind(localStorage);
+    vi.stubGlobal('localStorage', { ...localStorage, getItem: localStorage.getItem.bind(localStorage), removeItem: localStorage.removeItem.bind(localStorage), setItem: (k: string, v: string) => { written.push(v); set(k, v); } });
+    const { useStore, posts } = await boot();
+    const st = () => chartOf(useStore).getState();
+    st().setBtConfig({ strategyId: 'pine' });
+    chartOf(useStore).setState({ providerId: 'yahoo', symbol: 'AAPL', timeframe: '2h' });
+    const expected = { providerId: 'yahoo', symbol: 'AAPL', interval: '2h' };
+
+    await st().refreshPineInputs();
+    expect(posts.filter((p) => p.type === 'pine').at(-1)!.market).toEqual(expected);
+    await st().runBacktest();
+    await st().runOptimizer();
+    expect(posts.find((p) => p.type === 'run')!.config!.market).toEqual(expected);
+    expect(posts.find((p) => p.type === 'optimize')!.config!.market).toEqual(expected);
+
+    st().addIndicator('pine');
+    await vi.waitFor(() => expect(posts.filter((p) => p.type === 'pine').length).toBeGreaterThan(1));
+    for (const p of posts.filter((x) => x.type === 'pine')) expect(p.market).toEqual(expected);
+
+    expect(st().btConfig.market).toBeUndefined();
+    useStore.getState().flushPersist();
+    expect(written.join('\n')).toContain('"strategyId":"pine"');
+    expect(written.join('\n')).not.toContain('market');
+    expect(marketsOf(posts).run).toEqual(expected);
+  });
+
+  it('uses the shown dataset instead of the provider picker', async () => {
+    const { useStore, candles, posts } = await boot();
+    const st = () => chartOf(useStore).getState();
+    st().setBtConfig({ strategyId: 'pine' });
+    const id = st().addDataset({ name: 'ETHUSD.csv', candles, source: 'csv', description: 'x', barSeconds: 14400, barLabel: '4h' });
+    st().activateDataset(id);
+    await st().runBacktest();
+    expect(posts.find((p) => p.type === 'run')!.config!.market).toEqual({ providerId: 'csv', symbol: 'ETHUSD', interval: '4h', dataset: true });
+  });
+});

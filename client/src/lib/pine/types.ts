@@ -1,4 +1,17 @@
 /** Result types of the Pine runtime (PineTS). Pure data, safe to post from a worker. */
+/** The market a script runs in: what `syminfo` and `timeframe` report. Added to a request by the chart, never saved. */
+export interface PineMarket {
+  /** Provider id (`binance`, `yahoo`...) or an imported dataset's source. Upper-cased it is `syminfo.prefix`. */
+  providerId: string;
+  symbol: string;
+  /** The chart's interval (`1h`, `2h`, `3d`...). */
+  interval?: string;
+  /** Bar length in seconds, for a dataset with no named interval. */
+  barSeconds?: number;
+  /** An imported dataset is shown: `syminfo.type` is empty. */
+  dataset?: boolean;
+}
+
 export type PineKind = 'indicator' | 'strategy';
 
 export interface PineDeclaration {
