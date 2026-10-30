@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { OhlcBar, Pt } from '../../../lib/drawingGeometry';
 import type { SettingField } from '../../../lib/drawingStyle';
-import type { Anchor } from '../../../lib/drawings';
+import type { Anchor, AnchorSpec } from '../../../lib/drawings';
 
 export type ToolRenderOpts = { selected: boolean };
 
@@ -43,8 +43,11 @@ export interface DrawingTool {
   section: string;
   /** The rail button's icon. */
   icon: ReactNode;
-  /** Anchors the tool needs before it is finished. */
-  anchors: number;
+  /**
+   * Anchors the tool needs before it is finished: a count, or a `{ min, max }` range for a tool placed point by point
+   * (ended by double-click, Enter or a click on its first point). Use `anchorRange` to read either.
+   */
+  anchors: AnchorSpec;
   /** The tool stores text (a note). */
   text?: true;
   /**
@@ -81,7 +84,7 @@ export interface DrawingTool {
   axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean, times?: readonly number[]): AxisLabels;
   /**
    * While a drawing with more than two anchors is placed, `pts` holds fewer points than `anchors` (the placed ones
-   * and the moving one): draw what can be drawn, never throw.
+   * and the moving one; a ranged tool holds anywhere from two up to its max): draw what can be drawn, never throw.
    */
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;
   /** Whether a press at p grabs the drawing's body. */
