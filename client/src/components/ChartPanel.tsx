@@ -576,6 +576,7 @@ export function ChartPanel({
           left={drawings.editor.left}
           top={drawings.editor.top}
           initialText={drawings.editor.text}
+          style={drawings.editor.style}
           onCommit={drawings.editor.onCommit}
           onCancel={drawings.editor.onCancel}
         />

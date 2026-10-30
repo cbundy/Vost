@@ -1,0 +1,14 @@
+ok   the editor is a textarea
+ok   plain Enter keeps the editor open
+ok   the editor grew with its lines and wrapping - 28 -> 76
+ok   it is as wide as the wrap width - 252
+ok   it keeps the newlines
+ok   one text drawing stored with its newlines - [{"id":"dmvum0rzv1slsy","tool":"text","anchors":[{"time":1747872000,"price":219.67171918640645}],"text":"first line\nsecond line\na long third line that has to wrap onto more than one line inside the box"}]
+ok   the editor is gone
+ok   it does not wrap by default (wider than 252 px is not needed, narrower box follows the text) - 134
+ok   stored as anchoredText, not text - text,anchoredText
+ok   the anchor is pane fractions in 0..1 - [{"time":0.4646551724137931,"price":0.48063380281690143}]
+ok   multi-line text kept
+ok   storage is unchanged
+ok   both tools and their text survived
+ok   Anchored text still answers at its spot

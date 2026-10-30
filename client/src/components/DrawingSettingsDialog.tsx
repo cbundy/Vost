@@ -102,6 +102,17 @@ function FieldRow({ field, value, onChange }: { field: SettingField; value: unkn
         </select>
       );
       break;
+    case 'choice':
+      control = (
+        <select value={value as string} aria-label={field.label} onChange={(e) => onChange(e.target.value)}>
+          {(field.options ?? []).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+      break;
     case 'boolean':
       control = <input type="checkbox" checked={value === true} aria-label={field.label} onChange={(e) => onChange(e.target.checked)} />;
       break;
@@ -120,6 +131,9 @@ function FieldRow({ field, value, onChange }: { field: SettingField; value: unkn
     </div>
   );
 }
+
+/** A pane fraction as a percentage with one decimal. */
+const toPercent = (f: number) => Math.round(f * 1000) / 10;
 
 const utc = (t: number) => {
   const d = new Date(t * 1000);
@@ -212,20 +226,34 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
           </div>
         )}
         {tab === 'coordinates' &&
-          anchors.map((a, i) => (
-            <div className="ds-coord" key={i}>
-              <div className="ds-label">{anchors.length > 1 ? `Point ${i + 1}` : 'Point'}</div>
-              <label>
-                Price
-                <NumField label={`Point ${i + 1} price`} value={a.price} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, price: n } : x)); setAnchors(next); preview({ anchors: next }); }} />
-              </label>
-              <label>
-                Time (unix seconds)
-                <NumField label={`Point ${i + 1} time`} value={a.time} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, time: n } : x)); setAnchors(next); preview({ anchors: next }); }} />
-                <span className="ds-readout">{utc(a.time)}</span>
-              </label>
-            </div>
-          ))}
+          anchors.map((a, i) =>
+            tool.paneAnchored ? (
+              <div className="ds-coord" key={i}>
+                <div className="ds-label">{anchors.length > 1 ? `Point ${i + 1}` : 'Point'}</div>
+                <label>
+                  X %
+                  <NumField label={`Point ${i + 1} X %`} value={toPercent(a.time)} min={0} max={100} step={0.1} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, time: n / 100 } : x)); setAnchors(next); preview({ anchors: next }); }} />
+                </label>
+                <label>
+                  Y %
+                  <NumField label={`Point ${i + 1} Y %`} value={toPercent(a.price)} min={0} max={100} step={0.1} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, price: n / 100 } : x)); setAnchors(next); preview({ anchors: next }); }} />
+                </label>
+              </div>
+            ) : (
+              <div className="ds-coord" key={i}>
+                <div className="ds-label">{anchors.length > 1 ? `Point ${i + 1}` : 'Point'}</div>
+                <label>
+                  Price
+                  <NumField label={`Point ${i + 1} price`} value={a.price} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, price: n } : x)); setAnchors(next); preview({ anchors: next }); }} />
+                </label>
+                <label>
+                  Time (unix seconds)
+                  <NumField label={`Point ${i + 1} time`} value={a.time} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, time: n } : x)); setAnchors(next); preview({ anchors: next }); }} />
+                  <span className="ds-readout">{utc(a.time)}</span>
+                </label>
+              </div>
+            ),
+          )}
         {tab !== 'coordinates' && (
           <>
             {tab === 'visibility' && <p className="muted-2 ds-hint">Show this drawing on these timeframes.</p>}

@@ -45,6 +45,11 @@ export interface DrawingTool {
   anchors: number;
   /** The tool stores text (a note). */
   text?: true;
+  /**
+   * The drawing is fixed on the pane: each anchor stores its x and y as fractions of the pane (0..1) in the anchor's
+   * `time` and `price`, so it ignores the time range, zoom, pan and timeframe. No magnet and no axis labels.
+   */
+  paneAnchored?: true;
   /** The tool is shown while and after it is drawn but never stored, hit or undone (the measure). */
   transient?: true;
   /**

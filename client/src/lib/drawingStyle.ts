@@ -6,7 +6,7 @@
 import { FIB_LEVELS } from './drawingGeometry';
 import { theme } from './theme';
 
-export type SettingKind = 'color' | 'opacity' | 'width' | 'lineStyle' | 'boolean' | 'number' | 'levels';
+export type SettingKind = 'color' | 'opacity' | 'width' | 'lineStyle' | 'boolean' | 'number' | 'levels' | 'choice';
 
 /** The dialog tab a setting belongs to (Coordinates is built from the anchors, not from settings). */
 export type SettingTab = 'style' | 'text' | 'visibility';
@@ -23,6 +23,8 @@ export type SettingField = {
   min?: number;
   max?: number;
   step?: number;
+  /** The listed values of a `choice`; it accepts only these. */
+  options?: readonly { value: string; label: string }[];
 };
 
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
@@ -120,6 +122,8 @@ export function validateValue(field: SettingField, v: unknown): unknown {
       return typeof v === 'string' && (LINE_STYLES as readonly string[]).includes(v) ? v : undefined;
     case 'boolean':
       return typeof v === 'boolean' ? v : undefined;
+    case 'choice':
+      return typeof v === 'string' && !!field.options?.some((o) => o.value === v) ? v : undefined;
     case 'levels':
       return cleanLevels(v);
   }

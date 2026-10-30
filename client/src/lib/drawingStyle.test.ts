@@ -56,7 +56,10 @@ describe('default styles equal the look drawings had before styles', () => {
     expect(colorHex(v.color)).toBe(theme.text);
     expect(cssColor(v.backgroundColor, v.backgroundOpacity as number)).toBe('rgba(23,23,27,0.92)');
     expect(colorHex(v.borderColor)).toBe(theme.border3);
-    expect(v).toMatchObject({ size: 12, bold: false, italic: false });
+    expect(v).toMatchObject({ size: 12, bold: false, italic: false, align: 'left', wrap: true, wrapWidth: 240 });
+  });
+  it('anchored text', () => {
+    expect(defaults('anchoredText')).toMatchObject({ size: 14, bold: false, italic: false, align: 'left', wrap: false, wrapWidth: 240 });
   });
   it('every default colour names a theme token, not a fixed hex', () => {
     for (const t of TOOLS) {
@@ -88,9 +91,25 @@ describe('every registered tool declares settings', () => {
   it('each default is valid for its own field', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
-  it('only the text tool stores text, and the line tools declare Text settings for their label', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle'].includes(t.id));
-    expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text']);
+  it('only the text tools store text, and they and the line tools declare Text settings', () => {
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText'].includes(t.id));
+    expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText']);
+  });
+});
+
+describe('choice settings', () => {
+  const align = fieldsOf('text').find((f) => f.key === 'align')!;
+  it('accepts only a listed value', () => {
+    for (const v of ['left', 'center', 'right']) expect(validateValue(align, v)).toBe(v);
+    for (const v of ['middle', '', 5, null, undefined]) expect(validateValue(align, v)).toBeUndefined();
+  });
+  it('a field with no options accepts nothing', () => {
+    expect(validateValue({ ...align, options: undefined }, 'left')).toBeUndefined();
+  });
+  it('falls back on the default for a bad stored value and survives sanitizeDefaults', () => {
+    expect(resolveStyle(fieldsOf('text'), { align: 'middle' }).values.align).toBe('left');
+    expect(resolveStyle(fieldsOf('text'), { align: 'right' }).values.align).toBe('right');
+    expect(sanitizeDefaults({ text: { align: 'center', size: 20 }, anchoredText: { align: 'bad' } }, (t) => getTool(t)?.settings)).toEqual({ text: { align: 'center', size: 20 } });
   });
 });
 

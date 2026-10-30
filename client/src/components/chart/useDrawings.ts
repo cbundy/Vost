@@ -27,8 +27,9 @@ import { drawingKeyAction } from '../../lib/drawingKeys';
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
+import { editorStyle, type EditorTarget } from './textPlacement';
 import { useDrawingSettings } from './useDrawingSettings';
-import { ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
+import { ANCHOR_COUNTS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export { CURSOR, ERASER };
@@ -47,7 +48,7 @@ function baseCursor(tool: string, kind: CursorKind): string {
 /** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
 let storage: DrawingsStorage | null = null;
 function drawingsStorage(): DrawingsStorage {
-  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS).sources, saveDrawings);
+  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS).sources, saveDrawings);
   return storage;
 }
 
@@ -63,20 +64,17 @@ export type DrawingEditor = {
   left: number;
   top: number;
   text: string;
+  /** The tool's resolved style the note is typed in. */
+  style: Readonly<Record<string, unknown>>;
   onCommit(text: string): void;
   onCancel(): void;
 };
-type EditorTarget = { id: string | null; anchor: Anchor; text: string; key: number };
 
 /** Where a dragged handle now is: its starting pixel moved by the drag. */
 function handleTarget(def: DrawingTool, drag: Drag, prim: DrawingPrimitive, dx: number, dy: number): Pt {
   const h = def.handles(drag.origPts, prim.viewFor({ tool: def.id, anchors: drag.origAnchors, text: drag.origText, style: drag.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
 }
-
-/** A tool whose drawing spans the pane's width or height places even when its anchor is off the scale on that axis. */
-const spansX = (t?: DrawingTool) => t?.priceOnly === true || t?.fullWidth === true;
-const spansY = (t?: DrawingTool) => t?.timeOnly === true || t?.fullHeight === true;
 
 type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[]; before: Drawing[] };
 type Draft = { drawing: Drawing; start: Pt; /** pressing: the button is down; waiting: the first anchor is placed, the next click ends it. */ phase: 'pressing' | 'waiting' };
@@ -222,8 +220,8 @@ export function useDrawings(
 
   /** Pixel position of the editor's note: the container's offset in the chart area plus the anchor's pixel. */
   const editorPos = useCallback(
-    (anchor: Anchor): { left: number; top: number } | null => {
-      const pt = primRef.current?.toPoint(anchor);
+    (anchor: Anchor, toolId: string): { left: number; top: number } | null => {
+      const pt = primRef.current?.toPoint(anchor, getTool(toolId));
       const el = containerRef.current;
       return pt && el ? { left: el.offsetLeft + pt.x, top: el.offsetTop + pt.y } : null;
     },
@@ -246,7 +244,7 @@ export function useDrawings(
       if (target.id === null) {
         if (text) {
           const id = newDrawingId();
-          setState(add(getState(), { id, tool: 'text', anchors: [target.anchor], text }), true);
+          setState(add(getState(), { id, tool: target.tool, anchors: [target.anchor], text }), true);
           selectedRef.current = id;
         }
       } else if (!text) {
@@ -263,17 +261,19 @@ export function useDrawings(
 
   /** Opens the note input at an anchor; for an existing note pass its id and text. Renders at once so it can take focus. */
   const openEditor = useCallback(
-    (id: string | null, anchor: Anchor, text: string) => {
+    (id: string | null, toolId: string, anchor: Anchor, text: string, own?: Drawing['style']) => {
       if (editTargetRef.current && editTargetRef.current.id === id && id !== null) return;
-      const pos = editorPos(anchor);
+      const pos = editorPos(anchor, toolId);
       if (!pos) return;
-      const target: EditorTarget = { id, anchor, text, key: ++editorKeyRef.current };
+      const style = editorStyle(toolId, own, useStore.getState().drawingDefaults);
+      const target: EditorTarget = { id, tool: toolId, anchor, text, style, key: ++editorKeyRef.current };
       editTargetRef.current = target;
       flushSync(() =>
         setEditor({
           key: target.key,
           ...pos,
           text,
+          style,
           onCommit: (t) => commitEditor(target, t),
           onCancel: closeEditor,
         }),
@@ -289,7 +289,7 @@ export function useDrawings(
     if (!chart || !el) return;
     const place = () => {
       const target = editTargetRef.current;
-      const pos = target && editorPos(target.anchor);
+      const pos = target && editorPos(target.anchor, target.tool);
       if (!pos) return;
       setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top) ? { ...cur, ...pos } : cur));
     };
@@ -385,7 +385,7 @@ export function useDrawings(
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
     const snap = (a: Anchor, def?: DrawingTool): Anchor =>
-      magnetRef.current ? snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }) : a;
+      magnetRef.current && !def?.paneAnchored ? snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }) : a;
 
     const point = (e: PointerEvent): Pt => {
       const r = el.getBoundingClientRect();
@@ -468,7 +468,7 @@ export function useDrawings(
       }
       if (toolId !== CURSOR) {
         const def = getTool(toolId);
-        const raw = prim.toAnchor(p);
+        const raw = prim.toAnchor(p, def);
         if (!def || !raw || !hasDataRef.current) return;
         const anchor = snap(raw, def);
         claim(e);
@@ -480,7 +480,7 @@ export function useDrawings(
         if (def.text) {
           draftRef.current = null;
           setTool(CURSOR);
-          openEditor(null, anchor, '');
+          openEditor(null, toolId, anchor, '');
           return; // the pointerup releases
         }
         if (def.anchors === 1) {
@@ -499,7 +499,7 @@ export function useDrawings(
       const st = getState();
       const d = st.drawings.find((x) => x.id === hit.id);
       const dt = getTool(d?.tool ?? '');
-      const origPts = d?.anchors.map((a) => prim.toPoint(a, spansX(dt), spansY(dt)));
+      const origPts = d?.anchors.map((a) => prim.toPoint(a, dt));
       if (!d || !origPts || origPts.some((q) => !q)) return;
       selectedRef.current = d.id;
       claim(e);
@@ -523,9 +523,10 @@ export function useDrawings(
       const p = point(e);
       const draft = draftRef.current;
       if (draft) {
-        const raw = prim.toAnchor(p);
+        const draftTool = getTool(draft.drawing.tool);
+        const raw = prim.toAnchor(p, draftTool);
         if (raw) {
-          const a = snap(raw, getTool(draft.drawing.tool));
+          const a = snap(raw, draftTool);
           draftRef.current = { ...draft, drawing: { ...draft.drawing, anchors: [draft.drawing.anchors[0], a] } };
           sync();
         }
@@ -543,12 +544,12 @@ export function useDrawings(
             : null;
         const next = drag.origAnchors.map((orig, i) => {
           if (dragged) {
-            const a = prim.toAnchor(dragged[i]);
+            const a = prim.toAnchor(dragged[i], def);
             return a ?? orig;
           }
           if (drag.handle !== null && drag.handle !== i) return orig;
           const q = drag.origPts[i];
-          const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy });
+          const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy }, def);
           if (!a) return orig;
           const placed = drag.handle !== null ? snap(a, def) : a;
           if (def.timeOnly) return { time: placed.time, price: orig.price };
@@ -590,7 +591,7 @@ export function useDrawings(
           const note = getState().drawings.find((x) => x.id === drag.id);
           if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === drag.id && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
             lastTap = null;
-            openEditor(note.id, note.anchors[0], note.text ?? '');
+            openEditor(note.id, note.tool, note.anchors[0], note.text ?? '', note.style);
           }
         } else lastTap = null;
         return;
@@ -617,7 +618,8 @@ export function useDrawings(
       if (!d) return;
       e.stopPropagation();
       e.preventDefault();
-      if (TEXT_TOOLS.has(d.tool)) openEditor(d.id, d.anchors[0], d.text ?? '');
+      // A note is edited in place; Shift+double-click opens its settings instead.
+      if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors[0], d.text ?? '', d.style);
       else openSettings(d.id);
     };
 

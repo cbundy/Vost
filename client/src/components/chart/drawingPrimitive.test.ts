@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DrawingPrimitive } from './drawingPrimitive';
+import { getTool } from './tools';
 
 const TIMES = [100, 200, 300];
 const HEIGHT = 200;
@@ -29,8 +30,8 @@ describe('toPoint', () => {
     const prim = make();
     const off = { time: 200, price: 500 };
     expect(prim.toPoint(off)).toBeNull();
-    expect(prim.toPoint(off, false, true)).toEqual({ x: 10, y: 0 });
-    expect(prim.toPoint({ time: 200, price: -500 }, false, true)).toEqual({ x: 10, y: HEIGHT });
+    expect(prim.toPoint(off, getTool('verticalLine'))).toEqual({ x: 10, y: 0 });
+    expect(prim.toPoint({ time: 200, price: -500 }, getTool('verticalLine'))).toEqual({ x: 10, y: HEIGHT });
   });
   it('places a vertical line whose price is scrolled off the scale, and hits it', () => {
     const prim = make();

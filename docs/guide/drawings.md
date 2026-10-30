@@ -27,7 +27,7 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 - **Trend line**, **Ray**, **Info line**, **Extended line**, **Trend angle**, **Rectangle** and **Fibonacci retracement**: pick a tool, then click two points on the chart (or press, drag and release). The info line labels its price change, bars, angle and distance, the extended line continues both ways to the edge of the chart, and the trend angle draws an arc with its angle in degrees and a dotted horizontal from the first point.
 - **Horizontal line**, **Horizontal ray**, **Vertical line** and **Cross line**: pick a tool and click once. The horizontal ray runs from the point to the right edge, the vertical line spans the full height and the cross line is a horizontal and a vertical line through the point. A vertical line only moves in time: dragging it keeps its price.
 - A selected line shows its price on the price axis and its time on the time axis.
-- **Text**: click the chart and type a note in place. Enter saves, Escape cancels. Double-click a note to edit it.
+- **Text** and **Anchored text**: click the chart and type a note in place. Enter adds a line, Ctrl+Enter (Cmd+Enter) saves, Escape cancels. Double-click a note to edit it. Anchored text keeps its spot on the pane when the chart moves. See [Text and Anchored text](drawing-annotations.md).
 - **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick.
 
 ![The line tools](../evidence/drawing-lines/drawing-lines-all-desktop.png)
@@ -60,9 +60,9 @@ Double-click a drawing (a note opens its text editor instead) to open its settin
   - Horizontal line: colour, opacity, width, line style, and the price label on the axis with its colour.
   - Rectangle: border colour, width and style, fill colour and opacity, extend left and right.
   - Fibonacci retracement: edit, add (up to 24), remove, colour and switch off each level, show prices and levels, reverse, extend lines and a background between levels.
-  - Text: colour, size, bold, italic, background and border.
-- **Text**: the text of a note. The info line, extended line and trend angle have the text colour and size of their label here; the trend line and ray have no Text tab.
-- **Coordinates**: the price and time (unix seconds) of each point. A value that is not a number is refused.
+  - Text and Anchored text: background colour and opacity and the border colour (their text settings are on the Text tab).
+- **Text**: the text of a note and, for the text tools, its colour, size, bold, italic, alignment and wrapping (see [Text and Anchored text](drawing-annotations.md)). The info line, extended line and trend angle have the text colour and size of their label here; the trend line and ray have no Text tab.
+- **Coordinates**: the price and time (unix seconds) of each point, or for Anchored text its X % and Y % on the pane. A value that is not a number is refused.
 - **Visibility**: the timeframe kinds (seconds, minutes, hours, days, weeks, months) that show the drawing. A drawing hidden on the current timeframe is neither drawn nor clickable.
 
 ![A styled trend line and a Fibonacci retracement with a custom level and a background](../evidence/drawing-settings/drawing-settings-fib-desktop.png)
