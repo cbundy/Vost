@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TOOLS, getTool } from '../components/chart/tools';
-import { FIB_LEVELS } from './drawingGeometry';
+import { FIB_LEVELS } from './geometry/fib';
 import {
   DEFAULT_LEVELS,
   MAX_LEVELS,
@@ -51,6 +51,21 @@ describe('default styles equal the look drawings had before styles', () => {
     expect((v.levels as { on: boolean; color: string }[]).every((l) => l.on && colorHex(l.color) === theme.accent)).toBe(true);
     expect(v).toMatchObject({ showLevels: true, showPrices: true, reverse: false, extendLines: false, background: false });
   });
+  it('the other fibonacci tools resolve their tables and put labels on the Text tab', () => {
+    const vals = (v: Record<string, unknown>, k: string) => (v[k] as { value: number }[]).map((l) => l.value);
+    expect(vals(defaults('fibTimeZone'), 'levels')).toEqual([0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]);
+    expect(vals(defaults('fibSpeedFan'), 'priceLevels')).toEqual([0, 0.25, 0.382, 0.5, 0.618, 0.75, 1]);
+    expect(vals(defaults('fibSpeedFan'), 'timeLevels')).toEqual([0, 0.25, 0.382, 0.5, 0.618, 0.75, 1]);
+    expect(vals(defaults('fibCircles'), 'levels')).toEqual([0.236, 0.382, 0.5, 0.618, 0.786, 1, 1.618, 2.618, 3.618, 4.236]);
+    expect(vals(defaults('fibSpeedArcs'), 'levels')).toEqual([0.236, 0.382, 0.5, 0.618, 0.786, 1]);
+    expect(defaults('fibSpiral')).toMatchObject({ counterClockwise: false });
+    expect(defaults('fibSpeedArcs')).toMatchObject({ fullCircles: false });
+    for (const [id, keys] of [['fibTimeZone', ['showLabels']], ['fibSpeedFan', ['labelsLeft', 'labelsRight', 'labelsTop', 'labelsBottom']], ['fibCircles', ['showLabels']], ['fibSpeedArcs', ['showLabels']]] as const) {
+      const text = fieldsOf(id).filter((f) => f.tab === 'text').map((f) => f.key);
+      expect(text).toEqual(keys);
+    }
+    expect(fieldsOf('fibSpiral').some((f) => f.tab === 'text')).toBe(false);
+  });
   it('text', () => {
     const v = defaults('text');
     expect(colorHex(v.color)).toBe(theme.text);
@@ -96,8 +111,8 @@ describe('every registered tool declares settings', () => {
   it('each default is valid for its own field', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
-  it('only the text tools store text, and they and the line tools declare Text settings', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText'].includes(t.id));
+  it('only the text tools store text, and they, the line tools and the labelled Fibonacci tools declare Text settings', () => {
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs'].includes(t.id));
     expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText']);
   });
 });

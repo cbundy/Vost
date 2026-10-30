@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIB_LEVELS, distToSegment, extendSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
+import { distToSegment, extendSegment, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -96,18 +96,6 @@ describe('snapToBar', () => {
   });
 });
 
-describe('fibLevelPrices with custom and reversed levels', () => {
-  it('prices a custom level list', () => {
-    expect(fibLevelPrices(200, 100, [0, 0.5, 1, 1.618])).toEqual([100, 150, 200, 261.8]);
-    expect(fibLevelPrices(200, 100, [])).toEqual([]);
-    expect(fibLevelPrices(200, 100)).toEqual(fibLevelPrices(200, 100, FIB_LEVELS, false));
-  });
-  it('measures a reversed list from the start anchor', () => {
-    expect(fibLevelPrices(200, 100, [0, 0.5, 1], true)).toEqual([200, 150, 100]);
-    expect(fibLevelPrices(100, 300, [0, 0.25, 1], true)).toEqual([100, 150, 300]);
-  });
-});
-
 describe('extendSegment', () => {
   const a = { x: 100, y: 100 };
   const b = { x: 200, y: 100 };
@@ -128,17 +116,7 @@ describe('extendSegment', () => {
   });
 });
 
-describe('ray, rectangle and fibonacci geometry', () => {
-  it('fibLevelPrices puts 0 at the end, 1 at the start and 0.5 at the midpoint, up and down', () => {
-    for (const [start, end] of [[100, 200], [200, 100]]) {
-      const p = fibLevelPrices(start, end);
-      expect(p).toHaveLength(FIB_LEVELS.length);
-      expect(p[0]).toBe(end);
-      expect(p[p.length - 1]).toBe(start);
-      expect(p[FIB_LEVELS.indexOf(0.5)]).toBe(150);
-    }
-  });
-
+describe('ray and rectangle geometry', () => {
   it('rayEnd ends on the pane edge, on the line through a and b', () => {
     const W = 200;
     const H = 100;

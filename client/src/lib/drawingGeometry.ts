@@ -170,18 +170,6 @@ export function rectCornerDrag(a: Pt, b: Pt, corner: number, q: Pt): [Pt, Pt] {
   return [opposite, { x: q.x, y: q.y }];
 }
 
-/** Fibonacci retracement ratios, from the end anchor (0) to the start anchor (1). */
-export const FIB_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-
-/**
- * Price of each level: level r is end + (start - end) * r. Reversed, level r is measured from the start
- * anchor instead: start + (end - start) * r.
- */
-export function fibLevelPrices(start: number, end: number, levels: readonly number[] = FIB_LEVELS, reverse = false): number[] {
-  const [from, to] = reverse ? [start, end] : [end, start];
-  return levels.map((r) => from + (to - from) * r);
-}
-
 /**
  * Word-wraps text into lines no wider than maxWidth by the given width function. Breaks at spaces; a single
  * word wider than maxWidth is broken by characters. Always returns at least one line.
