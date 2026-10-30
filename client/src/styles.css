@@ -3412,3 +3412,27 @@ a:hover {
   min-width: 240px;
   box-shadow: none;
 }
+
+table.data-table th.sortable {
+  padding: 0;
+}
+
+table.data-table th.sortable .sort-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+table.data-table th.sortable .sort-btn:hover,
+table.data-table th.sortable .sort-btn:focus-visible {
+  color: var(--text);
+}
+
+table.data-table th.sortable .sort-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
