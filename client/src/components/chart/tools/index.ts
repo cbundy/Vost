@@ -7,6 +7,7 @@ import { crossLine } from './crossLine';
 import { disjointChannel } from './disjointChannel';
 import { flatTopBottom } from './flatTopBottom';
 import { insidePitchfork, modifiedSchiffPitchfork, pitchfork, schiffPitchfork } from './pitchfork';
+import { brush, highlighter } from './brush';
 import { path, polyline } from './path';
 import { parallelChannel } from './parallelChannel';
 import { regressionTrend } from './regressionTrend';
@@ -47,7 +48,7 @@ import type { AnchorSpec } from '../../../lib/drawings';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, cyclicLines, timeCycles, sineLine, text, anchoredText, measure];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, brush, highlighter, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, cyclicLines, timeCycles, sineLine, text, anchoredText, measure];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);

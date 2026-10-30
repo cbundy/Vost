@@ -48,6 +48,11 @@ export interface DrawingTool {
    * (ended by double-click, Enter or a click on its first point). Use `anchorRange` to read either.
    */
   anchors: AnchorSpec;
+  /**
+   * The tool is drawn freehand: press, drag and release records a stroke (thinned on release) and never enters
+   * click-by-click placement, whatever its anchor range says.
+   */
+  freehand?: true;
   /** The tool stores text (a note). */
   text?: true;
   /**

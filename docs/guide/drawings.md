@@ -6,7 +6,7 @@ A rail beside the chart holds the drawing tools, one button per family of tools.
 
 ## Families and pop-out lists
 
-Each button shows the tool you used last from its family (the first one at first). Click it to pick that tool. The button is pressed while the current tool is in its family. The families are Cursors, Lines, Fibonacci and Gann (with Fibonacci and Gann headings), Forecasting and measurers, Shapes and Annotations; more appear as more tools arrive.
+Each button shows the tool you used last from its family (the first one at first). Click it to pick that tool. The button is pressed while the current tool is in its family. The families are Cursors, Lines, Fibonacci and Gann (with Fibonacci and Gann headings), Forecasting and measurers, Shapes (with Brushes and Shapes headings) and Annotations; more appear as more tools arrive.
 
 Open a family's list with the small chevron on its button, a long press (half a second) or **ArrowRight** while the button has focus. The list groups tools under headings. Click a tool to pick it, which also makes it the family's button. Only one list is open at a time. An outside click or resizing the window closes it.
 
@@ -36,6 +36,10 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
   - Flat top/bottom takes three points: a sloped edge from the first two and a flat edge at the third point's price, filled between.
   - Disjoint channel takes three points: a first edge from the first two, and a second edge that starts at the third and mirrors the first edge's rise, so the two edges are not parallel. They are filled between.
   - Three-point drawings are placed with three clicks or taps, or press, drag and release for the first two and then a click or tap. Each placed point stays, a preview follows the pointer for the next one, and Escape cancels the drawing.
+- **Brush** and **Highlighter** (the Brushes section, at the top of the Shapes list; the Shapes button shows Brush until you pick another tool): press, drag and release to draw a freehand stroke, with a live preview, on a mouse, a pen or one finger (a second finger cancels the stroke and the chart takes the pinch). A stroke that barely moves is not saved and the tool stays picked; Escape cancels one in progress. Strokes are thinned when you let go, to at most 200 points, and follow zoom, pan and timeframe changes.
+  - Brush has colour, opacity, width (up to 10), smoothing (0 to 20, 5 to begin with; it only changes how the saved stroke is drawn, so you can change it later) and an optional fill, shown when the stroke ends close to where it started. Highlighter is a wide translucent stroke (yellow, width 20, from 5 to 40) with round ends.
+  - A stroke has no point handles: click it to select it, drag it to move the whole stroke, and open Settings with a double-click.
+  ![A Brush and a Highlighter stroke, restyled](../evidence/drawing-shapes/drawing-shapes-styled-brushes-desktop.png)
 - **Circle**, **Arrow**, **Arrow marker**, **Arrow mark up**, **Arrow mark down**, **Path** and **Polyline** (the Shapes list, after Rectangle):
   - Circle takes two points: the centre, then a point on its edge. It stays round at any zoom. Drag the centre handle to move it and the edge handle to change its radius. Its fill is clickable while the fill opacity is above 0.
   - Arrow is a line with an arrow head at its second point (Arrow at end in Settings; the other line settings work too).

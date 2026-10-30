@@ -13,5 +13,8 @@ ok   Enter ends it with the three points left after Backspace and a new click - 
 ok   Escape cancels the draft, no drawing saved
 ok   undo removes the Enter-ended path
 ok   redo restores it
-ok   eight drawings after reload
+ok   Brush stored with 2 to 200 anchors - 17
+ok   Highlighter stored with 2 to 200 anchors - 14
+ok   ten drawings after reload
+ok   both strokes keep 2 to 200 points - 17,14
 ok   unchanged by the timeframe change
