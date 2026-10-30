@@ -48,6 +48,11 @@ export interface DrawingTool {
    * (ended by double-click, Enter or a click on its first point). Use `anchorRange` to read either.
    */
   anchors: AnchorSpec;
+  /**
+   * How many points the user places before the drawing is finished, when that is fewer than it stores (a curve is
+   * placed by its start and end and `settle` adds its control points). Absent: the same as `anchors`.
+   */
+  placed?: AnchorSpec;
   /** The tool stores text (a note). */
   text?: true;
   /**
@@ -98,7 +103,7 @@ export interface DrawingTool {
   popupHit?(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
   /** Where the selection handles go. */
   handles(pts: Pt[], view: ToolView): Pt[];
-  /** Adjusts the pixels of a drawing once, when its last anchor is placed (the fixed Gann square makes itself square). */
+  /** Adjusts the pixels of a drawing once, when its last anchor is placed (the fixed Gann square makes itself square). It may return more points than were placed (a curve adds its control points). */
   settle?(pts: Pt[]): Pt[];
   /**
    * The new anchor pixels when handle `handle` is dragged to p. Absent: handle i moves anchor i.
