@@ -7,6 +7,7 @@ import type { Candle } from '../../types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../backtest/optimizer';
 import { runMonteCarlo, type MonteCarloOptions, type MonteCarloResult } from '../backtest/monteCarlo';
 import { runValidatedOptimize, type ValidationOutput } from '../backtest/validation';
+import type { WalkForwardOutput } from '../backtest/walkForward';
 import { runAnyBacktest } from '../backtest/runner';
 import type { BacktestConfig, BacktestResult, BacktestStage, Trade } from '../backtest/types';
 import { runPine } from '../pine/runtime';
@@ -28,7 +29,7 @@ export type WorkerRequestBody =
 export type WorkerResponse =
   | { id: string; type: 'progress'; pct: number; stage?: BacktestStage }
   | { id: string; type: 'result'; result: BacktestResult }
-  | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; keys: string[]; combos: number; metric: MetricKey; errored: number; validation?: ValidationOutput }
+  | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; keys: string[]; combos: number; metric: MetricKey; errored: number; validation?: ValidationOutput; walkForward?: WalkForwardOutput }
   | { id: string; type: 'pineResult'; outcome: PineRunOutcome }
   | { id: string; type: 'monteCarloResult'; result: MonteCarloResult }
   | { id: string; type: 'error'; message: string };
@@ -79,6 +80,7 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           metric: out.metric,
           errored: out.errored,
           validation: out.validation,
+          walkForward: out.walkForward,
         }),
       )
       .catch(fail);

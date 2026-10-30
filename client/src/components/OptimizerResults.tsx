@@ -16,6 +16,7 @@ import { fmtNum, pnlClass } from '../lib/format';
 import type { ChartState } from '../state/chart';
 import { Heatmap } from './OptimizerHeatmap';
 import { HeldOutCheck } from './OptimizerValidation';
+import { WalkForwardResults } from './OptimizerWalkForward';
 
 type Result = NonNullable<ChartState['optResult']>;
 
@@ -49,7 +50,7 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
     <div className="mt-3">
       <div className="row mb-2 wrap">
         <span className="section-title" style={{ margin: 0 }}>
-          Results{result.validation ? ' (in-sample)' : ''} · {METRIC_LABELS[metric]}
+          Results{result.walkForward ? ' (last window in-sample)' : result.validation ? ' (in-sample)' : ''} · {METRIC_LABELS[metric]}
         </span>
         <span className="badge">{result.combos} combos</span>
         {result.errored > 0 && <span className="badge red">{result.errored} failed</span>}
@@ -112,6 +113,15 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
         </button>
       </div>
 
+      {result.walkForward && (
+        <WalkForwardResults
+          walkForward={result.walkForward}
+          keys={result.keys}
+          metric={metric}
+          initialCapital={result.context.initialCapital}
+          onApply={onApply}
+        />
+      )}
       {result.validation && <HeldOutCheck validation={result.validation} keys={result.keys} metric={metric} onApply={onApply} />}
 
       <Heatmap key={result.keys.join('|')} rows={result.rows} keys={result.keys} metric={metric} onApply={onApply} />
