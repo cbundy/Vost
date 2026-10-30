@@ -37,7 +37,7 @@ Each area below has a page in the [user guide](docs/guide/README.md).
 - Candlestick chart with volume, powered by TradingView's open-source *lightweight-charts* (v5, panes supported)
 - Indicators: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD — configurable periods & colors, live editing
 - Coloured crosshair legend (label, OHLC, change, volume), a bar under the chart with quick ranges (1D to All), the Range picker and the time-zone clock, fit-to-screen, PNG screenshot, CSV export
-- Bar replay: pick a starting bar (click it or type a date, and pick a new one at any time during replay), then step or play forward at 1, 3 or 10 bars a second with no look-ahead in the chart, indicators, Pine output or trade markers; backtests still use all the data and live bars keep arriving in the background
+- Bar replay: pick a starting bar (click it or type a date, and pick a new one at any time during replay), then step or play forward at 1, 3 or 10 bars a second with no look-ahead in the chart, indicators, Pine output or trade markers; backtests still use all the data and live bars keep arriving in the background ([guide](docs/guide/replay.md))
 - Layouts ([guide](docs/guide/layouts.md)): 1 to 16 charts in 55 arrangements with one active chart, **Sync in layout** switches (symbol, interval, crosshair, time, date range) and named layouts you can save (Ctrl/Cmd+S), autosave, copy, rename and reopen
 - Custom intervals ([guide](docs/guide/timeframes.md)): any number-and-unit timeframe such as 2h, 10m or 3M from **Add interval...** in the timeframe picker
 - Drawings ([guide](docs/guide/drawings.md)): trend line, horizontal line, ray, rectangle, Fibonacci, text notes, measure and magnet, saved per symbol

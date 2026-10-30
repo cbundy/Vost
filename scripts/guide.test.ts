@@ -53,7 +53,8 @@ function stripFences(md: string): string {
 export function slugify(heading: string): string {
   return heading
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[`*_~]/g, '')
+    .replace(/[`*~]/g, '')
+    .replace(/(^|[^\p{L}\p{N}_])_+([^_]+?)_+(?![\p{L}\p{N}_])/gu, '$1$2')
     .replace(/<[^>]+>/g, '')
     .trim()
     .toLowerCase()

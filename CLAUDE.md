@@ -128,6 +128,7 @@ Any agent making code changes - solo or delegated - works inside a a treehouse w
 To run the app: `npm run dev` starts the API server (`server/index.mjs`, port 8787) and the
 Vite client (port 5173) together. No keys are needed: the defaults in `.env.example` work
 as they are.
+
 ## User guide
 
 `docs/guide/` is the user guide (one page per feature area, indexed in `docs/guide/README.md`). A PR that adds or
