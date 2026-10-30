@@ -23,14 +23,23 @@ import {
   update,
   type Drawing,
   setLocked,
+  setHidden,
+  moveTo,
   rename,
   reorder,
   reorderMany,
   previewMany,
   cloneMany,
+  imageKeys,
+  persistedImageKeys,
+  stateImageKeys,
   paste,
   removeMany,
+  setCell,
+  setCells,
 } from './drawings';
+import { withStyleValue } from './toolbarPickers';
+import { VALIDATORS } from '../components/chart/tools';
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, gannBox: 2, gannSquareFixed: 2, gannSquare: 2, gannFan: 2, text: 1 };
 const TEXT = new Set(['text']);
@@ -222,6 +231,22 @@ describe('storage', () => {
     expect(got.map((d) => d.id)).toEqual(['y']);
     expect(got[0].anchors).toEqual([{ time: 0, price: 1 }]);
   });
+  it('round trips the price markers with text and style and drops a 1-anchor price note', () => {
+    const counts = { ...COUNTS, priceNote: 2, priceLabel: 1, signpost: 1, flagMark: 1 };
+    const tools = new Set(['text']);
+    const caps = new Set(['priceNote', 'signpost']);
+    const a = { time: 5, price: 6 };
+    const list = [
+      { id: 'n', tool: 'priceNote', anchors: [a, { time: 9, price: 1 }], text: 'target', style: { color: '#ff0000' } },
+      { id: 'l', tool: 'priceLabel', anchors: [a] },
+      { id: 's', tool: 'signpost', anchors: [a], text: 'sign', style: { position: 'below', emoji: '🚀' } },
+      { id: 'f', tool: 'flagMark', anchors: [a], style: { color: '#00ff00' } },
+    ];
+    saveDrawings({ s: list });
+    expect(loadDrawings(counts, tools, TRANSIENT, new Set(), caps).sources).toEqual({ s: list });
+    const raw = { version: 2, sources: { s: [{ id: 'x', tool: 'priceNote', anchors: [a] }, list[1]] } };
+    expect(parseStore(raw, counts, tools, TRANSIENT, new Set(), caps).sources.s.map((d) => d.id)).toEqual(['l']);
+  });
   it('clamps a pane-anchored anchor onto 0..1 and leaves other tools alone', () => {
     const counts = { ...COUNTS, anchoredText: 1 };
     const tools = new Set(['text', 'anchoredText']);
@@ -325,6 +350,15 @@ describe('setStyle', () => {
     const plain = add(emptyState(), trend('a'));
     expect(setStyle(plain, 'a', {})).toBe(plain);
     expect(setStyle(plain, 'a', undefined)).toBe(plain);
+  });
+  it('a quick edit keeps the other keys, is one undo step, works on a locked drawing and is a no-op when unchanged', () => {
+    const s0 = setLocked(setStyle(add(emptyState(), trend('a')), 'a', { width: 3, lineStyle: 'dashed' }), ['a'], true);
+    const s1 = setStyle(s0, 'a', withStyleValue(s0.drawings[0].style, 'color', 'red'));
+    expect(s1.drawings[0].style).toEqual({ width: 3, lineStyle: 'dashed', color: 'red' });
+    expect(s1.drawings[0].locked).toBe(true);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(undo(s1).drawings[0].style).toEqual({ width: 3, lineStyle: 'dashed' });
+    expect(setStyle(s1, 'a', withStyleValue(s1.drawings[0].style, 'color', 'red'))).toBe(s1);
   });
   it('clears the style with an empty one', () => {
     const s1 = setStyle(add(emptyState(), trend('a')), 'a', { width: 3 });
@@ -467,11 +501,27 @@ describe('the pattern tools', () => {
   it('round trips each with its own anchor count and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
-    const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern'];
-    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4]);
+    const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives', 'elliottImpulse', 'elliottCorrection', 'elliottTriangle', 'elliottDoubleCombo', 'elliottTripleCombo'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4, 7, 4, 7, 6, 4, 6, 4, 6]);
     const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an((ANCHOR_COUNTS[tool] as number) - 1) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
+describe('the position tools', () => {
+  it('round trips both with three anchors, drops a wrong count and a wrong side', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const ids = ['longPosition', 'shortPosition'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3]);
+    const an = (e: number, t: number, s: number) => [{ time: 1, price: e }, { time: 2, price: t }, { time: 2, price: s }];
+    const ok = [{ id: 'l', tool: 'longPosition', anchors: an(10, 12, 9) }, { id: 's', tool: 'shortPosition', anchors: an(10, 8, 11) }];
+    const bad = [
+      { id: 'l2', tool: 'longPosition', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] },
+      { id: 'l3', tool: 'longPosition', anchors: an(10, 8, 11) },
+      { id: 's2', tool: 'shortPosition', anchors: an(10, 12, 9) },
+    ];
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS, undefined, undefined, undefined, undefined, VALIDATORS).sources).toEqual({ s: ok });
   });
 });
 
@@ -484,6 +534,20 @@ describe('the cycle tools', () => {
     const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(2) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(3) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
+describe('the volume-based tools', () => {
+  it('round trips each with a style and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['anchoredVwap', 'fixedRangeVolumeProfile', 'anchoredVolumeProfile'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([1, 2, 1]);
+    const style = { source: 'hl2', showBand2: true, rowSize: 12, valueAreaVolume: 80, placement: 'right', upColor: '#112233' };
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number), style }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an((ANCHOR_COUNTS[tool] as number) + 1) }));
+    const loaded = parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources.s;
+    expect(loaded.map((d) => d.id)).toEqual(ids);
   });
 });
 
@@ -528,6 +592,42 @@ describe('drawing management edits', () => {
     expect('locked' in open.drawings[0]).toBe(false);
     expect(undo(locked).drawings).toBe(s.drawings);
     expect(setLocked(s, ['a'], false)).toBe(s);
+  });
+
+  it('hides and shows over several ids as one undo step, and is a no-op when unchanged', () => {
+    const s = three();
+    const hid = setHidden(s, ['a', 'c', 'zz'], true);
+    expect(hid.drawings.map((d) => d.hidden)).toEqual([true, undefined, true]);
+    expect(hid.past).toHaveLength(1);
+    expect(setHidden(hid, ['a', 'c'], true)).toBe(hid);
+    const shown = setHidden(hid, ['a'], false);
+    expect('hidden' in shown.drawings[0]).toBe(false);
+    expect(undo(hid).drawings).toBe(s.drawings);
+    expect(setHidden(s, ['a'], false)).toBe(s);
+  });
+
+  it('moveTo puts a drawing at a paint-order index as one undo step', () => {
+    const s = emptyState([t('a'), t('b'), t('c'), t('d')]);
+    expect(ids(moveTo(s, 'a', 3))).toEqual(['b', 'c', 'd', 'a']);
+    expect(ids(moveTo(s, 'd', 0))).toEqual(['d', 'a', 'b', 'c']);
+    expect(ids(moveTo(s, 'a', 2))).toEqual(['b', 'c', 'a', 'd']);
+    expect(ids(moveTo(s, 'c', 1))).toEqual(['a', 'c', 'b', 'd']);
+    expect(moveTo(s, 'a', 3).past).toHaveLength(1);
+    expect(undo(moveTo(s, 'a', 3)).drawings).toBe(s.drawings);
+    expect(moveTo(s, 'b', 1)).toBe(s);
+    expect(moveTo(s, 'zz', 1)).toBe(s);
+  });
+
+  it('parseStore keeps hidden: true and drops any other hidden value', () => {
+    const got = parseStore(
+      { version: 2, sources: { s: [{ ...t('a'), hidden: true }, { ...t('b'), hidden: 'yes' }, { ...t('c'), hidden: false }] } },
+      COUNTS,
+      TEXT,
+      TRANSIENT,
+    ).sources.s;
+    expect(got[0].hidden).toBe(true);
+    expect('hidden' in got[1]).toBe(false);
+    expect('hidden' in got[2]).toBe(false);
   });
 
   it('renames, trims, cuts to 60 and clears; the same state when unchanged', () => {
@@ -691,6 +791,13 @@ describe('tools with a range of anchors', () => {
     const bad = [{ id: 'p1', tool: 'path', anchors: an(1) }, { id: 'p6', tool: 'path', anchors: an(6) }, { id: 'g2', tool: 'polyline', anchors: an(2) }, { id: 'g6', tool: 'polyline', anchors: an(6) }];
     expect(parse([...bad, ...ok])).toEqual(ok);
   });
+  it('keeps a brush and a highlighter at 2 to 200 anchors and drops 1 and 201 alone', () => {
+    const big = { ...counts, brush: { min: 2, max: 200 }, highlighter: { min: 2, max: 200 } };
+    const run = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, big, TEXT, TRANSIENT).sources.s;
+    const ok = ['brush', 'highlighter'].flatMap((tool) => [2, 200].map((n) => ({ id: `${tool}${n}`, tool, anchors: an(n) })));
+    const bad = ['brush', 'highlighter'].flatMap((tool) => [1, 201].map((n) => ({ id: `${tool}b${n}`, tool, anchors: an(n) })));
+    expect(run([...bad, ...ok])).toEqual(ok);
+  });
   it('drops a drawing with a bad point alone', () => {
     const ok = { id: 'ok', tool: 'path', anchors: an(3) };
     expect(parse([{ id: 'x', tool: 'path', anchors: [...an(2), { time: NaN, price: 1 }] }, ok])).toEqual([ok]);
@@ -699,5 +806,149 @@ describe('tools with a range of anchors', () => {
     const unknown = { id: 'u', tool: 'future', anchors: an(7) };
     const ok = { id: 't', tool: 'trendLine', anchors: an(2) };
     expect(parse([{ id: 'bad', tool: 'trendLine', anchors: an(3) }, ok, unknown])).toEqual([ok, unknown]);
+  });
+});
+
+describe('table cells', () => {
+  const tbl = (id: string, cells?: unknown) => ({ id, tool: 'table', anchors: [{ time: 1, price: 1 }], ...(cells === undefined ? {} : { cells }) });
+  const COUNTS_T = { ...COUNTS, table: 1 };
+  const withTable = () => add(emptyState(), tbl('t', [['a', 'b'], ['c', 'd']]) as Drawing);
+
+  it('round-trips through parseStore with the validators, padding ragged rows', () => {
+    const raw = { version: 2, sources: { s: [tbl('t', [['a'], ['b', 'c']])] } };
+    expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS_T, undefined, undefined, undefined, undefined, VALIDATORS).sources.s).toEqual([tbl('t', [['a', ''], ['b', 'c']])]);
+  });
+  it('drops a table with bad cells alone, its neighbours load', () => {
+    const raw = { version: 2, sources: { s: [trend('a'), tbl('x', 'nope'), tbl('y', []), tbl('z', [[1]]), tbl('ok', [['q']]), hline('b')] } };
+    const ids = parseStore(raw, COUNTS_T, undefined, undefined, undefined, undefined, VALIDATORS).sources.s.map((d) => d.id);
+    expect(ids).toEqual(['a', 'ok', 'b']);
+  });
+  it('parseStore without validators keeps stored cells as they were', () => {
+    const raw = { version: 2, sources: { s: [tbl('x', 'nope')] } };
+    expect(parseStore(raw, COUNTS_T).sources.s).toEqual([tbl('x', 'nope')]);
+  });
+  it('a table without cells is kept', () => {
+    const raw = { version: 2, sources: { s: [tbl('x')] } };
+    expect(parseStore(raw, COUNTS_T, undefined, undefined, undefined, undefined, VALIDATORS).sources.s).toEqual([tbl('x')]);
+  });
+  it('setCell is one undo step with redo, cleans the text and is a no-op when nothing changes', () => {
+    const s0 = withTable();
+    const s1 = setCell(s0, 't', 1, 0, '  hello  ');
+    expect(s1.drawings[0].cells).toEqual([['a', 'b'], ['hello', 'd']]);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(setCell(s1, 't', 1, 0, 'hello')).toBe(s1);
+    expect(setCell(s1, 't', 9, 9, 'x')).toBe(s1);
+    expect(setCell(s1, 'nope', 0, 0, 'x')).toBe(s1);
+    const u = undo(s1);
+    expect(u.drawings[0].cells).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(redo(u).drawings[0].cells).toEqual([['a', 'b'], ['hello', 'd']]);
+  });
+  it('setCells is one undo step and a no-op when equal', () => {
+    const s0 = withTable();
+    const s1 = setCells(s0, 't', [['x']]);
+    expect(s1.drawings[0].cells).toEqual([['x']]);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(setCells(s1, 't', [['x']])).toBe(s1);
+    expect(undo(s1).drawings[0].cells).toEqual([['a', 'b'], ['c', 'd']]);
+  });
+  it('previewPatch with cells leaves history untouched', () => {
+    const s0 = withTable();
+    const s1 = previewPatch(s0, 't', { cells: [['z', 'z', 'z']] });
+    expect(s1.drawings[0].cells).toEqual([['z', 'z', 'z']]);
+    expect(s1.past).toBe(s0.past);
+    expect(s1.future).toBe(s0.future);
+  });
+  it('cloneMany copies the cells', () => {
+    const s1 = cloneMany(withTable(), ['t']);
+    expect(s1.drawings).toHaveLength(2);
+    expect(s1.drawings[1].cells).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(s1.drawings[1].cells).not.toBe(s1.drawings[0].cells);
+  });
+});
+
+describe('glyph drawings (icon, emoji, sticker)', () => {
+  const glyph = (tool: string, id: string, extra: Record<string, unknown> = {}) => ({ id, tool, anchors: [{ time: 5, price: 7 }], glyph: 'flag', style: { size: 64, angle: 30 }, ...extra });
+  const COUNTS_G = { ...COUNTS, icon: 1, emoji: 1, sticker: 1 };
+  const parse = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, COUNTS_G, undefined, undefined, undefined, undefined, VALIDATORS).sources.s ?? [];
+
+  it('each tool round-trips through save and load with its glyph, size and angle', () => {
+    for (const tool of ['icon', 'emoji', 'sticker']) {
+      const d = glyph(tool, tool, { glyph: `${tool}-id` });
+      saveDrawings({ s: [d as Drawing] });
+      const back = loadDrawings(COUNTS_G, undefined, undefined, undefined, undefined, VALIDATORS).sources.s;
+      expect(back).toEqual([d]);
+      expect(back[0].glyph).toBe(`${tool}-id`);
+      expect(back[0].style).toEqual({ size: 64, angle: 30 });
+      store.clear();
+    }
+  });
+  it('keeps a glyph id the sets do not know, and drops a drawing with no usable glyph alone', () => {
+    const unknown = glyph('icon', 'u', { glyph: 'not-in-any-set' });
+    const missing = { id: 'm', tool: 'emoji', anchors: [{ time: 1, price: 1 }] };
+    const empty = glyph('sticker', 'e', { glyph: '' });
+    const num = glyph('icon', 'n', { glyph: 5 });
+    expect(parse([trend('a'), missing, unknown, empty, num, hline('b')]).map((d) => d.id)).toEqual(['a', 'u', 'b']);
+  });
+  it('cloneMany and paste keep the glyph and style, and undo and redo restore the drawing', () => {
+    const s0 = add(emptyState(), glyph('emoji', 'g') as Drawing);
+    const s1 = cloneMany(s0, ['g']);
+    expect(s1.drawings[1]).toMatchObject({ tool: 'emoji', glyph: 'flag', style: { size: 64, angle: 30 } });
+    expect(s1.drawings[1].id).not.toBe('g');
+    expect(paste(emptyState(), [s0.drawings[0]]).drawings[0].glyph).toBe('flag');
+    expect(undo(s1).drawings).toHaveLength(1);
+    expect(redo(undo(s1)).drawings[1].glyph).toBe('flag');
+  });
+  it('a style preview with the anchors unchanged leaves history alone and the commit is one undo step', () => {
+    const s0 = add(emptyState(), glyph('sticker', 'g') as Drawing);
+    const live = previewPatch(s0, 'g', { anchors: s0.drawings[0].anchors, style: { size: 200, angle: 90 } });
+    expect(live.past).toBe(s0.past);
+    expect(live.drawings[0].style).toEqual({ size: 200, angle: 90 });
+    expect(live.drawings[0].glyph).toBe('flag');
+    const done = commit(live, s0.drawings);
+    expect(done.past).toHaveLength(s0.past.length + 1);
+    expect(undo(done).drawings[0].style).toEqual({ size: 64, angle: 30 });
+  });
+});
+
+describe('image drawings', () => {
+  const KEY = 'b'.repeat(64);
+  const pic = (id: string): Drawing => ({ id, tool: 'image', anchors: [{ time: 100, price: 9 }, { time: 200, price: 4 }], image: { key: KEY, w: 40, h: 30 } });
+  const IMAGE_COUNTS = { ...COUNTS, image: 2 };
+
+  it('round-trips its image field through parseStore, and the tool check drops a malformed one', () => {
+    const raw = { version: 2, sources: { a: [pic('p'), { ...pic('q'), image: { key: 'nope', w: 1, h: 1 } }, { ...pic('r'), tool: 'future', image: { key: 'x' } }] } };
+    const got = parseStore(raw, IMAGE_COUNTS, TEXT, TRANSIENT, undefined, undefined, VALIDATORS);
+    expect(got.sources.a.map((d) => d.id)).toEqual(['p', 'r']);
+    expect(got.sources.a[0].image).toEqual({ key: KEY, w: 40, h: 30 });
+  });
+
+  it('copies the same image key on clone and paste', () => {
+    const s = cloneMany(emptyState([pic('p')]), ['p']);
+    expect(s.drawings).toHaveLength(2);
+    expect(s.drawings[1].image).toEqual({ key: KEY, w: 40, h: 30 });
+    expect(s.drawings[1].id).not.toBe('p');
+    const pasted = paste(emptyState(), [pic('p')]);
+    expect(pasted.drawings[0].image?.key).toBe(KEY);
+  });
+
+  it('keeps the picture when a delete is undone and redone', () => {
+    const del = removeMany(emptyState([pic('p')]), ['p']);
+    expect(del.drawings).toEqual([]);
+    expect(stateImageKeys(del)).toEqual([KEY]); // still held by the undo snapshot
+    const back = undo(del);
+    expect(back.drawings[0].image?.key).toBe(KEY);
+    expect(redo(back).drawings).toEqual([]);
+  });
+
+  it('lists the keys of drawings, history snapshots and every stored source', () => {
+    expect(imageKeys([pic('p'), trend('t'), null, 'x'])).toEqual([KEY]);
+    saveDrawings({ a: [pic('p')], b: [{ ...pic('q'), tool: 'future' }, trend('t')] });
+    expect(persistedImageKeys()).toEqual({ keys: new Set([KEY]), newer: false });
+    store.set('vost.drawings.v2', JSON.stringify({ version: 3, sources: {} }));
+    expect(persistedImageKeys()).toEqual({ keys: new Set(), newer: true });
+    store.set('vost.drawings.v2', '{broken');
+    expect(persistedImageKeys()).toBeNull();
+    store.clear();
+    expect(persistedImageKeys()).toEqual({ keys: new Set(), newer: false });
   });
 });

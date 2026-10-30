@@ -76,8 +76,11 @@ export const drawings: Scenario = {
         check('collapsed at start', (await menuBtn.getAttribute('aria-expanded')) === 'false');
         await menuBtn.tap();
         check('expanded', (await menuBtn.getAttribute('aria-expanded')) === 'true');
-        for (const name of ['Cross', 'Trend line', 'Horizontal line', 'Text', 'Measure', 'Magnet', 'Hide all drawings', 'Delete all drawings']) {
+        for (const name of ['Cross', 'Trend line', 'Horizontal line', 'Text', 'Measure', 'Stay in drawing mode', 'Lock all drawings', 'Hide all drawings', 'Delete all drawings']) {
           check(`menu has ${name}`, await (await pick(name)).isVisible());
+        }
+        for (const name of ['Off', 'Weak magnet', 'Strong magnet']) {
+          check(`menu has the ${name} magnet mode`, await menu.getByRole('radio', { name, exact: true }).isVisible());
         }
         check('Delete all disabled with no drawings', await (await pick('Delete all drawings')).isDisabled());
         await ctx.screenshot('menu');
@@ -258,6 +261,12 @@ export const drawings: Scenario = {
     await ctx.step('magnet snaps a dragged trend line to a bar', async () => {
       await press('Magnet').click();
       check('Magnet pressed', (await pressed('Magnet')) === 'true');
+      check('the first magnet is the weak one', (await press('Magnet').getAttribute('title')) === 'Magnet: weak');
+      // the exact-OHLC checks below are the strong magnet
+      await press('Open Magnet modes').click();
+      await rail.getByRole('menuitemradio', { name: 'Strong magnet', exact: true }).click();
+      check('Magnet still pressed', (await pressed('Magnet')) === 'true');
+      check('title names the strong magnet', (await press('Magnet').getAttribute('title')) === 'Magnet: strong');
       await pickTool('Trend line');
       const a = await aAt(0.5, 0.4);
       const b = await aAt(0.7, 0.3);
@@ -298,6 +307,7 @@ export const drawings: Scenario = {
       await page.reload();
       await ctx.waitForChart();
       check('Magnet still pressed', (await pressed('Magnet')) === 'true');
+      check('Magnet strength still strong', (await press('Magnet').getAttribute('title')) === 'Magnet: strong');
       check('Hide all still off', (await pressed('Hide all drawings')) === 'false');
     });
 

@@ -13,7 +13,9 @@ import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, barSlotTime, hits
 import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
 import { anchorRange, type Anchor, type Drawing } from '../../lib/drawings';
 import { inBox, type Rect } from '../../lib/drawingSelection';
+import { onGlyphLoaded } from '../../lib/iconSets';
 import { theme } from '../../lib/theme';
+import { drawingBox } from '../../lib/toolbarPlacement';
 import { fractionToPoint, pointToFraction } from './paneAnchor';
 import { getTool } from './tools';
 import type { DrawingTool, ToolView } from './tools/types';
@@ -27,6 +29,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private chart: IChartApiBase<Time> | null = null;
   private series: ISeriesApi<'Candlestick'> | null = null;
   private requestUpdate: (() => void) | null = null;
+  /** Unsubscribes from the glyph sets and images finishing to load (a glyph drawn as a placeholder is painted again). */
+  private stopGlyphs: (() => void) | null = null;
   private drawings: Drawing[] = [];
   private draft: Drawing | null = null;
   private measure: Drawing | null = null;
@@ -56,14 +60,29 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.view = { zOrder: () => 'top', renderer: () => renderer };
   }
 
+  /** The series the drawings sit on (for price to pixel conversion), or null when detached. */
+  priceSeries(): ISeriesApi<'Candlestick'> | null {
+    return this.series;
+  }
+
+  /** The series' smallest price step (its price format's minMove), or undefined when it has none. */
+  private tickSize(): number | undefined {
+    const fmt = this.series?.options().priceFormat;
+    const step = fmt && 'minMove' in fmt ? fmt.minMove : undefined;
+    return typeof step === 'number' && step > 0 ? step : undefined;
+  }
+
   attached(p: SeriesAttachedParameter<Time>): void {
     this.chart = p.chart;
     this.series = p.series as ISeriesApi<'Candlestick'>;
     this.requestUpdate = p.requestUpdate;
+    this.stopGlyphs = onGlyphLoaded(() => this.requestUpdate?.());
     this.rebuildAxisViews();
   }
 
   detached(): void {
+    this.stopGlyphs?.();
+    this.stopGlyphs = null;
     this.chart = null;
     this.series = null;
     this.requestUpdate = null;
@@ -83,6 +102,14 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.measure = measure;
     this.skipId = skipId;
     this.rebuildAxisViews();
+    this.requestUpdate?.();
+  }
+
+  /** Lock all drawings: none shows or hits a handle (each drawing's own lock flag is untouched). */
+  private lockAll = false;
+  setLockAll(on: boolean): void {
+    if (this.lockAll === on) return;
+    this.lockAll = on;
     this.requestUpdate?.();
   }
 
@@ -128,8 +155,26 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return this.timeViews;
   }
 
+  /** Called on every chart repaint (pan, zoom, price-scale change, resize): the floating toolbar follows its drawing. */
+  onViewsUpdated: (() => void) | null = null;
+
   updateAllViews(): void {
     this.rebuildAxisViews();
+    this.onViewsUpdated?.();
+  }
+
+  /** The pixel box of a shown, placeable drawing (chart pixels), or null. */
+  boxOf(d: Drawing): Rect | null {
+    const tool = getTool(d.tool);
+    const pts = tool && this.shown(d) && this.points(d);
+    if (!tool || !pts) return null;
+    const size = this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 };
+    return drawingBox(pts, tool, size);
+  }
+
+  /** A drawing's effective style values: its own, else the user's default, else the tool's. */
+  styleValues(d: Pick<Drawing, 'tool' | 'style'>): Readonly<Record<string, unknown>> {
+    return this.styleOf(d).values;
   }
 
   /**
@@ -197,13 +242,13 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return resolveStyle(tool?.settings ?? [], d.style, own);
   }
 
-  /** Whether the drawing shows on the chart's current timeframe; a drawing of an unknown tool never does. */
-  shown(d: Pick<Drawing, 'tool' | 'style'>): boolean {
-    return !!getTool(d.tool) && visibleOn(this.styleOf(d).values, timeframeKind(this.getTimeframe()));
+  /** Whether the drawing shows on the chart's current timeframe; a drawing of an unknown tool or a hidden one never does. */
+  shown(d: Pick<Drawing, 'tool' | 'style'> & Partial<Pick<Drawing, 'hidden'>>): boolean {
+    return d.hidden !== true && !!getTool(d.tool) && visibleOn(this.styleOf(d).values, timeframeKind(this.getTimeframe()));
   }
 
   /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */
-  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style'>>, size?: { width: number; height: number }): ToolView {
+  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style' | 'cells' | 'image' | 'glyph'>>, size?: { width: number; height: number }): ToolView {
     const series = this.series;
     const { values, styled } = this.styleOf(d);
     const pane = size ?? (this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 });
@@ -212,10 +257,15 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       height: pane.height,
       anchors: d.anchors,
       text: d.text ?? '',
+      cells: d.cells ?? [],
+      glyph: d.glyph ?? '',
+      image: d.image,
       times: this.getTimes(),
       candles: this.getCandles(),
+      indexToX: (i) => (this.chart ? (this.chart.timeScale().logicalToCoordinate(i as never) as number | null) : null),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,
       formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
+      tickSize: this.tickSize(),
       style: values,
       styled,
     };
@@ -225,7 +275,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   hit(p: Pt, opts: HitOpts = MOUSE_HIT): DrawingHit | null {
     // Handles are only for a single selection.
     const sel = this.selected.size === 1 ? this.drawings.find((d) => this.selected.has(d.id) && this.shown(d)) : undefined;
-    if (sel && !sel.locked) {
+    if (sel && !sel.locked && !this.lockAll) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
       if (tool && pts) {
@@ -268,7 +318,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         ctx.save();
         const view = this.viewFor(d, mediaSize);
         tool.draw(ctx, pts, view, { selected });
-        if (selected && this.selected.size === 1 && !d.locked) {
+        if (selected && this.selected.size === 1 && !d.locked && !this.lockAll) {
           for (const h of tool.handles(pts, view)) {
             ctx.beginPath();
             ctx.arc(h.x, h.y, HANDLE_RADIUS, 0, Math.PI * 2);
@@ -335,7 +385,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const tool = getTool(d.tool);
       if (!tool?.axisLabels) continue;
       const { values } = this.styleOf(d);
-      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id), this.getTimes());
+      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id), this.getTimes(), this.getCandles());
       const back = () => cssColor(values.labelColor ?? theme.accent2);
       for (const p of labels.price ?? []) {
         price.push({

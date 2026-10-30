@@ -1,7 +1,7 @@
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { MOUSE_HIT, TOUCH_HIT, snapToBar, type Pt } from '../../lib/drawingGeometry';
+import { MOUSE_HIT, TOUCH_HIT, WEAK_MAGNET_PX, snapToBar, type Pt } from '../../lib/drawingGeometry';
 import {
   add,
   commit,
@@ -17,8 +17,12 @@ import {
   removeMany,
   cleanText,
   cloneMany,
+  setCell,
+  setCells,
   setText,
   sourceKey,
+  stateImageKeys,
+  persistedImageKeys,
   undo,
   anchorRange,
   type Anchor,
@@ -28,15 +32,25 @@ import {
 } from '../../lib/drawings';
 import { addAll, normalizeRect, only, prune, toggle } from '../../lib/drawingSelection';
 import { drawingKeyAction } from '../../lib/drawingKeys';
-import { DRAG_PX, closesOnFirst, endDraft, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, undoPoint, type Draft } from '../../lib/drawingDraft';
+import { DRAG_PX, closesOnFirst, endDraft, endFreehand, extendFreehand, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, startFreehand, undoPoint, type Draft } from '../../lib/drawingDraft';
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { NotePopups } from './notePopups';
 import { editorStyle, type EditorTarget } from './textPlacement';
+import { usePublishDrawings } from './activeDrawings';
+import { cellRect, cellUnder } from './tableEditing';
+import { available, createSweeper, registerImageRefs } from '../../lib/drawingImages';
+import { dragCorner, fitToHalfPane, naturalEnd } from '../../lib/geometry/image';
+import { subscribeBitmaps } from './imageCache';
+import { IMAGE_TOOL, adoptFile, dragHasFiles, droppedFile, getPending, openChooser, pictureFrom, setPending } from './imagePlacement';
+import { TABLE_DEFAULT_COLS, TABLE_DEFAULT_ROWS, emptyCells, stepCell } from '../../lib/geometry/table';
+import { useDrawingToolbar } from './useDrawingToolbar';
+import { armedGlyph, hoverGlyph, previewStyleDrag } from './glyphPlacement';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
-import { ANCHOR_COUNTS, CAPTION_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
+import type { DragMods } from './tools/types';
+import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, GLYPH_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export { CURSOR, ERASER };
@@ -55,8 +69,18 @@ function baseCursor(tool: string, kind: CursorKind): string {
 /** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
 let storage: DrawingsStorage | null = null;
 function drawingsStorage(): DrawingsStorage {
-  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS, CAPTION_TOOLS).sources, saveDrawings);
+  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS, CAPTION_TOOLS, VALIDATORS).sources, saveDrawings);
   return storage;
+}
+
+/** The tab's one picture sweeper: it reads the persisted drawings fresh (after writing any pending save) and the in-tab references. */
+let sweeper: ReturnType<typeof createSweeper> | null = null;
+function imageSweeper() {
+  sweeper ??= createSweeper(() => {
+    drawingsStorage().flush();
+    return persistedImageKeys();
+  });
+  return sweeper;
 }
 
 /** Two taps on the same note within this many ms open its editor. */
@@ -75,21 +99,34 @@ export type DrawingEditor = {
   style: Readonly<Record<string, unknown>>;
   onCommit(text: string): void;
   onCancel(): void;
+  /** A table cell's editor: its width, and Tab (1) or Shift+Tab (-1) to commit and move to the next or previous cell. */
+  width?: number;
+  onTab?(text: string, dir: 1 | -1): void;
 };
 
 /** Where a dragged handle now is: its starting pixel moved by the drag. */
 function handleTarget(def: DrawingTool, drag: Drag, item: DragItem, prim: DrawingPrimitive, dx: number, dy: number): Pt {
-  const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, style: item.origStyle }))[drag.handle as number];
+  const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, cells: item.origCells, style: item.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
 }
 
+/** What a handle drag may know besides the pointer: the Shift key and the drawing's view (its effective style, the tick size). */
+function dragMods(prim: DrawingPrimitive, item: DragItem, shift: boolean): DragMods {
+  const view = prim.viewFor({ tool: item.tool, anchors: item.origAnchors, style: item.origStyle });
+  return { shift, style: view.style, view };
+}
+
 /** One drawing a drag moves, as it was when the press began. */
-type DragItem = { id: string; tool: string; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[] };
+type DragItem = { id: string; tool: string; origAnchors: Anchor[]; origText: string | undefined; origCells: string[][] | undefined; origStyle: Drawing['style']; origPts: Pt[] };
 /** `items` is every drawing a body drag moves, or the one whose handle is dragged. */
 type Drag = { handle: number | null; start: Pt; items: DragItem[]; before: Drawing[]; /** A press on a member of a selection: a release without moving keeps just this one. */ collapseTo: string | null };
-const dragItem = (d: Drawing, origPts: Pt[]): DragItem => ({ id: d.id, tool: d.tool, origAnchors: d.anchors, origText: d.text, origStyle: d.style, origPts });
+const dragItem = (d: Drawing, origPts: Pt[]): DragItem => ({ id: d.id, tool: d.tool, origAnchors: d.anchors, origText: d.text, origCells: d.cells, origStyle: d.style, origPts });
 /** The draft as a drawing the primitive paints (it has fewer anchors than the tool needs until it is placed). */
-const draftDrawing = (d: Draft | null): Drawing | null => (d ? { id: 'draft', tool: d.tool, anchors: d.anchors } : null);
+const draftDrawing = (d: Draft | null): Drawing | null => {
+  if (!d) return null;
+  const picture = d.tool === IMAGE_TOOL ? getPending() : null;
+  return { id: 'draft', tool: d.tool, anchors: d.anchors, ...(picture ? { image: picture } : {}) };
+};
 
 function isEditable(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
@@ -116,6 +153,9 @@ export function useDrawings(
   const hasData = useChart((s) => s.candles.length > 0);
   const magnet = useStore((s) => s.drawingMagnet);
   const hidden = useStore((s) => s.drawingsHidden);
+  const magnetStrength = useStore((s) => s.drawingMagnetStrength);
+  const lockAll = useStore((s) => s.drawingsLocked);
+  const stayMode = useStore((s) => s.drawingStayMode);
   const defaults = useStore((s) => s.drawingDefaults);
   const timeframe = useChart((s) => s.timeframe);
   const cursorKind = useStore((s) => s.cursorKind);
@@ -123,6 +163,11 @@ export function useDrawings(
 
   const [tool, setToolState] = useState(CURSOR);
   const [drawingCount, setDrawingCount] = useState(0);
+  /** The glyph tool whose picker is open (Icons, Emojis or Stickers), or null. */
+  const [picker, setPicker] = useState<string | null>(null);
+  const [imagesAvailable, setImagesAvailable] = useState(true);
+  const imagesAvailableRef = useRef(true);
+  imagesAvailableRef.current = imagesAvailable;
   const toolRef = useRef(CURSOR);
   const keyRef = useRef(key);
   const hasDataRef = useRef(hasData);
@@ -140,12 +185,23 @@ export function useDrawings(
   const [editor, setEditor] = useState<DrawingEditor | null>(null);
   const magnetRef = useRef(magnet);
   const hiddenRef = useRef(hidden);
+  const strengthRef = useRef(magnetStrength);
+  const lockAllRef = useRef(lockAll);
+  const stayRef = useRef(stayMode);
   const cursorKindRef = useRef(cursorKind);
   cursorKindRef.current = cursorKind;
   magnetRef.current = magnet;
   hiddenRef.current = hidden;
+  strengthRef.current = magnetStrength;
+  lockAllRef.current = lockAll;
+  stayRef.current = stayMode;
+  primRef.current?.setLockAll(lockAll);
   keyRef.current = key;
   hasDataRef.current = hasData;
+
+  const publishRef = useRef<() => void>(() => {});
+  const toolbarRefreshRef = useRef<() => void>(() => {});
+  const toolbarFollowRef = useRef<(p: DrawingPrimitive) => () => void>(() => () => {});
 
   const getState = useCallback((): DrawingsState => {
     const k = keyRef.current;
@@ -158,6 +214,11 @@ export function useDrawings(
   }, []);
 
   const sync = useCallback(() => {
+    // A hidden drawing cannot be selected.
+    if (selectedRef.current.length > 0) {
+      const hid = new Set(getState().drawings.filter((d) => d.hidden === true).map((d) => d.id));
+      if (selectedRef.current.some((id) => hid.has(id))) selectedRef.current = selectedRef.current.filter((id) => !hid.has(id));
+    }
     popupsRef.current.prune(getState().drawings);
     primRef.current?.setPopups(popupsRef.current.hovered, popupsRef.current.pinned);
     if (hiddenRef.current) primRef.current?.set([], [], null);
@@ -167,9 +228,11 @@ export function useDrawings(
         selectedRef.current,
         draftDrawing(draftRef.current),
         measureRef.current,
-        editTargetRef.current?.id ?? null,
+        editTargetRef.current && !editTargetRef.current.cell ? editTargetRef.current.id : null,
       );
     }
+    publishRef.current();
+    toolbarRefreshRef.current();
   }, [getState]);
 
   const setState = useCallback(
@@ -178,6 +241,7 @@ export function useDrawings(
       setDrawingCount(next.drawings.length);
       if (persist) {
         drawingsStorage().set(keyRef.current, next.drawings);
+        imageSweeper().schedule();
       }
       sync();
     },
@@ -187,6 +251,7 @@ export function useDrawings(
   const setTool = useCallback(
     (id: string) => {
       if (id !== CURSOR && hiddenRef.current) return;
+      if (id !== IMAGE_TOOL) setPending(null);
       toolRef.current = id;
       setToolState(id);
       draftRef.current = null;
@@ -223,17 +288,49 @@ export function useDrawings(
     [setTool],
   );
 
+  /** A chosen, pasted or dropped file becomes the pending picture, or its refusal is shown. */
+  const adoptPicture = useCallback(
+    async (file: Blob) => {
+      const r = await adoptFile(file);
+      if (!r.ok) {
+        useStore.getState().pushToast('error', r.message);
+        return;
+      }
+      // The tool was changed while the file was stored: the picture stays in the store, unplaced.
+      if (toolRef.current !== IMAGE_TOOL) setPending(null);
+      sync();
+    },
+    [sync],
+  );
+
   /** The rail's pick of one entry: sets its mode (and cursor kind) and remembers it as its family's last tool. */
   const pickEntry = useCallback(
     (e: RailEntry) => {
       if (e.toolId !== CURSOR && (hiddenRef.current || !hasDataRef.current)) return;
-      pickTool(e.toolId);
+      if (e.toolId === IMAGE_TOOL && !imagesAvailableRef.current) return;
+      // A glyph tool is armed by choosing an item in its picker; the picker opens first.
+      if (GLYPH_TOOLS.has(e.toolId)) setPicker(e.toolId);
+      else pickTool(e.toolId);
+      if (e.toolId === IMAGE_TOOL) openChooser((file) => void adoptPicture(file));
       const app = useStore.getState();
       if (e.cursorKind) app.setCursorKind(e.cursorKind);
       app.setDrawingLastTool(e.group, e.key);
     },
-    [pickTool],
+    [pickTool, adoptPicture],
   );
+
+  /** The picker's choice: the tool is armed with the entry and the item follows the pointer until it is placed. */
+  const choosePick = useCallback(
+    (id: string) => {
+      const toolId = picker;
+      setPicker(null);
+      if (!toolId || hiddenRef.current || !hasDataRef.current) return;
+      useStore.getState().pickGlyph(toolId, id);
+      pickTool(toolId);
+    },
+    [picker, pickTool],
+  );
+  const closePicker = useCallback(() => setPicker(null), []);
 
   /** Pixel position of the editor's note: the container's offset in the chart area plus the anchor's pixel. */
   const editorPos = useCallback(
@@ -243,6 +340,19 @@ export function useDrawings(
       return pt && el ? { left: el.offsetLeft + pt.x, top: el.offsetTop + pt.y } : null;
     },
     [containerRef],
+  );
+
+  /** Where the open editor goes: a note at its anchor, a table cell over the cell (with the cell's width). */
+  const editorPlace = useCallback(
+    (target: EditorTarget): { left: number; top: number; width?: number } | null => {
+      if (!target.cell) return editorPos(target.anchors[0], target.tool);
+      const d = getState().drawings.find((x) => x.id === target.id);
+      const prim = primRef.current;
+      const el = containerRef.current;
+      const r = d && prim && el ? cellRect(prim, d, target.cell) : null;
+      return r && el ? { left: el.offsetLeft + r.left, top: el.offsetTop + r.top, width: r.width } : null;
+    },
+    [containerRef, editorPos, getState],
   );
 
   const closeEditor = useCallback(() => {
@@ -258,7 +368,11 @@ export function useDrawings(
       const text = cleanText(raw);
       editTargetRef.current = null;
       setEditor(null);
-      if (target.id === null) {
+      if (target.cell && target.id !== null) {
+        // A table cell may be emptied: the table stays.
+        setState(setCell(getState(), target.id, target.cell.row, target.cell.col, text), true);
+        selectedRef.current = only(target.id);
+      } else if (target.id === null) {
         if (text) {
           const id = newDrawingId();
           setState(add(getState(), { id, tool: target.tool, anchors: target.anchors, text }), true);
@@ -300,6 +414,43 @@ export function useDrawings(
     [closeEditor, commitEditor, editorPos, sync],
   );
 
+  /** Opens the cell input over a cell of a table; Tab commits it and opens the next cell, the last one closes. */
+  const openCell = useCallback(
+    (id: string, row: number, col: number) => {
+      const d = getState().drawings.find((x) => x.id === id);
+      if (!d || !CELL_TOOLS.has(d.tool)) return;
+      if (editTargetRef.current?.id === id && editTargetRef.current.cell?.row === row && editTargetRef.current.cell.col === col) return;
+      // A table stored without cells starts with the default empty ones.
+      if (!d.cells) setState(setCells(getState(), id, emptyCells(TABLE_DEFAULT_ROWS, TABLE_DEFAULT_COLS)), true);
+      const cells = getState().drawings.find((x) => x.id === id)?.cells;
+      if (cells?.[row]?.[col] === undefined) return;
+      const style = editorStyle(d.tool, d.style, useStore.getState().drawingDefaults);
+      const target: EditorTarget = { id, tool: d.tool, anchors: d.anchors, text: cells[row][col], style, key: ++editorKeyRef.current, cell: { row, col } };
+      const pos = editorPlace(target);
+      if (!pos) return;
+      editTargetRef.current = target;
+      flushSync(() =>
+        setEditor({
+          key: target.key,
+          ...pos,
+          text: target.text,
+          style,
+          onCommit: (t) => commitEditor(target, t),
+          onCancel: closeEditor,
+          onTab: (t, dir) => {
+            commitEditor(target, t);
+            const next = stepCell(getState().drawings.find((x) => x.id === id)?.cells ?? cells, row, col, dir);
+            if (next) openCellRef.current(id, next.row, next.col);
+          },
+        }),
+      );
+      sync();
+    },
+    [closeEditor, commitEditor, editorPlace, getState, setState, sync],
+  );
+  const openCellRef = useRef(openCell);
+  openCellRef.current = openCell;
+
   const deleteAll = useCallback(() => {
     if (getState().drawings.length === 0) return;
     if (!window.confirm('Delete all drawings on this chart?')) return;
@@ -321,6 +472,21 @@ export function useDrawings(
   const actions = useDrawingActions({ getState, setState, selectedRef, primRef, containerRef, hiddenRef, sync, edit, deleteAll });
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
+  publishRef.current = usePublishDrawings({ active, sourceKey: key, getState, selectedRef, primRef, hiddenRef, actions });
+
+  const toolbar = useDrawingToolbar({
+    getState,
+    setState,
+    selectedRef,
+    primRef,
+    containerRef,
+    hiddenRef,
+    toolRef,
+    isDragging: () => dragRef.current != null,
+    isEditing: () => editTargetRef.current != null || settingsOpenRef.current != null,
+  });
+  toolbarRefreshRef.current = toolbar.refresh;
+  toolbarFollowRef.current = toolbar.follow;
 
   /* The input follows its anchor when the chart pans, zooms or resizes. */
   useEffect(() => {
@@ -328,9 +494,9 @@ export function useDrawings(
     if (!chart || !el) return;
     const place = () => {
       const target = editTargetRef.current;
-      const pos = target && editorPos(target.anchors[0], target.tool);
+      const pos = target && editorPlace(target);
       if (!pos) return;
-      setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top) ? { ...cur, ...pos } : cur));
+      setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top || cur.width !== pos.width) ? { ...cur, ...pos } : cur));
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(place);
     const ro = new ResizeObserver(place);
@@ -343,7 +509,7 @@ export function useDrawings(
       }
       ro.disconnect();
     };
-  }, [chart, containerRef, editorPos]);
+  }, [chart, containerRef, editorPlace]);
 
   /* Primitive on the candle series. */
   useEffect(() => {
@@ -358,10 +524,13 @@ export function useDrawings(
       }
       return cachedTimes;
     }, () => chartStore.getState().timeframe, () => useStore.getState().drawingDefaults, () => chartStore.getState().candles);
+    prim.setLockAll(lockAllRef.current);
     series.attachPrimitive(prim);
     primRef.current = prim;
+    const unfollow = toolbarFollowRef.current(prim);
     sync();
     return () => {
+      unfollow();
       primRef.current = null;
       try {
         series.detachPrimitive(prim);
@@ -383,6 +552,20 @@ export function useDrawings(
     setDrawingCount(getState().drawings.length);
     sync();
   }, [key, sync, getState]);
+
+  /* Pictures: whether the store opens, the references this tab holds, a repaint when a picture is decoded, a first sweep. */
+  useEffect(() => {
+    let on = true;
+    void available().then((ok) => on && setImagesAvailable(ok));
+    imageSweeper().schedule();
+    const unregister = registerImageRefs(() => [...statesRef.current.values()].flatMap(stateImageKeys));
+    const unsubscribe = subscribeBitmaps(sync);
+    return () => {
+      on = false;
+      unregister();
+      unsubscribe();
+    };
+  }, [sync]);
 
   /* Hide all: nothing is painted or hit, and the selection, any draft and the tool are dropped. */
   useEffect(() => {
@@ -430,8 +613,23 @@ export function useDrawings(
     let draftEndedAt = -Infinity;
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
-    const snap = (a: Anchor, def?: DrawingTool): Anchor =>
-      magnetRef.current && !def?.paneAnchored ? snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }) : a;
+    const snap = (a: Anchor, def?: DrawingTool): Anchor => {
+      if (!magnetRef.current || def?.paneAnchored) return a;
+      const series = strengthRef.current === 'weak' ? primRef.current?.priceSeries() : null;
+      const within =
+        strengthRef.current === 'weak'
+          ? { px: WEAK_MAGNET_PX, y: (price: number) => (series ? (series.priceToCoordinate(price) as number | null) : null) }
+          : undefined;
+      return snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }, within);
+    };
+
+    /** A drawing that cannot be moved: its own lock or Lock all drawings. */
+    const isLocked = (d: Drawing): boolean => lockAllRef.current || !!d.locked;
+
+    /** After a drawing: back to the cursor, unless Stay in drawing mode keeps the tool picked. */
+    const afterDrawing = () => {
+      if (!stayRef.current) setTool(CURSOR);
+    };
 
     /** Whether a drawing's tool has a popup (a note). */
     const hasPopup = (id: string): boolean => {
@@ -440,6 +638,25 @@ export function useDrawings(
     };
     const onLeave = () => {
       if (popupsRef.current.hover(null)) sync();
+      clearHover();
+    };
+    /** The table the pointer carries before it is placed is held in `measureRef` (a temporary drawing that is never stored). */
+    const clearHover = () => {
+      if (measureRef.current?.id === 'hover') {
+        measureRef.current = null;
+        sync();
+      }
+    };
+
+    /** Where the picture's moving corner is: natural size (fit to half the pane) on a still press, else the ratio-kept (Shift: free) drag. */
+    const imageEnd = (start: Pt, p: Pt, shift: boolean): Pt => {
+      const picture = getPending();
+      if (!picture) return p;
+      if (Math.hypot(p.x - start.x, p.y - start.y) < DRAG_PX) {
+        const s = chart.paneSize(0);
+        return naturalEnd(start, fitToHalfPane(picture.w, picture.h, s.width, s.height));
+      }
+      return dragCorner(start, p, picture.w / picture.h, shift);
     };
 
     const point = (e: PointerEvent): Pt => {
@@ -449,6 +666,11 @@ export function useDrawings(
     const inPlot = (p: Pt) => {
       const s = chart.paneSize(0);
       return p.x >= 0 && p.y >= 0 && p.x < s.width && p.y < s.height;
+    };
+    /** A pane pixel clamped onto the pane (a freehand stroke runs on when the pointer leaves it). */
+    const clampToPane = (p: Pt): Pt => {
+      const s = chart.paneSize(0);
+      return { x: Math.min(Math.max(p.x, 0), Math.max(s.width - 1, 0)), y: Math.min(Math.max(p.y, 0), Math.max(s.height - 1, 0)) };
     };
     const scroll = (on: boolean) => chart.applyOptions({ handleScroll: on, handleScale: on });
     const claim = (e: PointerEvent) => {
@@ -482,11 +704,11 @@ export function useDrawings(
         const def = getTool(id);
         const pts = placed.map((a) => prim.toPoint(a, def));
         if (pts.every((q) => q)) {
-          const mapped = settle(pts as Pt[]).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
+          const mapped = settle(pts as Pt[], prim.viewFor({ tool: id, anchors: placed })).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
           if (mapped.some((a) => !a)) {
             // A point the tool added cannot be put on the chart: the drawing is not stored.
             draftRef.current = null;
-            setTool(CURSOR);
+            afterDrawing();
             sync();
             return;
           }
@@ -501,17 +723,47 @@ export function useDrawings(
         return;
       }
       draftEndedAt = performance.now();
+      if (getTool(id)?.cells) {
+        // A table is placed with empty cells and the first one is typed in at once.
+        const created = { id: newDrawingId(), tool: id, anchors, cells: emptyCells(TABLE_DEFAULT_ROWS, TABLE_DEFAULT_COLS) };
+        setState(add(getState(), created), true);
+        draftRef.current = null;
+        measureRef.current = null;
+        afterDrawing();
+        selectedRef.current = only(created.id);
+        sync();
+        openCell(created.id, 0, 0);
+        return;
+      }
+      if (id === IMAGE_TOOL) {
+        // The pending picture is placed in the box; it stays pending for the next click while the tool stays picked.
+        const picture = getPending();
+        draftRef.current = null;
+        measureRef.current = null;
+        if (!picture) {
+          afterDrawing();
+          sync();
+          return;
+        }
+        const created = { id: newDrawingId(), tool: id, anchors, image: { ...picture } };
+        setState(add(getState(), created), true);
+        afterDrawing();
+        selectedRef.current = only(created.id);
+        sync();
+        return;
+      }
       if (getTool(id)?.text) {
         // A text tool with several anchors (Callout) types its text now that all are placed; the drawing is added on commit.
         draftRef.current = null;
-        setTool(CURSOR);
+        afterDrawing();
         openEditor(null, id, anchors, '');
         return;
       }
-      setState(add(getState(), { id: newDrawingId(), tool: id, anchors }), true);
+      const glyph = getTool(id)?.glyph ? armedGlyph(id) : '';
+      setState(add(getState(), { id: newDrawingId(), tool: id, anchors, ...(glyph ? { glyph } : {}) }), true);
       const created = getState().drawings.at(-1)!;
       draftRef.current = null;
-      setTool(CURSOR);
+      afterDrawing();
       selectedRef.current = only(created.id);
       sync();
     };
@@ -567,8 +819,20 @@ export function useDrawings(
         const def = getTool(toolId);
         const raw = prim.toAnchor(p, def);
         if (!def || !raw || !hasDataRef.current) return;
-        const anchor = snap(raw, def);
+        if (def.glyph && !armedGlyph(toolId)) {
+          // Nothing is picked yet (the tool was set without the picker): choose first.
+          setPicker(toolId);
+          return;
+        }
+        // The Image tool places nothing until a picture is chosen; its box follows the pointer pixel for pixel (no magnet).
+        if (toolId === IMAGE_TOOL && !getPending()) return;
+        const anchor = toolId === IMAGE_TOOL ? raw : snap(raw, def);
         claim(e);
+        if (def.freehand) {
+          draftRef.current = startFreehand(toolId, p, raw);
+          sync();
+          return; // the stroke follows the pointer until the pointerup
+        }
         const draft = draftRef.current;
         if (draft) {
           if (isOpenEnded(def.anchors) && draft.phase === 'waiting') {
@@ -593,7 +857,7 @@ export function useDrawings(
         }
         if (def.text && def.anchors === 1) {
           draftRef.current = null;
-          setTool(CURSOR);
+          afterDrawing();
           openEditor(null, toolId, [anchor], '');
           return; // the pointerup releases
         }
@@ -646,9 +910,9 @@ export function useDrawings(
         const known = new Set(st.drawings.map((x) => x.id));
         const copies = cloned.drawings.filter((x) => !known.has(x.id));
         selectedRef.current = copies.map((x) => x.id);
-        if (copies.length === members.length && members.some((x) => !x.locked)) {
+        if (copies.length === members.length && members.some((x) => !isLocked(x))) {
           setState({ ...st, drawings: cloned.drawings }, false);
-          moving = copies.filter((_, i) => !members[i].locked);
+          moving = copies.filter((_, i) => !isLocked(members[i]));
         } else {
           setState(cloned, true);
           sync();
@@ -657,7 +921,7 @@ export function useDrawings(
       }
       const items: DragItem[] = [];
       for (const m of moving) {
-        if (m.locked && !cloning) continue;
+        if (isLocked(m) && !cloning) continue;
         const mt = getTool(m.tool);
         const pts = m.anchors.map((a) => prim.toPoint(a, mt));
         if (pts.some((q) => !q) || !prim.shown(m)) continue;
@@ -681,6 +945,23 @@ export function useDrawings(
       const draft = draftRef.current;
       if (draft) {
         const draftTool = getTool(draft.tool);
+        if (draftTool?.freehand) {
+          const q = clampToPane(p);
+          const raw = prim.toAnchor(q, draftTool);
+          if (raw) {
+            draftRef.current = extendFreehand(draft, q, raw);
+            sync();
+          }
+          return;
+        }
+        if (draft.tool === IMAGE_TOOL) {
+          const end = prim.toAnchor(imageEnd(draft.start, p, e.shiftKey && !touch), draftTool);
+          if (end) {
+            draftRef.current = moveDraft(draft, end);
+            sync();
+          }
+          return;
+        }
         const raw = prim.toAnchor(p, draftTool);
         if (raw) {
           draftRef.current = moveDraft(draft, snap(raw, draftTool));
@@ -698,12 +979,20 @@ export function useDrawings(
         const dx = p.x - drag.start.x;
         const dy = p.y - drag.start.y;
         const moves: Record<string, Anchor[]> = {};
+        const first = drag.items[0];
+        const firstTool = first && drag.handle !== null ? getTool(first.tool) : undefined;
+        if (first && firstTool?.dragStyle && drag.handle !== null) {
+          // A handle that changes the style (the glyph's size and angle) leaves its anchor where it was.
+          const next = previewStyleDrag(getState(), firstTool, first, drag.handle, prim, { x: dx, y: dy }, e.shiftKey);
+          if (next) setState(next, false);
+          return;
+        }
         for (const item of drag.items) {
           const def = getTool(item.tool);
           if (!def) continue;
           const dragged =
             drag.handle !== null && def.dragHandle
-              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy))
+              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy), dragMods(prim, item, e.shiftKey && !touch))
               : null;
           moves[item.id] = item.origAnchors.map((orig, i) => {
             if (dragged) {
@@ -723,6 +1012,16 @@ export function useDrawings(
         return;
       }
       if (e.buttons === 0) {
+        const placing = getTool(toolRef.current);
+        if ((placing?.hoverPreview || placing?.glyph) && !hiddenRef.current && hasDataRef.current) {
+          // A table, icon, emoji, sticker or position follows the pointer until it is placed.
+          const raw = inPlot(p) ? prim.toAnchor(p, placing) : null;
+          if (raw) {
+            const anchor = snap(raw, placing);
+            measureRef.current = placing.glyph ? hoverGlyph(placing, anchor) : { id: 'hover', tool: placing.id, anchors: [anchor] };
+            sync();
+          } else clearHover();
+        }
         const over = inPlot(p) && prim.hit(p);
         // A note's popup shows while the pointer is on the note (or its open popup).
         const hoverId = over && hasPopup(over.id) ? over.id : null;
@@ -734,6 +1033,30 @@ export function useDrawings(
     const onUp = (e: PointerEvent) => {
       if (!e.isPrimary) return;
       const draft = draftRef.current;
+      if (draft && draft.phase === 'pressing' && getTool(draft.tool)?.freehand) {
+        const prim = primRef.current;
+        const def = getTool(draft.tool);
+        const done = prim ? endFreehand(draft, (q) => prim.toAnchor(q, def), anchorRange(def!.anchors).max) : null;
+        if (done) finish(done, draft.tool);
+        else {
+          draftRef.current = null;
+          sync();
+        }
+        release(e);
+        return;
+      }
+      if (draft && draft.phase === 'pressing' && draft.tool === IMAGE_TOOL) {
+        const prim = primRef.current;
+        const def = getTool(draft.tool);
+        const end = prim && def ? prim.toAnchor(imageEnd(draft.start, point(e), e.shiftKey && !touch), def) : null;
+        if (end) finish([draft.anchors[0], end], draft.tool);
+        else {
+          draftRef.current = null;
+          sync();
+        }
+        release(e);
+        return;
+      }
       if (draft && draft.phase === 'pressing') {
         const step = releaseDraft(draft, point(e), getTool(draft.tool)?.placed ?? getTool(draft.tool)?.anchors ?? 2);
         if (step.done) finish(step.done, draft.tool);
@@ -776,9 +1099,12 @@ export function useDrawings(
           const prev = lastTap;
           lastTap = { id: lead, t: e.timeStamp, p };
           const note = getState().drawings.find((x) => x.id === lead);
-          if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === lead && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
+          if (note && (TEXT_TOOLS.has(note.tool) || CELL_TOOLS.has(note.tool)) && prev && prev.id === lead && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
             lastTap = null;
-            openEditor(note.id, note.tool, note.anchors, note.text ?? '', note.style);
+            if (CELL_TOOLS.has(note.tool)) {
+              const cell = primRef.current && cellUnder(primRef.current, note, p, true);
+              if (cell) openCell(note.id, cell.row, cell.col);
+            } else openEditor(note.id, note.tool, note.anchors, note.text ?? '', note.style);
           }
         } else lastTap = null;
         return;
@@ -806,7 +1132,7 @@ export function useDrawings(
     const onDblClick = (e: MouseEvent) => {
       const prim = primRef.current;
       const draft = draftRef.current;
-      if (draft && isOpenEnded(getTool(draft.tool)?.anchors ?? 2)) {
+      if (draft && !getTool(draft.tool)?.freehand && isOpenEnded(getTool(draft.tool)?.anchors ?? 2)) {
         // A double-click ends an open-ended draft; its second press added a point on the first, which the end drops.
         e.stopPropagation();
         e.preventDefault();
@@ -824,7 +1150,9 @@ export function useDrawings(
       e.stopPropagation();
       e.preventDefault();
       // A note is edited in place; Shift+double-click opens its settings instead.
-      if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors, d.text ?? '', d.style);
+      const cell = CELL_TOOLS.has(d.tool) && !e.shiftKey ? cellUnder(prim, d, p, true) : null;
+      if (cell) openCell(d.id, cell.row, cell.col);
+      else if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors, d.text ?? '', d.style);
       else openSettings(d.id);
     };
 
@@ -851,12 +1179,15 @@ export function useDrawings(
       el.removeEventListener('touchstart', eat, true);
       el.style.cursor = '';
     };
-  }, [chart, containerRef, getState, setState, setTool, sync, openEditor, openSettings]);
+  }, [chart, containerRef, getState, setState, setTool, sync, openEditor, openCell, openSettings]);
 
   /* A new mode or cursor kind shows at once, without waiting for the pointer to move. */
   useEffect(() => {
     const el = containerRef.current;
-    if (el) el.style.cursor = baseCursor(tool, cursorKind);
+    if (!el) return;
+    el.style.cursor = baseCursor(tool, cursorKind);
+    // A freehand tool takes the finger: the browser must not start a pan (and cancel the stroke) when it moves.
+    el.style.touchAction = getTool(tool)?.freehand ? 'none' : '';
   }, [tool, cursorKind, containerRef, chart]);
 
   /* Another chart changed a source this chart has open: show it, keeping this chart's own undo history. */
@@ -884,7 +1215,7 @@ export function useDrawings(
         editable: isEditable(e.target),
         dragging: dragRef.current != null,
         hasSelection: selectedRef.current.length > 0,
-        drafting: draftRef.current != null && isOpenEnded(getTool(draftRef.current.tool)?.anchors ?? 2),
+        drafting: draftRef.current != null && !getTool(draftRef.current.tool)?.freehand && isOpenEnded(getTool(draftRef.current.tool)?.anchors ?? 2),
       });
       if (!action) return;
       if (action === 'escape') {
@@ -923,6 +1254,8 @@ export function useDrawings(
         return;
       }
       if (action === 'paste') {
+        // With the Image tool picked the system paste event decides: a picture is taken, else the drawing clipboard is pasted.
+        if (toolRef.current === IMAGE_TOOL) return;
         if (actionsRef.current.paste()) e.preventDefault();
         return;
       }
@@ -935,9 +1268,45 @@ export function useDrawings(
     return () => window.removeEventListener('keydown', onKey);
   }, [active, getState, setState, setTool, sync, settingsOpenRef]);
 
+  /* The Image tool takes a picture pasted from the system clipboard; with none in it the drawing clipboard is pasted as always. */
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!active || settingsOpenRef.current || isEditable(e.target) || toolRef.current !== IMAGE_TOOL) return;
+      const file = pictureFrom(e.clipboardData);
+      if (file) {
+        e.preventDefault();
+        void adoptPicture(file);
+      } else if (actionsRef.current.paste()) e.preventDefault();
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [active, adoptPicture, settingsOpenRef]);
+
+  /* ... and a file dropped on the chart. */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onOver = (e: DragEvent) => {
+      if (toolRef.current === IMAGE_TOOL && dragHasFiles(e.dataTransfer)) e.preventDefault();
+    };
+    const onDrop = (e: DragEvent) => {
+      const file = toolRef.current === IMAGE_TOOL ? droppedFile(e.dataTransfer) : null;
+      if (!file) return;
+      e.preventDefault();
+      void adoptPicture(file);
+    };
+    el.addEventListener('dragover', onOver);
+    el.addEventListener('drop', onDrop);
+    return () => {
+      el.removeEventListener('dragover', onOver);
+      el.removeEventListener('drop', onDrop);
+    };
+  }, [containerRef, adoptPicture, chart]);
+
   return {
     tool,
     setTool,
+    imagesAvailable,
     pickTool,
     pickEntry,
     cursorKind,
@@ -945,14 +1314,35 @@ export function useDrawings(
     hasData,
     magnet,
     hidden,
+    magnetStrength,
+    lockAll,
+    stayMode,
     toggleMagnet: () => useStore.getState().setDrawingMagnet(!magnet),
+    /** Off, or on with a strength (which is remembered). */
+    setMagnetMode: (m: 'off' | 'weak' | 'strong') => {
+      const st = useStore.getState();
+      if (m === 'off') st.setDrawingMagnet(false);
+      else {
+        st.setDrawingMagnetStrength(m);
+        st.setDrawingMagnet(true);
+      }
+    },
+    toggleLockAll: () => useStore.getState().setDrawingsLocked(!lockAll),
+    toggleStayMode: () => useStore.getState().setDrawingStayMode(!stayMode),
     toggleHidden: () => useStore.getState().setDrawingsHidden(!hidden),
     deleteAll,
     /** Lock, rename, order, clone, copy and paste, and the lookup behind the right-click menu. */
     actions,
     drawingCount,
+    /** The floating toolbar's model (null when it is hidden) and its quick style edit. */
+    toolbar: toolbar.model,
+    setStyleField: toolbar.setStyleField,
     /** The open settings dialog's model, or null. */
     settings,
+    /** The glyph tool whose picker is open, or null; the chosen item arms the tool. */
+    picker,
+    choosePick,
+    closePicker,
     /** Opens the settings dialog of a drawing (a no-op for one without settings). */
     openSettings,
   };

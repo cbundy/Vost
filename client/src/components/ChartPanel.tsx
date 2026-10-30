@@ -31,7 +31,10 @@ import { selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
+import { DrawingToolbar } from './DrawingToolbar';
 import { DrawingSettingsDialog } from './DrawingSettingsDialog';
+import { IconPicker } from './IconPicker';
+import { isGlyphKind } from '../lib/iconSets/types';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
@@ -556,8 +559,15 @@ export function ChartPanel({
     onToggleFavorite: toggleFavorite,
     lastTool,
     disabled: !drawings.hasData,
+    imagesOff: !drawings.imagesAvailable,
     magnet: drawings.magnet,
     onMagnet: drawings.toggleMagnet,
+    magnetStrength: drawings.magnetStrength,
+    onMagnetMode: drawings.setMagnetMode,
+    locked: drawings.lockAll,
+    onLocked: drawings.toggleLockAll,
+    stayMode: drawings.stayMode,
+    onStayMode: drawings.toggleStayMode,
     hidden: drawings.hidden,
     onHidden: drawings.toggleHidden,
     canDeleteAll: drawings.drawingCount > 0,
@@ -579,8 +589,14 @@ export function ChartPanel({
           style={drawings.editor.style}
           onCommit={drawings.editor.onCommit}
           onCancel={drawings.editor.onCancel}
+          width={drawings.editor.width}
+          onTab={drawings.editor.onTab}
         />
       )}
+      {drawings.toolbar && !drawings.settings && !drawings.editor && (
+        <DrawingToolbar model={drawings.toolbar} actions={drawings.actions} onStyle={drawings.setStyleField} />
+      )}
+      {drawings.picker && isGlyphKind(drawings.picker) && <IconPicker key={drawings.picker} kind={drawings.picker} onPick={drawings.choosePick} onClose={drawings.closePicker} />}
       {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}
       {active && favorites.length > 0 && <FavoritesBar {...drawingControls} />}
       <ChartRangeBar chartApi={chartApi} />

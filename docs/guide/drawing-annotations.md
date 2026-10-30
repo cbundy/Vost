@@ -37,9 +37,24 @@ Anchored text keeps its spot on the pane, whatever the chart does: panning, zoom
 
 ![Anchored text after a pan, a zoom and a timeframe change](../evidence/drawing-text/drawing-text-timeframe-desktop.png)
 
+## Table
+
+The **Table** tool (in the Annotations flyout, under Text) puts a grid of text cells on the chart. A table shows under the pointer until you click or tap: it is placed with two rows and two columns, and the first cell opens for typing at once.
+
+- **Type in a cell**: double-click it (double tap on a touch screen). **Tab** saves the cell and moves to the next one, wrapping to the next row, **Shift+Tab** to the previous one, and Tab from the last cell saves and closes. **Ctrl+Enter** or clicking away saves, **Escape** cancels. A cell may be empty; the table stays.
+- **Add and remove rows and columns**: right-click a cell for **Add row below**, **Add column right**, **Delete row** and **Delete column**. Or open the settings (Shift+double-click) and set **Rows** and **Columns** (1 to 20 each); new cells are added at the end and removed ones come off the end.
+- **Look**: columns are as wide as their widest cell and rows as tall as their tallest. The **Text** tab sets the colour, size, bold, italic and alignment of the cell text. The **Style** tab has the border colour and width, the cell background and its opacity, and a **Header row** that makes the first row bold on its own background colour.
+- **Move**: drag the table or its handle at the top-left corner. A table stays inside the pane, and follows its bar through zoom, pan and a timeframe change.
+
+Every edit, a cell, a row or a column, is one undo step, and tables are saved with the chart, copied and cloned with their cells.
+
+![A table with a header row and a changed border colour](../evidence/drawing-table/drawing-table-styled-desktop.png)
+
+![Tab moves between cells](../evidence/drawing-table/drawing-table-tabbing-desktop.png)
+
 ## Notes
 
-The Notes section has four tools that carry text like Text does: they are typed, edited, styled and saved the same way, and their settings have the same Text tab. They start as white 14 pixel text on a blue box, wrapped at 240 pixels. On the Style tab you set the box's background colour and opacity and its border colour.
+The Notes section has eight tools. Four of them carry text like Text does (Note, Anchored note, Callout and Comment): they are typed, edited, styled and saved the same way, and their settings have the same Text tab. They start as white 14 pixel text on a blue box, wrapped at 240 pixels. On the Style tab you set the box's background colour and opacity and its border colour.
 
 ### Note and Anchored note
 
@@ -72,4 +87,68 @@ A **Comment** is a rounded speech bubble whose tail tip is on the bar and price 
 
 ![A Comment with a long wrapping text](../evidence/drawing-notes/drawing-notes-comment-desktop.png)
 
-All the note tools are saved in your browser with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
+### Price note
+
+A **Price note** has a dot on the bar and price you press and a straight line from it to a blue box. The box shows the dot's price, in the chart's own price format, and it updates while you drag the dot. Press the dot's place and drag to the box's place, or click the two places; a live preview shows until both are placed. A label set on the **Text** tab goes under the price in the box. Drag the dot handle to change the price, the box handle to move the box, or the body to move both. Selecting it shows the dot's price and time on the axes.
+
+![A Price note whose dot was dragged](../evidence/drawing-price-markers/drawing-price-markers-price-note-dragged-desktop.png)
+
+### Price label
+
+A **Price label** is a pointed blue tag whose point is on the price you clicked, with the price in white inside it. It has no text of its own; its colour, text colour and size are on the Style tab.
+
+![A Price label](../evidence/drawing-price-markers/drawing-price-markers-price-label-desktop.png)
+
+### Signpost
+
+A **Signpost** is a pole from a bar to a rounded plate. The plate is above the point, or below it when **Position** on the Style tab is set to Below. It shows an **Emoji** chosen on the Style tab (none, flag, star, pin, fire or rocket), or the label set on the Text tab when no emoji is chosen. It always sits on a bar's time.
+
+![A Signpost below its point with a rocket](../evidence/drawing-price-markers/drawing-price-markers-signpost-desktop.png)
+
+### Flag mark
+
+A **Flag mark** is a small pole with a flag at the bar and price you clicked. Its **Colour** is on the Style tab. It always sits on a bar's time.
+
+![A recoloured Flag mark](../evidence/drawing-price-markers/drawing-price-markers-flag-mark-red-desktop.png)
+
+All the note tools and price markers are saved in your browser with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
+
+## Icons, emojis and stickers
+
+The **Icons** family on the rail holds three tools that place a small picture on the chart: **Icons** (simple line icons in a colour you choose), **Emojis** (full-colour emoji) and **Stickers** (larger full-colour pictures). They are bundled with the app, so nothing is fetched from the internet; their sources and licences are listed in [third-party notices](../third-party-notices.md).
+
+Picking one of the tools, from the rail or the favourites bar, opens a picker:
+
+- the search box has focus; type words and only pictures that match every word (in the name or the keywords) stay, so "arrow up" finds the up arrows;
+- the tabs filter by category, and **Recent** shows your last picks for that tool (up to 16, kept in your browser);
+- **ArrowUp**, **ArrowDown**, **ArrowLeft** and **ArrowRight** move through the grid, **Enter** picks and **Escape** closes the picker without picking. On a phone the picker fits the screen.
+
+![The Icons picker after a search for "arrow"](../evidence/drawing-icons/drawing-icons-search-desktop.png)
+
+Picking a picture closes the picker and the picture follows the pointer; click to place it (on a touch screen, tap). Its centre sits at the bar and price you clicked, and it keeps its size and look when you zoom or pan or change the timeframe.
+
+![An arrow, an emoji and a rocket sticker placed on the chart](../evidence/drawing-icons/drawing-icons-placed-desktop.png)
+
+Select a picture to move it by dragging its body. Four corner handles resize it about its centre, and the round handle above the top edge rotates it; hold **Shift** while rotating to snap to 15 degree steps. Each drag is one undo step, and a locked picture does not change.
+
+![A sticker rotated and enlarged with its handles](../evidence/drawing-icons/drawing-icons-rotated-desktop.png)
+
+Double-click a picture to open its settings: **Size** in pixels (8 to 512; 40 for icons and emojis, 80 for stickers), **Angle** in degrees, **Opacity**, and for icons **Colour**. Edits show at once and one undo reverts them all. Pictures are saved in your browser with the other drawings. If a saved picture is no longer in the bundled set it shows as a dashed box with a question mark instead of disappearing.
+
+## Image
+
+The **Image** tool (in the Annotations flyout, in its own **Content** section) puts a picture on the chart. Picking it opens a file chooser for a PNG, JPEG, GIF or WebP picture of up to 5 MB. While the tool is picked you can also paste a picture from the system clipboard (Ctrl+V; with no picture on it Ctrl+V pastes the copied drawings as always) or drop a file on the chart.
+
+- **Place**: click or tap to put the picture's top-left corner there at its natural size, scaled down to fit within half the chart. Or press, drag and release to set its box: the picture keeps its ratio and shows live while you drag; hold **Shift** to free the ratio (on a desktop). **Escape** or picking another tool drops the picture before it is placed.
+- **Move and resize**: drag the picture, or one of its four corner handles. A corner drag keeps the ratio, and **Shift** frees it; with **Keep ratio** off in the settings a corner drag is always free.
+- **Settings**: **Opacity** (100% by default), a **Border colour** and a **Border width** from 0 to 5 (no border by default) and **Keep ratio**. There is no Text tab.
+
+![An uploaded picture placed on the chart](../evidence/drawing-image/drawing-image-placed-desktop.png)
+
+![Resized with the ratio kept](../evidence/drawing-image/drawing-image-resized-desktop.png)
+
+A file that is not a PNG, JPEG, GIF or WebP picture (the type and the file's own bytes must both say so), or is over 5 MB, shows a message and adds nothing. The picture store holds up to 50 MB in all.
+
+![A 6 MB file is refused](../evidence/drawing-image/drawing-image-refused-big-desktop.png)
+
+Pictures are kept in your browser's own picture store, apart from the drawings, so a picture is stored once however many times it is used. Undo, redo, clone, copy and paste, lock, reorder and delete work as for any drawing, and a deleted picture comes back with undo. A picture nothing uses any more (no drawing, no undo step, no copy) is removed from the store a day after it was last in use. If the store lacks a picture (you cleared the site's data, or the drawings were copied to another browser) the drawing shows a dashed box labelled **Picture missing**, which you can still select, move and delete. In a browser that cannot keep pictures (some private modes) the Image tool is greyed out.

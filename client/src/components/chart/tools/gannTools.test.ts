@@ -21,6 +21,8 @@ function view(tool: DrawingTool, over: Record<string, unknown> = {}): ToolView {
     formatPrice: (p) => `$${p}`,
     style: resolveStyle(tool.settings ?? [], over, undefined).values,
     styled: false,
+    glyph: '',
+    cells: [],
   };
 }
 function stub() {

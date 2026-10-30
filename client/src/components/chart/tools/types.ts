@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { OhlcBar, Pt } from '../../../lib/drawingGeometry';
 import type { SettingField } from '../../../lib/drawingStyle';
-import type { Anchor, AnchorSpec } from '../../../lib/drawings';
+import type { Anchor, AnchorSpec, Drawing } from '../../../lib/drawings';
 
 export type ToolRenderOpts = { selected: boolean };
 
@@ -16,19 +16,32 @@ export interface ToolView {
   anchors: readonly Anchor[];
   /** The drawing's text; empty for tools without text. */
   text: string;
+  /** The drawing's cells (a table); empty for tools without cells. */
+  cells: readonly (readonly string[])[];
+  /** The drawing's glyph id (an icon, emoji or sticker); empty for other tools. */
+  glyph: string;
+  /** The drawing's picture (an image); absent for tools without one. */
+  image?: { key: string; w: number; h: number };
   /** Times of the loaded bars, ascending. */
   times: readonly number[];
   /** The loaded bars (open, high, low, close), ascending by time. */
   candles: readonly OhlcBar[];
+  /** Pixel x of the loaded bar at an index of `candles` (a fractional index lies between bars), or null with no scale. Absent in a bare view. */
+  indexToX?(index: number): number | null;
   /** Pixel y of a price, or null when it is off the scale. */
   priceToY(price: number): number | null;
   /** A price as the series formats it. */
   formatPrice(price: number): string;
+  /** The series' smallest price step (its minMove); absent when unknown. */
+  tickSize?: number;
   /** The drawing's effective style: every setting of the tool with its validated value. */
   style: Readonly<Record<string, unknown>>;
   /** The drawing (or the user's default for its tool) sets a style value of its own; false keeps today's selection colour. */
   styled: boolean;
 }
+
+/** What a handle drag may know besides the pointer: the Shift key (desktop) and the drawing's effective style. */
+export type DragMods = { shift: boolean; style?: Readonly<Record<string, unknown>>; view?: ToolView };
 
 /** The rail's tool families, in rail order (see lib/drawingRail.ts for labels). */
 export type DrawingGroup = 'cursors' | 'lines' | 'fib-gann' | 'patterns' | 'forecast-measure' | 'shapes' | 'annotations' | 'icons';
@@ -49,12 +62,29 @@ export interface DrawingTool {
    */
   anchors: AnchorSpec;
   /**
+   * The tool is drawn freehand: press, drag and release records a stroke (thinned on release) and never enters
+   * click-by-click placement, whatever its anchor range says.
+   */
+  freehand?: true;
+  /**
    * How many points the user places before the drawing is finished, when that is fewer than it stores (a curve is
    * placed by its start and end and `settle` adds its control points). Absent: the same as `anchors`.
    */
   placed?: AnchorSpec;
   /** The tool stores text (a note). */
   text?: true;
+  /**
+   * The tool places a glyph from a bundled set (its id is the set): the picker opens when the tool is picked, the
+   * chosen entry id is stored as the drawing's `glyph`, and the drawing shows it while it is placed.
+   */
+  glyph?: true;
+  /** The tool's content is a grid of text cells, stored as the drawing's `cells` (a table); the cell editor opens for it. */
+  cells?: true;
+  /**
+   * A check run on a stored drawing of this tool when it is loaded, after the generic ones: the drawing as it should
+   * be kept (a fixed copy), or null to drop it alone.
+   */
+  validate?(d: Drawing): Drawing | null;
   /**
    * The tool carries an optional label: it is set on the settings dialog's Text tab (never by the note editor),
    * may be empty and is stored as the drawing's `text`.
@@ -67,6 +97,8 @@ export interface DrawingTool {
    * `time` and `price`, so it ignores the time range, zoom, pan and timeframe. No magnet and no axis labels.
    */
   paneAnchored?: true;
+  /** Before the first click the tool's shape follows the pointer (drawn from the one point under it), as the table does. */
+  hoverPreview?: true;
   /** The tool is shown while and after it is drawn but never stored, hit or undone (the measure). */
   transient?: true;
   /**
@@ -83,10 +115,10 @@ export interface DrawingTool {
   fullHeight?: boolean;
   /**
    * The labels the drawing shows on the axes: prices on the price axis, times on the time axis. Absent: none.
-   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise. `times` are the
-   * loaded bars' times, for a tool whose labels are not at its anchors.
+   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise. `times` and `candles` are the
+   * loaded bars, for a tool whose labels are not at its anchors.
    */
-  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean, times?: readonly number[]): AxisLabels;
+  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean, times?: readonly number[], candles?: readonly OhlcBar[]): AxisLabels;
   /**
    * While a drawing with more than two anchors is placed, `pts` holds fewer points than `anchors` (the placed ones
    * and the moving one; a ranged tool holds anywhere from two up to its max): draw what can be drawn, never throw.
@@ -104,9 +136,20 @@ export interface DrawingTool {
   /** Where the selection handles go. */
   handles(pts: Pt[], view: ToolView): Pt[];
   /** Adjusts the pixels of a drawing once, when its last anchor is placed (the fixed Gann square makes itself square). It may return more points than were placed (a curve adds its control points). */
-  settle?(pts: Pt[]): Pt[];
+  settle?(pts: Pt[], view?: ToolView): Pt[];
+  /**
+   * The anchors a drawing keeps after the settings dialog's Coordinates tab edits anchor `index` (`next` holds the edit,
+   * `prev` what it was): a tool whose anchors depend on each other brings the others along, or returns `prev` to refuse.
+   */
+  editAnchor?(prev: Anchor[], next: Anchor[], index: number): Anchor[];
   /**
    * The new anchor pixels when handle `handle` is dragged to p. Absent: handle i moves anchor i.
    */
-  dragHandle?(origPts: Pt[], handle: number, p: Pt): Pt[];
+  dragHandle?(origPts: Pt[], handle: number, p: Pt, mods?: DragMods): Pt[];
+  /**
+   * The style values a handle drag changes (merged over the drawing's own style), or null when the drag changes none.
+   * `view` is the drawing as it was when the drag began; `p` is where the handle now is. A tool with it keeps its
+   * anchors still while a handle is dragged (unless `dragHandle` moves them).
+   */
+  dragStyle?(origPts: Pt[], handle: number, p: Pt, view: ToolView, opts: { shift: boolean }): Record<string, unknown> | null;
 }

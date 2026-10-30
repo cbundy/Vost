@@ -12,7 +12,9 @@ import {
   type RailEntry,
   type RailGroup,
 } from '../lib/drawingRail';
+import { IMAGE_TOOL, MESSAGES } from '../lib/drawingImages';
 import { DrawingFlyout } from './DrawingFlyout';
+import { MAGNET_MODES, MagnetMenu, type MagnetMode } from './MagnetMenu';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -22,9 +24,11 @@ import {
   EraserIcon,
   EyeIcon,
   EyeOffIcon,
+  LockIcon,
   MagnetIcon,
   PencilIcon,
   StarIcon,
+  StayIcon,
   TrashIcon,
 } from './DrawingIcons';
 
@@ -40,8 +44,19 @@ export type DrawingControls = {
   lastTool: Readonly<Record<string, string>>;
   /** No data to draw on. */
   disabled: boolean;
+  /** Pictures cannot be stored in this browser (IndexedDB is unavailable): the Image tool is off. Absent: they can. */
+  imagesOff?: boolean;
   magnet: boolean;
   onMagnet: () => void;
+  magnetStrength: 'weak' | 'strong';
+  /** Picks off, or on with a strength. */
+  onMagnetMode: (m: MagnetMode) => void;
+  /** Lock all drawings. */
+  locked: boolean;
+  onLocked: () => void;
+  /** Stay in drawing mode. */
+  stayMode: boolean;
+  onStayMode: () => void;
   hidden: boolean;
   onHidden: () => void;
   canDeleteAll: boolean;
@@ -60,25 +75,37 @@ export function entryIcon(e: RailEntry): ReactNode {
 }
 
 /** Whether an entry cannot be picked now: every mode but the cursor kinds needs data and visible drawings. */
-export function entryDisabled(e: RailEntry, c: Pick<DrawingControls, 'disabled' | 'hidden'>): boolean {
-  return e.toolId !== CURSOR && (c.disabled || c.hidden);
+export function entryDisabled(e: RailEntry, c: Pick<DrawingControls, 'disabled' | 'hidden' | 'imagesOff'>): boolean {
+  return e.toolId !== CURSOR && (c.disabled || c.hidden || (e.toolId === IMAGE_TOOL && !!c.imagesOff));
 }
 
+/** An entry's tooltip: its label, or why the Image tool is off. */
+export function entryTitle(e: RailEntry, c: Pick<DrawingControls, 'imagesOff'>): string {
+  return e.toolId === IMAGE_TOOL && c.imagesOff ? MESSAGES.unavailable : e.label;
+}
+
+/** The magnet's current mode. */
+const magnetMode = (c: Pick<DrawingControls, 'magnet' | 'magnetStrength'>): MagnetMode => (c.magnet ? c.magnetStrength : 'off');
+
 type SwitchItem =
+  | { kind: 'magnet' }
   | { kind: 'toggle'; id: string; label: string; icon: ReactNode; pressed: boolean; onClick: () => void }
   | { kind: 'action'; id: string; label: string; icon: ReactNode; disabled: boolean; onClick: () => void };
 
 /** The switches under the groups, on the rail and in the phone menu. */
 function switches(c: DrawingControls): SwitchItem[] {
   return [
-    { kind: 'toggle', id: 'magnet', label: 'Magnet', icon: <MagnetIcon />, pressed: c.magnet, onClick: c.onMagnet },
+    { kind: 'magnet' },
+    { kind: 'toggle', id: 'stay', label: 'Stay in drawing mode', icon: <StayIcon />, pressed: c.stayMode, onClick: c.onStayMode },
+    { kind: 'toggle', id: 'lock', label: 'Lock all drawings', icon: <LockIcon />, pressed: c.locked, onClick: c.onLocked },
     { kind: 'toggle', id: 'hide', label: 'Hide all drawings', icon: c.hidden ? <EyeOffIcon /> : <EyeIcon />, pressed: c.hidden, onClick: c.onHidden },
     { kind: 'action', id: 'delete', label: 'Delete all drawings', icon: <TrashIcon />, disabled: !c.canDeleteAll, onClick: c.onDeleteAll },
   ];
 }
 
-function renderSwitches(c: DrawingControls, after?: (it: SwitchItem) => void): ReactNode {
+function renderSwitches(c: DrawingControls, after?: (it: SwitchItem) => void, withMagnet = true): ReactNode {
   return switches(c).map((it) => {
+    if (it.kind === 'magnet') return withMagnet ? <MagnetButton key="magnet" c={c} /> : null;
     const pressed = it.kind === 'toggle' ? it.pressed : undefined;
     return (
       <button
@@ -98,6 +125,94 @@ function renderSwitches(c: DrawingControls, after?: (it: SwitchItem) => void): R
       </button>
     );
   });
+}
+
+/** The magnet: a toggle between off and the last strength, a chevron (or long press, ArrowRight) for the mode menu. */
+function MagnetButton({ c }: { c: DrawingControls }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const timer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const mode = magnetMode(c);
+  const open = anchor !== null;
+  const openMenu = () => setAnchor(wrapRef.current?.getBoundingClientRect() ?? null);
+  const clearTimer = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => clearTimer, []);
+  const close = useCallback((restoreFocus: boolean) => {
+    setAnchor(null);
+    if (restoreFocus) btnRef.current?.focus();
+  }, []);
+  const title = mode === 'off' ? 'Magnet' : `Magnet: ${mode}`;
+
+  return (
+    <div className="rail-group" ref={wrapRef} data-rail-group="magnet">
+      <button
+        ref={btnRef}
+        type="button"
+        className={`ghost icon rail-btn${c.magnet ? ' active' : ''}`}
+        title={title}
+        aria-label="Magnet"
+        aria-pressed={c.magnet}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => {
+          if (longPressed.current) {
+            longPressed.current = false;
+            return;
+          }
+          c.onMagnet();
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          longPressed.current = false;
+          clearTimer();
+          timer.current = window.setTimeout(() => {
+            timer.current = null;
+            longPressed.current = true;
+            openMenu();
+          }, LONG_PRESS_MS);
+        }}
+        onPointerUp={clearTimer}
+        onPointerLeave={clearTimer}
+        onPointerCancel={clearTimer}
+        onContextMenu={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            openMenu();
+          }
+        }}
+      >
+        <MagnetIcon mark={mode === 'off' ? undefined : mode} />
+      </button>
+      <button
+        type="button"
+        className="rail-chevron"
+        aria-label="Open Magnet modes"
+        title="Magnet modes"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => (open ? close(false) : openMenu())}
+      >
+        <ChevronRightIcon />
+      </button>
+      {anchor && (
+        <MagnetMenu
+          anchor={anchor}
+          mode={mode}
+          onPick={(m) => {
+            c.onMagnetMode(m);
+            close(true);
+          }}
+          onClose={close}
+        />
+      )}
+    </div>
+  );
 }
 
 /** One family on the rail: the button of its last tool, a chevron and, when open, the flyout. */
@@ -134,7 +249,7 @@ function GroupButton({ group, c, open, onOpen, onClose }: { group: RailGroup; c:
         ref={btnRef}
         type="button"
         className={`ghost icon rail-btn${pressed ? ' active' : ''}`}
-        title={entry.label}
+        title={entryTitle(entry, c)}
         aria-label={entry.label}
         aria-pressed={pressed}
         aria-haspopup="menu"
@@ -311,7 +426,7 @@ export function DrawingMenu(c: DrawingControls) {
                               <button
                                 type="button"
                                 className={`fly-item${on ? ' active' : ''}`}
-                                title={e.label}
+                                title={entryTitle(e, c)}
                                 aria-label={e.label}
                                 aria-pressed={on}
                                 disabled={entryDisabled(e, c)}
@@ -345,8 +460,23 @@ export function DrawingMenu(c: DrawingControls) {
           })}
           <div className="rail-divider" role="separator" />
           <div className="menu-switches">
-            {renderSwitches(c, (it) => {
-              if (it.kind === 'action' && it.id === 'delete') setOpen(false);
+            {renderSwitches(
+              c,
+              (it) => {
+                if (it.kind === 'action' && it.id === 'delete') setOpen(false);
+              },
+              false,
+            )}
+          </div>
+          <div className="menu-magnet" role="radiogroup" aria-label="Magnet">
+            <div className="fly-heading">Magnet</div>
+            {MAGNET_MODES.map((m) => {
+              const on = magnetMode(c) === m.mode;
+              return (
+                <button key={m.mode} type="button" role="radio" aria-checked={on} className={`fly-item${on ? ' active' : ''}`} onClick={() => c.onMagnetMode(m.mode)}>
+                  <span className="fly-label">{m.label}</span>
+                </button>
+              );
             })}
           </div>
         </div>

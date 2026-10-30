@@ -4,12 +4,47 @@ ok   Remove drawings disabled
 ok   Escape closes it
 ok   one trend line
 ok   titled by the tool
-ok   every action listed - Settings,Rename,Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   every action listed - Settings,Rename,Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete
 ok   stored locked
 ok   anchors unchanged
 ok   the chart did not pan or change
 ok   the menu offers Unlock
 ok   unlocked
+ok   Lock all pressed
+ok   a body drag moved nothing
+ok   a handle drag moved nothing
+ok   the drawing has no flag of its own
+ok   the chart did not pan and no handles are drawn
+ok   the menu still offers Lock (own flag)
+ok   own lock stored
+ok   Lock all off
+ok   own lock still holds
+ok   unlocked again
+ok   now it drags
+ok   undo puts it back
+ok   Stay pressed
+ok   two more stored without picking again
+ok   Trend line still pressed
+ok   Escape returns to Cross
+ok   back to 1 drawing(s)
+ok   a Measure stores nothing
+ok   the Measure went back to the cursor
+ok   Stay off
+ok   title says weak
+ok   Magnet pressed
+ok   weak: far point 1 is not snapped - {"time":1652313600,"price":106.05919627675385}
+ok   weak: far point 2 is not snapped - {"time":1672185600,"price":4.475301863027656}
+ok   weak: a point on the high of a bar snaps to it - 74.938636 vs 74.938636
+ok   title says strong
+ok   strong: far point 1 snaps to an OHLC - {"time":1652313600,"price":68.052651}
+ok   strong: far point 2 snaps to an OHLC - {"time":1672185600,"price":91.126242}
+ok   Escape closes the menu and refocuses the Magnet button
+ok   back to 1 drawing(s)
+ok   strength survives a reload
+ok   Magnet survives a reload
+ok   Stay survives a reload
+ok   Lock all survives a reload
+ok   switches off for the steps below
 ok   name stored trimmed
 ok   menu titled by the name
 ok   two drawings
@@ -37,7 +72,7 @@ ok   Shift+click two drawings selects both
 ok   Shift+click again takes it out
 ok   nothing moved
 ok   the box selected all three
-ok   no Settings or Rename for several - Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   no Settings or Rename for several - Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete
 ok   the box did not pan or zoom the chart
 ok   rectangle locked
 ok   the locked rectangle stayed
@@ -52,8 +87,30 @@ ok   all three pasted are selected
 ok   Delete removes the whole selection
 ok   one undo brings all three back
 ok   the originals are left
+ok   the list follows the active chart: three rows, top-most first
+ok   a row shows its name, else its tool label
+ok   an unnamed row shows the tool label - undefined
+ok   a click selects it
+ok   the eye hides it
+ok   the row is dimmed
+ok   one undo shows it again
+ok   right-click Hide hides it
+ok   and one undo shows it
+ok   the lock toggle locks it
+ok   a drag is refused
+ok   unlocked from the row
+ok   inline rename keeps the name
+ok   the row shows it
+ok   Escape cancels a rename
+ok   the menu header shows the name
+ok   dragging the top row below the bottom one paints it at the bottom - dmvutrla74qpac,dmvutqt511ygyi,dmvutrkrh3tmua
+ok   one undo restores the paint order
+ok   the delete button removes it
+ok   one undo brings it back
 ok   focus left the symbol field
 ok   one drawing on the other symbol
 ok   same times and prices
 ok   a new id
 ok   the first symbol is unchanged
+ok   the other chart lists its one pasted drawing
+ok   switching the active chart lists its three drawings

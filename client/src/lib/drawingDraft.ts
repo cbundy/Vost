@@ -4,6 +4,7 @@
  * anchor that follows the pointer. No chart or React imports.
  */
 import type { Pt } from './drawingGeometry';
+import { thinToCap } from './geometry/freehand';
 import { anchorRange, type Anchor, type AnchorSpec } from './drawings';
 
 /** Pixels a press must travel to count as a drag (press-drag-release rather than click, click). */
@@ -19,6 +20,8 @@ export type Draft = {
   start: Pt;
   /** pressing: the button is down; waiting: the pointer is up and the next click places the moving anchor. */
   phase: DraftPhase;
+  /** A freehand draft: the pane pixels sampled so far (one per anchor). */
+  samples?: Pt[];
 };
 
 /** What a step leaves: the draft still in flight (or null) and the finished anchors (or null). */
@@ -100,4 +103,41 @@ export function undoPoint(draft: Draft): Draft | null {
 export function closesOnFirst(draft: Draft, p: Pt, first: Pt, radius: number, min: number): boolean {
   if (draft.phase !== 'waiting' || draft.anchors.length - 1 < min) return false;
   return Math.hypot(p.x - first.x, p.y - first.y) <= radius;
+}
+
+/** Pixels a freehand sample must be from the last one to be kept. */
+export const FREEHAND_MIN_STEP_PX = 1;
+/** The thinning tolerance of a finished freehand stroke, in pixels. */
+export const FREEHAND_TOLERANCE_PX = 1;
+
+/** The press of a freehand stroke: the first sample. */
+export function startFreehand(tool: string, p: Pt, anchor: Anchor): Draft {
+  return { tool, anchors: [anchor], start: p, phase: 'pressing', samples: [p] };
+}
+
+/** The pointer moved: the sample is appended, unless it is under {@link FREEHAND_MIN_STEP_PX} from the last. */
+export function extendFreehand(draft: Draft, p: Pt, anchor: Anchor): Draft {
+  const samples = draft.samples ?? [];
+  const last = samples[samples.length - 1];
+  if (last && Math.hypot(p.x - last.x, p.y - last.y) < FREEHAND_MIN_STEP_PX) return draft;
+  return { ...draft, anchors: [...draft.anchors, anchor], samples: [...samples, p] };
+}
+
+/**
+ * The release: the stroke is thinned (Ramer-Douglas-Peucker, the tolerance raised until at most `cap` points remain) and
+ * converted to anchors with `toAnchor`. Null when every sample lies within {@link DRAG_PX} of the press, when fewer
+ * than 2 points remain or when a point has no anchor.
+ */
+export function endFreehand(draft: Draft, toAnchor: (p: Pt) => Anchor | null, cap: number): Anchor[] | null {
+  const samples = draft.samples ?? [];
+  if (!samples.some((s) => Math.hypot(s.x - draft.start.x, s.y - draft.start.y) >= DRAG_PX)) return null;
+  const kept = thinToCap(samples, cap, FREEHAND_TOLERANCE_PX);
+  if (kept.length < 2) return null;
+  const anchors: Anchor[] = [];
+  for (const p of kept) {
+    const a = toAnchor(p);
+    if (!a) return null;
+    anchors.push(a);
+  }
+  return anchors;
 }

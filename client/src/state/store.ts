@@ -39,6 +39,8 @@ import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
 import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
+import { sanitizeArmed, sanitizeRecent, withRecent } from '../lib/iconSets/prefs';
+import { isGlyphKind } from '../lib/iconSets/types';
 import { sanitizeDefaults } from '../lib/drawingStyle';
 import { toolSettings } from '../components/chart/tools';
 import { canonicalInterval } from '../../../shared/market.ts';
@@ -75,11 +77,16 @@ interface Prefs {
   sidePanel?: SidePanelSection;
   sidePanelCollapsed?: boolean;
   drawingMagnet?: boolean;
+  drawingMagnetStrength?: 'weak' | 'strong';
+  drawingsLocked?: boolean;
+  drawingStayMode?: boolean;
   drawingsHidden?: boolean;
   /** The style new drawings of a tool start with, per tool id (see lib/drawingStyle). */
   drawingDefaults?: Record<string, Record<string, unknown>>;
   drawingFavorites?: string[];
   drawingLastTool?: Record<string, string>;
+  glyphArmed?: Record<string, string>;
+  glyphRecent?: Record<string, string[]>;
   cursorKind?: CursorKind;
   favoritesBarPos?: BarPos;
   buildTimeframes?: boolean;
@@ -87,8 +94,8 @@ interface Prefs {
 }
 
 /** The sections of the right-hand side panel; one shows at a time. */
-export type SidePanelSection = 'watchlist' | 'data' | 'indicators';
-const SIDE_PANEL_SECTIONS: readonly SidePanelSection[] = ['watchlist', 'data', 'indicators'];
+export type SidePanelSection = 'watchlist' | 'data' | 'indicators' | 'objects';
+const SIDE_PANEL_SECTIONS: readonly SidePanelSection[] = ['watchlist', 'data', 'indicators', 'objects'];
 
 
 const PREFS_KEY = 'prefs.v1';
@@ -166,12 +173,22 @@ export interface AppState {
   sidePanel: SidePanelSection;
   sidePanelCollapsed: boolean;
   drawingMagnet: boolean;
+  /** How far the magnet reaches; an old magnet-on pref loads as weak. */
+  drawingMagnetStrength: 'weak' | 'strong';
+  /** Lock all drawings: none can be moved (their own lock flags are untouched). */
+  drawingsLocked: boolean;
+  /** Stay in drawing mode: the tool stays picked after each drawing. */
+  drawingStayMode: boolean;
   drawingsHidden: boolean;
   drawingDefaults: Record<string, Record<string, unknown>>;
   /** Rail entry keys (see lib/drawingRail.ts) the person starred, in the order the favourites bar shows them. */
   drawingFavorites: string[];
   /** The last entry used from each rail family, shown on the family's button. */
   drawingLastTool: Record<string, string>;
+  /** The icon, emoji or sticker each glyph tool places next (the entry id), by tool id. */
+  glyphArmed: Record<string, string>;
+  /** The last picks of each glyph tool, newest first (up to 16). */
+  glyphRecent: Record<string, string[]>;
   /** How the cursor mode looks on the chart. */
   cursorKind: CursorKind;
   /** Top-left of the floating favourites bar inside the chart area, in px. */
@@ -269,11 +286,16 @@ export interface AppState {
   closePineEditor(): void;
   togglePineEditor(): void;
   setDrawingMagnet(v: boolean): void;
+  setDrawingMagnetStrength(v: 'weak' | 'strong'): void;
+  setDrawingsLocked(v: boolean): void;
+  setDrawingStayMode(v: boolean): void;
   setDrawingsHidden(v: boolean): void;
   /** Saves (or with null clears) the style new drawings of a tool start with. */
   setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
   toggleDrawingFavorite(key: string): void;
   setDrawingLastTool(group: string, key: string): void;
+  /** Arms a glyph tool with an entry and adds it to the tool's recent picks. */
+  pickGlyph(tool: string, id: string): void;
   setCursorKind(kind: CursorKind): void;
   setFavoritesBarPos(pos: BarPos): void;
   setTimeZone(tz: string): void;
@@ -312,10 +334,15 @@ export const useStore = create<AppState>()((set, get) => {
       sidePanel: s.sidePanel,
       sidePanelCollapsed: s.sidePanelCollapsed,
       drawingMagnet: s.drawingMagnet,
+      drawingMagnetStrength: s.drawingMagnetStrength,
+      drawingsLocked: s.drawingsLocked,
+      drawingStayMode: s.drawingStayMode,
       drawingsHidden: s.drawingsHidden,
       drawingDefaults: s.drawingDefaults,
       drawingFavorites: s.drawingFavorites,
       drawingLastTool: s.drawingLastTool,
+      glyphArmed: s.glyphArmed,
+      glyphRecent: s.glyphRecent,
       cursorKind: s.cursorKind,
       favoritesBarPos: s.favoritesBarPos,
       buildTimeframes: s.buildTimeframes,
@@ -497,10 +524,15 @@ export const useStore = create<AppState>()((set, get) => {
     sidePanel: 'watchlist',
     sidePanelCollapsed: false,
     drawingMagnet: false,
+    drawingMagnetStrength: 'weak',
+    drawingsLocked: false,
+    drawingStayMode: false,
     drawingsHidden: false,
     drawingDefaults: {},
     drawingFavorites: [],
     drawingLastTool: {},
+    glyphArmed: {},
+    glyphRecent: {},
     cursorKind: 'cross',
     favoritesBarPos: { ...DEFAULT_BAR_POS },
     buildTimeframes: false,
@@ -583,10 +615,15 @@ export const useStore = create<AppState>()((set, get) => {
         sidePanel: SIDE_PANEL_SECTIONS.includes(prefs.sidePanel as SidePanelSection) ? (prefs.sidePanel as SidePanelSection) : 'watchlist',
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
         drawingMagnet: prefs.drawingMagnet === true,
+        drawingMagnetStrength: prefs.drawingMagnetStrength === 'strong' ? 'strong' : 'weak',
+        drawingsLocked: prefs.drawingsLocked === true,
+        drawingStayMode: prefs.drawingStayMode === true,
         drawingsHidden: prefs.drawingsHidden === true,
         drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
         drawingFavorites: sanitizeFavorites(prefs.drawingFavorites),
         drawingLastTool: sanitizeLastTool(prefs.drawingLastTool),
+        glyphArmed: sanitizeArmed(prefs.glyphArmed),
+        glyphRecent: sanitizeRecent(prefs.glyphRecent),
         cursorKind: sanitizeCursorKind(prefs.cursorKind),
         favoritesBarPos: sanitizeBarPos(prefs.favoritesBarPos),
         buildTimeframes: prefs.buildTimeframes === true,
@@ -831,6 +868,21 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
     },
 
+    setDrawingMagnetStrength(v) {
+      set({ drawingMagnetStrength: v });
+      persistPrefs();
+    },
+
+    setDrawingsLocked(v) {
+      set({ drawingsLocked: v });
+      persistPrefs();
+    },
+
+    setDrawingStayMode(v) {
+      set({ drawingStayMode: v });
+      persistPrefs();
+    },
+
     setDrawingsHidden(v) {
       set({ drawingsHidden: v });
       persistPrefs();
@@ -859,6 +911,13 @@ export const useStore = create<AppState>()((set, get) => {
       const next = sanitizeLastTool({ ...cur, [group]: key });
       if (next[group] !== key) return; // not an entry of that family
       set({ drawingLastTool: { ...cur, [group]: key } });
+      persistPrefs();
+    },
+
+    pickGlyph(tool, id) {
+      if (!isGlyphKind(tool) || !id) return;
+      const { glyphArmed, glyphRecent } = get();
+      set({ glyphArmed: { ...glyphArmed, [tool]: id }, glyphRecent: sanitizeRecent({ ...glyphRecent, [tool]: withRecent(glyphRecent[tool], id) }) });
       persistPrefs();
     },
 

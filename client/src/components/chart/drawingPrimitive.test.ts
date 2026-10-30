@@ -16,6 +16,7 @@ function attach(prim: DrawingPrimitive, timeFormatter?: (t: number) => string) {
     priceToCoordinate: (p: number) => (p < 0 || p > 100 ? null : HEIGHT - p * 2),
     coordinateToPrice: (y: number) => 100 - y / 2,
     priceFormatter: () => ({ format: (p: number) => `$${p}` }),
+    options: () => ({ priceFormat: { type: 'price', precision: 2, minMove: 0.01 } }),
   };
   prim.attached({ chart, series, requestUpdate: () => {} } as never);
 }
@@ -155,6 +156,16 @@ describe('selection list', () => {
     expect(prim.idsInBox({ left: -5, top: 0, right: 15, bottom: 200 })).toEqual(['h', 'v']);
     expect(prim.idsInBox({ left: 100, top: 90, right: 150, bottom: 110 })).toEqual(['h']);
     expect(prim.idsInBox({ left: 5, top: 500, right: 15, bottom: 600 })).toEqual(['v']);
+  });
+  it('a hidden drawing is not shown, not hit and not in a box', () => {
+    const prim = make();
+    expect(prim.shown(hline)).toBe(true);
+    expect(prim.shown({ ...hline, hidden: true })).toBe(false);
+    prim.set([trend, { ...hline, hidden: true }], [], null);
+    expect(prim.hit({ x: 100, y: 100 })).toBeNull();
+    expect(prim.idsInBox({ left: -5, top: 0, right: 30, bottom: 200 })).toEqual(['t']);
+    prim.set([trend, hline], [], null);
+    expect(prim.hit({ x: 100, y: 100 })).toEqual({ id: 'h', handle: null });
   });
   it('hit grabs a handle with one drawing selected and none with two', () => {
     const prim = make();

@@ -2728,6 +2728,12 @@ a:hover {
   color: var(--accent-2);
 }
 
+.menu-magnet {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px 4px;
+}
+
 .menu-switches {
   display: flex;
   justify-content: center;
@@ -3700,4 +3706,282 @@ table.data-table th.sortable .sort-btn:focus-visible {
   border-top: 2px dashed;
   background: none;
   border-radius: 0;
+}
+
+/* Object tree: the active chart's drawings, top-most first. */
+.object-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.object-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.object-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.object-row.selected {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+.object-row.dim .object-icon,
+.object-row.dim .object-name {
+  opacity: 0.45;
+}
+.object-row.dragging {
+  opacity: 0.6;
+}
+.object-row.drop-before::before,
+.object-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent, #3b82f6);
+  pointer-events: none;
+}
+.object-row.drop-before::before {
+  top: -2px;
+}
+.object-row.drop-after::after {
+  bottom: -2px;
+}
+.object-icon {
+  display: inline-flex;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.object-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.object-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.object-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  padding: 2px 4px;
+}
+.object-actions {
+  display: inline-flex;
+  flex: none;
+}
+.object-actions button.icon {
+  padding: 3px 4px;
+}
+.object-actions button.icon svg {
+  width: 14px;
+  height: 14px;
+}
+.object-actions button[aria-pressed='true'] {
+  color: var(--text);
+}
+.object-tree-note {
+  margin-bottom: 8px;
+}
+
+/* ------------------------- floating drawing toolbar ------------------------- */
+
+.drawing-toolbar {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: calc(100% - 8px);
+  box-sizing: border-box;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.dt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+}
+.dt-btn:hover,
+.dt-btn[aria-expanded='true'],
+.dt-btn[aria-pressed='true'] {
+  background: var(--panel-3);
+}
+.dt-btn[aria-pressed='true'] {
+  color: var(--accent-2);
+}
+.dt-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--border-3);
+}
+.dt-line {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  border-top: 0 solid currentColor;
+  border-top-width: 2px;
+  vertical-align: middle;
+}
+.dt-popover {
+  position: fixed;
+  z-index: 230;
+  max-width: calc(100vw - 8px);
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.dt-swatches {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.dt-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-3);
+}
+.dt-swatch[aria-pressed='true'] {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.dt-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dt-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+}
+.dt-list button:hover,
+.dt-list button[aria-checked='true'] {
+  background: var(--panel-3);
+}
+@media (max-width: 400px) {
+  .dt-btn {
+    min-width: 26px;
+    padding: 0 4px;
+  }
+}
+
+/* the picker of the Icons, Emojis and Stickers tools */
+.glyph-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.glyph-search {
+  width: 100%;
+}
+
+.glyph-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.glyph-tab {
+  flex: none;
+  padding: 3px 9px;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.glyph-tab:hover,
+.glyph-tab:focus-visible {
+  color: var(--text);
+}
+
+.glyph-tab.active {
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--accent-2);
+}
+
+.glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 4px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.glyph-recent {
+  max-height: none;
+  overflow: visible;
+}
+
+.glyph-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.glyph-cell:hover,
+.glyph-cell:focus-visible {
+  background: var(--panel-3);
+  border-color: var(--accent-2);
+  outline: none;
+}
+
+.glyph-empty {
+  padding: 18px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
 }

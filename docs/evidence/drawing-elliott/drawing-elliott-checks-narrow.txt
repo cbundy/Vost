@@ -1,0 +1,8 @@
+ok   Elliott impulse wave stored - elliottImpulse:6
+ok   Elliott correction wave stored - elliottImpulse:6,elliottCorrection:4
+ok   Elliott triangle wave stored - elliottImpulse:6,elliottCorrection:4,elliottTriangle:6
+ok   Elliott double combo wave stored - elliottImpulse:6,elliottCorrection:4,elliottTriangle:6,elliottDoubleCombo:4
+ok   Elliott triple combo wave stored - elliottImpulse:6,elliottCorrection:4,elliottTriangle:6,elliottDoubleCombo:4,elliottTripleCombo:6
+ok   chart painted
+ok   five drawings after reload
+ok   unchanged by the timeframe change

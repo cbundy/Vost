@@ -6,7 +6,7 @@ A rail beside the chart holds the drawing tools, one button per family of tools.
 
 ## Families and pop-out lists
 
-Each button shows the tool you used last from its family (the first one at first). Click it to pick that tool. The button is pressed while the current tool is in its family. The families are Cursors, Lines, Fibonacci and Gann (with Fibonacci and Gann headings), Forecasting and measurers, Shapes and Annotations; more appear as more tools arrive.
+Each button shows the tool you used last from its family (the first one at first). Click it to pick that tool. The button is pressed while the current tool is in its family. The families are Cursors, Lines, Fibonacci and Gann (with Fibonacci and Gann headings), Forecasting and measurers, Shapes (with Brushes and Shapes headings) Annotations and Icons (Icons, Emojis and Stickers; see [Text and notes](drawing-annotations.md#icons-emojis-and-stickers)); more appear as more tools arrive.
 
 Open a family's list with the small chevron on its button, a long press (half a second) or **ArrowRight** while the button has focus. The list groups tools under headings. Click a tool to pick it, which also makes it the family's button. Only one list is open at a time. An outside click or resizing the window closes it.
 
@@ -27,8 +27,10 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 - **Trend line**, **Ray**, **Info line**, **Extended line**, **Trend angle**, **Rectangle** and **Fibonacci retracement**: pick a tool, then click two points on the chart (or press, drag and release). The info line labels its price change, bars, angle and distance, the extended line continues both ways to the edge of the chart, and the trend angle draws an arc with its angle in degrees and a dotted horizontal from the first point.
 - **Fib time zone**, **Fib speed resistance fan**, **Fib circles**, **Fib spiral** and **Fib speed resistance arcs**: two points each, like the retracement. **Trend-based fib extension**, **Fib channel**, **Trend-based fib time**, **Fib wedge** and **Pitchfan** take three points, like the pitchforks (see [Fibonacci tools](drawing-fib-gann.md)).
 - **Gann box**, **Gann square fixed**, **Gann square** and **Gann fan**: two points each, under the Gann heading of the same family (see [Fibonacci and Gann tools](drawing-fib-gann.md#gann-tools)).
-- **XABCD pattern**, **Cypher pattern** and **ABCD pattern**: click four or five points one by one (see [Chart patterns](drawing-patterns.md)).
+- **XABCD pattern**, **Cypher pattern**, **ABCD pattern**, **Head and shoulders**, **Triangle pattern** and **Three drives**: click four to seven points one by one (see [Chart patterns](drawing-patterns.md)).
+- **Elliott impulse wave** (6 points), **Elliott correction wave** (4), **Elliott triangle wave** (6), **Elliott double combo wave** (4) and **Elliott triple combo wave** (6): click the points one by one (see [Elliott waves](drawing-patterns.md#elliott-waves)).
 - **Cyclic lines**, **Time cycles** and **Sine line**: click two points, like a trend line; the pattern repeats across the chart (see [Cycle tools](drawing-patterns.md#cycle-tools)).
+- **Long position** and **Short position** (the Forecasting section of the family before Measure): one click places an entry with a target and a stop zone, and the risk, quantity and profit or loss (see [Forecasting and measuring tools](drawing-forecast.md#positions)).
 - **Horizontal line**, **Horizontal ray**, **Vertical line** and **Cross line**: pick a tool and click once. The horizontal ray runs from the point to the right edge, the vertical line spans the full height and the cross line is a horizontal and a vertical line through the point. A vertical line only moves in time: dragging it keeps its price.
 - **Parallel channel**, **Regression trend**, **Flat top/bottom** and **Disjoint channel** (the Channels section of the Lines list):
   - Parallel channel takes three points. The first two set a line, the third sets how far the second, parallel line is from it. A dashed middle line and a fill sit between them, and both lines can extend left and right. Dragging an end keeps the lines parallel; the handle in the middle of the second line sets the gap.
@@ -36,6 +38,10 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
   - Flat top/bottom takes three points: a sloped edge from the first two and a flat edge at the third point's price, filled between.
   - Disjoint channel takes three points: a first edge from the first two, and a second edge that starts at the third and mirrors the first edge's rise, so the two edges are not parallel. They are filled between.
   - Three-point drawings are placed with three clicks or taps, or press, drag and release for the first two and then a click or tap. Each placed point stays, a preview follows the pointer for the next one, and Escape cancels the drawing.
+- **Brush** and **Highlighter** (the Brushes section, at the top of the Shapes list; the Shapes button shows Brush until you pick another tool): press, drag and release to draw a freehand stroke, with a live preview, on a mouse, a pen or one finger (a second finger cancels the stroke and the chart takes the pinch). A stroke that barely moves is not saved and the tool stays picked; Escape cancels one in progress. Strokes are thinned when you let go, to at most 200 points, and follow zoom, pan and timeframe changes.
+  - Brush has colour, opacity, width (up to 10), smoothing (0 to 20, 5 to begin with; it only changes how the saved stroke is drawn, so you can change it later) and an optional fill, shown when the stroke ends close to where it started. Highlighter is a wide translucent stroke (yellow, width 20, from 5 to 40) with round ends.
+  - A stroke has no point handles: click it to select it, drag it to move the whole stroke, and open Settings with a double-click.
+  ![A Brush and a Highlighter stroke, restyled](../evidence/drawing-shapes/drawing-shapes-styled-brushes-desktop.png)
 - **Circle**, **Arrow**, **Arrow marker**, **Arrow mark up**, **Arrow mark down**, **Path**, **Polyline**, **Rotated rectangle**, **Ellipse**, **Triangle**, **Arc**, **Curve** and **Double curve** (the Shapes list, after Rectangle):
   - Circle takes two points: the centre, then a point on its edge. It stays round at any zoom. Drag the centre handle to move it and the edge handle to change its radius. Its fill is clickable while the fill opacity is above 0.
   - Arrow is a line with an arrow head at its second point (Arrow at end in Settings; the other line settings work too).
@@ -55,6 +61,7 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 - **Pitchfork**, **Schiff pitchfork**, **Modified Schiff pitchfork** and **Inside pitchfork** (the Pitchforks section of the Lines list): pick a tool and place three points by clicks or taps, or press, drag and release for the first two and then a click. A median line runs from the first point (Pitchfork), from the middle of the first two points at the first point's time (Schiff), from the middle of the first two points (Modified Schiff) or from the middle of the first two points (Inside, the same origin as Modified Schiff), through the middle of points two and three. Coloured level lines run parallel to the median on both sides, level 1 through points two and three, and a fill sits between neighbouring lines. In the settings, the levels (0.5 and 1 on to begin with) are switched on and off, recoloured, edited, added and removed, the median can be hidden, restyled, the Background turned off, the lines extended backward, and the Style changed to another of the four constructions.
 - A selected line shows its price on the price axis and its time on the time axis.
 - **Text** and **Anchored text**: click the chart and type a note in place. Enter adds a line, Ctrl+Enter (Cmd+Enter) saves, Escape cancels. Double-click a note to edit it. Anchored text keeps its spot on the pane when the chart moves. The Notes section adds **Note** and **Anchored note** (a pin whose text pops up on hover and stays open after a click), **Callout** (a text box with a pointer to a bar) and **Comment** (a speech bubble). See [Text and notes](drawing-annotations.md).
+- **Anchored VWAP**, **Fixed range volume profile** and **Anchored volume profile** (the Volume-based section of the Forecasting and measurers list): the volume-weighted average price with optional bands, and a histogram of traded volume with its point of control and value area. See [Volume-based tools](drawing-volume.md).
 - **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick.
 
 ![The line tools](../evidence/drawing-lines/drawing-lines-all-desktop.png)
@@ -80,11 +87,17 @@ Click a drawing to select it, drag to move it and drag a handle to resize it. De
 
 The rail also has:
 
-- **Magnet**: snaps points to the nearest bar's time and its open, high, low or close (a horizontal line snaps price only and a vertical line snaps time only).
+- **Magnet**: snaps points to a bar's time and its open, high, low or close (a horizontal line snaps price only and a vertical line snaps time only). The button switches it off or on again with the strength you chose last (weak at first), and shows a W or an S on its icon. The small chevron beside it (or a long press, or the right arrow key) opens a menu of **Off**, **Weak magnet** and **Strong magnet**. The strong magnet snaps to the nearest open, high, low or close of the bar under the pointer, however far away. The weak magnet snaps only when the pointer is within about 10 pixels of one of those values and otherwise leaves the point where you put it. On a phone the same three modes sit in the drawing menu.
+- **Stay in drawing mode**: after each drawing the tool stays picked, so the next press starts another one. Escape or picking another tool returns to the cursor, and the Measure still goes back to the cursor after one use.
+- **Lock all drawings**: no drawing can be moved or resized, and none shows handles. You can still select, right-click and delete them. Turning it off restores each drawing's own lock (see the right-click menu).
 - **Hide all drawings**: hides every drawing without deleting it.
 - **Delete all drawings**: after a confirm, deletes all drawings for the current source. One undo step brings them back.
 
 The rail scrolls when the window is short.
+
+![The magnet modes menu on the rail](../evidence/drawing-manage/drawing-manage-magnet-menu-desktop.png)
+
+![Magnet, Stay in drawing mode and Lock all drawings switched on](../evidence/drawing-manage/drawing-manage-switches-on-desktop.png)
 
 ## Selecting several drawings
 
@@ -100,7 +113,7 @@ Right-click one of them and the menu is headed "3 drawings" (the number selected
 
 ## Managing drawings
 
-Right-click a drawing to select it and open its menu, headed by its name (or its tool). The menu holds **Settings** (a note opens its text editor), **Rename**, **Clone**, **Copy**, **Lock** or **Unlock**, **Bring to front**, **Bring forward**, **Send backward**, **Send to back** and **Delete**. Every change is one undo step.
+Right-click a drawing to select it and open its menu, headed by its name (or its tool). The menu holds **Settings** (a note opens its text editor), **Rename**, **Clone**, **Copy**, **Lock** or **Unlock**, **Hide**, **Bring to front**, **Bring forward**, **Send backward**, **Send to back** and **Delete**. Every change is one undo step.
 
 ![The menu of a trend line](../evidence/drawing-manage/drawing-manage-menu-desktop.png)
 
@@ -108,6 +121,7 @@ Right-click a drawing to select it and open its menu, headed by its name (or its
 - **Rename**: type a name in the menu and press Enter (Escape cancels). The name is up to 60 characters and shows in the menu header.
 - **Clone**: puts a copy just above the original. Holding **Ctrl or Cmd** while you drag a drawing clones it and drags the copy; one undo removes both. On a locked drawing it clones without moving.
 - **Copy and paste**: **Ctrl or Cmd+C** copies the selected drawing and **Ctrl or Cmd+V** pastes it on top of the active chart, selected. The clipboard is shared by every chart in the tab, so you can paste onto a chart showing another symbol; the copy keeps its times and prices.
+- **Hide**: takes the drawing off the chart (not painted, not clickable, not picked by a selection box, no axis labels). A hidden drawing cannot be right-clicked, so show it again from the Object tree below, or with undo. This is separate from **Hide all drawings** in the rail.
 - **Order**: drawings paint in order, the last on top. Bring to front, Bring forward, Send backward and Send to back change it.
 
 ![A trend line pasted onto a chart of another symbol](../evidence/drawing-manage/drawing-manage-pasted-other-chart-desktop.png)
@@ -115,6 +129,30 @@ Right-click a drawing to select it and open its menu, headed by its name (or its
 Right-click empty chart for **Add alert at** the price, **Paste** (off while nothing is copied) and **Remove drawings** (the same confirm as Delete all drawings, off with no drawings).
 
 ![The empty chart menu](../evidence/drawing-manage/drawing-manage-empty-menu-desktop.png)
+
+### Floating toolbar
+
+With the cursor tool, select one drawing and a small toolbar floats above it (below it when there is no room above, always inside the chart) and follows it as you pan, zoom, drag the price scale or resize the chart. It has a colour swatch row (plus a custom colour), a width list and a line style list, each only for the settings the tool has; then **Settings**, **Lock** (pressed while locked), **Clone**, **Delete** and **More**, which holds the same items as the right-click menu. Each quick pick is one undo step and also works on a locked drawing. The toolbar hides while you drag, while the settings dialog or a text editor is open, with Hide all drawings on, and when two or more drawings are selected. Pressing it never draws, drags or pans the chart.
+
+![The floating toolbar with its colour popover](../evidence/drawing-toolbar/drawing-toolbar-colour-desktop.png)
+
+![The More menu of the toolbar](../evidence/drawing-toolbar/drawing-toolbar-more-desktop.png)
+
+### Object tree
+
+The **Object tree** button in the side rail (the stacked-layers icon, after Indicators; on a narrow screen it is one of the drawer's section buttons) lists every drawing of the active chart, top-most first. Switching the active chart, its symbol or its data changes the list; with no drawings it says "No drawings on this chart".
+
+![The Object tree beside the chart](../evidence/drawing-manage/drawing-manage-tree-desktop.png)
+
+Each row shows the tool's icon, the drawing's name (or its tool) and four buttons: the **eye** hides or shows it, the **lock** locks or unlocks it, the **pencil** renames it and the **bin** deletes it. A hidden drawing's row is dimmed; so is one that does not show on the current timeframe (its tooltip says so).
+
+- **Select**: click a row to select that drawing on the chart; **Shift+click** adds or removes it. Selected rows are marked. While Hide all is on, the list says so and a click does not select.
+- **Rename**: double-click the name or press the pencil, type, then Enter (Escape cancels, leaving the field keeps the name).
+- **Reorder**: drag a row; a line shows where it will land. Dropping it lower in the list sends the drawing further back in the paint order.
+
+![Dragging a row to reorder](../evidence/drawing-manage/drawing-manage-tree-drag-desktop.png)
+
+Every change from the list is one undo step on that chart, the same as from the keyboard or the menu.
 
 ## Settings
 
@@ -132,7 +170,8 @@ Double-click a drawing (a note opens its text editor instead) to open its settin
   - Fibonacci retracement: edit, add (up to 24), remove, colour and switch off each level, show prices and levels, reverse, extend lines and a background between levels.
   - Fib time zone, speed resistance fan, circles, spiral, speed resistance arcs, trend-based extension, channel, trend-based time, wedge and pitchfan: their level tables, width, fills and switches, with the level labels on the Text tab (see [Fibonacci tools](drawing-fib-gann.md)).
   - Gann box, squares and fan: their level, fan and arc tables (each entry on or off, with its own colour), width, fills and the labels on the Text tab (see [Gann tools](drawing-fib-gann.md#gann-tools)).
-  - XABCD, Cypher and ABCD patterns: line colour, width and style, fill colour and opacity (not ABCD), with the label text and the ratio switch on the Text tab (see [Chart patterns](drawing-patterns.md)).
+  - The chart patterns: line colour, width and style, fill colour and opacity (XABCD, Cypher, Head and shoulders, Triangle pattern; the Triangle pattern also a Background switch), with the label text and the ratio switch (not Head and shoulders or Triangle pattern) on the Text tab (see [Chart patterns](drawing-patterns.md)).
+  - The Elliott wave tools: line colour, width and style and the Wave degree that sets the wave labels, with the label text colour and size on the Text tab (see [Elliott waves](drawing-patterns.md#elliott-waves)).
   - Cyclic lines, Time cycles and Sine line: colour, width and line style; Time cycles also has a background fill with its colour and opacity (see [Cycle tools](drawing-patterns.md#cycle-tools)).
   - Text, Anchored text, Note, Anchored note, Callout and Comment: background colour and opacity and the border colour (their text settings are on the Text tab); the notes also have a marker colour.
 - **Text**: the text of a note and, for the text tools, its colour, size, bold, italic, alignment and wrapping (see [Text and notes](drawing-annotations.md)). The info line, extended line and trend angle have the text colour and size of their label here; the trend line and ray have no Text tab.
@@ -152,6 +191,8 @@ The dialog fits a phone screen.
 ## Where they are saved
 
 Drawings are saved per symbol in your browser, and keep their place across zoom, timeframe changes and live bars. Charts on the same market share their drawings. Drawings saved by an older version are carried over, and drawings from a newer version (a tool or a setting this version does not know) are kept as they are and written back unchanged, though this version does not show them.
+
+Pictures added with the [Image tool](drawing-annotations.md#image) are kept in a separate picture store in your browser (IndexedDB), which is cleared with the site's data. A drawing copied to another browser does not carry its picture and shows a "Picture missing" box there.
 
 ## On phones
 

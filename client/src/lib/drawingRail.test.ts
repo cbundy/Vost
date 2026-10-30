@@ -31,15 +31,32 @@ describe('railGroups', () => {
   });
 
   it('orders families by the fixed order and leaves out empty ones', () => {
-    expect(groups.map((g) => g.id)).toEqual(['cursors', 'lines', 'fib-gann', 'patterns', 'forecast-measure', 'shapes', 'annotations']);
-    expect(groups.map((g) => g.id)).not.toContain('icons');
+    expect(groups.map((g) => g.id)).toEqual(['cursors', 'lines', 'fib-gann', 'patterns', 'forecast-measure', 'shapes', 'annotations', 'icons']);
   });
 
-  it('holds the chart patterns, then the cycle tools, in the Patterns family', () => {
+  it('holds Icons, Emojis and Stickers, in that order, in the Icons family', () => {
+    const icons = groups.find((g) => g.id === 'icons')!;
+    expect(icons.entries.map((e) => e.key)).toEqual(['icon', 'emoji', 'sticker']);
+    expect(icons.entries.map((e) => e.label)).toEqual(['Icons', 'Emojis', 'Stickers']);
+  });
+
+  it('holds the positions in Forecasting, the volume tools, then the measure in the forecasting family', () => {
+    const family = groups.find((g) => g.id === 'forecast-measure')!;
+    expect(family.entries.map((e) => [e.key, e.section])).toEqual([['longPosition', 'Forecasting'], ['shortPosition', 'Forecasting'], ['anchoredVwap', 'Volume-based'], ['fixedRangeVolumeProfile', 'Volume-based'], ['anchoredVolumeProfile', 'Volume-based'], ['measure', 'Measurers']]);
+  });
+
+  it('holds the chart patterns, the Elliott waves, then the cycle tools, in the Patterns family', () => {
     const patterns = groups.find((g) => g.id === 'patterns')!;
-    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'cyclicLines', 'timeCycles', 'sineLine']);
-    expect(patterns.entries.slice(0, 3).every((e) => e.section === 'Chart patterns')).toBe(true);
-    expect(patterns.entries.slice(3).every((e) => e.section === 'Cycles')).toBe(true);
+    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives', 'elliottImpulse', 'elliottCorrection', 'elliottTriangle', 'elliottDoubleCombo', 'elliottTripleCombo', 'cyclicLines', 'timeCycles', 'sineLine']);
+    expect(patterns.entries.slice(0, 6).every((e) => e.section === 'Chart patterns')).toBe(true);
+    expect(patterns.entries.slice(6, 11).every((e) => e.section === 'Elliott waves')).toBe(true);
+    expect(patterns.entries.slice(11).every((e) => e.section === 'Cycles')).toBe(true);
+  });
+
+  it('opens the Shapes family with a Brushes section, Brush first', () => {
+    const shapes = groups.find((g) => g.id === 'shapes')!;
+    expect(shapes.sections.map((s) => s.title)).toEqual(['Brushes', 'Shapes']);
+    expect(shapes.entries.slice(0, 2).map((e) => e.key)).toEqual(['brush', 'highlighter']);
   });
 
   it('holds Cross, Dot, Arrow and Eraser in the cursors family', () => {

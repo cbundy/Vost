@@ -19,8 +19,9 @@ const FAMILIES: { id: string; label: string; first: string; sections: string[] }
   { id: 'cursors', label: 'Cursors', first: 'Cross', sections: ['Cursors'] },
   { id: 'lines', label: 'Lines', first: 'Trend line', sections: ['Lines', 'Channels'] },
   { id: 'fib-gann', label: 'Fibonacci and Gann', first: 'Fibonacci retracement', sections: ['Fibonacci', 'Gann'] },
-  { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Measure', sections: ['Measurers'] },
-  { id: 'shapes', label: 'Shapes', first: 'Rectangle', sections: ['Shapes'] },
+  { id: 'patterns', label: 'Patterns', first: 'XABCD pattern', sections: ['Chart patterns', 'Cycles'] },
+  { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Long position', sections: ['Forecasting', 'Volume-based', 'Measurers'] },
+  { id: 'shapes', label: 'Shapes', first: 'Brush', sections: ['Brushes', 'Shapes'] },
   { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text', 'Notes'] },
 ];
 
@@ -119,9 +120,9 @@ export const drawingRail: Scenario = {
         check(`${f.label} shows ${f.first}`, (await b.getAttribute('title')) === f.first);
         check(`${f.label} has aria-pressed`, (await b.getAttribute('aria-pressed')) !== null);
       }
-      check('Patterns and Icons are hidden until they have tools', (await chevron('Patterns').count()) === 0 && (await chevron('Icons').count()) === 0);
+      check('Icons is hidden until it has tools', (await chevron('Icons').count()) === 0);
       check('Cross pressed at start', await pressedOf('Cross'));
-      for (const name of ['Magnet', 'Hide all drawings', 'Delete all drawings']) check(`${name} stays below the divider`, await groupBtn(name).isVisible());
+      for (const name of ['Magnet', 'Stay in drawing mode', 'Lock all drawings', 'Hide all drawings', 'Delete all drawings']) check(`${name} stays below the divider`, await groupBtn(name).isVisible());
     });
     await ctx.screenshot('rail');
 
@@ -158,11 +159,11 @@ export const drawingRail: Scenario = {
       await page.keyboard.press('ArrowDown');
       check('ArrowDown moves to Ray', (await focused()).includes('Ray'));
       await page.keyboard.press('End');
-      check('End goes to Disjoint channel', (await focused()).includes('Disjoint channel'));
+      check('End goes to Inside pitchfork', (await focused()).includes('Inside pitchfork'));
       await page.keyboard.press('ArrowDown');
       check('ArrowDown wraps to Trend line', (await focused()).includes('Trend line'));
       await page.keyboard.press('ArrowUp');
-      check('ArrowUp wraps to Disjoint channel', (await focused()).includes('Disjoint channel'));
+      check('ArrowUp wraps to Inside pitchfork', (await focused()).includes('Inside pitchfork'));
       await page.keyboard.press('Home');
       check('Home goes to Trend line', (await focused()).includes('Trend line'));
       await ctx.screenshot('keyboard');
@@ -185,7 +186,7 @@ export const drawingRail: Scenario = {
     });
 
     await ctx.step('a long press opens the flyout', async () => {
-      const b = await groupBtn('Rectangle').boundingBox();
+      const b = await groupBtn('Brush').boundingBox();
       if (!b) throw new Error('no box');
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
       await page.mouse.down();
@@ -193,7 +194,7 @@ export const drawingRail: Scenario = {
       await page.mouse.up();
       await page.getByRole('menu', { name: 'Shapes tools' }).waitFor();
       check('long press opened Shapes', true);
-      check('the long press did not pick the tool', (await groupBtn('Rectangle').getAttribute('aria-pressed')) === 'false');
+      check('the long press did not pick the tool', (await groupBtn('Brush').getAttribute('aria-pressed')) === 'false');
       await page.keyboard.press('Escape');
     });
 

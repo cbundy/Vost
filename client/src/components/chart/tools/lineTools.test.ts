@@ -24,6 +24,8 @@ function view(tool: DrawingTool, anchors: ToolView['anchors'] = []): ToolView {
     formatPrice: String,
     style: resolveStyle(tool.settings ?? [], undefined, undefined).values,
     styled: false,
+    glyph: '',
+    cells: [],
   };
 }
 const A = { time: 100, price: 10 };

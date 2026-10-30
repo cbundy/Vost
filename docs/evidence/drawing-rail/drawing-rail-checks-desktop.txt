@@ -1,19 +1,23 @@
-ok   one chevron per non-empty family - 6
+ok   one chevron per non-empty family - 7
 ok   Cursors shows Cross
 ok   Cursors has aria-pressed
 ok   Lines shows Trend line
 ok   Lines has aria-pressed
 ok   Fibonacci and Gann shows Fibonacci retracement
 ok   Fibonacci and Gann has aria-pressed
-ok   Forecasting and measurers shows Measure
+ok   Patterns shows XABCD pattern
+ok   Patterns has aria-pressed
+ok   Forecasting and measurers shows Long position
 ok   Forecasting and measurers has aria-pressed
-ok   Shapes shows Rectangle
+ok   Shapes shows Brush
 ok   Shapes has aria-pressed
 ok   Annotations shows Text
 ok   Annotations has aria-pressed
-ok   Patterns and Icons are hidden until they have tools
+ok   Icons is hidden until it has tools
 ok   Cross pressed at start
 ok   Magnet stays below the divider
+ok   Stay in drawing mode stays below the divider
+ok   Lock all drawings stays below the divider
 ok   Hide all drawings stays below the divider
 ok   Delete all drawings stays below the divider
 ok   Cursors has the Cursors heading
@@ -22,32 +26,41 @@ ok   Cursors items have a star
 ok   Cursors flyout is inside the viewport
 ok   Lines has the Lines heading
 ok   Lines has the Channels heading
-ok   Lines lists tools - 13
+ok   Lines lists tools - 17
 ok   Lines items have a star
 ok   Lines flyout is inside the viewport
 ok   Fibonacci and Gann has the Fibonacci heading
-ok   Fibonacci and Gann lists tools - 1
+ok   Fibonacci and Gann has the Gann heading
+ok   Fibonacci and Gann lists tools - 15
 ok   Fibonacci and Gann items have a star
 ok   Fibonacci and Gann flyout is inside the viewport
+ok   Patterns has the Chart patterns heading
+ok   Patterns has the Cycles heading
+ok   Patterns lists tools - 14
+ok   Patterns items have a star
+ok   Patterns flyout is inside the viewport
+ok   Forecasting and measurers has the Forecasting heading
 ok   Forecasting and measurers has the Measurers heading
-ok   Forecasting and measurers lists tools - 1
+ok   Forecasting and measurers lists tools - 3
 ok   Forecasting and measurers items have a star
 ok   Forecasting and measurers flyout is inside the viewport
+ok   Shapes has the Brushes heading
 ok   Shapes has the Shapes heading
-ok   Shapes lists tools - 1
+ok   Shapes lists tools - 16
 ok   Shapes items have a star
 ok   Shapes flyout is inside the viewport
 ok   Annotations has the Text heading
-ok   Annotations lists tools - 1
+ok   Annotations has the Notes heading
+ok   Annotations lists tools - 12
 ok   Annotations items have a star
 ok   Annotations flyout is inside the viewport
 ok   only one flyout is open
 ok   an outside press closes it
 ok   focus starts on the current tool
 ok   ArrowDown moves to Ray
-ok   End goes to Disjoint channel
+ok   End goes to Inside pitchfork
 ok   ArrowDown wraps to Trend line
-ok   ArrowUp wraps to Disjoint channel
+ok   ArrowUp wraps to Inside pitchfork
 ok   Home goes to Trend line
 ok   Escape closes it
 ok   focus is back on the group button
