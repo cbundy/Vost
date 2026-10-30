@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { candlesFromCsvText } from '../csv';
-import { buildPineChart, cssColor, separatePosition } from './chartSeries';
+import { buildPineChart, cssColor, fadedColor, separatePosition } from './chartSeries';
 import { DOWN_COLOR, UP_COLOR } from '../theme';
 import { runPine } from './runtime';
 import type { PineResult } from './types';
@@ -47,7 +47,8 @@ describe('buildPineChart', () => {
     const { r, m } = await model('overlays');
     expect(r.plots.map((p) => p.kind)).toEqual(['hline', 'bgcolor', 'plotshape', 'plot']);
     const hline = m.series.find((s) => s.title === 'Level')!;
-    expect(hline.dashed).toBe(true);
+    expect(hline.lineStyle).toBe('dashed');
+    expect(hline.lineWidth).toBe(1);
     expect(hline.hline).toBe(true);
     expect(m.series.filter((s) => s.hline).map((s) => s.title)).toEqual(['Level']);
     expect(hline.data.every((p) => p.value === 100)).toBe(true);
@@ -63,17 +64,17 @@ describe('buildPineChart', () => {
     expect(m.markers.every((k) => k.pane === 'price')).toBe(true);
   });
 
-  it('a separate-pane script puts its shapes in its pane: belowbar at the bottom, abovebar at the top', async () => {
+  it('a separate-pane script puts its shapes in its pane: belowbar at the bottom, a plotchar abovebar at the top', async () => {
     const { r, m } = await model('pane-shapes');
     expect(r.plots.filter((p) => p.kind === 'plotshape').every((p) => p.pane === 'separate')).toBe(true);
     const low = m.markers.filter((k) => k.panePosition === 'atPriceBottom');
-    const high = m.markers.filter((k) => k.panePosition === 'atPriceTop');
     expect(low.length).toBeGreaterThan(0);
-    expect(high.length).toBeGreaterThan(0);
-    expect(low.length + high.length).toBe(m.markers.length);
+    expect(low.length).toBe(m.markers.length);
     expect(m.markers.every((k) => k.pane === 'separate')).toBe(true);
     expect(low.every((k) => k.price === 0 && k.position === 'belowBar')).toBe(true);
-    expect(high.every((k) => k.price === 1 && k.position === 'aboveBar')).toBe(true);
+    // plotchar(..., "H", location.abovebar) is a glyph, not a marker.
+    expect(m.chars.length).toBeGreaterThan(0);
+    expect(m.chars.every((k) => k.pane === 'separate' && k.char === 'H' && k.price === 1 && k.align === 'above')).toBe(true);
   });
 
   it('separatePosition maps top, bottom, abovebar, belowbar and absolute', () => {
@@ -226,5 +227,108 @@ describe('buildPineChart candles, bars, bar colors and arrows', () => {
       '#000',
     );
     expect(m.barColors.get(candles[0].time)).toBe('rgba(41,98,255,0.502)');
+  });
+});
+
+describe('buildPineChart plot options', () => {
+  async function build(code: string, overlay = true) {
+    const r = await runPine(`//@version=6\nindicator("s", overlay=${overlay})\n${code}`, candles);
+    if (!r.ok) throw new Error(r.error.message);
+    return buildPineChart(r as PineResult, candles, '#123456');
+  }
+
+  it('line width is the script width, 1 when none is given; hline likewise', async () => {
+    const m = await build('plot(close, "A")\nplot(close, "B", linewidth=4)\nhline(100, "H", linewidth=3)\nhline(90, "H2")');
+    expect(m.series.map((s) => s.lineWidth)).toEqual([1, 4, 3, 1]);
+  });
+
+  it('hline linestyle solid, dashed (default) and dotted', async () => {
+    const m = await build(
+      'hline(1, "S", linestyle=hline.style_solid)\nhline(2, "D", linestyle=hline.style_dashed)\nhline(3, "T", linestyle=hline.style_dotted)\nhline(4, "N")',
+    );
+    expect(m.series.map((s) => s.lineStyle)).toEqual(['solid', 'dashed', 'dotted', 'dashed']);
+  });
+
+  it('stepline and stepline_diamond draw steps, other lines do not', async () => {
+    const m = await build(
+      'plot(close, "A", style=plot.style_stepline)\nplot(close, "B", style=plot.style_stepline_diamond)\nplot(close, "C")\nplot(close, "D", style=plot.style_linebr)',
+    );
+    expect(m.series.map((s) => s.lineType)).toEqual(['steps', 'steps', undefined, undefined]);
+  });
+
+  it('area and areabr are area series based at histbase (default 0); columns keep a histogram with the base', async () => {
+    const m = await build(
+      'plot(close, "A", style=plot.style_area, histbase=100)\nplot(close, "B", style=plot.style_areabr)\nplot(close, "C", style=plot.style_columns, histbase=50)\nplot(close, "D", style=plot.style_histogram)\nplot(close, "E", style=plot.style_circles)\nplot(close, "F", style=plot.style_cross)',
+    );
+    expect(m.series.map((s) => [s.type, s.base, s.pointsOnly])).toEqual([
+      ['area', 100, undefined],
+      ['area', 0, undefined],
+      ['histogram', 50, undefined],
+      ['histogram', 0, undefined],
+      ['line', undefined, true],
+      ['line', undefined, true],
+    ]);
+  });
+
+  it('plotshape text shows on the marker and sizes strictly increase, auto = normal', async () => {
+    const sizes = ['tiny', 'small', 'normal', 'large', 'huge', 'auto'];
+    const m = await build(
+      sizes.map((z) => `plotshape(close > open, "${z}", style=shape.circle, text="T", size=size.${z})`).join('\n') + '\nplotshape(close > open, "none")',
+    );
+    // One marker per bar per plot: the first n markers share a time, in plot order.
+    const t0 = m.markers[0].time;
+    const sz = m.markers.filter((k) => k.time === t0).map((k) => k.size);
+    expect(sz).toHaveLength(7);
+    const bySize = Object.fromEntries(sizes.map((z, i) => [z, sz[i]]));
+    expect(bySize.tiny).toBeLessThan(bySize.small);
+    expect(bySize.small).toBeLessThan(bySize.normal);
+    expect(bySize.normal).toBeLessThan(bySize.large);
+    expect(bySize.large).toBeLessThan(bySize.huge);
+    expect(bySize.auto).toBe(bySize.normal);
+    expect(sz[6]).toBe(bySize.normal);
+    expect(m.markers.filter((k) => k.time === t0 && k.text === 'T')).toHaveLength(6);
+    expect(m.markers.find((k) => k.time === t0 && k.text === undefined)).toBeDefined();
+  });
+
+  it('plotchar emits a char with its text and size, never a marker; default is a star', async () => {
+    const m = await build(
+      'plotchar(close > open, "A", char="X", text="up", size=size.large, location=location.belowbar)\nplotchar(close > open, "B", char="\u{1F680}")\nplotchar(close > open, "C")',
+    );
+    expect(m.markers).toEqual([]);
+    const t0 = m.chars[0].time;
+    const [a, b, c] = m.chars.filter((k) => k.time === t0);
+    expect(a).toMatchObject({ char: 'X', text: 'up', align: 'below' });
+    expect(a.price).toBe(candles.find((k) => k.time === t0)!.low);
+    expect(b).toMatchObject({ char: '\u{1F680}', align: 'above', price: candles.find((k) => k.time === t0)!.high });
+    expect(b.text).toBeUndefined();
+    expect(c.char).toBe('\u2605');
+    expect(a.fontPx).toBeGreaterThan(b.fontPx);
+  });
+
+  it('plotchar in a script pane is anchored like shapes: top, bottom, absolute value', async () => {
+    const m = await build(
+      'plotchar(close > open, "A", char="a")\nplotchar(close > open, "B", char="b", location=location.bottom)\nplotchar(close, "C", char="c", location=location.absolute)',
+      false,
+    );
+    const t0 = m.chars[0].time;
+    const [a, b, c] = m.chars.filter((k) => k.time === t0);
+    expect(a).toMatchObject({ pane: 'separate', price: 1, align: 'above' });
+    expect(b).toMatchObject({ pane: 'separate', price: 0, align: 'below' });
+    expect(c).toMatchObject({ pane: 'separate', onScale: true, align: 'center', price: candles.find((k) => k.time === t0)!.close });
+  });
+
+  it('a fill joining an offset plot follows the shifted values', async () => {
+    const m = await build('a = plot(close, "A", offset=2)\nb = plot(open, "B")\nfill(a, b)');
+    expect(m.fills).toHaveLength(1);
+    const a = m.series[0];
+    expect(a.data[0].value).toBeUndefined();
+    expect(a.data[2].value).toBe(candles[0].close);
+    expect(m.fills[0].key1).toBe(a.key);
+  });
+
+  it('fadedColor sets the alpha of hex and rgb colours', () => {
+    expect(fadedColor('#ff0000', 0.25)).toBe('rgba(255,0,0,0.25)');
+    expect(fadedColor('#ff000080', 0.25)).toBe('rgba(255,0,0,0.25)');
+    expect(fadedColor('rgb(1, 2, 3)', 0.5)).toBe('rgba(1,2,3,0.5)');
   });
 });

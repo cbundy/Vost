@@ -21,11 +21,15 @@ export interface PineSeriesPoint {
 export interface PineSeriesDesc {
   key: string;
   title: string;
-  type: 'line' | 'histogram' | 'candle' | 'bar';
+  type: 'line' | 'area' | 'histogram' | 'candle' | 'bar';
   pane: 'price' | 'separate';
   color: string;
   lineWidth: number;
-  dashed?: boolean;
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
+  /** Line series: `steps` draws step lines (stepline styles). */
+  lineType?: 'simple' | 'steps';
+  /** area and histogram series: the value the fill/columns start from (`histbase`, default 0). */
+  base?: number;
   /** hline(): a fixed level (its value is the level), not a plotted series. */
   hline?: true;
   /** circles/cross styles: markers only, no connecting line. */
@@ -53,6 +57,22 @@ export interface PineMarkerDesc {
   size: number;
 }
 
+/** A plotchar() glyph, drawn by a primitive on the pane's carrier series (a marker cannot show a bare glyph). */
+export interface PineCharDesc {
+  time: number;
+  pane: 'price' | 'separate';
+  /** Where the glyph is anchored: `price` is a price on the carrier's scale (the bar's high or low on the candles). */
+  price: number;
+  /** Separate pane: `price` is a 0..1 carrier value, else a value on the pane's own `right` scale. */
+  onScale?: boolean;
+  /** Which side of the anchor the glyph sits on. */
+  align: 'above' | 'below' | 'center';
+  char: string;
+  text?: string;
+  color: string;
+  fontPx: number;
+}
+
 /** A fill() between two series of the same pane, drawn by a primitive on the first one. */
 export interface PineFillDesc {
   pane: 'price' | 'separate';
@@ -71,9 +91,21 @@ export interface PineChartModel {
   fills: PineFillDesc[];
   /** Each mark carries its pane: shapes follow their plot, trade marks are on the price pane. */
   markers: PineMarkerDesc[];
+  /** plotchar() glyphs. */
+  chars: PineCharDesc[];
   /** barcolor(): candle time -> CSS color for the main candles. An na bar is left out. */
   barColors: Map<number, string>;
 }
+
+/** Marker size multiplier and glyph font size per Pine `size.*`; `auto` and none are `normal`. */
+const SIZES: Record<string, { marker: number; font: number }> = {
+  tiny: { marker: 0.5, font: 9 },
+  small: { marker: 0.75, font: 12 },
+  normal: { marker: 1, font: 15 },
+  large: { marker: 1.5, font: 20 },
+  huge: { marker: 2, font: 28 },
+};
+const sizeOf = (size: string | undefined) => SIZES[(size ?? '').toLowerCase()] ?? SIZES.normal;
 
 const UP = UP_COLOR;
 const DOWN = DOWN_COLOR;
@@ -87,6 +119,18 @@ export function cssColor(c: string | null | undefined, fallback: string): string
   const n = parseInt(m[1], 16);
   const a = Math.round((parseInt(m[2], 16) / 255) * 1000) / 1000;
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** The colour with its alpha set, for an area's fill. Only `#rgb`, `#rrggbb[aa]` and `rgb[a](...)` can be faded; other names stay as they are. */
+export function fadedColor(c: string, alpha: number): string {
+  const css = cssColor(c, c);
+  const hex = /^#([0-9a-f]{6})$/i.exec(css.trim());
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  }
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(css.trim());
+  return rgb ? `rgba(${rgb[1]},${rgb[2]},${rgb[3]},${alpha})` : css;
 }
 
 function points(plot: PinePlot, candles: Candle[], base: string, perBarColor: boolean): PineSeriesPoint[] {
@@ -128,6 +172,7 @@ export function separatePosition(loc: string | undefined, value?: number | null)
 export function buildPineChart(result: PineResult, candles: Candle[], fallbackColor: string): PineChartModel {
   const series: PineSeriesDesc[] = [];
   const markers: PineMarkerDesc[] = [];
+  const chars: PineCharDesc[] = [];
   const fills: PineFillDesc[] = [];
   const barColors = new Map<number, string>();
   const keyOf = (idx: number) => `${idx}_${result.plots[idx].name}`;
@@ -144,7 +189,7 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
       const level = plot.values.find((v): v is number => v !== null && Number.isFinite(v));
       if (level === undefined) return;
       series.push({
-        key, title: plot.name, type: 'line', pane, color, lineWidth: 1, dashed: true, hline: true,
+        key, title: plot.name, type: 'line', pane, color, lineWidth: plot.lineWidth ?? 1, lineStyle: plot.lineStyle ?? 'dashed', hline: true,
         data: candles.map((c) => ({ time: c.time, value: level })),
       });
       return;
@@ -209,28 +254,44 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
       return;
     }
     if (plot.kind === 'plotshape') {
+      const size = sizeOf(plot.size);
       candles.forEach((c, i) => {
-        const abs = (plot.location ?? '').toLowerCase() === 'absolute';
+        const absolute = (plot.location ?? '').toLowerCase() === 'absolute';
         const v = plot.values[i];
-        if (abs ? v === null || v === undefined || !Number.isFinite(v) : !v) return;
+        if (absolute ? v === null || v === undefined || !Number.isFinite(v) : !v) return;
+        const text = plot.texts?.[i] ?? plot.text;
+        const markColor = cssColor(plot.colors?.[i], color);
+        if (plot.char !== undefined) {
+          const below = location(plot.location) === 'belowBar';
+          const align = absolute ? 'center' : below ? 'below' : 'above';
+          const anchor = pane === 'price'
+            ? absolute ? { price: v as number } : { price: below ? c.low : c.high }
+            : (() => { const p = separatePosition(plot.location, v); return { price: p.price, ...(p.onScale && { onScale: true }) }; })();
+          chars.push({ time: c.time, pane, ...anchor, align, char: plot.char, ...(text && { text }), color: markColor, fontPx: size.font });
+          return;
+        }
         markers.push({
           time: c.time,
           pane,
           position: location(plot.location),
           ...separatePosition(plot.location, plot.values[i]),
           shape: shapeMarker(plot.shape),
-          color: cssColor(plot.colors?.[i], color),
-          size: 1,
+          color: markColor,
+          ...(text && { text }),
+          size: size.marker,
         });
       });
       return;
     }
     const histogram = plot.style === 'histogram' || plot.style === 'columns';
+    const area = plot.style === 'area' || plot.style === 'areabr';
     series.push({
       key, title: plot.name,
-      type: histogram ? 'histogram' : 'line',
+      type: histogram ? 'histogram' : area ? 'area' : 'line',
       pane, color,
-      lineWidth: 2,
+      lineWidth: plot.lineWidth ?? 1,
+      ...(plot.style.startsWith('stepline') && { lineType: 'steps' as const }),
+      ...((histogram || area) && { base: plot.histbase ?? 0 }),
       ...(!histogram && (plot.style === 'circles' || plot.style === 'cross') && { pointsOnly: true }),
       data: points(plot, candles, color, true),
     });
@@ -267,5 +328,6 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     }
   }
   markers.sort((a, b) => a.time - b.time);
-  return { series, fills, markers, barColors };
+  chars.sort((a, b) => a.time - b.time);
+  return { series, fills, markers, chars, barColors };
 }

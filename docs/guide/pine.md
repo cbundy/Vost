@@ -39,9 +39,23 @@ Two limits: the time zone is always UTC (right for crypto, not for Yahoo stocks)
 
 ## Shapes in a script's own pane
 
-A script that draws in its own pane (`overlay=false`) shows its `plotshape` and `plotchar` marks in that pane, not on the candles: `abovebar` and `top` at the top of the pane, `belowbar` and `bottom` at the bottom. Overlay scripts keep their marks on the candles.
+A script that draws in its own pane (`overlay=false`) shows its `plotshape` and `plotchar` marks in that pane, not on the candles: `abovebar` and `top` at the top of the pane, `belowbar` and `bottom` at the bottom, `absolute` at the plotted value. Overlay scripts keep their marks on the candles. A `plotshape` shows its `text` beside the shape, and `size` (`tiny`, `small`, `normal`, `large`, `huge`) sets how big it is.
 
 ![Shapes in the script's own pane, none on the candles](../evidence/pine-render/pine-render-pane-desktop.png)
+
+## Plot styles
+
+Plots draw the options a script gives them, as TradingView does:
+
+- `linewidth` sets the line width; with none the line is 1 pixel wide, as in Pine. It also sets the size of `circles` and `cross` points and the width of `hline`.
+- `offset=n` moves a plot n bars right (negative: left); values moved past the first or last bar are dropped.
+- `style=plot.style_stepline` (and `style_stepline_diamond`) draws steps, `style_area` and `style_areabr` a filled area down to `histbase` (default 0), `style_columns` and `style_histogram` columns that start at `histbase`, `style_circles` and `style_cross` points only.
+- `hline` takes `linestyle=hline.style_solid`, `style_dashed` (the default) or `style_dotted`.
+- `plotchar` draws its character in the plot's colour: any character works, emoji included, and a star when none is given. It sits above or below the bar on the candles (in the pane for a script with `overlay=false`), is sized by `size` and carries its `text`.
+
+![A script pane with a thick offset step line, an area and columns based at 50, dots, dashed, dotted and solid hlines, shape text in two sizes and plotchar characters](../evidence/pine-render/pine-render-plot-styles-desktop.png)
+
+![plotchar characters and text above and below the candles](../evidence/pine-render/pine-render-plot-chars-desktop.png)
 
 ## Fills
 
