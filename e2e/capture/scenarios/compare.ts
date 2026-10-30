@@ -137,9 +137,15 @@ export const compare: Scenario = {
       });
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
-      const report: string[] = [];
+      let report: string[] = [];
       let tasks: number[] = [];
       try {
+        // The bar is the brief's: no task over 50 ms after the first. The longtask API reports only tasks of 50 ms or more, so
+        // a loaded machine can add the odd one; allow up to three attempts and record every one (the broken code ran 25 tasks
+        // of 50 to 230 ms in each attempt, so a retry cannot hide it).
+        for (let attempt = 1; attempt <= 3; attempt++) {
+        report = report.concat(attempt > 1 ? [`attempt ${attempt}:`] : []);
+        tasks = [];
         for (const label of ['Code A', 'Code B']) {
           await page.getByRole('textbox', { name: label, exact: true }).click();
           await page.keyboard.press('Control+End');
@@ -155,16 +161,15 @@ export const compare: Scenario = {
           // (the diff was updated in place, not rebuilt); after typing in Code B itself it may have scrolled out of view.
           if (label === 'Code A' && viewport === 'desktop' && !(await chunk.evaluate((e) => e.isConnected))) throw new Error('the removed-line block in Code B was rebuilt while typing in Code A');
         }
+        if (Math.max(0, ...tasks) <= 50) break;
+        }
       } finally {
         await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
       }
       await ctx.writeText('typing', report.join('\n') + '\n');
       const worst = Math.max(0, ...tasks);
-      // The longtask API reports only tasks of 50 ms or more, so an unloaded run shows few and a noisy machine shows the odd
-      // 50 to 70 ms one; the broken code ran 25 tasks of 50 to 230 ms (3 s in all). The narrow layout stacks the panes in a tall
-      // page where a task of up to 90 ms was seen.
-      const limit = viewport === 'desktop' ? 75 : 120;
-      if (worst > limit) throw new Error(`a long task of ${worst} ms while typing (limit ${limit} ms after the first): ${report.join(' | ')}`);
+      const limit = 50;
+      if (worst > limit) throw new Error(`a long task of ${worst} ms while typing (limit ${limit} ms after the first, three attempts): ${report.join(' | ')}`);
       await summary('Code B').getByText('2 differences').waitFor();
     });
     await ctx.step('no horizontal page scroll', async () => {
