@@ -138,7 +138,7 @@ describe('every registered tool declares settings', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
   it('only the text tools store text, and they, the line tools and the labelled Fibonacci tools declare Text settings', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'note', 'anchoredNote', 'callout', 'comment', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'gannBox', 'gannFan', 'gannSquare', 'gannSquareFixed', 'fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'xabcdPattern', 'cypherPattern', 'abcdPattern'].includes(t.id));
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'note', 'anchoredNote', 'callout', 'comment', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'gannBox', 'gannFan', 'gannSquare', 'gannSquareFixed', 'fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives'].includes(t.id));
     expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText', 'note', 'anchoredNote', 'callout', 'comment']);
     expect(TOOLS.filter((t) => t.caption).map((t) => t.id)).toEqual(['arrowMarker', 'arrowMarkUp', 'arrowMarkDown']);
   });

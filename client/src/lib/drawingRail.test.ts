@@ -37,9 +37,9 @@ describe('railGroups', () => {
 
   it('holds the chart patterns, then the cycle tools, in the Patterns family', () => {
     const patterns = groups.find((g) => g.id === 'patterns')!;
-    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'cyclicLines', 'timeCycles', 'sineLine']);
-    expect(patterns.entries.slice(0, 3).every((e) => e.section === 'Chart patterns')).toBe(true);
-    expect(patterns.entries.slice(3).every((e) => e.section === 'Cycles')).toBe(true);
+    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives', 'cyclicLines', 'timeCycles', 'sineLine']);
+    expect(patterns.entries.slice(0, 6).every((e) => e.section === 'Chart patterns')).toBe(true);
+    expect(patterns.entries.slice(6).every((e) => e.section === 'Cycles')).toBe(true);
   });
 
   it('holds Cross, Dot, Arrow and Eraser in the cursors family', () => {

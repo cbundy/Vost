@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ABCD, CYPHER, XABCD, formatRatio, labelOffset, legRatio, lineRatio } from './patterns';
+import { ABCD, CYPHER, THREE_DRIVES, XABCD, formatRatio, labelOffset, legRatio, lineRatio } from './patterns';
 
 describe('legRatio and formatRatio', () => {
   it('divides absolute moves and gives null for a flat divisor', () => {
@@ -53,5 +53,17 @@ describe('labelOffset', () => {
   });
   it('puts a lone point above', () => {
     expect(labelOffset([{ x: 5, y: 5 }], 0)).toEqual({ x: 5, y: -7 });
+  });
+});
+
+describe('Three drives', () => {
+  it('has the four ratio lines of the hand-worked example', () => {
+    const prices = [100, 200, 138.2, 216.8, 168.2, 230, 200];
+    expect(THREE_DRIVES.labels).toEqual(['', '1', 'A', '2', 'C', '3', '']);
+    expect(THREE_DRIVES.ratios.map((r) => [r.from, r.to])).toEqual([[0, 2], [1, 3], [2, 4], [3, 5]]);
+    expect(THREE_DRIVES.ratios.map((r) => formatRatio(lineRatio(r, prices)!))).toEqual(['0.618', '1.272', '0.618', '1.272']);
+  });
+  it('gives null for a flat divisor leg', () => {
+    expect(lineRatio(THREE_DRIVES.ratios[0], [100, 100, 90, 80, 70, 60, 50])).toBeNull();
   });
 });
