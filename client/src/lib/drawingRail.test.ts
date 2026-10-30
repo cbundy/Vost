@@ -31,9 +31,14 @@ describe('railGroups', () => {
   });
 
   it('orders families by the fixed order and leaves out empty ones', () => {
-    expect(groups.map((g) => g.id)).toEqual(['cursors', 'lines', 'fib-gann', 'forecast-measure', 'shapes', 'annotations']);
-    expect(groups.map((g) => g.id)).not.toContain('patterns');
+    expect(groups.map((g) => g.id)).toEqual(['cursors', 'lines', 'fib-gann', 'patterns', 'forecast-measure', 'shapes', 'annotations']);
     expect(groups.map((g) => g.id)).not.toContain('icons');
+  });
+
+  it('holds the three chart patterns in the Patterns family', () => {
+    const patterns = groups.find((g) => g.id === 'patterns')!;
+    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern']);
+    expect(patterns.entries.every((e) => e.section === 'Chart patterns')).toBe(true);
   });
 
   it('holds Cross, Dot, Arrow and Eraser in the cursors family', () => {
