@@ -4,7 +4,7 @@ ok   Remove drawings disabled
 ok   Escape closes it
 ok   one trend line
 ok   titled by the tool
-ok   every action listed - Settings,Rename,Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   every action listed - Settings,Rename,Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete
 ok   stored locked
 ok   anchors unchanged
 ok   the chart did not pan or change
@@ -66,7 +66,7 @@ ok   Shift+click two drawings selects both
 ok   Shift+click again takes it out
 ok   nothing moved
 ok   the box selected all three
-ok   no Settings or Rename for several - Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   no Settings or Rename for several - Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete
 ok   the box did not pan or zoom the chart
 ok   rectangle locked
 ok   the locked rectangle stayed
@@ -81,8 +81,30 @@ ok   all three pasted are selected
 ok   Delete removes the whole selection
 ok   one undo brings all three back
 ok   the originals are left
+ok   the list follows the active chart: three rows, top-most first
+ok   a row shows its name, else its tool label
+ok   an unnamed row shows the tool label - undefined
+ok   a click selects it
+ok   the eye hides it
+ok   the row is dimmed
+ok   one undo shows it again
+ok   right-click Hide hides it
+ok   and one undo shows it
+ok   the lock toggle locks it
+ok   a drag is refused
+ok   unlocked from the row
+ok   inline rename keeps the name
+ok   the row shows it
+ok   Escape cancels a rename
+ok   the menu header shows the name
+ok   dragging the top row below the bottom one paints it at the bottom - dmvutt3jz40ptv,dmvutsc951drrg,dmvutt32s3e34m
+ok   one undo restores the paint order
+ok   the delete button removes it
+ok   one undo brings it back
 ok   focus left the symbol field
 ok   one drawing on the other symbol
 ok   same times and prices
 ok   a new id
 ok   the first symbol is unchanged
+ok   the other chart lists its one pasted drawing
+ok   switching the active chart lists its three drawings

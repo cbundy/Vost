@@ -232,6 +232,16 @@ describe('pane size prefs', () => {
     expect(useStore.getState().sidePanelCollapsed).toBe(false);
   });
 
+  it('loads the object tree section', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, sidePanel: 'objects' }));
+    const useStore = await fresh();
+    useStore.getState().init();
+    expect(useStore.getState().sidePanel).toBe('objects');
+    useStore.getState().setSidePanel('data');
+    useStore.getState().setSidePanel('objects');
+    expect(useStore.getState().sidePanel).toBe('objects');
+  });
+
   it('persists the side panel and a fresh store reads it back', async () => {
     const a = await fresh();
     a.getState().setSidePanel('indicators');

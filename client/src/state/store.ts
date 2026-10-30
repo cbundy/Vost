@@ -90,8 +90,8 @@ interface Prefs {
 }
 
 /** The sections of the right-hand side panel; one shows at a time. */
-export type SidePanelSection = 'watchlist' | 'data' | 'indicators';
-const SIDE_PANEL_SECTIONS: readonly SidePanelSection[] = ['watchlist', 'data', 'indicators'];
+export type SidePanelSection = 'watchlist' | 'data' | 'indicators' | 'objects';
+const SIDE_PANEL_SECTIONS: readonly SidePanelSection[] = ['watchlist', 'data', 'indicators', 'objects'];
 
 
 const PREFS_KEY = 'prefs.v1';

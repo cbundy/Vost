@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useStore, type SidePanelSection } from '../state/store';
 import { railClick, railPressed } from '../lib/sideRail';
-import { DatabaseIcon, IndicatorIcon, ListIcon } from './Icons';
+import { DatabaseIcon, IndicatorIcon, LayersIcon, ListIcon } from './Icons';
 
 export interface SideSection {
   id: SidePanelSection;
@@ -14,6 +14,7 @@ export const SIDE_SECTIONS: readonly SideSection[] = [
   { id: 'watchlist', name: 'Watchlist', icon: <ListIcon /> },
   { id: 'data', name: 'Data and library', icon: <DatabaseIcon /> },
   { id: 'indicators', name: 'Indicators', icon: <IndicatorIcon /> },
+  { id: 'objects', name: 'Object tree', icon: <LayersIcon /> },
 ];
 
 export interface RailDrawer {
