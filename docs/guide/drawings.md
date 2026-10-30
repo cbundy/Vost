@@ -110,7 +110,7 @@ Right-click one of them and the menu is headed "3 drawings" (the number selected
 
 ## Managing drawings
 
-Right-click a drawing to select it and open its menu, headed by its name (or its tool). The menu holds **Settings** (a note opens its text editor), **Rename**, **Clone**, **Copy**, **Lock** or **Unlock**, **Bring to front**, **Bring forward**, **Send backward**, **Send to back** and **Delete**. Every change is one undo step.
+Right-click a drawing to select it and open its menu, headed by its name (or its tool). The menu holds **Settings** (a note opens its text editor), **Rename**, **Clone**, **Copy**, **Lock** or **Unlock**, **Hide**, **Bring to front**, **Bring forward**, **Send backward**, **Send to back** and **Delete**. Every change is one undo step.
 
 ![The menu of a trend line](../evidence/drawing-manage/drawing-manage-menu-desktop.png)
 
@@ -118,6 +118,7 @@ Right-click a drawing to select it and open its menu, headed by its name (or its
 - **Rename**: type a name in the menu and press Enter (Escape cancels). The name is up to 60 characters and shows in the menu header.
 - **Clone**: puts a copy just above the original. Holding **Ctrl or Cmd** while you drag a drawing clones it and drags the copy; one undo removes both. On a locked drawing it clones without moving.
 - **Copy and paste**: **Ctrl or Cmd+C** copies the selected drawing and **Ctrl or Cmd+V** pastes it on top of the active chart, selected. The clipboard is shared by every chart in the tab, so you can paste onto a chart showing another symbol; the copy keeps its times and prices.
+- **Hide**: takes the drawing off the chart (not painted, not clickable, not picked by a selection box, no axis labels). A hidden drawing cannot be right-clicked, so show it again from the Object tree below, or with undo. This is separate from **Hide all drawings** in the rail.
 - **Order**: drawings paint in order, the last on top. Bring to front, Bring forward, Send backward and Send to back change it.
 
 ![A trend line pasted onto a chart of another symbol](../evidence/drawing-manage/drawing-manage-pasted-other-chart-desktop.png)
@@ -125,6 +126,22 @@ Right-click a drawing to select it and open its menu, headed by its name (or its
 Right-click empty chart for **Add alert at** the price, **Paste** (off while nothing is copied) and **Remove drawings** (the same confirm as Delete all drawings, off with no drawings).
 
 ![The empty chart menu](../evidence/drawing-manage/drawing-manage-empty-menu-desktop.png)
+
+### Object tree
+
+The **Object tree** button in the side rail (the stacked-layers icon, after Indicators; on a narrow screen it is one of the drawer's section buttons) lists every drawing of the active chart, top-most first. Switching the active chart, its symbol or its data changes the list; with no drawings it says "No drawings on this chart".
+
+![The Object tree beside the chart](../evidence/drawing-manage/drawing-manage-tree-desktop.png)
+
+Each row shows the tool's icon, the drawing's name (or its tool) and four buttons: the **eye** hides or shows it, the **lock** locks or unlocks it, the **pencil** renames it and the **bin** deletes it. A hidden drawing's row is dimmed; so is one that does not show on the current timeframe (its tooltip says so).
+
+- **Select**: click a row to select that drawing on the chart; **Shift+click** adds or removes it. Selected rows are marked. While Hide all is on, the list says so and a click does not select.
+- **Rename**: double-click the name or press the pencil, type, then Enter (Escape cancels, leaving the field keeps the name).
+- **Reorder**: drag a row; a line shows where it will land. Dropping it lower in the list sends the drawing further back in the paint order.
+
+![Dragging a row to reorder](../evidence/drawing-manage/drawing-manage-tree-drag-desktop.png)
+
+Every change from the list is one undo step on that chart, the same as from the keyboard or the menu.
 
 ## Settings
 

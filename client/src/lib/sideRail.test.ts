@@ -14,7 +14,7 @@ describe('railClick', () => {
   });
   it('drawer: always opens the drawer on that section and never sets collapsed', () => {
     for (const collapsed of [true, false]) {
-      for (const id of ['watchlist', 'data', 'indicators']) {
+      for (const id of ['watchlist', 'data', 'indicators', 'objects']) {
         const r = railClick('drawer', { active: 'watchlist', collapsed }, id);
         expect(r).toEqual({ section: id, openDrawer: true });
         expect('collapsed' in r).toBe(false);

@@ -1,5 +1,6 @@
 import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import type { Scenario } from '../scenario.ts';
+import { showSideSection } from '../side-panel.ts';
 
 type Anchor = { time: number; price: number };
 type Stored = { id: string; tool: string; anchors: Anchor[]; name?: string; locked?: boolean };
@@ -17,7 +18,7 @@ const RECT2 = [{ x: 0.7, y: 0.45 }, { x: 0.95, y: 0.7 }];
 export const drawingManage: Scenario = {
   name: 'drawing-manage',
   keepPrefs: true,
-  description: 'Managing drawings: the right-click menu on a drawing and on empty chart, lock (a locked drawing does not move or pan the chart), rename, clone, Ctrl+drag clone (one undo step), copy and paste onto a second chart showing another symbol, bring to front and send to back of two rectangles, Remove drawings with undo, and selecting several drawings (Shift+click, a Shift+drag box) to move, lock, order, copy, paste and delete them together',
+  description: 'Managing drawings: the right-click menu on a drawing and on empty chart, lock (a locked drawing does not move or pan the chart), rename, clone, Ctrl+drag clone (one undo step), copy and paste onto a second chart showing another symbol, bring to front and send to back of two rectangles, Remove drawings with undo, and selecting several drawings (Shift+click, a Shift+drag box) to move, lock, order, copy, paste and delete them together, and the Object tree side panel (select, hide, lock, rename, drag to reorder and delete from the list, Hide in the menu, following the active chart)',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -104,7 +105,7 @@ export const drawingManage: Scenario = {
       await rightClick(body);
       check('titled by the tool', (await menu.getAttribute('aria-label')) === 'Trend line');
       const names = (await menu.getByRole('menuitem').allTextContents()).join(',');
-      check('every action listed', names === 'Settings,Rename,Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete', names);
+      check('every action listed', names === 'Settings,Rename,Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete', names);
       await ctx.screenshot('menu');
     });
 
@@ -450,7 +451,7 @@ export const drawingManage: Scenario = {
       await page.keyboard.up('Shift');
       check('the box selected all three', (await title(edge2)) === '3 drawings');
       const names = (await menu.getByRole('menuitem').allTextContents()).join(',');
-      check('no Settings or Rename for several', names === 'Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete', names);
+      check('no Settings or Rename for several', names === 'Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete', names);
       await ctx.screenshot('multi-menu');
       await closeMenu();
       await page.mouse.click(empty.x, empty.y);
@@ -502,6 +503,101 @@ export const drawingManage: Scenario = {
       check('the originals are left', (await stored()).map((d) => d.id).join() === list.map((d) => d.id).join());
     });
 
+    await ctx.step('Object tree: the chart\'s drawings top-most first, with select, hide, lock, rename, reorder and delete', async () => {
+      const dlg = page.getByRole('dialog', { name: 'Sidebar' });
+      const openTree = async () => {
+        await showSideSection(page, 'Object tree', narrow);
+        await page.locator('.object-tree').waitFor();
+      };
+      const closeTree = async () => {
+        if (narrow && (await dlg.count()) > 0) {
+          await dlg.getByRole('button', { name: 'Close sidebar' }).click();
+          await dlg.waitFor({ state: 'detached' });
+        }
+      };
+      const rowIds = () => page.locator('.object-row').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.rowId ?? ''));
+      const row = (id: string) => page.locator(`.object-row[data-row-id="${id}"]`);
+      const btn = (id: string, verb: string) => row(id).locator(`button[aria-label^="${verb} "]`);
+
+      await openTree();
+      const list = await stored();
+      const [trendId, rect1Id, rect2Id] = list.map((d) => d.id);
+      await page.waitForFunction((n) => document.querySelectorAll('.object-row').length === n, 3);
+      check('the list follows the active chart: three rows, top-most first', (await rowIds()).join() === [rect2Id, rect1Id, trendId].join());
+      check('a row shows its name, else its tool label', (await row(trendId).locator('.object-name').textContent()) === (list[0].name ?? 'Trend line'));
+      check('an unnamed row shows the tool label', (await row(rect1Id).locator('.object-name').textContent()) === (list[1].name ?? 'Rectangle'), String(list[1].name));
+
+      await row(trendId).locator('.object-name').click();
+      check('a click selects it', (await row(trendId).getAttribute('aria-selected')) === 'true');
+      await ctx.screenshot('tree');
+
+      await btn(rect2Id, 'Hide').click();
+      check('the eye hides it', (await stored()).find((d) => d.id === rect2Id)?.hidden === true);
+      check('the row is dimmed', ((await row(rect2Id).getAttribute('class')) ?? '').includes('dim'));
+      await ctx.screenshot('tree-hidden');
+      await page.keyboard.press('Control+z');
+      check('one undo shows it again', (await stored()).find((d) => d.id === rect2Id)?.hidden === undefined);
+
+      await closeTree();
+      const body2 = body;
+      await rightClick(body2);
+      await item('Hide').click();
+      check('right-click Hide hides it', (await stored()).find((d) => d.id === trendId)?.hidden === true);
+      await page.keyboard.press('Control+z');
+      check('and one undo shows it', (await stored()).find((d) => d.id === trendId)?.hidden === undefined);
+
+      await openTree();
+      await btn(trendId, 'Lock').click();
+      check('the lock toggle locks it', (await stored()).find((d) => d.id === trendId)?.locked === true);
+      await closeTree();
+      const anchorsBefore = JSON.stringify((await stored())[0].anchors);
+      await drag(body2, { x: body2.x + 60, y: body2.y + 50 });
+      check('a drag is refused', JSON.stringify((await stored())[0].anchors) === anchorsBefore);
+      await openTree();
+      await btn(trendId, 'Unlock').click();
+      check('unlocked from the row', (await stored())[0].locked === undefined);
+
+      await row(trendId).locator('.object-name').dblclick();
+      const input = row(trendId).getByRole('textbox', { name: 'Name' });
+      await input.fill('Support');
+      await input.press('Enter');
+      await page.waitForTimeout(100);
+      check('inline rename keeps the name', (await stored())[0].name === 'Support');
+      check('the row shows it', (await row(trendId).locator('.object-name').textContent()) === 'Support');
+      await row(rect1Id).locator('.object-name').dblclick();
+      const cancel = row(rect1Id).getByRole('textbox', { name: 'Name' });
+      await cancel.fill('Nope');
+      await cancel.press('Escape');
+      check('Escape cancels a rename', (await stored())[1].name === undefined);
+      await closeTree();
+      await rightClick(body2);
+      check('the menu header shows the name', (await menu.getAttribute('aria-label')) === 'Support');
+      await page.keyboard.press('Escape');
+      await menu.waitFor({ state: 'detached' });
+      await openTree();
+
+      const before = (await stored()).map((d) => d.id);
+      const top = await row(rect2Id).boundingBox();
+      const bottom = await row(trendId).boundingBox();
+      if (!top || !bottom) throw new Error('rows have no box');
+      await page.mouse.move(top.x + top.width / 2, top.y + top.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + bottom.height * 0.9, { steps: 10 });
+      await ctx.screenshot('tree-drag');
+      await page.mouse.up();
+      const after = (await stored()).map((d) => d.id);
+      check('dragging the top row below the bottom one paints it at the bottom', after.join() === [rect2Id, trendId, rect1Id].join(), after.join());
+      await page.keyboard.press('Control+z');
+      check('one undo restores the paint order', (await stored()).map((d) => d.id).join() === before.join());
+
+      await btn(rect1Id, 'Delete').click();
+      check('the delete button removes it', (await stored()).length === 2);
+      await ctx.screenshot('tree-deleted');
+      await page.keyboard.press('Control+z');
+      check('one undo brings it back', (await stored()).length === 3);
+      await closeTree();
+    });
+
     await ctx.step('copy on one chart, paste onto a second chart showing another symbol', async () => {
       await page.mouse.click(body.x, body.y);
       await page.keyboard.press('Control+c');
@@ -533,6 +629,29 @@ export const drawingManage: Scenario = {
       check('a new id', other[0].id !== source.id);
       check('the first symbol is unchanged', (await stored('DEMO')).length === 3);
       await ctx.screenshot('pasted-other-chart');
+    });
+
+
+    await ctx.step('Object tree follows the active chart', async () => {
+      const dlg = page.getByRole('dialog', { name: 'Sidebar' });
+      const rowIds = () => page.locator('.object-row').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.rowId ?? ''));
+      await showSideSection(page, 'Object tree', narrow);
+      await page.locator('.object-tree').waitFor();
+      check('the other chart lists its one pasted drawing', (await rowIds()).length === 1);
+      await ctx.screenshot('tree-other-chart');
+      if (narrow) {
+        await dlg.getByRole('button', { name: 'Close sidebar' }).click();
+        await dlg.waitFor({ state: 'detached' });
+        await page.getByRole('button', { name: 'Previous chart' }).click();
+      } else {
+        const b = await page.locator('.chart-cell').nth(0).boundingBox();
+        if (!b) throw new Error('no first cell');
+        await page.mouse.click(b.x + b.width * 0.1, b.y + b.height * 0.1);
+      }
+      await page.locator('.chart-cell.active .legend-title', { hasText: 'DEMO' }).waitFor();
+      await showSideSection(page, 'Object tree', narrow);
+      await page.waitForFunction((n) => document.querySelectorAll('.object-row').length === n, 3);
+      check('switching the active chart lists its three drawings', (await rowIds()).length === 3);
     });
 
     await ctx.writeText('checks', checks.join('\n') + '\n');
