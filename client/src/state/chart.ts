@@ -220,7 +220,6 @@ export interface ChartState {
   runOptimizer(): Promise<void>;
   /** Stop a running optimizer sweep and bring back the result shown before it started. */
   cancelOptimizer(): void;
-  cancelOptimizer(): void;
   applyOptimizeRow(row: OptimizeRow): Promise<void>;
   setLive(v: boolean): void;
   searchSymbols(query: string): Promise<void>;

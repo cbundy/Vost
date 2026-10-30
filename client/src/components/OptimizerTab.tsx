@@ -191,16 +191,16 @@ function SweepRange({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="form-field" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
-      <label className="form-field" style={{ flex: 1 }}>
+    <div className="form-field" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 6 }}>
+      <label className="form-field" style={{ flex: '1 1 72px', minWidth: 72 }}>
         <span>From</span>
         <input type="number" value={from} onChange={(e) => onChange({ from: Number(e.target.value) })} />
       </label>
-      <label className="form-field" style={{ flex: 1 }}>
+      <label className="form-field" style={{ flex: '1 1 72px', minWidth: 72 }}>
         <span>To</span>
         <input type="number" value={to} onChange={(e) => onChange({ to: Number(e.target.value) })} />
       </label>
-      <label className="form-field" style={{ flex: 1 }}>
+      <label className="form-field" style={{ flex: '1 1 72px', minWidth: 72 }}>
         <span>Step</span>
         <input type="number" min={0.001} value={step} onChange={(e) => onChange({ step: Math.max(0.001, Number(e.target.value)) })} />
       </label>

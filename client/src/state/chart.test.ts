@@ -216,10 +216,12 @@ describe('btRange', () => {
         onmessage: ((ev: { data: unknown }) => void) | null = null;
         onerror: (() => void) | null = null;
         terminated = false;
+        posts: Array<{ id: string; type: string }> = [];
         constructor() {
           made.push(this);
         }
         postMessage(req: { id: string; type: string }) {
+          this.posts.push(req);
           if (req.type === 'optimize' && answer)
             queueMicrotask(() =>
               this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0 } }),
@@ -247,6 +249,9 @@ describe('btRange', () => {
       const run = st().runOptimizer();
       expect(st().optRunning).toBe(true);
       expect(st().optResult).toBeNull();
+      const lateHandler = made2[0].onmessage;
+      const lateId = made2[0].posts[0].id;
+      expect(lateHandler).not.toBeNull();
       st().cancelOptimizer();
       await run;
       expect(made2).toHaveLength(1);
@@ -256,13 +261,17 @@ describe('btRange', () => {
       expect(st().optResult).toBe(earlier);
       expect(snap(useStore).toasts.some((t) => t.kind === 'error')).toBe(false);
 
-      // a late message from the cancelled worker changes nothing
-      made2[0].onmessage?.({ data: { id: 'x', type: 'optimizeResult', rows: [], keys: [], metric: 'sharpe', combos: 99, errored: 0 } });
+      // a late message from the cancelled worker (its real handler, the run's real id) changes nothing
+      lateHandler?.({ data: { id: lateId, type: 'optimizeResult', rows: [], keys: [], metric: 'sharpe', combos: 99, errored: 0 } });
       expect(st().optResult).toBe(earlier);
+      expect(st().optRunning).toBe(false);
 
-      // the next run builds a fresh worker
-      stubWorkers(false);
+      // the next run builds a fresh worker and posts its request to it
+      const made3 = stubWorkers(false);
       void st().runOptimizer();
+      expect(made3).toHaveLength(1);
+      expect(made3[0].posts.map((q) => q.type)).toEqual(['optimize']);
+      expect(made3[0].posts[0].id).not.toBe(lateId);
       st().cancelOptimizer();
     });
 
