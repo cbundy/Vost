@@ -193,7 +193,7 @@ describe('btRange', () => {
       postMessage(req: { id: string; candles: { time: number }[] }) {
         sent.push(req);
         queueMicrotask(() =>
-          this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], metric: 'sharpe', combos: 0, errored: 0 } }),
+          this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: [], metric: 'sharpe', combos: 0, errored: 0 } }),
         );
       }
     }
@@ -206,6 +206,24 @@ describe('btRange', () => {
     expect(sent[0].candles).toHaveLength(31);
     expect(sent[0].candles[0].time).toBe(from);
     expect(sent[0].candles[30].time).toBe(to);
+  });
+
+  it('applyOptimizeRow sets exactly the row params and the next backtest equals the row metrics', async () => {
+    const { useStore } = await setup();
+    const { runOptimize } = await import('../lib/backtest/optimizer');
+    const st = () => chartOf(useStore).getState();
+    st().setBtConfig({ feeBps: 0, slippageBps: 0 });
+    const out = runOptimize(chartOf(useStore).getState().candles, st().btConfig, {
+      sweepA: { key: 'slow', from: 20, to: 40, step: 10 },
+      sweepB: null,
+      metric: 'totalReturnPct',
+    });
+    const row = out.rows[out.rows.length - 1];
+    expect(Object.keys(row.params)).toEqual(['slow']);
+    const before = { ...st().btConfig.params };
+    await st().applyOptimizeRow(row);
+    expect(st().btConfig.params).toEqual({ ...before, ...row.params });
+    expect(st().btResult!.metrics).toEqual(row.metrics);
   });
 
   it('From later than To starts nothing and pushes an error toast', async () => {

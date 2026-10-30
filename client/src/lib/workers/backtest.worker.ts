@@ -25,7 +25,7 @@ export type WorkerRequestBody =
 export type WorkerResponse =
   | { id: string; type: 'progress'; pct: number }
   | { id: string; type: 'result'; result: BacktestResult }
-  | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; combos: number; metric: MetricKey; errored: number }
+  | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; keys: string[]; combos: number; metric: MetricKey; errored: number }
   | { id: string; type: 'pineResult'; outcome: PineRunOutcome }
   | { id: string; type: 'error'; message: string };
 
@@ -62,6 +62,7 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           id: msg.id,
           type: 'optimizeResult',
           rows: out.rows,
+          keys: out.keys,
           combos: out.combos,
           metric: out.metric,
           errored: out.errored,
