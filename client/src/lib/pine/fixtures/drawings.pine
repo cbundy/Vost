@@ -1,0 +1,30 @@
+//@version=6
+indicator("Drawings", overlay=true, max_lines_count=500, max_boxes_count=50, max_polylines_count=20)
+
+if barstate.islast
+    u = close * 0.06
+    // A dashed red line extended to the right, its end moved past the last bar.
+    ray = line.new(bar_index - 60, close, bar_index - 30, close + u, extend=extend.right, color=color.red, style=line.style_dashed, width=2)
+    line.set_xy2(ray, bar_index + 20, close + 2 * u)
+    // An arrow at both ends.
+    line.new(bar_index - 90, close - u, bar_index - 50, close - 2 * u, color=color.teal, style=line.style_arrow_both, width=2)
+    // A dotted line that extends to the left.
+    line.new(bar_index - 40, close - 3 * u, bar_index - 20, close - 2.5 * u, extend=extend.left, color=color.orange, style=line.style_dotted)
+    // A line placed by bar time.
+    line.new(time[80], close + 2 * u, time[50], close + 3 * u, xloc=xloc.bar_time, color=color.purple, width=3)
+    // A box with a border, a background and centred text.
+    box.new(bar_index - 120, close + 4 * u, bar_index - 95, close + 2 * u, border_color=color.blue, border_width=2, bgcolor=color.new(color.blue, 80), text="Range", text_color=color.white, text_halign=text.align_center, text_valign=text.align_center)
+    // A box with left-aligned wrapped text.
+    box.new(bar_index - 28, close + 4 * u, bar_index - 4, close + 2.5 * u, border_color=color.green, bgcolor=color.new(color.green, 85), text="Wrapped note inside the box", text_halign=text.align_left, text_valign=text.align_top, text_wrap=text.wrap_auto, text_color=color.green)
+    // A closed, filled polyline and a curved open one.
+    polyline.new(array.from(chart.point.from_index(bar_index - 100, close + u), chart.point.from_index(bar_index - 90, close + 3 * u), chart.point.from_index(bar_index - 78, close + 1.5 * u)), closed=true, line_color=color.fuchsia, fill_color=color.new(color.fuchsia, 80))
+    polyline.new(array.from(chart.point.from_index(bar_index - 70, close - 3 * u), chart.point.from_index(bar_index - 55, close - 4 * u), chart.point.from_index(bar_index - 40, close - 2 * u), chart.point.from_index(bar_index - 25, close - 3.5 * u)), curved=true, line_color=color.lime, line_width=2)
+    // A fill between two lines.
+    l1 = line.new(bar_index - 20, close - 0.5 * u, bar_index, close - u, color=color.gray)
+    l2 = line.new(bar_index - 20, close - 1.5 * u, bar_index, close - 1.2 * u, color=color.gray)
+    linefill.new(l1, l2, color.new(color.yellow, 70))
+
+// A line made on every bar and deleted on even bars.
+ln = line.new(bar_index, close, bar_index, open, color=color.new(color.gray, 85))
+if bar_index % 2 == 0
+    line.delete(ln)

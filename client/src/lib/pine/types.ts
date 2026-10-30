@@ -102,6 +102,75 @@ export interface PineResult {
   strategyConfig?: PineStrategyConfig;
   /** Alerts, alert conditions and log lines the script produced. */
   messages?: PineMessages;
+  /** The line, box, polyline and linefill objects the script left, in their final state. Absent when there are none. */
+  drawings?: PineDrawings;
+}
+
+/** Where a drawing object is painted: over the candles, or in the script's own pane. */
+export type PineDrawingPane = 'price' | 'separate';
+export type PineDrawingStyle = 'solid' | 'dashed' | 'dotted';
+export type PineExtend = 'none' | 'l' | 'r' | 'b';
+
+/** A `line` object. Times are unix seconds; a colour is `#RRGGBB` or `#RRGGBBAA`, null for na (not drawn). */
+export interface PineLine {
+  pane: PineDrawingPane;
+  time1: number;
+  price1: number;
+  time2: number;
+  price2: number;
+  extend: PineExtend;
+  color: string | null;
+  style: PineDrawingStyle;
+  /** Which ends carry an arrow head. */
+  arrows: 'none' | 'left' | 'right' | 'both';
+  width: number;
+}
+
+export interface PineBox {
+  pane: PineDrawingPane;
+  time1: number;
+  top: number;
+  time2: number;
+  bottom: number;
+  extend: PineExtend;
+  borderColor: string | null;
+  borderStyle: PineDrawingStyle;
+  borderWidth: number;
+  bgColor: string | null;
+  text: string;
+  textColor: string | null;
+  /** Text size in px. */
+  textSize: number;
+  halign: 'left' | 'center' | 'right';
+  valign: 'top' | 'center' | 'bottom';
+  /** Whether the text wraps to the box width. */
+  wrap: boolean;
+}
+
+export interface PinePolyline {
+  pane: PineDrawingPane;
+  points: { time: number; price: number }[];
+  curved: boolean;
+  closed: boolean;
+  lineColor: string | null;
+  fillColor: string | null;
+  style: PineDrawingStyle;
+  width: number;
+}
+
+/** The area between two lines' drawn spans. */
+export interface PineLinefill {
+  pane: PineDrawingPane;
+  line1: PineLine;
+  line2: PineLine;
+  color: string | null;
+}
+
+export interface PineDrawings {
+  lines: PineLine[];
+  boxes: PineBox[];
+  polylines: PinePolyline[];
+  linefills: PineLinefill[];
 }
 
 export interface PineError {

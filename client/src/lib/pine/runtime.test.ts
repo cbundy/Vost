@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { candlesFromCsvText } from '../csv';
 import { bollinger, ema, macd, rsi } from '../indicators';
+import { logicalToTime } from '../drawingGeometry';
 import { convertToV6 } from './convert';
 import { runPine } from './runtime';
 import type { PineResult } from './types';
@@ -542,5 +543,105 @@ plot(close)`;
     expect(b.trades).toEqual(a.trades);
     expect(b.position).toEqual(a.position);
     expect(b.messages!.alerts.length).toBeGreaterThan(0);
+  });
+});
+
+describe('runPine drawing objects', () => {
+  const times = candles.map((c) => c.time);
+  const last = candles.length - 1;
+  const draw = async (src: string, opts?: Parameters<typeof runPine>[3]) => {
+    const r = await runPine(src, candles, {}, opts);
+    if (!r.ok) throw new Error(r.error.message);
+    return r;
+  };
+
+  it('gives lines, boxes, polylines and linefills in their final state, and leaves plots alone', async () => {
+    const r = await draw(fixture('drawings'));
+    const d = r.drawings!;
+    expect(r.plots).toEqual([]);
+    expect(d.boxes).toHaveLength(2);
+    expect(d.polylines).toHaveLength(2);
+    expect(d.linefills).toHaveLength(1);
+    const [centred, wrapped] = d.boxes;
+    expect(centred).toMatchObject({ pane: 'price', text: 'Range', halign: 'center', valign: 'center', wrap: false, borderWidth: 2, textSize: 12 });
+    expect(centred.time1).toBe(times[last - 120]);
+    expect(centred.bgColor).toBe('#2962FF33');
+    expect(wrapped).toMatchObject({ halign: 'left', valign: 'top', wrap: true });
+    const [closed, curved] = d.polylines;
+    expect(closed).toMatchObject({ closed: true, curved: false, fillColor: '#E040FB33' });
+    expect(closed.points).toHaveLength(3);
+    expect(curved).toMatchObject({ closed: false, curved: true, fillColor: null, width: 2 });
+    expect(d.linefills[0].color).toBe('#FDD8354D');
+    expect(d.linefills[0].line1.price1).not.toBe(d.linefills[0].line2.price1);
+  });
+
+  it('moves a line with set_xy2 past the last bar, in bar time', async () => {
+    const d = (await draw(fixture('drawings'))).drawings!;
+    const ray = d.lines.find((l) => l.extend === 'r')!;
+    expect(ray).toMatchObject({ style: 'dashed', width: 2, arrows: 'none', color: '#F23645' });
+    expect(ray.time1).toBe(times[last - 60]);
+    expect(ray.time2).toBe(logicalToTime(times, last + 20));
+    expect(ray.time2).toBeGreaterThan(times[last]);
+  });
+
+  it('maps arrows, extend left and bar_time lines', async () => {
+    const d = (await draw(fixture('drawings'))).drawings!;
+    expect(d.lines.find((l) => l.arrows === 'both')).toMatchObject({ style: 'solid', color: '#089981' });
+    expect(d.lines.find((l) => l.extend === 'l')).toMatchObject({ style: 'dotted' });
+    const byTime = d.lines.find((l) => l.width === 3)!;
+    expect(byTime.time1).toBe(times[last - 80]);
+    expect(byTime.time2).toBe(times[last - 50]);
+  });
+
+  it('drops the lines the script deleted', async () => {
+    const d = (await draw(fixture('drawings'))).drawings!;
+    // One thin line per odd bar is left; the even bars' were deleted.
+    const thin = d.lines.filter((l) => l.time1 === l.time2 && l.color === '#787B8626');
+    expect(thin.length).toBeGreaterThan(50);
+    expect(thin.every((l) => candles.findIndex((c) => c.time === l.time1) % 2 === 1)).toBe(true);
+  });
+
+  it('keeps the newest max_lines_count lines', async () => {
+    const r = await draw(`//@version=6
+indicator("Limit", overlay=true, max_lines_count=3)
+line.new(bar_index, close, bar_index + 1, close)`);
+    expect(r.drawings!.lines.map((l) => l.time1)).toEqual([last - 2, last - 1, last].map((i) => times[i]));
+  });
+
+  it('keeps the newest max_boxes_count boxes', async () => {
+    const r = await draw(`//@version=6
+indicator("Limit", overlay=true, max_boxes_count=2)
+box.new(bar_index, high, bar_index + 1, low)`);
+    expect(r.drawings!.boxes).toHaveLength(2);
+    expect(r.drawings!.boxes.map((b) => b.time1)).toEqual([times[last - 1], times[last]]);
+  });
+
+  it('keeps the newest max_polylines_count polylines', async () => {
+    const r = await draw(`//@version=6
+indicator("Limit", overlay=true, max_polylines_count=2)
+polyline.new(array.from(chart.point.from_index(bar_index, close), chart.point.from_index(bar_index + 1, open)))`);
+    expect(r.drawings!.polylines.map((p) => p.points[0].time)).toEqual([times[last - 1], times[last]]);
+  });
+
+  it('puts a separate-pane script objects in its pane and force_overlay ones on the price pane', async () => {
+    const r = await draw(`//@version=6
+indicator("Pane", overlay=false)
+plot(close)
+if barstate.islast
+    line.new(bar_index - 5, 1, bar_index, 2)
+    box.new(bar_index - 5, high, bar_index, low, force_overlay=true)`);
+    expect(r.drawings!.lines.map((l) => l.pane)).toEqual(['separate']);
+    expect(r.drawings!.boxes.map((b) => b.pane)).toEqual(['price']);
+  });
+
+  it('gives no drawings field for a script without objects', async () => {
+    const r = await draw(fixture('rsi'));
+    expect(r.drawings).toBeUndefined();
+  });
+
+  it('gives the same drawings in a paged run', async () => {
+    const single = await draw(fixture('drawings'));
+    const paged = await draw(fixture('drawings'), { onProgress: () => {} });
+    expect(paged.drawings).toEqual(single.drawings);
   });
 });

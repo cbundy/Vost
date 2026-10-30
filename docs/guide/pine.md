@@ -48,6 +48,16 @@ A script that draws in its own pane (`overlay=false`) shows its `plotshape` and 
 
 ![The same chart with the script hidden: the normal candles are back](../evidence/pine-render/pine-render-bar-colors-off-desktop.png)
 
+## Drawing objects
+
+The `line`, `box`, `polyline` and `linefill` objects a script makes are drawn on the chart, in the state the script left them: a line moved with `line.set_xy2` is where it ended up, and a deleted object is gone. A script with `overlay=false` draws them in its own pane, on that pane's scale (a script that only draws still gets a pane); an object made with `force_overlay=true` goes on the candles. They follow the script: hiding it hides them, and during a replay they show only once the replay has reached the end of the run.
+
+Lines keep their colour, width and style (solid, dashed, dotted, or an arrow at either or both ends) and can extend left, right or both to the edge of the pane, so a line that ends bars after the last candle reaches into the empty space on the right. Boxes draw their border, background and text, aligned and wrapped as the script says. Polylines can be closed, filled and curved. A `linefill` shades the area between its two lines, extensions included. `max_lines_count`, `max_boxes_count` and `max_polylines_count` keep the newest objects.
+
+![Lines, boxes, polylines and a line fill drawn on the candles by a Pine script](../evidence/pine-drawings/pine-drawings-overlay-desktop.png)
+
+The objects are only a picture of the script's output: you cannot select, move, edit or save them, and a click on one goes through to the chart. `label` and `table` objects are not shown yet.
+
 ## Converting old scripts
 
 A script with no `//@version` line, or a version below 5, will not run. The pane says so and shows **Convert to v6**. It rewrites the source in one edit (Ctrl+Z restores the original) and reports "Converted from Pine v<N> to v6". Whatever it cannot convert safely stays with a `// TODO(convert)` comment above it; search for that.
