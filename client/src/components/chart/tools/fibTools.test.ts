@@ -44,7 +44,7 @@ const B = { x: 200, y: 100 };
 
 describe('registry', () => {
   it('lists the five tools after the retracement, in the Fibonacci section', () => {
-    const fib = TOOLS.filter((t) => t.group === 'fib-gann').map((t) => t.id);
+    const fib = TOOLS.filter((t) => t.section === 'Fibonacci').map((t) => t.id);
     expect(fib).toEqual(['fibRetracement', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpiral', 'fibSpeedArcs']);
     for (const t of NEW) {
       expect(t.section).toBe('Fibonacci');

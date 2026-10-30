@@ -20,6 +20,10 @@ import { fibSpeedArcs } from './fibSpeedArcs';
 import { fibSpeedFan } from './fibSpeedFan';
 import { fibSpiral } from './fibSpiral';
 import { fibTimeZone } from './fibTimeZone';
+import { gannBox } from './gannBox';
+import { gannFan } from './gannFan';
+import { gannSquare } from './gannSquare';
+import { gannSquareFixed } from './gannSquareFixed';
 import { horizontalLine } from './horizontalLine';
 import { ray } from './ray';
 import { measure } from './measure';
@@ -30,7 +34,7 @@ import type { SettingField } from '../../../lib/drawingStyle';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, fibRetracement, fibTimeZone, fibSpeedFan, fibCircles, fibSpiral, fibSpeedArcs, text, anchoredText, measure];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, fibRetracement, fibTimeZone, fibSpeedFan, fibCircles, fibSpiral, fibSpeedArcs, gannBox, gannSquareFixed, gannSquare, gannFan, text, anchoredText, measure];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);

@@ -4,6 +4,7 @@
  * default). No chart or React imports.
  */
 import { FIB_ARC_LEVELS, FIB_CIRCLE_LEVELS, FIB_LEVELS, FIB_SPEED_LEVELS, FIB_TIME_ZONE_LEVELS } from './geometry/fib';
+import { GANN_BOX_LEVELS, GANN_FAN_LEVELS, GANN_SQUARE_ARC_LEVELS, GANN_SQUARE_FAN_LEVELS } from './geometry/gann';
 import { theme } from './theme';
 
 export type SettingKind = 'color' | 'opacity' | 'width' | 'lineStyle' | 'boolean' | 'number' | 'levels' | 'choice';
@@ -77,6 +78,11 @@ export const FIB_TIME_ZONE_TABLE: readonly FibLevel[] = levelList(FIB_TIME_ZONE_
 export const FIB_SPEED_TABLE: readonly FibLevel[] = levelList(FIB_SPEED_LEVELS);
 export const FIB_CIRCLE_TABLE: readonly FibLevel[] = levelList(FIB_CIRCLE_LEVELS);
 export const FIB_ARC_TABLE: readonly FibLevel[] = levelList(FIB_ARC_LEVELS);
+/** The default level tables of the Gann tools (the box and the square share the box levels). */
+export const GANN_BOX_TABLE: readonly FibLevel[] = levelList(GANN_BOX_LEVELS);
+export const GANN_FAN_TABLE: readonly FibLevel[] = levelList(GANN_FAN_LEVELS);
+export const GANN_SQUARE_FAN_TABLE: readonly FibLevel[] = levelList(GANN_SQUARE_FAN_LEVELS);
+export const GANN_SQUARE_ARC_TABLE: readonly FibLevel[] = levelList(GANN_SQUARE_ARC_LEVELS);
 
 /** A level list as stored: invalid entries are dropped, values deduplicated, the list cut to {@link MAX_LEVELS}. */
 export function cleanLevels(raw: unknown): FibLevel[] | undefined {

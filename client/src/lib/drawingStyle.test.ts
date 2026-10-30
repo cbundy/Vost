@@ -112,9 +112,23 @@ describe('every registered tool declares settings', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
   it('only the text tools store text, and they, the line tools and the labelled Fibonacci tools declare Text settings', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs'].includes(t.id));
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'gannBox', 'gannFan', 'gannSquare', 'gannSquareFixed'].includes(t.id));
     expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText']);
     expect(TOOLS.filter((t) => t.caption).map((t) => t.id)).toEqual(['arrowMarker', 'arrowMarkUp', 'arrowMarkDown']);
+  });
+});
+
+describe('gann defaults', () => {
+  const table = (id: string, key: string) => (fieldsOf(id).find((f) => f.key === key)!.default as { value: number; on: boolean }[]);
+  it('gives the box and the squares the 0..1 tables and the fan 0.125..8, every entry on', () => {
+    expect(table('gannBox', 'priceLevels').map((l) => l.value)).toEqual([0, 0.25, 0.382, 0.5, 0.618, 0.75, 1]);
+    expect(table('gannBox', 'timeLevels').map((l) => l.value)).toEqual([0, 0.25, 0.382, 0.5, 0.618, 0.75, 1]);
+    expect(table('gannFan', 'levels').map((l) => l.value)).toEqual([0.125, 0.25, 0.333, 0.5, 1, 2, 3, 4, 8]);
+    for (const id of ['gannSquare', 'gannSquareFixed']) for (const key of ['levels', 'fans', 'arcs']) expect(table(id, key).every((l) => l.on), `${id}.${key}`).toBe(true);
+  });
+  it('puts the label switches on the Text tab', () => {
+    expect(fieldsOf('gannBox').filter((f) => f.tab === 'text').map((f) => f.key)).toEqual(['labelsLeft', 'labelsRight', 'labelsTop', 'labelsBottom']);
+    expect(fieldsOf('gannFan').filter((f) => f.tab === 'text').map((f) => f.key)).toEqual(['showLabels']);
   });
 });
 
