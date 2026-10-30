@@ -3,6 +3,7 @@ import { fmtNum, fmtPct, pnlClass } from '../lib/format';
 import { getStrategy } from '../lib/backtest/strategies';
 import { MC_MAX_RUNS, MC_MIN_RUNS, MC_MIN_TRADES, type MonteCarloMethod, type Percentiles } from '../lib/backtest/monteCarlo';
 import { monteCarloCsv, monteCarloCsvFileName } from '../lib/backtest/monteCarloCsv';
+import { MetricTip } from './MetricTip';
 import { useChart } from '../state/chartContext';
 
 const ROWS: Array<[keyof Percentiles, string]> = [
@@ -123,8 +124,12 @@ export function MonteCarloPanel() {
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Percentile</th>
-                  <th>Final return</th>
-                  <th>Max drawdown (trade to trade)</th>
+                  <th>
+                    <MetricTip help="mcFinalReturn">Final return</MetricTip>
+                  </th>
+                  <th>
+                    <MetricTip help="mcMaxDrawdown">Max drawdown (trade to trade)</MetricTip>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -136,7 +141,9 @@ export function MonteCarloPanel() {
                   </tr>
                 ))}
                 <tr>
-                  <td style={{ textAlign: 'left' }}>This run</td>
+                  <td style={{ textAlign: 'left' }}>
+                    <MetricTip help="mcThisRun">This run</MetricTip>
+                  </td>
                   <td className={pnlClass(r.original.finalReturnPct)}>
                     {fmtPct(r.original.finalReturnPct)} ({ordinal(r.original.finalReturnRankPct)} percentile)
                   </td>
@@ -148,7 +155,7 @@ export function MonteCarloPanel() {
             </table>
           </div>
           <div className="mt-2" style={{ fontSize: 13 }}>
-            Chance of ending at a loss: <b className={r.probLossPct > 0 ? 'neg' : 'pos'}>{fmtNum(r.probLossPct, 1)}%</b>
+            <MetricTip help="mcChanceOfLoss">Chance of ending at a loss</MetricTip>: <b className={r.probLossPct > 0 ? 'neg' : 'pos'}>{fmtNum(r.probLossPct, 1)}%</b>
           </div>
           <div className="mc-hist mt-2" role="img" aria-label="Histogram of final return">
             {r.histogram.map((b, i) => (
