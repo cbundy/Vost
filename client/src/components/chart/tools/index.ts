@@ -1,4 +1,8 @@
 import { anchoredText } from './anchoredText';
+import { arrow } from './arrow';
+import { arrowMarkDown, arrowMarkUp } from './arrowMark';
+import { arrowMarker } from './arrowMarker';
+import { circle } from './circle';
 import { crossLine } from './crossLine';
 import { disjointChannel } from './disjointChannel';
 import { flatTopBottom } from './flatTopBottom';
@@ -31,7 +35,7 @@ import type { SettingField } from '../../../lib/drawingStyle';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, text, anchoredText, measure];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, text, anchoredText, measure];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);
@@ -46,6 +50,9 @@ export const ANCHOR_COUNTS: Readonly<Record<string, number>> = Object.fromEntrie
 
 /** Ids of the tools that store text. */
 export const TEXT_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.text).map((t) => t.id));
+
+/** Ids of the tools with an optional label (the stored `text` is kept when it is not empty). */
+export const CAPTION_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.caption).map((t) => t.id));
 
 /** Ids of the tools whose anchors are fractions of the pane. */
 export const PANE_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.paneAnchored).map((t) => t.id));

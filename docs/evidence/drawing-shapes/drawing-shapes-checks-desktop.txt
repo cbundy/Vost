@@ -1,0 +1,26 @@
+ok   Circle stored - circle:2
+ok   Arrow stored - circle:2,arrow:2
+ok   Arrow marker stored - circle:2,arrow:2,arrowMarker:2
+ok   Arrow mark up stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1
+ok   Arrow mark down stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1
+ok   arrowMarkUp is on a bar time - 1628380800
+ok   arrowMarkDown is on a bar time - 1681430400
+ok   edge handle resizes, centre stays
+ok   centre handle moves the circle, the edge follows
+ok   undo puts the circle back
+ok   Arrow mark up still on a bar time after a drag - 1634774400
+ok   titled for the tool
+ok   OK is enabled with no label
+ok   Arrow mark up keeps its label
+ok   undo removes the label
+ok   redo restores it
+ok   Arrow mark down still on a bar time after a drag - 1687824000
+ok   titled for the tool
+ok   OK is enabled with no label
+ok   Arrow mark down keeps its label
+ok   undo removes the label
+ok   redo restores it
+ok   marker label and bold stored - {"id":"dmvunjmrd3ioy2","tool":"arrowMarker","anchors":[{"time":1701302400,"price":172.86294744204707},{"time":1734393600,"price":219.62242218927668}],"text":"target","style":{"bold":true}}
+ok   no style stored for a default arrow
+ok   five drawings after reload
+ok   unchanged by the timeframe change

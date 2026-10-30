@@ -48,6 +48,13 @@ export interface DrawingTool {
   /** The tool stores text (a note). */
   text?: true;
   /**
+   * The tool carries an optional label: it is set on the settings dialog's Text tab (never by the note editor),
+   * may be empty and is stored as the drawing's `text`.
+   */
+  caption?: true;
+  /** The anchor's time is always a whole bar's time (a whole future bar slot past the last bar), whatever the magnet says. */
+  barTime?: true;
+  /**
    * The drawing is fixed on the pane: each anchor stores its x and y as fractions of the pane (0..1) in the anchor's
    * `time` and `price`, so it ignores the time range, zoom, pan and timeframe. No magnet and no axis labels.
    */
