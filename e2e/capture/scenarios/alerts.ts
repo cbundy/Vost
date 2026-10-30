@@ -116,9 +116,9 @@ export const alerts: Scenario = {
     await ctx.screenshot('menu');
 
     await ctx.step('choose it: the panel opens with the level prefilled', async () => {
-      const label = await page.getByRole('menuitem').innerText();
+      const label = await page.getByRole('menuitem', { name: /^Add alert at / }).innerText();
       const price = label.replace('Add alert at ', '');
-      await page.getByRole('menuitem').click();
+      await page.getByRole('menuitem', { name: /^Add alert at / }).click();
       await panel.waitFor();
       const level = await panel.getByLabel('Level').inputValue();
       checks.push(`menu: "${label}", prefilled level ${level}`);

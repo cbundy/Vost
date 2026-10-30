@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const optimizer: Scenario = {
   name: 'optimizer',
-  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a walk-forward (settings with the range hint, rolling and anchored results with the joined held-out chart, a refused 21 windows), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a robustness run on two parameters (settings, table ranked by Robustness, the most robust mark on the heatmap), a walk-forward (settings with the range hint, rolling and anchored results with the joined held-out chart, a refused 21 windows), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -115,6 +115,37 @@ export const optimizer: Scenario = {
       await page.getByText(/Grid too large/).scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('over-limit');
+    await ctx.step('robustness settings on a two-parameter sweep', async () => {
+      await page.goto('/');
+      await ctx.waitForChart();
+      await page.locator('.dock-tab', { hasText: 'Optimizer' }).click();
+      await page.getByText('Parameter 2', { exact: true }).waitFor();
+      await page.getByLabel('Validation').selectOption('robustness');
+      await page.getByLabel('Neighbourhood').fill('1');
+      await page.getByLabel('Rank by robustness').check();
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('robustness-settings');
+    await ctx.step('run it and show the table sorted by Robustness', async () => {
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+      await page.locator('th[aria-sort="descending"]', { hasText: 'Robustness' }).waitFor();
+      await page.getByText(/Results ·/).scrollIntoViewIfNeeded();
+      await page.getByRole('columnheader', { name: /^Robustness/ }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('robustness-results');
+    await ctx.step('show the most robust mark on the heatmap', async () => {
+      const hint = page.getByText(/^Most robust:/);
+      await hint.waitFor();
+      await hint.scrollIntoViewIfNeeded();
+      const mark = page.locator('.hm-cell[title^="Most robust"]');
+      await mark.waitFor();
+      await mark.scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('robustness-heatmap');
+    await ctx.step('back to no validation', async () => {
+      await page.getByLabel('Validation').selectOption('none');
+    });
     await ctx.step('three-parameter MACD sweep', async () => {
       await page.goto('/');
       await ctx.waitForChart();

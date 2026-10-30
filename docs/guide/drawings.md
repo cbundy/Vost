@@ -60,6 +60,24 @@ The rail also has:
 
 The rail scrolls when the window is short.
 
+## Managing drawings
+
+Right-click a drawing to select it and open its menu, headed by its name (or its tool). The menu holds **Settings** (a note opens its text editor), **Rename**, **Clone**, **Copy**, **Lock** or **Unlock**, **Bring to front**, **Bring forward**, **Send backward**, **Send to back** and **Delete**. Every change is one undo step.
+
+![The menu of a trend line](../evidence/drawing-manage/drawing-manage-menu-desktop.png)
+
+- **Lock**: a locked drawing can still be selected, but it shows no handles, a drag does not move it and the chart does not pan under it. The eraser, Delete and the menu still delete it.
+- **Rename**: type a name in the menu and press Enter (Escape cancels). The name is up to 60 characters and shows in the menu header.
+- **Clone**: puts a copy just above the original. Holding **Ctrl or Cmd** while you drag a drawing clones it and drags the copy; one undo removes both. On a locked drawing it clones without moving.
+- **Copy and paste**: **Ctrl or Cmd+C** copies the selected drawing and **Ctrl or Cmd+V** pastes it on top of the active chart, selected. The clipboard is shared by every chart in the tab, so you can paste onto a chart showing another symbol; the copy keeps its times and prices.
+- **Order**: drawings paint in order, the last on top. Bring to front, Bring forward, Send backward and Send to back change it.
+
+![A trend line pasted onto a chart of another symbol](../evidence/drawing-manage/drawing-manage-pasted-other-chart-desktop.png)
+
+Right-click empty chart for **Add alert at** the price, **Paste** (off while nothing is copied) and **Remove drawings** (the same confirm as Delete all drawings, off with no drawings).
+
+![The empty chart menu](../evidence/drawing-manage/drawing-manage-empty-menu-desktop.png)
+
 ## Settings
 
 Double-click a drawing (a note opens its text editor instead) to open its settings. Changes show on the chart as you make them; **OK** keeps them all as one undo step, and **Cancel** or Escape puts the drawing back as it was.

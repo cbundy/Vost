@@ -121,3 +121,14 @@ describe('a draft with several anchors', () => {
     expect(paint(prim)).toHaveLength(2);
   });
 });
+
+describe('locked drawings', () => {
+  const trend = { id: 't', tool: 'trendLine', anchors: [{ time: 100, price: 20 }, { time: 300, price: 80 }] };
+  it('hits a selected drawing handle only while it is unlocked', () => {
+    const prim = make();
+    prim.set([trend], 't', null);
+    expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 't', handle: 0 });
+    prim.set([{ ...trend, locked: true }], 't', null);
+    expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 't', handle: null });
+  });
+});

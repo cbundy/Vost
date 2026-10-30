@@ -2646,6 +2646,23 @@ a:hover {
 .chart-context-menu button:hover:not(:disabled) {
   background: var(--panel-3);
 }
+.chart-context-menu-title {
+  padding: 4px 8px 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart-context-menu-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 2px 0;
+}
 
 /* ------------------------- drawing rail extras ------------------------- */
 

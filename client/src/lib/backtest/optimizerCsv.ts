@@ -1,7 +1,7 @@
 import { rowsToCsv, sanitizeFileName } from '../export';
 import { METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from './optimizer';
 import type { Metrics } from './types';
-import type { Span, SplitSettings, ValidationOutput } from './validation';
+import type { RobustnessSettings, Span, SplitSettings, ValidationOutput } from './validation';
 import type { WalkForwardOutput, WalkForwardSettings } from './walkForward';
 
 /** The settings an optimizer run started with; stored beside its result so later edits do not change an export. */
@@ -26,7 +26,7 @@ export interface OptimizeRunContext {
   allowShort: boolean;
   sweeps: SweepParam[];
   /** The validation the run used (absent with none). */
-  validation?: SplitSettings;
+  validation?: SplitSettings | RobustnessSettings;
   /** The walk-forward the run used (absent otherwise). */
   walkForward?: WalkForwardSettings;
 }
@@ -100,7 +100,9 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
     `failed: ${result.errored}`,
   ];
   const v = c.validation;
-  if (v) {
+  if (v?.method === 'robustness') {
+    lines.push(`validation: ${v.method}`, `neighbourhood: ${v.radius}`, `rank by robustness: ${v.rankByScore ? 'yes' : 'no'}`);
+  } else if (v) {
     const span = (name: string, s: SplitSettings['inSample']) => [
       `${name} from: ${iso(s.from)}`,
       `${name} to: ${iso(s.to)}`,
@@ -164,11 +166,22 @@ function cell(v: number | null | undefined): string | number {
 
 /** The whole run as CSV: `# ` context lines, then rank, swept params and every Metrics field, one row per combination in ranking order. */
 export function optimizeResultToCsv(result: OptimizeResultLike, context: OptimizeRunContext): string {
-  const v = result.validation;
-  const header = ['rank', ...result.keys, ...METRIC_KEYS, ...(v ? ['heldout_rank', ...METRIC_KEYS.map((k) => `heldout_${k}`)] : [])];
+  const rv = result.validation?.method === 'robustness' ? result.validation : null;
+  const v = result.validation?.method === 'split' ? result.validation : null;
+  const header = [
+    'rank',
+    ...result.keys,
+    ...METRIC_KEYS,
+    ...(v ? ['heldout_rank', ...METRIC_KEYS.map((k) => `heldout_${k}`)] : []),
+    ...(rv ? ['neighbour_mean', 'neighbour_min', 'neighbour_count', 'robustness'] : []),
+  ];
   const checks = new Map((v?.checks ?? []).map((ch) => [ch.rank, ch]));
   const rows = result.rows.map((r, i) => {
     const base = [i + 1, ...result.keys.map((k) => cell(r.params[k])), ...METRIC_KEYS.map((k) => cell(r.metrics[k]))];
+    if (rv) {
+      const s = rv.scores[i];
+      return [...base, cell(s?.neighbourMean), cell(s?.neighbourMin), cell(s?.neighbourCount), cell(s?.robustness)];
+    }
     if (!v) return base;
     const ch = checks.get(i + 1);
     return [...base, cell(ch?.heldOutRank), ...METRIC_KEYS.map((k) => cell(ch?.heldOut?.[k]))];

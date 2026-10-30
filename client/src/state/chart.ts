@@ -928,7 +928,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         sweeps: optConfig.sweeps.map((sw) => ({ ...sw })),
       };
       const v = optConfig.validation;
-      if (v && v.method === 'split') {
+      if (v && v.method === 'robustness') {
+        context.validation = { method: 'robustness', radius: v.radius, rankByScore: v.rankByScore };
+      } else if (v && v.method === 'split') {
         const parts = splitBars(candles, v.inSamplePct);
         context.validation = { method: 'split', inSamplePct: v.inSamplePct, topN: v.topN, inSample: spanOf(parts.inSample), heldOut: spanOf(parts.heldOut) };
       }

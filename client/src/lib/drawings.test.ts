@@ -22,6 +22,12 @@ import {
   undo,
   update,
   type Drawing,
+  setLocked,
+  rename,
+  reorder,
+  cloneMany,
+  paste,
+  removeMany,
 } from './drawings';
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, text: 1 };
@@ -408,5 +414,96 @@ describe('the channel tools', () => {
     const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] === 3 ? 2 : 3) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
+describe('drawing management edits', () => {
+  const t = (id: string): Drawing => ({ id, tool: 'trendLine', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] });
+  const three = () => emptyState([t('a'), t('b'), t('c')]);
+  const ids = (s: { drawings: Drawing[] }) => s.drawings.map((d) => d.id);
+
+  it('locks and unlocks over several ids as one undo step, and is a no-op when unchanged', () => {
+    const s = three();
+    const locked = setLocked(s, ['a', 'c', 'zz'], true);
+    expect(locked.drawings.map((d) => d.locked)).toEqual([true, undefined, true]);
+    expect(locked.past).toHaveLength(1);
+    expect(setLocked(locked, ['a', 'c'], true)).toBe(locked);
+    const open = setLocked(locked, ['a'], false);
+    expect('locked' in open.drawings[0]).toBe(false);
+    expect(undo(locked).drawings).toBe(s.drawings);
+    expect(setLocked(s, ['a'], false)).toBe(s);
+  });
+
+  it('renames, trims, cuts to 60 and clears; the same state when unchanged', () => {
+    const s = three();
+    const named = rename(s, 'b', '  Support  ');
+    expect(named.drawings[1].name).toBe('Support');
+    expect(rename(named, 'b', 'Support')).toBe(named);
+    expect(rename(s, 'b', '   ')).toBe(s);
+    expect(rename(s, 'nope', 'x')).toBe(s);
+    expect(rename(s, 'a', 'x'.repeat(100)).drawings[0].name).toHaveLength(60);
+    const cleared = rename(named, 'b', '');
+    expect('name' in cleared.drawings[1]).toBe(false);
+    expect(undo(cleared).drawings).toBe(named.drawings);
+  });
+
+  it('reorders only the order', () => {
+    const s = three();
+    expect(ids(reorder(s, 'a', 'front'))).toEqual(['b', 'c', 'a']);
+    expect(ids(reorder(s, 'c', 'back'))).toEqual(['c', 'a', 'b']);
+    expect(ids(reorder(s, 'a', 'forward'))).toEqual(['b', 'a', 'c']);
+    expect(ids(reorder(s, 'c', 'backward'))).toEqual(['a', 'c', 'b']);
+    expect(reorder(s, 'c', 'front')).toBe(s);
+    expect(reorder(s, 'a', 'back')).toBe(s);
+    expect(reorder(s, 'c', 'forward')).toBe(s);
+    expect(reorder(s, 'a', 'backward')).toBe(s);
+    expect(reorder(s, 'zz', 'front')).toBe(s);
+    const moved = reorder(s, 'a', 'front');
+    expect(moved.past).toHaveLength(1);
+    expect([...moved.drawings].sort((x, y) => x.id.localeCompare(y.id))).toEqual(s.drawings);
+  });
+
+  it('clones just above the originals with new unique ids and independent anchors', () => {
+    const s = three();
+    const c = cloneMany(s, ['a', 'c']);
+    expect(c.drawings).toHaveLength(5);
+    expect(c.drawings[0]).toBe(s.drawings[0]);
+    expect(c.drawings[2]).toBe(s.drawings[1]);
+    expect(c.drawings[1].anchors).toEqual(s.drawings[0].anchors);
+    expect(c.drawings[1].anchors).not.toBe(s.drawings[0].anchors);
+    expect(new Set(ids(c)).size).toBe(5);
+    expect(c.past).toHaveLength(1);
+    expect(cloneMany(s, ['zz'])).toBe(s);
+  });
+
+  it('pastes copies on top with new ids, even twice of the same clipboard', () => {
+    const s = three();
+    const clip = [{ ...t('a'), name: 'n', locked: true as const }];
+    const p = paste(paste(s, clip), clip);
+    expect(p.drawings).toHaveLength(5);
+    expect(new Set(ids(p)).size).toBe(5);
+    expect(p.drawings[4]).toMatchObject({ name: 'n', locked: true, anchors: clip[0].anchors });
+    expect(paste(s, [])).toBe(s);
+    expect(undo(paste(s, clip)).drawings).toBe(s.drawings);
+  });
+
+  it('removes several drawings as one step', () => {
+    const s = three();
+    const r = removeMany(s, ['a', 'c']);
+    expect(ids(r)).toEqual(['b']);
+    expect(r.past).toHaveLength(1);
+    expect(removeMany(s, ['zz'])).toBe(s);
+  });
+
+  it('keeps locked true and a clean name when loading, drops bad ones, and loads older payloads unchanged', () => {
+    const base = t('a');
+    const load = (extra: object) => parseStore({ version: STORAGE_VERSION, sources: { s: [{ ...base, ...extra }] } }, COUNTS).sources.s[0];
+    expect(STORAGE_VERSION).toBe(2);
+    expect(load({ locked: true, name: '  Hi  ' })).toMatchObject({ locked: true, name: 'Hi' });
+    expect('locked' in load({ locked: 'yes' })).toBe(false);
+    expect('name' in load({ name: '   ' })).toBe(false);
+    expect('name' in load({ name: 7 })).toBe(false);
+    expect(load({ name: 'y'.repeat(90) }).name).toHaveLength(60);
+    expect(load({})).toEqual(base);
   });
 });
