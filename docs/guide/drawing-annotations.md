@@ -112,3 +112,25 @@ A **Flag mark** is a small pole with a flag at the bar and price you clicked. It
 ![A recoloured Flag mark](../evidence/drawing-price-markers/drawing-price-markers-flag-mark-red-desktop.png)
 
 All the note tools and price markers are saved in your browser with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
+
+## Icons, emojis and stickers
+
+The **Icons** family on the rail holds three tools that place a small picture on the chart: **Icons** (simple line icons in a colour you choose), **Emojis** (full-colour emoji) and **Stickers** (larger full-colour pictures). They are bundled with the app, so nothing is fetched from the internet; their sources and licences are listed in [third-party notices](../third-party-notices.md).
+
+Picking one of the tools, from the rail or the favourites bar, opens a picker:
+
+- the search box has focus; type words and only pictures that match every word (in the name or the keywords) stay, so "arrow up" finds the up arrows;
+- the tabs filter by category, and **Recent** shows your last picks for that tool (up to 16, kept in your browser);
+- **ArrowUp**, **ArrowDown**, **ArrowLeft** and **ArrowRight** move through the grid, **Enter** picks and **Escape** closes the picker without picking. On a phone the picker fits the screen.
+
+![The Icons picker after a search for "arrow"](../evidence/drawing-icons/drawing-icons-search-desktop.png)
+
+Picking a picture closes the picker and the picture follows the pointer; click to place it (on a touch screen, tap). Its centre sits at the bar and price you clicked, and it keeps its size and look when you zoom or pan or change the timeframe.
+
+![An arrow, an emoji and a rocket sticker placed on the chart](../evidence/drawing-icons/drawing-icons-placed-desktop.png)
+
+Select a picture to move it by dragging its body. Four corner handles resize it about its centre, and the round handle above the top edge rotates it; hold **Shift** while rotating to snap to 15 degree steps. Each drag is one undo step, and a locked picture does not change.
+
+![A sticker rotated and enlarged with its handles](../evidence/drawing-icons/drawing-icons-rotated-desktop.png)
+
+Double-click a picture to open its settings: **Size** in pixels (8 to 512; 40 for icons and emojis, 80 for stickers), **Angle** in degrees, **Opacity**, and for icons **Colour**. Edits show at once and one undo reverts them all. Pictures are saved in your browser with the other drawings. If a saved picture is no longer in the bundled set it shows as a dashed box with a question mark instead of disappearing.

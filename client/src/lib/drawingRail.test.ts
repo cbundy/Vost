@@ -31,8 +31,13 @@ describe('railGroups', () => {
   });
 
   it('orders families by the fixed order and leaves out empty ones', () => {
-    expect(groups.map((g) => g.id)).toEqual(['cursors', 'lines', 'fib-gann', 'patterns', 'forecast-measure', 'shapes', 'annotations']);
-    expect(groups.map((g) => g.id)).not.toContain('icons');
+    expect(groups.map((g) => g.id)).toEqual(['cursors', 'lines', 'fib-gann', 'patterns', 'forecast-measure', 'shapes', 'annotations', 'icons']);
+  });
+
+  it('holds Icons, Emojis and Stickers, in that order, in the Icons family', () => {
+    const icons = groups.find((g) => g.id === 'icons')!;
+    expect(icons.entries.map((e) => e.key)).toEqual(['icon', 'emoji', 'sticker']);
+    expect(icons.entries.map((e) => e.label)).toEqual(['Icons', 'Emojis', 'Stickers']);
   });
 
   it('holds the chart patterns, then the cycle tools, in the Patterns family', () => {

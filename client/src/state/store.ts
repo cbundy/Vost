@@ -39,6 +39,8 @@ import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
 import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
+import { sanitizeArmed, sanitizeRecent, withRecent } from '../lib/iconSets/prefs';
+import { isGlyphKind } from '../lib/iconSets/types';
 import { sanitizeDefaults } from '../lib/drawingStyle';
 import { toolSettings } from '../components/chart/tools';
 import { canonicalInterval } from '../../../shared/market.ts';
@@ -83,6 +85,8 @@ interface Prefs {
   drawingDefaults?: Record<string, Record<string, unknown>>;
   drawingFavorites?: string[];
   drawingLastTool?: Record<string, string>;
+  glyphArmed?: Record<string, string>;
+  glyphRecent?: Record<string, string[]>;
   cursorKind?: CursorKind;
   favoritesBarPos?: BarPos;
   buildTimeframes?: boolean;
@@ -181,6 +185,10 @@ export interface AppState {
   drawingFavorites: string[];
   /** The last entry used from each rail family, shown on the family's button. */
   drawingLastTool: Record<string, string>;
+  /** The icon, emoji or sticker each glyph tool places next (the entry id), by tool id. */
+  glyphArmed: Record<string, string>;
+  /** The last picks of each glyph tool, newest first (up to 16). */
+  glyphRecent: Record<string, string[]>;
   /** How the cursor mode looks on the chart. */
   cursorKind: CursorKind;
   /** Top-left of the floating favourites bar inside the chart area, in px. */
@@ -286,6 +294,8 @@ export interface AppState {
   setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
   toggleDrawingFavorite(key: string): void;
   setDrawingLastTool(group: string, key: string): void;
+  /** Arms a glyph tool with an entry and adds it to the tool's recent picks. */
+  pickGlyph(tool: string, id: string): void;
   setCursorKind(kind: CursorKind): void;
   setFavoritesBarPos(pos: BarPos): void;
   setTimeZone(tz: string): void;
@@ -331,6 +341,8 @@ export const useStore = create<AppState>()((set, get) => {
       drawingDefaults: s.drawingDefaults,
       drawingFavorites: s.drawingFavorites,
       drawingLastTool: s.drawingLastTool,
+      glyphArmed: s.glyphArmed,
+      glyphRecent: s.glyphRecent,
       cursorKind: s.cursorKind,
       favoritesBarPos: s.favoritesBarPos,
       buildTimeframes: s.buildTimeframes,
@@ -519,6 +531,8 @@ export const useStore = create<AppState>()((set, get) => {
     drawingDefaults: {},
     drawingFavorites: [],
     drawingLastTool: {},
+    glyphArmed: {},
+    glyphRecent: {},
     cursorKind: 'cross',
     favoritesBarPos: { ...DEFAULT_BAR_POS },
     buildTimeframes: false,
@@ -608,6 +622,8 @@ export const useStore = create<AppState>()((set, get) => {
         drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
         drawingFavorites: sanitizeFavorites(prefs.drawingFavorites),
         drawingLastTool: sanitizeLastTool(prefs.drawingLastTool),
+        glyphArmed: sanitizeArmed(prefs.glyphArmed),
+        glyphRecent: sanitizeRecent(prefs.glyphRecent),
         cursorKind: sanitizeCursorKind(prefs.cursorKind),
         favoritesBarPos: sanitizeBarPos(prefs.favoritesBarPos),
         buildTimeframes: prefs.buildTimeframes === true,
@@ -895,6 +911,13 @@ export const useStore = create<AppState>()((set, get) => {
       const next = sanitizeLastTool({ ...cur, [group]: key });
       if (next[group] !== key) return; // not an entry of that family
       set({ drawingLastTool: { ...cur, [group]: key } });
+      persistPrefs();
+    },
+
+    pickGlyph(tool, id) {
+      if (!isGlyphKind(tool) || !id) return;
+      const { glyphArmed, glyphRecent } = get();
+      set({ glyphArmed: { ...glyphArmed, [tool]: id }, glyphRecent: sanitizeRecent({ ...glyphRecent, [tool]: withRecent(glyphRecent[tool], id) }) });
       persistPrefs();
     },
 

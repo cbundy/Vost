@@ -32,6 +32,8 @@ import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingSettingsDialog } from './DrawingSettingsDialog';
+import { IconPicker } from './IconPicker';
+import { isGlyphKind } from '../lib/iconSets/types';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
@@ -589,6 +591,7 @@ export function ChartPanel({
           onTab={drawings.editor.onTab}
         />
       )}
+      {drawings.picker && isGlyphKind(drawings.picker) && <IconPicker key={drawings.picker} kind={drawings.picker} onPick={drawings.choosePick} onClose={drawings.closePicker} />}
       {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}
       {active && favorites.length > 0 && <FavoritesBar {...drawingControls} />}
       <ChartRangeBar chartApi={chartApi} />

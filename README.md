@@ -242,3 +242,5 @@ Vost is a tool for research and education. Market data may be delayed, incomplet
 ## License
 
 [MIT](LICENSE) — do whatever you want, no warranty.
+
+The icons, emojis and stickers bundled for the drawing tools come from Lucide, Twemoji and OpenMoji under their own licences, credited in [docs/third-party-notices.md](docs/third-party-notices.md).
