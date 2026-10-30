@@ -47,6 +47,8 @@ describe('buildPineChart', () => {
     expect(r.plots.map((p) => p.kind)).toEqual(['hline', 'bgcolor', 'plotshape', 'plot']);
     const hline = m.series.find((s) => s.title === 'Level')!;
     expect(hline.dashed).toBe(true);
+    expect(hline.hline).toBe(true);
+    expect(m.series.filter((s) => s.hline).map((s) => s.title)).toEqual(['Level']);
     expect(hline.data.every((p) => p.value === 100)).toBe(true);
     const band = m.series.find((s) => s.title === 'Up bar')!;
     expect(band.band).toBe(true);

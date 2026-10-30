@@ -1,0 +1,20 @@
+last bar: legend 0 "RSI 14 44.00" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+last bar: legend 1 "MACD 12 26 9 Histogram -0.1547 MACD -1.96 Signal -1.81" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+last bar: legend 2 "Momentum pair 10 Fast -0.3448 Slow -0.1783" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+last bar: pane heights price=357 subs=107,107,108,28
+price pane share of the chart: 0.50 (RSI pane 107px)
+crosshair: legend 0 "RSI 14 49.71"
+crosshair: legend 1 "MACD 12 26 9 Histogram 0.1950 MACD 0.0364 Signal -0.1587"
+crosshair: legend 2 "Momentum pair 10 Fast 0.0530 Slow 0.00204460"
+after drag: legend 0 "RSI 14 44.00" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+after drag: legend 1 "MACD 12 26 9 Histogram -0.1547 MACD -1.96 Signal -1.81" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+after drag: legend 2 "Momentum pair 10 Fast -0.3448 Slow -0.1783" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+after drag: pane heights price=357 subs=107,47,168,28
+Pine pane grew by 60px
+after SMA: legend 0 "RSI 14 44.00" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+after SMA: legend 1 "MACD 12 26 9 Histogram -0.1547 MACD -1.96 Signal -1.81" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+after SMA: legend 2 "Momentum pair 10 Fast -0.3448 Slow -0.1783" top=4 fromRight=70 inside=true clearOfScale=true pointer-events=none
+after SMA: pane heights price=357 subs=107,47,168,28
+pane 1 height 107 -> 107 (changed 0px)
+pane 2 height 47 -> 47 (changed 0px)
+pane 3 height 168 -> 168 (changed 0px)

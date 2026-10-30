@@ -1,0 +1,8 @@
+//@version=6
+indicator("Momentum pair", overlay=false)
+len = input.int(10, "Length")
+fastLine = ta.sma(close - open, len)
+slowLine = ta.sma(close - open, len * 2)
+plot(fastLine, "Fast", color.teal)
+plot(slowLine, "Slow", color.orange)
+hline(0, "Zero", color.gray)

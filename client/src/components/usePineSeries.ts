@@ -12,6 +12,8 @@ import {
 } from 'lightweight-charts';
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
+import { pineIndicatorName } from '../lib/pine/title';
+import { newPaneState, releasePanes, sizePanes, type PaneReg, type PaneState } from './usePaneLegends';
 import { buildPineChart, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
 import { PineFillPrimitive } from './pineFillPrimitive';
 import { runFitsVisible } from '../lib/replay';
@@ -60,13 +62,17 @@ export function usePineSeries(
   epochRef: MutableRefObject<number>,
   /** During replay: a run reaching past this bar time is never drawn. */
   lastVisibleTime: number | null = null,
+  /** The panes built and the sizes kept, shared with the built-in pane builder and the pane legends. */
+  paneStateRef?: MutableRefObject<PaneState>,
 ) {
+  const ownState = useRef<PaneState>(newPaneState());
+  const paneState = paneStateRef ?? ownState;
   const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], fills: [] as BuiltFill[], descs: [] as PineSeriesDesc[] });
 
   useEffect(() => {
     if (!chart) return;
     const st = ref.current;
-    const items: Array<{ id: string; model: PineChartModel; closes: number[]; times: number[] }> = [];
+    const items: Array<{ id: string; model: PineChartModel; closes: number[]; times: number[]; name: string; params: string[] }> = [];
     for (const spec of indicators) {
       const run = pineRuns[spec.id];
       if (spec.kind !== 'pine' || !spec.visible || !run?.result || !run.candles) continue;
@@ -76,6 +82,11 @@ export function usePineSeries(
         model: buildPineChart(run.result, run.candles, spec.color),
         closes: run.candles.map((c) => c.close),
         times: run.candles.map((c) => c.time),
+        name: pineIndicatorName(spec.source ?? '', run.result.declaration.title),
+        params: run.result.inputs.flatMap((inp) => {
+          const v = spec.inputs?.[inp.name] ?? inp.defval;
+          return v == null ? [] : [String(v)];
+        }),
       });
     }
     const sig = JSON.stringify(
@@ -136,6 +147,13 @@ export function usePineSeries(
         const it = items.find((x) => x.id === bf.itemId);
         if (it) bf.prim.setData(fillData(it, bf.index));
       }
+      for (const it of items) {
+        const reg = paneState.current.panes.get(it.id);
+        if (reg) {
+          reg.name = it.name;
+          reg.params = it.params;
+        }
+      }
       let offset = 0;
       for (const it of items) {
         const n = it.model.series.length + markerPanes(it).length;
@@ -145,6 +163,8 @@ export function usePineSeries(
       return;
     }
 
+    // Before removing series empties and drops the panes: keep the sizes the user left them at.
+    releasePanes(chart, paneState.current, 'pine', new Set(indicators.map((s) => s.id)));
     for (const { series } of st.built) {
       try {
         chart.removeSeries(series);
@@ -183,7 +203,7 @@ export function usePineSeries(
             {
               color: d.color,
               priceLineVisible: false,
-              lastValueVisible: false,
+              lastValueVisible: !d.band && d.pane === 'separate',
               priceScaleId: scaleId,
               ...(d.band && { autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 1 } }) }),
             },
@@ -203,7 +223,7 @@ export function usePineSeries(
               lineWidth: d.lineWidth as LineWidth,
               lineStyle: d.dashed ? LineStyle.Dashed : LineStyle.Solid,
               priceLineVisible: false,
-              lastValueVisible: !d.dashed,
+              lastValueVisible: d.pane === 'separate' || !d.dashed,
               crosshairMarkerVisible: false,
               lineVisible: !d.pointsOnly,
               pointMarkersVisible: Boolean(d.pointsOnly),
@@ -241,6 +261,14 @@ export function usePineSeries(
         mine.push({ series, plugin: createSeriesMarkers(series, []) });
       }
       fill(it, mine);
+      if (sepPane >= 0) {
+        sizePanes(chart, paneState.current, [{ id: it.id, paneIndex: sepPane }]);
+        const entries: PaneReg['entries'] = [];
+        it.model.series.forEach((d, k) => {
+          if (d.pane === 'separate' && !d.hline && !d.band) entries.push({ title: d.title, color: d.color, series: mine[k].series });
+        });
+        paneState.current.panes.set(it.id, { id: it.id, source: 'pine', paneIndex: sepPane, name: it.name, params: it.params, entries });
+      }
       it.model.fills.forEach((f, index) => {
         const at = (key: string) => mine[it.model.series.findIndex((d) => d.key === key)]?.series;
         const first = at(f.key1);
@@ -255,5 +283,5 @@ export function usePineSeries(
     }
     st.sig = sig;
     st.epoch = epochRef.current;
-  }, [chart, indicators, pineRuns, epochRef, lastVisibleTime]);
+  }, [chart, indicators, pineRuns, epochRef, lastVisibleTime, paneState]);
 }

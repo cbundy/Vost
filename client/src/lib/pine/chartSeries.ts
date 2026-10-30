@@ -21,6 +21,8 @@ export interface PineSeriesDesc {
   color: string;
   lineWidth: number;
   dashed?: boolean;
+  /** hline(): a fixed level (its value is the level), not a plotted series. */
+  hline?: true;
   /** circles/cross styles: markers only, no connecting line. */
   pointsOnly?: boolean;
   /** bgcolor: full-height band drawn on its own 0..1 scale. */
@@ -134,7 +136,7 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
       const level = plot.values.find((v): v is number => v !== null && Number.isFinite(v));
       if (level === undefined) return;
       series.push({
-        key, title: plot.name, type: 'line', pane, color, lineWidth: 1, dashed: true,
+        key, title: plot.name, type: 'line', pane, color, lineWidth: 1, dashed: true, hline: true,
         data: candles.map((c) => ({ time: c.time, value: level })),
       });
       return;
