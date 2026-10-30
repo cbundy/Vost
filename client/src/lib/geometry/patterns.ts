@@ -11,11 +11,13 @@ import type { Pt } from '../drawingGeometry';
  *    gives AB as a retracement of XA, BC as a retracement of AB "shown along the line AC" and CD as an extension of
  *    BC "shown along the line BD". The X-D line (AD/XA) is not on that page; it is the harmonic definition (D
  *    retraces XA).
- *  - Cypher: X-B = AB/XA, X-C = XC/XA (C extends beyond A, 1.272 to 1.414 of XA), X-D = CD/XC (D retraces 0.786 of
- *    XC). Source: the Cypher harmonic definition (Darren Oglesbee). TradingView's Cypher and ABCD tool help pages
- *    could not be found (no URL is known and its support search returns 403 to curl), so these two sets are NOT
- *    confirmed against TradingView's own documentation.
+ *  - Cypher: X-B = AB/XA, X-C = XC/XA (C extends beyond A, 1.13 to 1.414 of XA), X-D = CD/XC (D retraces 0.786 of
+ *    XC). Source: https://www.tradingview.com/support/solutions/43000791680-cypher-harmonic-pattern-drawing-tool/
+ *    (checked): B retraces 0.382 to 0.618 of XA, C is an extension of XA of 1.13 to 1.414, D is a 0.786 retracement
+ *    of the entire XC leg.
  *  - ABCD: A-C = BC/AB, B-D = CD/BC (the same BC/AB and CD/BC legs the XABCD page describes).
+ *    Source: https://www.tradingview.com/support/solutions/43000570202-abcd-pattern-drawing-tool/ (checked): it
+ *    gives the legs AB, BC and CD ("Classic ABCD: CD should be either 127.2% or 161.8% of BC").
  *
  * A ratio is the absolute price move of one leg divided by the absolute price move of the other.
  */
