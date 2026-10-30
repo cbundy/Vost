@@ -10,10 +10,11 @@ import {
   loadDrawings,
   saveDrawings,
   newDrawingId,
-  preview,
+  previewMany,
   redo,
   remove,
   removeAll,
+  removeMany,
   cleanText,
   cloneMany,
   setText,
@@ -24,6 +25,7 @@ import {
   type DrawingsState,
   type DrawingsStorage,
 } from '../../lib/drawings';
+import { addAll, normalizeRect, only, prune, toggle } from '../../lib/drawingSelection';
 import { drawingKeyAction } from '../../lib/drawingKeys';
 import { DRAG_PX, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, type Draft } from '../../lib/drawingDraft';
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
@@ -71,12 +73,16 @@ export type DrawingEditor = {
 };
 
 /** Where a dragged handle now is: its starting pixel moved by the drag. */
-function handleTarget(def: DrawingTool, drag: Drag, prim: DrawingPrimitive, dx: number, dy: number): Pt {
-  const h = def.handles(drag.origPts, prim.viewFor({ tool: def.id, anchors: drag.origAnchors, text: drag.origText, style: drag.origStyle }))[drag.handle as number];
+function handleTarget(def: DrawingTool, drag: Drag, item: DragItem, prim: DrawingPrimitive, dx: number, dy: number): Pt {
+  const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, style: item.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
 }
 
-type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[]; before: Drawing[] };
+/** One drawing a drag moves, as it was when the press began. */
+type DragItem = { id: string; tool: string; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[] };
+/** `items` is every drawing a body drag moves, or the one whose handle is dragged. */
+type Drag = { handle: number | null; start: Pt; items: DragItem[]; before: Drawing[]; /** A press on a member of a selection: a release without moving keeps just this one. */ collapseTo: string | null };
+const dragItem = (d: Drawing, origPts: Pt[]): DragItem => ({ id: d.id, tool: d.tool, origAnchors: d.anchors, origText: d.text, origStyle: d.style, origPts });
 /** The draft as a drawing the primitive paints (it has fewer anchors than the tool needs until it is placed). */
 const draftDrawing = (d: Draft | null): Drawing | null => (d ? { id: 'draft', tool: d.tool, anchors: d.anchors } : null);
 
@@ -117,7 +123,7 @@ export function useDrawings(
   const hasDataRef = useRef(hasData);
   const primRef = useRef<DrawingPrimitive | null>(null);
   const statesRef = useRef(new Map<string, DrawingsState>());
-  const selectedRef = useRef<string | null>(null);
+  const selectedRef = useRef<string[]>([]);
   const draftRef = useRef<Draft | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const measureRef = useRef<Drawing | null>(null);
@@ -144,7 +150,7 @@ export function useDrawings(
   }, []);
 
   const sync = useCallback(() => {
-    if (hiddenRef.current) primRef.current?.set([], null, null);
+    if (hiddenRef.current) primRef.current?.set([], [], null);
     else {
       primRef.current?.set(
         getState().drawings,
@@ -174,7 +180,7 @@ export function useDrawings(
       toolRef.current = id;
       setToolState(id);
       draftRef.current = null;
-      if (id !== CURSOR) selectedRef.current = null;
+      if (id !== CURSOR) selectedRef.current = [];
       sync();
     },
     [sync],
@@ -182,7 +188,7 @@ export function useDrawings(
 
   const select = useCallback(
     (id: string | null) => {
-      selectedRef.current = id;
+      selectedRef.current = id ? only(id) : [];
       sync();
     },
     [sync],
@@ -246,14 +252,14 @@ export function useDrawings(
         if (text) {
           const id = newDrawingId();
           setState(add(getState(), { id, tool: target.tool, anchors: [target.anchor], text }), true);
-          selectedRef.current = id;
+          selectedRef.current = only(id);
         }
       } else if (!text) {
         setState(remove(getState(), target.id), true);
-        if (selectedRef.current === target.id) selectedRef.current = null;
+        selectedRef.current = prune(selectedRef.current, getState().drawings);
       } else {
         setState(setText(getState(), target.id, text), true);
-        selectedRef.current = target.id;
+        selectedRef.current = only(target.id);
       }
       sync();
     },
@@ -288,7 +294,7 @@ export function useDrawings(
     if (getState().drawings.length === 0) return;
     if (!window.confirm('Delete all drawings on this chart?')) return;
     setState(removeAll(getState()), true);
-    selectedRef.current = null;
+    selectedRef.current = [];
     draftRef.current = null;
     sync();
   }, [getState, setState, sync]);
@@ -357,7 +363,7 @@ export function useDrawings(
 
   /* A different source shows its own drawings and drops any selection or draft in flight. */
   useEffect(() => {
-    selectedRef.current = null;
+    selectedRef.current = [];
     draftRef.current = null;
     dragRef.current = null;
     measureRef.current = null;
@@ -370,7 +376,7 @@ export function useDrawings(
   /* Hide all: nothing is painted or hit, and the selection, any draft and the tool are dropped. */
   useEffect(() => {
     if (hidden) {
-      selectedRef.current = null;
+      selectedRef.current = [];
       draftRef.current = null;
       dragRef.current = null;
       measureRef.current = null;
@@ -402,7 +408,9 @@ export function useDrawings(
     const el = containerRef.current;
     if (!chart || !el) return;
     let swallow = false;
-    let idle: { p: Pt; hit: boolean } | null = null;
+    let idle: { p: Pt; collapseTo?: string } | null = null;
+    /** A Shift+press on empty chart: the corner it began at and where the pointer is now. */
+    let box: { start: Pt; cur: Pt } | null = null;
     let touch = false;
     let lastTap: { id: string; t: number; p: Pt } | null = null;
 
@@ -454,7 +462,7 @@ export function useDrawings(
       const created = getState().drawings.at(-1)!;
       draftRef.current = null;
       setTool(CURSOR);
-      selectedRef.current = created.id;
+      selectedRef.current = only(created.id);
       sync();
     };
 
@@ -486,7 +494,7 @@ export function useDrawings(
         if (!hit) return;
         claim(e);
         setState(remove(getState(), hit.id), true);
-        if (selectedRef.current === hit.id) selectedRef.current = null;
+        selectedRef.current = prune(selectedRef.current, getState().drawings);
         sync();
         return; // the pointerup releases
       }
@@ -521,8 +529,15 @@ export function useDrawings(
         return;
       }
       const hit = prim.hit(p, touch ? TOUCH_HIT : MOUSE_HIT);
+      const shift = e.shiftKey && !touch;
       if (!hit) {
-        idle = { p, hit: false };
+        if (shift && !hiddenRef.current && hasDataRef.current) {
+          // Shift+press on empty chart starts a selection box; the chart does not pan under it.
+          claim(e);
+          box = { start: p, cur: p };
+          return; // the pointerup ends it
+        }
+        idle = { p };
         return;
       }
       const st = getState();
@@ -530,42 +545,54 @@ export function useDrawings(
       const dt = getTool(d?.tool ?? '');
       const origPts = d?.anchors.map((a) => prim.toPoint(a, dt));
       if (!d || !origPts || origPts.some((q) => !q)) return;
-      selectedRef.current = d.id;
+      if (shift && hit.handle === null) {
+        // Shift+click adds the drawing to the selection, or takes it out; nothing drags.
+        selectedRef.current = toggle(selectedRef.current, d.id);
+        claim(e);
+        sync();
+        return; // the pointerup releases
+      }
+      const inSelection = selectedRef.current.includes(d.id);
+      const multi = inSelection && selectedRef.current.length > 1 && hit.handle === null;
+      if (!multi) selectedRef.current = only(d.id);
       claim(e);
-      if (d.locked && !(hit.handle === null && (e.ctrlKey || e.metaKey))) {
-        // A locked drawing only selects: nothing drags and the chart does not pan under it (the pointerup releases).
+      const cloning = hit.handle === null && (e.ctrlKey || e.metaKey);
+      /** The selection in paint order that the body drag acts on. */
+      const members = st.drawings.filter((x) => selectedRef.current.includes(x.id));
+      const collapseTo = multi ? d.id : null;
+      const before = st.drawings;
+      let moving = hit.handle === null ? members : [d];
+      if (cloning) {
+        // Ctrl/Cmd+drag: copies of the whole selection are made and the copies are dragged; the copies and their move are
+        // one undo step (`before` is pre-copy). Copies of locked drawings stay where they are.
+        const cloned = cloneMany(st, members.map((x) => x.id));
+        const known = new Set(st.drawings.map((x) => x.id));
+        const copies = cloned.drawings.filter((x) => !known.has(x.id));
+        selectedRef.current = copies.map((x) => x.id);
+        if (copies.length === members.length && members.some((x) => !x.locked)) {
+          setState({ ...st, drawings: cloned.drawings }, false);
+          moving = copies.filter((_, i) => !members[i].locked);
+        } else {
+          setState(cloned, true);
+          sync();
+          return; // the pointerup releases
+        }
+      }
+      const items: DragItem[] = [];
+      for (const m of moving) {
+        if (m.locked && !cloning) continue;
+        const mt = getTool(m.tool);
+        const pts = m.anchors.map((a) => prim.toPoint(a, mt));
+        if (pts.some((q) => !q) || !prim.shown(m)) continue;
+        items.push(dragItem(m, pts as Pt[]));
+      }
+      if (items.length === 0) {
+        // Only locked drawings: the press selects, nothing drags and the chart does not pan under it (the pointerup releases).
+        if (collapseTo) idle = { p, collapseTo };
         sync();
         return;
       }
-      let target = d;
-      const before = st.drawings;
-      if (hit.handle === null && (e.ctrlKey || e.metaKey)) {
-        // Ctrl/Cmd+drag: a copy is made and the copy is dragged; the copy and its move are one undo step (`before` is pre-copy).
-        const cloned = cloneMany(st, [d.id]);
-        const copy = cloned.drawings[cloned.drawings.findIndex((x) => x.id === d.id) + 1];
-        if (copy) {
-          if (d.locked) {
-            // A locked original: the copy is made (one undo step) and stays where it is.
-            setState(cloned, true);
-            selectedRef.current = copy.id;
-            sync();
-            return;
-          }
-          setState({ ...st, drawings: cloned.drawings }, false);
-          target = copy;
-          selectedRef.current = copy.id;
-        }
-      }
-      dragRef.current = {
-        id: target.id,
-        handle: hit.handle,
-        start: p,
-        origAnchors: target.anchors,
-        origText: target.text,
-        origStyle: target.style,
-        origPts: origPts as Pt[],
-        before,
-      };
+      dragRef.current = { handle: hit.handle, start: p, items, before, collapseTo };
       sync();
     };
 
@@ -584,30 +611,38 @@ export function useDrawings(
         }
         return;
       }
+      if (box) {
+        box.cur = p;
+        prim.setBox(Math.hypot(p.x - box.start.x, p.y - box.start.y) < DRAG_PX ? null : normalizeRect(box.start, p));
+        return;
+      }
       const drag = dragRef.current;
       if (drag) {
-        const def = getTool(getState().drawings.find((x) => x.id === drag.id)?.tool ?? '');
-        if (!def) return;
         const dx = p.x - drag.start.x;
         const dy = p.y - drag.start.y;
-        const dragged =
-          drag.handle !== null && def.dragHandle
-            ? def.dragHandle(drag.origPts, drag.handle, handleTarget(def, drag, prim, dx, dy))
-            : null;
-        const next = drag.origAnchors.map((orig, i) => {
-          if (dragged) {
-            const a = prim.toAnchor(dragged[i], def);
-            return a ?? orig;
-          }
-          if (drag.handle !== null && drag.handle !== i) return orig;
-          const q = drag.origPts[i];
-          const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy }, def);
-          if (!a) return orig;
-          const placed = drag.handle !== null ? snap(a, def) : a;
-          if (def.timeOnly) return { time: placed.time, price: orig.price };
-          return def.priceOnly ? { time: orig.time, price: placed.price } : placed;
-        });
-        setState(preview(getState(), drag.id, next), false);
+        const moves: Record<string, Anchor[]> = {};
+        for (const item of drag.items) {
+          const def = getTool(item.tool);
+          if (!def) continue;
+          const dragged =
+            drag.handle !== null && def.dragHandle
+              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy))
+              : null;
+          moves[item.id] = item.origAnchors.map((orig, i) => {
+            if (dragged) {
+              const a = prim.toAnchor(dragged[i], def);
+              return a ?? orig;
+            }
+            if (drag.handle !== null && drag.handle !== i) return orig;
+            const q = item.origPts[i];
+            const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy }, def);
+            if (!a) return orig;
+            const placed = drag.handle !== null ? snap(a, def) : a;
+            if (def.timeOnly) return { time: placed.time, price: orig.price };
+            return def.priceOnly ? { time: orig.time, price: placed.price } : placed;
+          });
+        }
+        setState(previewMany(getState(), moves), false);
         return;
       }
       if (e.buttons === 0) {
@@ -629,17 +664,35 @@ export function useDrawings(
         release(e);
         return;
       }
+      if (box) {
+        const b = box;
+        box = null;
+        const prim = primRef.current;
+        prim?.setBox(null);
+        release(e);
+        const p = point(e);
+        if (Math.hypot(p.x - b.start.x, p.y - b.start.y) < DRAG_PX) selectedRef.current = [];
+        else if (prim) selectedRef.current = addAll(selectedRef.current, prim.idsInBox(normalizeRect(b.start, p)));
+        sync();
+        return;
+      }
       if (dragRef.current) {
         const drag = dragRef.current;
         dragRef.current = null;
         setState(commit(getState(), drag.before), true);
         release(e);
         const p = point(e);
-        if (touch && Math.hypot(p.x - drag.start.x, p.y - drag.start.y) < DRAG_PX) {
+        const still = Math.hypot(p.x - drag.start.x, p.y - drag.start.y) < DRAG_PX;
+        if (still && drag.collapseTo) {
+          selectedRef.current = only(drag.collapseTo);
+          sync();
+        }
+        const lead = drag.items[0].id;
+        if (touch && still) {
           const prev = lastTap;
-          lastTap = { id: drag.id, t: e.timeStamp, p };
-          const note = getState().drawings.find((x) => x.id === drag.id);
-          if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === drag.id && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
+          lastTap = { id: lead, t: e.timeStamp, p };
+          const note = getState().drawings.find((x) => x.id === lead);
+          if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === lead && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
             lastTap = null;
             openEditor(note.id, note.tool, note.anchors[0], note.text ?? '', note.style);
           }
@@ -648,9 +701,14 @@ export function useDrawings(
       }
       if (idle) {
         const p = point(e);
-        if (Math.hypot(p.x - idle.p.x, p.y - idle.p.y) < DRAG_PX && selectedRef.current) {
-          selectedRef.current = null;
-          sync();
+        if (Math.hypot(p.x - idle.p.x, p.y - idle.p.y) < DRAG_PX) {
+          if (idle.collapseTo) {
+            selectedRef.current = only(idle.collapseTo);
+            sync();
+          } else if (selectedRef.current.length > 0) {
+            selectedRef.current = [];
+            sync();
+          }
         }
         idle = null;
       }
@@ -711,7 +769,7 @@ export function useDrawings(
         if (!st || st.drawings === list) return;
         statesRef.current.set(changed, { ...st, drawings: list });
         if (changed !== keyRef.current) return;
-        if (selectedRef.current && !list.some((d) => d.id === selectedRef.current)) selectedRef.current = null;
+        selectedRef.current = prune(selectedRef.current, list);
         setDrawingCount(list.length);
         sync();
       }),
@@ -726,7 +784,7 @@ export function useDrawings(
         active,
         editable: isEditable(e.target),
         dragging: dragRef.current != null,
-        hasSelection: selectedRef.current != null,
+        hasSelection: selectedRef.current.length > 0,
       });
       if (!action) return;
       if (action === 'escape') {
@@ -742,7 +800,7 @@ export function useDrawings(
         const next = action === 'redo' ? redo(st) : undo(st);
         e.preventDefault();
         if (next === st) return;
-        if (selectedRef.current && !next.drawings.some((d) => d.id === selectedRef.current)) selectedRef.current = null;
+        selectedRef.current = prune(selectedRef.current, next.drawings);
         setState(next, true);
         return;
       }
@@ -756,8 +814,8 @@ export function useDrawings(
         return;
       }
       e.preventDefault();
-      setState(remove(getState(), selectedRef.current as string), true);
-      selectedRef.current = null;
+      setState(removeMany(getState(), selectedRef.current), true);
+      selectedRef.current = [];
       sync();
     };
     window.addEventListener('keydown', onKey);

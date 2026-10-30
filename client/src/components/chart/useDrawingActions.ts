@@ -1,17 +1,30 @@
 import { useMemo, type MutableRefObject, type RefObject } from 'react';
+import { prune } from '../../lib/drawingSelection';
 import { MOUSE_HIT } from '../../lib/drawingGeometry';
 import { copyDrawings, isClipboardEmpty, readDrawings } from '../../lib/drawingClipboard';
-import { cloneMany, paste, removeAll, removeMany, rename, reorder, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
+import { cloneMany, paste, removeAll, removeMany, rename, reorderMany, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
 import type { DrawingPrimitive } from './drawingPrimitive';
 import { getTool } from './tools';
 
-/** What the right-click menu shows about the drawing under the pointer. */
-export type DrawingInfo = { id: string; /** Its name, or its tool's label. */ title: string; name: string; locked: boolean; hasSettings: boolean };
+/** What the right-click menu shows about the selection the pointer is over (one drawing, or several). */
+export type DrawingInfo = {
+  /** The selected drawings in paint order. */
+  ids: string[];
+  count: number;
+  /** One drawing's name or its tool's label, else "N drawings". */
+  title: string;
+  /** The one drawing's name; empty for several. */
+  name: string;
+  /** Every selected drawing is locked. */
+  locked: boolean;
+  /** Settings and Rename are for a single drawing. */
+  hasSettings: boolean;
+};
 
 type Deps = {
   getState(): DrawingsState;
   setState(next: DrawingsState, persist: boolean): void;
-  selectedRef: MutableRefObject<string | null>;
+  selectedRef: MutableRefObject<string[]>;
   primRef: MutableRefObject<DrawingPrimitive | null>;
   containerRef: RefObject<HTMLDivElement | null>;
   hiddenRef: MutableRefObject<boolean>;
@@ -27,16 +40,21 @@ type Deps = {
  */
 export function useDrawingActions({ getState, setState, selectedRef, primRef, containerRef, hiddenRef, sync, edit, deleteAll }: Deps) {
   return useMemo(() => {
-    const select = (id: string | null) => {
-      selectedRef.current = id;
+    const select = (ids: string[]) => {
+      selectedRef.current = ids;
       sync();
+    };
+    /** The selected drawings in paint order. */
+    const selected = () => {
+      const set = new Set(selectedRef.current);
+      return getState().drawings.filter((d) => set.has(d.id));
     };
     const find = (id: string) => getState().drawings.find((d) => d.id === id);
     const apply = (next: DrawingsState) => {
       if (next !== getState()) setState(next, true);
     };
     return {
-      /** Selects and describes the drawing under a screen position; null over empty chart or while drawings are hidden. */
+      /** Selects (keeping a selection the drawing is in) and describes the drawing under a screen position; null over empty chart or while drawings are hidden. */
       drawingAt(clientX: number, clientY: number): DrawingInfo | null {
         const el = containerRef.current;
         const prim = primRef.current;
@@ -45,29 +63,36 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
         const hit = prim.hit({ x: clientX - r.left, y: clientY - r.top }, MOUSE_HIT);
         const d = hit && find(hit.id);
         if (!d) return null;
-        select(d.id);
+        if (!selectedRef.current.includes(d.id)) select([d.id]);
+        else sync();
+        const list = selected();
+        if (list.length > 1) {
+          return { ids: list.map((x) => x.id), count: list.length, title: `${list.length} drawings`, name: '', locked: list.every((x) => x.locked === true), hasSettings: false };
+        }
         const tool = getTool(d.tool);
-        return { id: d.id, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
+        return { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
       },
       edit,
       rename: (id: string, name: string) => apply(rename(getState(), id, name)),
-      toggleLock(id: string) {
-        const d = find(id);
-        if (d) apply(setLocked(getState(), [id], d.locked !== true));
+      /** Locks them all, or unlocks them when every one is locked already. */
+      toggleLock(ids: readonly string[]) {
+        const list = getState().drawings.filter((d) => ids.includes(d.id));
+        if (list.length > 0) apply(setLocked(getState(), ids, !list.every((d) => d.locked === true)));
       },
-      reorder: (id: string, to: ReorderTo) => apply(reorder(getState(), id, to)),
-      /** Copies a drawing just above itself and selects the copy. */
-      clone(id: string) {
+      reorder: (ids: readonly string[], to: ReorderTo) => apply(reorderMany(getState(), ids, to)),
+      /** Copies drawings just above themselves and selects the copies. */
+      clone(ids: readonly string[]) {
         const st = getState();
-        const next = cloneMany(st, [id]);
+        const next = cloneMany(st, ids);
         if (next === st) return;
+        const old = new Set(st.drawings.map((d) => d.id));
         setState(next, true);
-        select(next.drawings[next.drawings.findIndex((d) => d.id === id) + 1].id);
+        select(next.drawings.filter((d) => !old.has(d.id)).map((d) => d.id));
       },
-      /** Puts a drawing (the selected one by default) on the tab's clipboard. */
-      copy(id: string | null = selectedRef.current) {
-        const d = id ? find(id) : undefined;
-        if (d) copyDrawings([d]);
+      /** Puts drawings (the selection by default) on the tab's clipboard in paint order. */
+      copy(ids?: readonly string[]) {
+        const list = ids ? getState().drawings.filter((d) => ids.includes(d.id)) : selected();
+        if (list.length > 0) copyDrawings(list);
       },
       /** Adds the clipboard's drawings to this chart's source and selects them. Returns whether anything was added. */
       paste(): boolean {
@@ -76,12 +101,12 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
         const next = paste(st, clip);
         if (next === st) return false;
         setState(next, true);
-        select(next.drawings[next.drawings.length - 1].id);
+        select(next.drawings.slice(st.drawings.length).map((d) => d.id));
         return true;
       },
-      remove(id: string) {
-        apply(removeMany(getState(), [id]));
-        if (selectedRef.current === id) select(null);
+      remove(ids: readonly string[]) {
+        apply(removeMany(getState(), ids));
+        select(prune(selectedRef.current, getState().drawings) as string[]);
       },
       canPaste: () => !isClipboardEmpty(),
       /** Whether "Remove drawings" has anything to remove. */

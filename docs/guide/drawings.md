@@ -60,7 +60,7 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 
 ## Working with drawings
 
-Click a drawing to select it, drag to move it and drag a handle to resize it. Delete or Backspace removes the selected drawing. **Ctrl or Cmd+Z** undoes, **Ctrl or Cmd+Shift+Z** (or Ctrl+Y) redoes, Escape leaves the tool or clears the selection. With several charts these keys act on the active chart only ([Layouts](layouts.md)).
+Click a drawing to select it, drag to move it and drag a handle to resize it. Delete or Backspace removes the selected drawing (or all the selected drawings). **Ctrl or Cmd+Z** undoes, **Ctrl or Cmd+Shift+Z** (or Ctrl+Y) redoes, Escape leaves the tool or clears the selection. With several charts these keys act on the active chart only ([Layouts](layouts.md)).
 
 The rail also has:
 
@@ -69,6 +69,18 @@ The rail also has:
 - **Delete all drawings**: after a confirm, deletes all drawings for the current source. One undo step brings them back.
 
 The rail scrolls when the window is short.
+
+## Selecting several drawings
+
+**Shift+click** a drawing to add it to the selection, or to take it out when it is already in. **Shift+drag** on empty chart draws a selection box (any direction) and selects every drawing that lies wholly inside it, added to what is selected already; the chart does not pan while you drag the box. A horizontal line counts when its price is inside the box and a vertical line when its time is. A click on empty chart clears the selection. On touch there is no Shift, so only one drawing is selected at a time.
+
+![A selection box and the three drawings it selects](../evidence/drawing-manage/drawing-manage-box-desktop.png)
+
+With several drawings selected they show no handles. Dragging any one of them moves them all by the same distance (locked ones stay put), and Delete removes them all; each is one undo step. **Ctrl or Cmd+drag** clones the whole selection and drags the copies. **Ctrl or Cmd+C** copies them and **Ctrl or Cmd+V** pastes them back in the same order, all selected.
+
+Right-click one of them and the menu is headed "3 drawings" (the number selected). Settings and Rename are left out; Clone, Copy, Lock or Unlock (Unlock only when all are locked), the four order commands and Delete act on all of them, each as one undo step. Bring to front and Send to back keep their relative order.
+
+![The menu over three selected drawings](../evidence/drawing-manage/drawing-manage-multi-menu-desktop.png)
 
 ## Managing drawings
 

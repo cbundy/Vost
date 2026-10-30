@@ -12,6 +12,7 @@ import type {
 import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, barSlotTime, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
 import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
 import type { Anchor, Drawing } from '../../lib/drawings';
+import { inBox, type Rect } from '../../lib/drawingSelection';
 import { theme } from '../../lib/theme';
 import { fractionToPoint, pointToFraction } from './paneAnchor';
 import { getTool } from './tools';
@@ -30,7 +31,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private draft: Drawing | null = null;
   private measure: Drawing | null = null;
   private skipId: string | null = null;
-  private selectedId: string | null = null;
+  private selected: ReadonlySet<string> = new Set();
+  private box: Rect | null = null;
   private axisViews: ISeriesPrimitiveAxisView[] = [];
   private timeViews: ISeriesPrimitiveAxisView[] = [];
   private readonly view: IPrimitivePaneView;
@@ -68,18 +70,36 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   /** `measure` is the finished temporary measure; `skipId` is a note not painted because its text is being edited. */
   set(
     drawings: Drawing[],
-    selectedId: string | null,
+    selected: readonly string[],
     draft: Drawing | null,
     measure: Drawing | null = null,
     skipId: string | null = null,
   ): void {
     this.drawings = drawings;
-    this.selectedId = selectedId;
+    this.selected = new Set(selected);
     this.draft = draft;
     this.measure = measure;
     this.skipId = skipId;
     this.rebuildAxisViews();
     this.requestUpdate?.();
+  }
+
+  /** The selection box being dragged (chart pixels), or null. */
+  setBox(rect: Rect | null): void {
+    this.box = rect;
+    this.requestUpdate?.();
+  }
+
+  /** The ids of the shown drawings whose placed points all lie in the box (a price-only tool by y alone, a time-only tool by x alone). */
+  idsInBox(rect: Rect): string[] {
+    const out: string[] = [];
+    for (const d of this.drawings) {
+      if (!this.shown(d)) continue;
+      const tool = getTool(d.tool);
+      const pts = tool && this.points(d);
+      if (pts && inBox(pts, rect, { ignoreX: tool.priceOnly === true, ignoreY: tool.timeOnly === true })) out.push(d.id);
+    }
+    return out;
   }
 
   paneViews(): readonly IPrimitivePaneView[] {
@@ -164,7 +184,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   }
 
   /** Whether the drawing shows on the chart's current timeframe; a drawing of an unknown tool never does. */
-  private shown(d: Pick<Drawing, 'tool' | 'style'>): boolean {
+  shown(d: Pick<Drawing, 'tool' | 'style'>): boolean {
     return !!getTool(d.tool) && visibleOn(this.styleOf(d).values, timeframeKind(this.getTimeframe()));
   }
 
@@ -189,7 +209,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
 
   /** What a press at p would grab: the selected drawing's handles first, then drawings from the top. */
   hit(p: Pt, opts: HitOpts = MOUSE_HIT): DrawingHit | null {
-    const sel = this.drawings.find((d) => d.id === this.selectedId && this.shown(d));
+    // Handles are only for a single selection.
+    const sel = this.selected.size === 1 ? this.drawings.find((d) => this.selected.has(d.id) && this.shown(d)) : undefined;
     if (sel && !sel.locked) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
@@ -221,11 +242,11 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         const tool = getTool(d.tool);
         const pts = tool && this.points(d);
         if (!tool || !pts) continue;
-        const selected = d.id === this.selectedId;
+        const selected = this.selected.has(d.id);
         ctx.save();
         const view = this.viewFor(d, mediaSize);
         tool.draw(ctx, pts, view, { selected });
-        if (selected && !d.locked) {
+        if (selected && this.selected.size === 1 && !d.locked) {
           for (const h of tool.handles(pts, view)) {
             ctx.beginPath();
             ctx.arc(h.x, h.y, HANDLE_RADIUS, 0, Math.PI * 2);
@@ -253,6 +274,17 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         }
         ctx.restore();
       }
+      const box = this.box;
+      if (box) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(96, 165, 250, 0.15)';
+        ctx.fillRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = theme.accent2;
+        ctx.strokeRect(box.left + 0.5, box.top + 0.5, box.right - box.left, box.bottom - box.top);
+        ctx.restore();
+      }
     });
   }
 
@@ -271,7 +303,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const tool = getTool(d.tool);
       if (!tool?.axisLabels) continue;
       const { values } = this.styleOf(d);
-      const labels = tool.axisLabels(d.anchors, values, d.id === this.selectedId);
+      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id));
       const back = () => cssColor(values.labelColor ?? theme.accent2);
       for (const p of labels.price ?? []) {
         price.push({

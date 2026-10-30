@@ -16,7 +16,7 @@ const RECT2 = [{ x: 0.7, y: 0.45 }, { x: 0.95, y: 0.7 }];
 export const drawingManage: Scenario = {
   name: 'drawing-manage',
   keepPrefs: true,
-  description: 'Managing drawings: the right-click menu on a drawing and on empty chart, lock (a locked drawing does not move or pan the chart), rename, clone, Ctrl+drag clone (one undo step), copy and paste onto a second chart showing another symbol, bring to front and send to back of two rectangles, Remove drawings with undo',
+  description: 'Managing drawings: the right-click menu on a drawing and on empty chart, lock (a locked drawing does not move or pan the chart), rename, clone, Ctrl+drag clone (one undo step), copy and paste onto a second chart showing another symbol, bring to front and send to back of two rectangles, Remove drawings with undo, and selecting several drawings (Shift+click, a Shift+drag box) to move, lock, order, copy, paste and delete them together',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -212,6 +212,112 @@ export const drawingManage: Scenario = {
       check('accepting removes them', (await stored()).length === 0);
       await page.keyboard.press('Control+z');
       check('undo brings them back', (await stored()).length === 3);
+    });
+
+    await ctx.step('select several drawings: Shift+click adds and removes, a Shift+drag box selects, and the group moves, orders, copies and deletes together', async () => {
+      const list = await stored();
+      check('trend line and two rectangles', list.map((d) => d.tool).join() === 'trendLine,rectangle,rectangle');
+      const [r1a, r1b] = await Promise.all(RECT1.map(at));
+      const [r2a, r2b] = await Promise.all(RECT2.map(at));
+      const edge1 = { x: r1a.x, y: (r1a.y + r1b.y) / 2 };
+      const edge2 = { x: r2b.x, y: (r2a.y + r2b.y) / 2 };
+      const empty = await at({ x: 0.1, y: 0.92 });
+      const shiftClick = async (p: { x: number; y: number }) => {
+        await page.keyboard.down('Shift');
+        await page.mouse.click(p.x, p.y);
+        await page.keyboard.up('Shift');
+      };
+      const title = async (p: { x: number; y: number }) => {
+        await rightClick(p);
+        const t = await menu.getAttribute('aria-label');
+        return t;
+      };
+      const closeMenu = async () => {
+        await page.keyboard.press('Escape');
+        await menu.waitFor({ state: 'detached' });
+      };
+      const boxA = await at({ x: 0.05, y: 0.12 });
+      const boxB = await at({ x: 0.98, y: 0.95 });
+      /** Selects all three with a Shift+drag box. */
+      const boxAll = async () => {
+        await page.mouse.click(empty.x, empty.y);
+        await page.keyboard.down('Shift');
+        await drag(boxA, boxB);
+        await page.keyboard.up('Shift');
+      };
+
+      await page.mouse.click(empty.x, empty.y);
+      await shiftClick(body);
+      await shiftClick(edge1);
+      check('Shift+click two drawings selects both', (await title(edge1)) === '2 drawings');
+      await ctx.screenshot('multi-selected');
+      await closeMenu();
+      await shiftClick(edge1);
+      check('Shift+click again takes it out', (await title(body)) === 'Support');
+      await closeMenu();
+      check('nothing moved', JSON.stringify(await stored()) === JSON.stringify(list));
+
+      await page.mouse.click(empty.x, empty.y);
+      const still = await shot();
+      await page.keyboard.down('Shift');
+      await page.mouse.move(boxA.x, boxA.y);
+      await page.mouse.down();
+      await page.mouse.move(boxB.x, boxB.y, { steps: 12 });
+      await ctx.screenshot('box');
+      await page.mouse.up();
+      await page.keyboard.up('Shift');
+      check('the box selected all three', (await title(edge2)) === '3 drawings');
+      const names = (await menu.getByRole('menuitem').allTextContents()).join(',');
+      check('no Settings or Rename for several', names === 'Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete', names);
+      await ctx.screenshot('multi-menu');
+      await closeMenu();
+      await page.mouse.click(empty.x, empty.y);
+      check('the box did not pan or zoom the chart', (await shot()).equals(still));
+
+      // Lock one rectangle, then drag the trend line with the other two selected: the unlocked pair move together.
+      await page.mouse.click(edge1.x, edge1.y);
+      await rightClick(edge1);
+      await item('Lock').click();
+      await boxAll();
+      const beforeMove = await stored();
+      check('rectangle locked', beforeMove[1].locked === true);
+      await drag(body, { x: body.x + 40, y: body.y + 30 });
+      const moved = await stored();
+      const delta = (i: number) => ({ t: moved[i].anchors[0].time - beforeMove[i].anchors[0].time, p: moved[i].anchors[0].price - beforeMove[i].anchors[0].price });
+      const [d0, d2] = [delta(0), delta(2)];
+      check('the locked rectangle stayed', JSON.stringify(moved[1]) === JSON.stringify(beforeMove[1]));
+      check('both others moved', d0.t !== 0 && d0.p !== 0 && d2.t !== 0 && d2.p !== 0, JSON.stringify({ d0, d2 }));
+      check('by the same offset', Math.abs(d0.p - d2.p) <= Math.abs(d0.p) * 0.01 && Math.abs(d0.t - d2.t) <= Math.abs(d0.t) * 0.15, JSON.stringify({ d0, d2 }));
+      await ctx.screenshot('multi-moved');
+      await page.keyboard.press('Control+z');
+      check('one undo puts both back', JSON.stringify(await stored()) === JSON.stringify(beforeMove));
+      await page.keyboard.press('Control+z');
+      check('another undo unlocks', JSON.stringify(await stored()) === JSON.stringify(list));
+
+      // Bring to front on two of three keeps their relative order.
+      await page.mouse.click(empty.x, empty.y);
+      await page.mouse.click(body.x, body.y);
+      await shiftClick(edge1);
+      await rightClick(edge1);
+      await item('Bring to front').click();
+      check('the two moved to the top in their order', (await stored()).map((d) => d.id).join() === [list[2].id, list[0].id, list[1].id].join());
+      await page.keyboard.press('Control+z');
+      check('one undo restores the order', (await stored()).map((d) => d.id).join() === list.map((d) => d.id).join());
+
+      // Copy and paste all three, then delete the pasted (selected) ones with one key press.
+      await boxAll();
+      await page.keyboard.press('Control+c');
+      await page.keyboard.press('Control+v');
+      const pasted = await stored();
+      check('three pasted on top, in order', pasted.length === 6 && pasted.slice(3).map((d) => d.tool).join() === 'trendLine,rectangle,rectangle');
+      check('all three pasted are selected', (await title(edge2)) === '3 drawings');
+      await closeMenu();
+      await page.keyboard.press('Delete');
+      check('Delete removes the whole selection', (await stored()).map((d) => d.id).join() === list.map((d) => d.id).join());
+      await page.keyboard.press('Control+z');
+      check('one undo brings all three back', (await stored()).length === 6);
+      await page.keyboard.press('Control+z');
+      check('the originals are left', (await stored()).map((d) => d.id).join() === list.map((d) => d.id).join());
     });
 
     await ctx.step('copy on one chart, paste onto a second chart showing another symbol', async () => {

@@ -32,6 +32,26 @@ ok   undo removes the paste
 ok   dismissing the confirm keeps them
 ok   accepting removes them
 ok   undo brings them back
+ok   trend line and two rectangles
+ok   Shift+click two drawings selects both
+ok   Shift+click again takes it out
+ok   nothing moved
+ok   the box selected all three
+ok   no Settings or Rename for several - Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   the box did not pan or zoom the chart
+ok   rectangle locked
+ok   the locked rectangle stayed
+ok   both others moved - {"d0":{"t":6912000,"p":-18.046168001345876},"d2":{"t":6912000,"p":-18.046168001345904}}
+ok   by the same offset - {"d0":{"t":6912000,"p":-18.046168001345876},"d2":{"t":6912000,"p":-18.046168001345904}}
+ok   one undo puts both back
+ok   another undo unlocks
+ok   the two moved to the top in their order
+ok   one undo restores the order
+ok   three pasted on top, in order
+ok   all three pasted are selected
+ok   Delete removes the whole selection
+ok   one undo brings all three back
+ok   the originals are left
 ok   focus left the symbol field
 ok   one drawing on the other symbol
 ok   same times and prices
