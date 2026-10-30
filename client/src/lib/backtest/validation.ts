@@ -6,14 +6,19 @@
 import type { Candle } from '../../types';
 import { MIN_RANGE_BARS } from '../timeRange';
 import { gridSize, runOptimizeAsync, type OptimizeConfig, type OptimizeOutput } from './optimizer';
+import { robustnessScores, type RobustnessScore } from './robustness';
 import { runAnyBacktest } from './runner';
 import type { BacktestConfig, Metrics } from './types';
 
 export type ValidationConfig =
   | { method: 'none' }
-  | { method: 'split'; inSamplePct: number; topN: number };
+  | { method: 'split'; inSamplePct: number; topN: number }
+  | { method: 'robustness'; radius: number; rankByScore: boolean };
 
 export const DEFAULT_SPLIT = { method: 'split', inSamplePct: 70, topN: 10 } as const satisfies ValidationConfig;
+export const DEFAULT_ROBUSTNESS = { method: 'robustness', radius: 1, rankByScore: false } as const satisfies ValidationConfig;
+export const ROBUST_RADIUS_MIN = 1;
+export const ROBUST_RADIUS_MAX = 3;
 export const SPLIT_PCT_MIN = 50;
 export const SPLIT_PCT_MAX = 95;
 export const SPLIT_TOPN_MIN = 1;
@@ -47,11 +52,25 @@ export interface Check {
   heldOutRank: number | null;
 }
 
-export type ValidationOutput = SplitSettings & {
+export type SplitOutput = SplitSettings & {
   checks: Check[];
   /** Held-out runs that threw. */
   failed: number;
 };
+
+/** The settings of a robustness run (also stored in the run's context). */
+export interface RobustnessSettings {
+  method: 'robustness';
+  radius: number;
+  rankByScore: boolean;
+}
+
+export type RobustnessOutput = RobustnessSettings & {
+  /** `scores[i]` belongs to the result's `rows[i]`. */
+  scores: RobustnessScore[];
+};
+
+export type ValidationOutput = SplitOutput | RobustnessOutput;
 
 export type ValidatedOptimizeOutput = OptimizeOutput & { validation?: ValidationOutput };
 
@@ -73,6 +92,12 @@ export function spanOf(candles: Candle[]): Span {
 /** Why a validation setting cannot run on `bars` bars, or null. Shared by the pane, the state and the engine. */
 export function validationProblem(v: ValidationConfig | undefined, bars: number): string | null {
   if (!v || v.method === 'none') return null;
+  if (v.method === 'robustness') {
+    if (!Number.isInteger(v.radius) || v.radius < ROBUST_RADIUS_MIN || v.radius > ROBUST_RADIUS_MAX) {
+      return `Neighbourhood must be a whole number from ${ROBUST_RADIUS_MIN} to ${ROBUST_RADIUS_MAX}.`;
+    }
+    return null;
+  }
   if (!Number.isInteger(v.inSamplePct) || v.inSamplePct < SPLIT_PCT_MIN || v.inSamplePct > SPLIT_PCT_MAX) {
     return `In-sample % must be a whole number from ${SPLIT_PCT_MIN} to ${SPLIT_PCT_MAX}.`;
   }
@@ -106,6 +131,18 @@ export async function runValidatedOptimize(
 
   const problem = validationProblem(v, candles.length);
   if (problem) throw new Error(problem);
+  if (v.method === 'robustness') {
+    const out = await runOptimizeAsync(candles, baseConfig, opt, onProgress);
+    return {
+      ...out,
+      validation: {
+        method: 'robustness',
+        radius: v.radius,
+        rankByScore: v.rankByScore,
+        scores: robustnessScores(out.rows, opt.sweeps, v.radius),
+      },
+    };
+  }
   const { inSample, heldOut } = splitBars(candles, v.inSamplePct);
 
   // The number of checks is only known once the grid has ranked; until then assume the most it could be.

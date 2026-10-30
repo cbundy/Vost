@@ -2,7 +2,10 @@ import { useRef } from 'react';
 import { METRIC_LABELS, type OptimizeRow } from '../lib/backtest/optimizer';
 import { formatMetric } from '../lib/backtest/optimizerTable';
 import {
+  DEFAULT_ROBUSTNESS,
   DEFAULT_SPLIT,
+  ROBUST_RADIUS_MAX,
+  ROBUST_RADIUS_MIN,
   SPLIT_PCT_MAX,
   SPLIT_PCT_MIN,
   SPLIT_TOPN_MAX,
@@ -10,31 +13,57 @@ import {
   type Check,
   type Span,
   type ValidationConfig,
-  type ValidationOutput,
+  type SplitOutput,
 } from '../lib/backtest/validation';
 import { fmtNum, fmtPct, fmtTime, pnlClass } from '../lib/format';
 import { useStore } from '../state/store';
 import type { MetricKey } from '../lib/backtest/optimizer';
 
 type Split = Extract<ValidationConfig, { method: 'split' }>;
+type Robust = Extract<ValidationConfig, { method: 'robustness' }>;
 
 /** The Validation select and, for a split, its two inputs. The last split values survive a switch to None and back. */
 export function ValidationSettings({ value, onChange }: { value: ValidationConfig; onChange: (v: ValidationConfig) => void }) {
   const lastSplit = useRef<Split>({ ...DEFAULT_SPLIT });
   if (value.method === 'split') lastSplit.current = value;
+  const lastRobust = useRef<Robust>({ ...DEFAULT_ROBUSTNESS });
+  if (value.method === 'robustness') lastRobust.current = value;
   const split = value.method === 'split' ? value : null;
+  const robust = value.method === 'robustness' ? value : null;
   return (
     <>
       <label className="form-field">
         <span>Validation</span>
         <select
           value={value.method}
-          onChange={(e) => onChange(e.target.value === 'split' ? { ...lastSplit.current } : { method: 'none' })}
+          onChange={(e) =>
+            onChange(e.target.value === 'split' ? { ...lastSplit.current } : e.target.value === 'robustness' ? { ...lastRobust.current } : { method: 'none' })
+          }
         >
           <option value="none">None</option>
           <option value="split">In-sample / out-of-sample</option>
+          <option value="robustness">Robustness</option>
         </select>
       </label>
+      {robust && (
+        <>
+          <label className="form-field">
+            <span>Neighbourhood</span>
+            <input
+              type="number"
+              min={ROBUST_RADIUS_MIN}
+              max={ROBUST_RADIUS_MAX}
+              step={1}
+              value={Number.isNaN(robust.radius) ? '' : robust.radius}
+              onChange={(e) => onChange({ ...robust, radius: e.target.value === '' ? NaN : Number(e.target.value) })}
+            />
+          </label>
+          <label className="form-field">
+            <span>Rank by robustness</span>
+            <input type="checkbox" style={{ width: 'auto', alignSelf: 'flex-start' }} checked={robust.rankByScore} onChange={(e) => onChange({ ...robust, rankByScore: e.target.checked })} />
+          </label>
+        </>
+      )}
       {split && (
         <>
           <label className="form-field">
@@ -79,7 +108,7 @@ export function HeldOutCheck({
   metric,
   onApply,
 }: {
-  validation: ValidationOutput;
+  validation: SplitOutput;
   keys: string[];
   metric: MetricKey;
   onApply: (row: OptimizeRow) => void;

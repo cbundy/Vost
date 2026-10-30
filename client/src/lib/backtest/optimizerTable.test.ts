@@ -72,3 +72,22 @@ describe('pageOf', () => {
     expect(pageOf([], 0, 100)).toMatchObject({ items: [], from: 0, to: 0, total: 0, pages: 1, page: 0 });
   });
 });
+
+describe('sortOptimizeRows by robustness figures', () => {
+  const rows = [row(1, {}, 3), row(2, {}, 2), row(3, {}, 1), row(4, {}, 0)];
+  const sc = (robustness: number | null, mean = 0) => ({ neighbourMean: mean, neighbourMin: mean, neighbourCount: 2, robustness, capped: false });
+  const scores = [sc(1, 5), sc(null, 1), sc(4, 5), sc(1, 9)];
+  it('puts the highest robustness first, nulls last and ties in metric order', () => {
+    expect(sortOptimizeRows(rows, 'robustness', 'desc', scores).map((r) => r.rank)).toEqual([3, 1, 4, 2]);
+  });
+  it('ascending also keeps nulls last, and ties in metric order', () => {
+    expect(sortOptimizeRows(rows, 'robustness', 'asc', scores).map((r) => r.rank)).toEqual([1, 4, 3, 2]);
+  });
+  it('sorts by the neighbour columns and starts them descending', () => {
+    expect(sortOptimizeRows(rows, 'nbMean', 'desc', scores).map((r) => r.rank)).toEqual([4, 1, 3, 2]);
+    for (const id of ['nbMean', 'nbMin', 'nbCount', 'robustness']) expect(firstDirection(id)).toBe('desc');
+  });
+  it('treats a missing score list as all missing, keeping metric order', () => {
+    expect(sortOptimizeRows(rows, 'robustness', 'desc').map((r) => r.rank)).toEqual([1, 2, 3, 4]);
+  });
+});

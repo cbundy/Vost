@@ -3,7 +3,7 @@ import type { Candle } from '../../types';
 import { runOptimizeAsync, type OptimizeConfig } from './optimizer';
 import { runFullBacktest } from './runner';
 import { defaultBacktestConfig, type BacktestConfig } from './types';
-import { runValidatedOptimize, spanOf, splitBars, validationProblem } from './validation';
+import { runValidatedOptimize, spanOf, splitBars, validationProblem, type SplitOutput } from './validation';
 
 function series(n: number): Candle[] {
   return Array.from({ length: n }, (_, i) => {
@@ -36,6 +36,16 @@ describe('splitBars', () => {
     expect(s.heldOut[0].time).toBe(c[cut].time);
     expect(s.heldOut[n - cut - 1].time).toBe(c[n - 1].time);
     expect(spanOf(s.heldOut)).toEqual({ from: c[cut].time, to: c[n - 1].time, bars: n - cut });
+  });
+});
+
+describe('validationProblem for robustness', () => {
+  const rob = (radius: number) => ({ method: 'robustness', radius, rankByScore: false }) as const;
+  it('accepts a whole neighbourhood from 1 to 3', () => {
+    for (const r of [1, 2, 3]) expect(validationProblem(rob(r), 1)).toBeNull();
+  });
+  it('refuses 0, 4, 1.5 and an empty (NaN) neighbourhood', () => {
+    for (const r of [0, 4, 1.5, NaN]) expect(validationProblem(rob(r), 100)).toBe('Neighbourhood must be a whole number from 1 to 3.');
   });
 });
 
@@ -77,7 +87,7 @@ describe('runValidatedOptimize', () => {
     const grid = await runOptimizeAsync(inSample, base, o);
     expect(out.rows).toEqual(grid.rows);
     expect(out.combos).toBe(grid.combos);
-    const v = out.validation!;
+    const v = (out.validation as SplitOutput);
     expect(v.inSample).toEqual(spanOf(inSample));
     expect(v.heldOut).toEqual(spanOf(heldOut));
     expect(v.checks).toHaveLength(4);
@@ -100,16 +110,16 @@ describe('runValidatedOptimize', () => {
     const o = opt({ method: 'split', inSamplePct: 70, topN: 50 }, { metric: 'sharpe', sweeps: [{ key: 'fast', from: 5, to: 6, step: 1 }] });
     const out = await runValidatedOptimize(flat, base, o);
     expect(out.rows.every((r) => r.value == null)).toBe(true);
-    expect(out.validation!.checks).toEqual([]);
+    expect((out.validation as SplitOutput).checks).toEqual([]);
     const big = await runValidatedOptimize(candles, base, opt({ method: 'split', inSamplePct: 70, topN: 50 }));
-    expect(big.validation!.checks).toHaveLength(big.rows.filter((r) => r.value != null).length);
+    expect((big.validation as SplitOutput).checks).toHaveLength(big.rows.filter((r) => r.value != null).length);
   });
 
   it('ranks held-out values with ties in check order and null values unranked', async () => {
     // a sweep of a parameter the strategy ignores gives identical held-out values: all tie
     const o = opt({ method: 'split', inSamplePct: 70, topN: 3 }, { sweeps: [{ key: 'unused_param', from: 1, to: 3, step: 1 }] });
     const out = await runValidatedOptimize(candles, base, o);
-    expect(out.validation!.checks.map((c) => c.heldOutRank)).toEqual([1, 2, 3]);
+    expect((out.validation as SplitOutput).checks.map((c) => c.heldOutRank)).toEqual([1, 2, 3]);
   });
 
   it('reports monotonic progress ending at 1, with the grid taking combos / (combos + checks)', async () => {
@@ -118,7 +128,7 @@ describe('runValidatedOptimize', () => {
     const out = await runValidatedOptimize(candles, base, o, (p) => seen.push(p));
     for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]);
     expect(seen[seen.length - 1]).toBe(1);
-    const share = out.combos / (out.combos + out.validation!.checks.length);
+    const share = out.combos / (out.combos + (out.validation as SplitOutput).checks.length);
     expect(seen.some((p) => Math.abs(p - share) < 1e-12)).toBe(true);
     expect(seen.filter((p) => p < share - 1e-12).length).toBeGreaterThan(0);
   });

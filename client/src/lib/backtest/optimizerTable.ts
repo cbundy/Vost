@@ -1,5 +1,6 @@
 import { fmtMoney, fmtNum, fmtPct } from '../format';
 import type { MetricKey, OptimizeRow } from './optimizer';
+import type { RobustnessScore } from './robustness';
 import type { Metrics } from './types';
 
 export type SortDir = 'asc' | 'desc';
@@ -51,8 +52,17 @@ export function formatMetric(metric: MetricKey, value: number | null): string {
 
 export const paramColumnId = (key: string): ColumnId => `p:${key}`;
 
-function cellValue(r: RankedRow, column: ColumnId): number | null | undefined {
+/** Column ids of the robustness figures (see robustness.ts). */
+export const ROBUSTNESS_COLUMNS = ['nbMean', 'nbMin', 'nbCount', 'robustness'] as const;
+const isRobustnessColumn = (column: ColumnId): boolean => (ROBUSTNESS_COLUMNS as readonly string[]).includes(column);
+
+function cellValue(r: RankedRow, column: ColumnId, scores?: RobustnessScore[]): number | null | undefined {
   if (column === 'rank') return r.rank;
+  if (isRobustnessColumn(column)) {
+    const s = scores?.[r.rank - 1];
+    if (!s) return null;
+    return column === 'nbMean' ? s.neighbourMean : column === 'nbMin' ? s.neighbourMin : column === 'nbCount' ? s.neighbourCount : s.robustness;
+  }
   if (column === 'value') return r.row.value;
   if (column.startsWith('p:')) return r.row.params[column.slice(2)];
   return r.row.metrics[column as keyof Metrics] as number | null;
@@ -69,12 +79,12 @@ export function firstDirection(column: ColumnId): SortDir {
  * Sorts rows (given in ranking order) by a column. Stable: ties keep ranking order. Missing values
  * (null, NaN) are last in either direction; +Infinity sorts as the largest number.
  */
-export function sortOptimizeRows(rows: OptimizeRow[], column: ColumnId, dir: SortDir): RankedRow[] {
+export function sortOptimizeRows(rows: OptimizeRow[], column: ColumnId, dir: SortDir, scores?: RobustnessScore[]): RankedRow[] {
   const ranked = rows.map((row, i) => ({ row, rank: i + 1 }));
   const sign = dir === 'asc' ? 1 : -1;
   return ranked.sort((a, b) => {
-    const x = cellValue(a, column);
-    const y = cellValue(b, column);
+    const x = cellValue(a, column, scores);
+    const y = cellValue(b, column, scores);
     const mx = missing(x);
     const my = missing(y);
     if (mx || my) return mx && my ? a.rank - b.rank : mx ? 1 : -1;

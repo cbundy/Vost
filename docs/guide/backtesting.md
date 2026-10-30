@@ -94,3 +94,21 @@ Indicators start again at the held-out boundary, so the first bars of the held-o
 ![The held-out check next to the in-sample results](../evidence/optimizer/optimizer-held-out-check-desktop.png)
 
 ![An in-sample % out of range disables Optimize](../evidence/optimizer/optimizer-split-invalid-desktop.png)
+
+#### Robustness
+
+**Robustness** looks at how steady a result is. A result whose neighbours in the grid did well too sits on a broad, steady area; a lucky one-off peak has poor neighbours. Nothing is run again: the figures come from the finished grid, and the table, heatmap and title are the normal ones ("Results · <metric>"), with a hint naming the neighbourhood.
+
+**Neighbourhood** is a whole number from 1 to 3 (default 1): the number of grid steps in every swept parameter. A result's **neighbours** are all the other results whose position differs by at most that many steps in every parameter (a square for two parameters, a cube for three, clipped at the edges of the grid). Failed combinations and results without a ranking value are not neighbours. The table gets four sortable columns after the ranking metric: **Neighbour mean**, **Neighbour min**, **Neighbours** (how many there are) and **Robustness**, the mean of the result's own value and its neighbours' values. They are empty when a result has no neighbours, and Robustness is also empty when the result has no value of its own.
+
+An infinite value (for example a profit factor with no losing trade) counts as the largest finite value in the grid, and minus infinity as the smallest; when the grid has no finite value, infinite values count as missing. A Robustness cell that used such a replacement is marked with `*` and its tooltip names the values used.
+
+Tick **Rank by robustness** to open the table sorted by Robustness, highest first (empty last, ties in ranking-metric order); clicking **Rank** restores the ranking-metric order. When the most robust result is not the best one, the heatmap outlines its cell with a dashed line and a line above it reads "Most robust: ..." with its Robustness. The colour scale is unchanged. The values you last chose are kept while you switch to another method and back.
+
+**Export results CSV** adds `validation`, `neighbourhood` and `rank by robustness` lines and the columns `neighbour_mean`, `neighbour_min`, `neighbour_count` and `robustness` (empty when not available); rows stay in ranking-metric order.
+
+![Choosing Robustness with a neighbourhood of 1 and ranking by it](../evidence/optimizer/optimizer-robustness-settings-desktop.png)
+
+![The table with its four robustness columns, sorted by Robustness](../evidence/optimizer/optimizer-robustness-results-desktop.png)
+
+![The heatmap with the most robust result outlined](../evidence/optimizer/optimizer-robustness-heatmap-desktop.png)
