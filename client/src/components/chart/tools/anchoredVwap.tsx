@@ -115,10 +115,10 @@ export const anchoredVwap: DrawingTool = {
     ctx.rect(0, 0, view.width, view.height);
     ctx.clip();
     // Fills first, between the previous level and each band, so lines stay on top.
-    let prev = l.main;
+    let [prevUp, prevLow] = [l.main, l.main];
     for (const lv of l.levels) {
       if (lv.fill) {
-        for (const edge of [lv.upper, lv.lower]) {
+        for (const [edge, prev] of [[lv.upper, prevUp], [lv.lower, prevLow]] as const) {
           if (edge.length < 2 || prev.length < 2) continue;
           path(ctx, [...edge, ...prev.slice().reverse()]);
           ctx.closePath();
@@ -126,7 +126,7 @@ export const anchoredVwap: DrawingTool = {
           ctx.fill();
         }
       }
-      prev = lv.upper;
+      [prevUp, prevLow] = [lv.upper, lv.lower];
     }
     ctx.lineWidth = 1;
     ctx.setLineDash([]);

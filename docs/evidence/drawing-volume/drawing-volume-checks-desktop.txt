@@ -1,5 +1,7 @@
 ok   section heading
 ok   nothing stored after Escape
+ok   click-click placement stored - fixedRangeVolumeProfile:2
+ok   undo removes the click-placed profile
 ok   Anchored VWAP stored - anchoredVwap:1
 ok   Fixed range volume profile stored - anchoredVwap:1,fixedRangeVolumeProfile:2
 ok   Anchored volume profile stored - anchoredVwap:1,fixedRangeVolumeProfile:2,anchoredVolumeProfile:1
@@ -9,6 +11,9 @@ ok   Anchored VWAP settings are titled for the tool
 ok   Anchored VWAP restyled - {"showBand2":true,"mult1":1.5}
 ok   Anchored VWAP undo reverts the restyle
 ok   Anchored VWAP redo restores the restyle
+ok   Fixed range volume profile handle drag changed the anchor's time - 1661558400 -> 1658102400
+ok   Fixed range volume profile handle drag kept the anchor's price
+ok   Fixed range volume profile handle drag left the other anchor
 ok   Fixed range volume profile moved by its body
 ok   Fixed range volume profile kept its prices
 ok   Fixed range volume profile settings are titled for the tool

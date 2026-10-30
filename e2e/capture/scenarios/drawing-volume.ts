@@ -130,6 +130,20 @@ export const drawingVolume: Scenario = {
         await page.mouse.click(b.x, b.y);
         check('nothing stored after Escape', (await stored()).length === 0);
       });
+      await ctx.step('the Fixed range volume profile is also placed by two clicks', async () => {
+        await pickTool('Fixed range volume profile');
+        const [a, b] = await Promise.all(TOOLS[1].at.map(at));
+        await page.mouse.move(a.x, a.y, { steps: 6 });
+        await page.mouse.click(a.x, a.y);
+        await page.mouse.move(b.x, b.y, { steps: 8 });
+        await page.mouse.click(b.x, b.y);
+        const list = await stored();
+        check('click-click placement stored', list.length === 1 && list[0].tool === 'fixedRangeVolumeProfile' && list[0].anchors.length === 2, list.map((d) => `${d.tool}:${d.anchors.length}`).join(','));
+        await ctx.screenshot('clicked-fixedRangeVolumeProfile');
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Control+z');
+        check('undo removes the click-placed profile', (await stored()).length === 0);
+      });
     }
 
     for (const [i, t] of TOOLS.entries()) {
@@ -177,6 +191,19 @@ export const drawingVolume: Scenario = {
           await page.mouse.click(grab.x, grab.y);
           await page.waitForTimeout(300);
           await ctx.screenshot(`selected-${t.id}`);
+          if (t.id === 'fixedRangeVolumeProfile') {
+            const left = await at(t.at[0]);
+            const bx = await box();
+            /** The handle sits halfway up the range box, which on the demo data is a fixed 55% down the chart. */
+            const h = { x: left.x, y: bx.y + bx.height * 0.548 };
+            const pre = await one(t.id);
+            await drag(h, { x: h.x - 20, y: h.y + 25 });
+            const post = await one(t.id);
+            check(`${t.label} handle drag changed the anchor's time`, post.anchors[0].time !== pre.anchors[0].time, `${pre.anchors[0].time} -> ${post.anchors[0].time}`);
+            check(`${t.label} handle drag kept the anchor's price`, post.anchors[0].price === pre.anchors[0].price);
+            check(`${t.label} handle drag left the other anchor`, post.anchors[1].time === pre.anchors[1].time && post.anchors[1].price === pre.anchors[1].price);
+            await ctx.screenshot(`handle-${t.id}`);
+          }
           const before = await one(t.id);
           await drag(grab, { x: grab.x - 20, y: grab.y });
           const moved = await one(t.id);
