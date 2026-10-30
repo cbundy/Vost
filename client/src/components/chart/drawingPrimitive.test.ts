@@ -165,3 +165,47 @@ describe('selection list', () => {
     expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 'u', handle: null });
   });
 });
+
+describe('note popups', () => {
+  const pin = { id: 'n', tool: 'note', anchors: [{ time: 200, price: 50 }], text: 'POP' };
+  const over = { id: 'o', tool: 'text', anchors: [{ time: 200, price: 50 }], text: 'OVER' };
+  function texts(prim: DrawingPrimitive) {
+    const out: string[] = [];
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (t, k: string) => (k in t ? t[k] : (...a: unknown[]) => void (k === 'fillText' && out.push(a[0] as string))),
+      set: (t, k: string, v) => ((t[k] = v), true),
+    });
+    const target = { useMediaCoordinateSpace: (f: (s: unknown) => void) => f({ context: ctx, mediaSize: { width: 400, height: HEIGHT } }) };
+    (prim.paneViews()[0].renderer() as { draw(t: unknown): void }).draw(target);
+    return out;
+  }
+  it('paints no popup unless the note is hovered, selected or pinned', () => {
+    const prim = make();
+    prim.set([pin, over], [], null);
+    expect(texts(prim)).toEqual(['OVER']);
+  });
+  it('paints a popup after every drawing, so none covers it', () => {
+    const prim = make();
+    prim.set([pin, over], [], null);
+    prim.setPopups('n', new Set());
+    expect(texts(prim)).toEqual(['OVER', 'POP']);
+    prim.setPopups(null, new Set(['n']));
+    expect(texts(prim)).toEqual(['OVER', 'POP']);
+    prim.setPopups(null, new Set());
+    prim.set([pin, over], ['n'], null);
+    expect(texts(prim)).toEqual(['OVER', 'POP']);
+  });
+  it('does not paint the popup of a note being edited', () => {
+    const prim = make();
+    prim.set([pin], ['n'], null, null, 'n');
+    expect(texts(prim)).toEqual([]);
+  });
+  it('hits an open popup but not a closed one', () => {
+    const prim = make();
+    prim.set([pin], [], null);
+    const inPopup = { x: 10 + 8 + 6 + 12, y: 80 };
+    expect(prim.hit(inPopup)).toBeNull();
+    prim.setPopups(null, new Set(['n']));
+    expect(prim.hit(inPopup)).toEqual({ id: 'n', handle: null });
+  });
+});
