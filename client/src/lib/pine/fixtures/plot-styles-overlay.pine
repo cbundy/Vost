@@ -1,0 +1,9 @@
+//@version=6
+indicator("Plot chars", overlay=true)
+fast = ta.ema(close, 9)
+slow = ta.ema(close, 21)
+plot(fast, "Fast", linewidth=2, offset=3, color=color.blue)
+plot(slow, "Slow", style=plot.style_stepline, color=color.orange)
+plotchar(ta.crossover(fast, slow), "Buy", char="▲", location=location.belowbar, color=#FF9800, size=size.large, text="buy")
+plotchar(ta.crossunder(fast, slow), "Sell", char="🔻", location=location.abovebar, size=size.large, text="sell")
+plotchar(close > ta.highest(close[1], 20), "Star", location=location.abovebar, color=color.purple, size=size.small)
