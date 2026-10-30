@@ -156,9 +156,12 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
     preview({ style: next });
   };
   const reset = () => {
-    setStyleState({});
+    // Clears only this tool's own settings: visibility switches and keys a newer app stored stay.
+    const next = { ...style };
+    for (const f of fields) delete next[f.key];
+    setStyleState(next);
     setEpoch((e) => e + 1);
-    preview({ style: {} });
+    preview({ style: next });
   };
   const saveDefault = () => {
     const own = pickValid(fields, values);

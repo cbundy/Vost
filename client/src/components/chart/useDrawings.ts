@@ -27,7 +27,7 @@ import { drawingKeyAction } from '../../lib/drawingKeys';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { useDrawingSettings } from './useDrawingSettings';
-import { ANCHOR_COUNTS, TEXT_TOOLS, getTool, type DrawingTool } from './tools';
+import { ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export const CURSOR = 'cursor';
@@ -35,7 +35,7 @@ export const CURSOR = 'cursor';
 /** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
 let storage: DrawingsStorage | null = null;
 function drawingsStorage(): DrawingsStorage {
-  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS).sources, saveDrawings);
+  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS).sources, saveDrawings);
   return storage;
 }
 
