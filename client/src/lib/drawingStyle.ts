@@ -3,7 +3,7 @@
  * drawing's effective style (its own stored value, else the user's saved default for the tool, else the tool's
  * default). No chart or React imports.
  */
-import { FIB_LEVELS } from './drawingGeometry';
+import { FIB_ARC_LEVELS, FIB_CIRCLE_LEVELS, FIB_LEVELS, FIB_SPEED_LEVELS, FIB_TIME_ZONE_LEVELS } from './geometry/fib';
 import { theme } from './theme';
 
 export type SettingKind = 'color' | 'opacity' | 'width' | 'lineStyle' | 'boolean' | 'number' | 'levels' | 'choice';
@@ -69,7 +69,14 @@ export function lineDash(style: unknown): number[] {
 
 /* ------------------------------ fib levels ------------------------------ */
 
-export const DEFAULT_LEVELS: readonly FibLevel[] = FIB_LEVELS.map((value) => ({ value, color: 'accent', on: true }));
+const levelList = (values: readonly number[]): readonly FibLevel[] => values.map((value) => ({ value, color: 'accent', on: true }));
+
+export const DEFAULT_LEVELS: readonly FibLevel[] = levelList(FIB_LEVELS);
+/** The default level tables of the other Fibonacci tools. */
+export const FIB_TIME_ZONE_TABLE: readonly FibLevel[] = levelList(FIB_TIME_ZONE_LEVELS);
+export const FIB_SPEED_TABLE: readonly FibLevel[] = levelList(FIB_SPEED_LEVELS);
+export const FIB_CIRCLE_TABLE: readonly FibLevel[] = levelList(FIB_CIRCLE_LEVELS);
+export const FIB_ARC_TABLE: readonly FibLevel[] = levelList(FIB_ARC_LEVELS);
 
 /** A level list as stored: invalid entries are dropped, values deduplicated, the list cut to {@link MAX_LEVELS}. */
 export function cleanLevels(raw: unknown): FibLevel[] | undefined {
