@@ -30,6 +30,18 @@ A script that draws in its own pane (`overlay=false`) shows its `plotshape` and 
 
 ![A shaded cloud between two moving averages that turns green or red](../evidence/pine-render/pine-render-fill-cloud-desktop.png)
 
+## Custom candles, bar colors and arrows
+
+`plotcandle` and `plotbar` draw their own candles and bars, with the colors the script gives them (body, wick and border). A script with `overlay=false` shows them in its own pane, an overlay script on the chart. `plotarrow` draws an up arrow below the bar for a positive value and a down arrow above it for a negative one, larger for a larger value.
+
+![Custom candles and arrows in the script's own pane](../evidence/pine-render/pine-render-candles-desktop.png)
+
+`barcolor` recolors the chart's own candles (body, wick and border). When several scripts color the same bar the last one in the list wins. Hide or remove the script and the normal candles come back.
+
+![Chart candles recolored by barcolor, with bars and arrows on the price pane](../evidence/pine-render/pine-render-bar-colors-desktop.png)
+
+![The same chart with the script hidden: the normal candles are back](../evidence/pine-render/pine-render-bar-colors-off-desktop.png)
+
 ## Converting old scripts
 
 A script with no `//@version` line, or a version below 5, will not run. The pane says so and shows **Convert to v6**. It rewrites the source in one edit (Ctrl+Z restores the original) and reports "Converted from Pine v<N> to v6". Whatever it cannot convert safely stays with a `// TODO(convert)` comment above it; search for that.

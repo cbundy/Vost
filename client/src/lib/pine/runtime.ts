@@ -32,7 +32,18 @@ export function parseError(err: unknown): { message: string; line?: number; colu
   return m ? { message, line: Number(m[1]), column: Number(m[2]) } : { message };
 }
 
-function plotKind(style: unknown): PinePlotKind {
+/** plotarrow() is a `shape` plot with no plot-level shape, whose points carry arrow shapes or whose options carry its sizing. */
+function isPlotArrow(opts: any, data: any[]): boolean {
+  if (typeof opts.shape === 'string') return false;
+  if (['colorup', 'colordown', 'minheight', 'maxheight'].some((k) => opts[k] !== undefined)) return true;
+  return data.some((p) => /^(shape_)?arrow_?(up|down)$/i.test(String(p?.options?.shape ?? '')));
+}
+
+function plotKind(style: unknown, opts: any = {}, data: any[] = []): PinePlotKind {
+  if (style === 'candle') return 'candle';
+  if (style === 'bar') return 'bar';
+  if (style === 'barcolor') return 'barcolor';
+  if (style === 'shape' && isPlotArrow(opts, data)) return 'plotarrow';
   if (style === 'fill') return 'fill';
   if (style === 'hline') return 'hline';
   if (style === 'background') return 'bgcolor';
@@ -48,18 +59,26 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
   for (const [key, plot] of Object.entries(plots)) {
     if (key.startsWith('__') || !plot || !Array.isArray(plot.data)) continue;
     const opts = plot.options ?? {};
-    const kind = plotKind(opts.style);
+    const kind = plotKind(opts.style, opts, plot.data);
     // The gradient form of fill is not drawn.
     if (kind === 'fill' && opts.gradient) continue;
     keys.push(key);
     joins.push(kind === 'fill' ? [String(opts.plot1), String(opts.plot2)] : null);
-    const byTime = new Map<number, { value: number | null; color: string | null }>();
+    const byTime = new Map<number, { value: number | null; color: string | null; ohlc?: [number, number, number, number] | null; wick?: string | null; border?: string | null }>();
+    const isOhlc = kind === 'candle' || kind === 'bar';
     for (const p of plot.data) {
+      if (isOhlc) {
+        const v = Array.isArray(p.value) ? p.value.map(toNum) : [];
+        const ohlc = v.length === 4 && v.every((x: number | null) => x !== null) ? (v as [number, number, number, number]) : null;
+        const str = (x: unknown) => (typeof x === 'string' ? x : null);
+        byTime.set(p.time, { value: ohlc ? ohlc[3] : null, ohlc, color: str(p.options?.color), wick: str(p.options?.wickcolor), border: str(p.options?.bordercolor) });
+        continue;
+      }
       const absolute = String(p.options?.location ?? opts.location ?? '').toLowerCase() === 'absolute';
       const value =
         kind === 'plotshape' && absolute
           ? p.value === true ? 1 : toNum(p.value)
-          : kind === 'bgcolor' || kind === 'plotshape' ? (p.value === true ? 1 : null) : toNum(p.value);
+          : kind === 'bgcolor' || kind === 'plotshape' || kind === 'barcolor' ? (p.value === true ? 1 : null) : toNum(p.value);
       byTime.set(p.time, { value, color: typeof p.options?.color === 'string' ? p.options.color : null });
     }
     const pineOverlay = typeof opts.overlay === 'boolean' ? opts.overlay : overlay;
@@ -72,6 +91,17 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
       values: candles.map((c) => byTime.get(c.time * 1000)?.value ?? null),
       color,
       ...(hasVaryingColor && { colors }),
+      ...(isOhlc && {
+        ohlc: candles.map((c) => byTime.get(c.time * 1000)?.ohlc ?? null),
+        ...(kind === 'candle' && {
+          wickColors: candles.map((c) => byTime.get(c.time * 1000)?.wick ?? null),
+          borderColors: candles.map((c) => byTime.get(c.time * 1000)?.border ?? null),
+        }),
+      }),
+      ...(kind === 'plotarrow' && {
+        minHeight: toNum(opts.minheight) ?? 5,
+        maxHeight: toNum(opts.maxheight) ?? 100,
+      }),
       ...(kind === 'plotshape' && {
         shape: typeof opts.shape === 'string' ? opts.shape.replace(/^shape_/, '') : 'circle',
         location: typeof opts.location === 'string' ? opts.location : 'AboveBar',
