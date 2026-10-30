@@ -30,7 +30,16 @@ export interface PineSeriesDesc {
 
 export interface PineMarkerDesc {
   time: number;
+  /** Where the mark is drawn: the candles, or the script's own pane. */
+  pane: 'price' | 'separate';
+  /** Price pane: bar-anchored position. */
   position: 'aboveBar' | 'belowBar' | 'inBar';
+  /** Separate pane: where the mark sits on the carrier's hidden 0..1 scale. */
+  panePosition: 'atPriceTop' | 'atPriceBottom' | 'atPriceMiddle';
+  /** Separate pane: the carrier price the mark is anchored to (1 top, 0 bottom, 0.5 middle). */
+  price: number;
+  /** Separate pane: `price` is a series value on the pane's own `right` scale, not the carrier's 0..1 scale. */
+  onScale?: boolean;
   shape: 'arrowUp' | 'arrowDown' | 'circle' | 'square';
   color: string;
   text?: string;
@@ -39,7 +48,7 @@ export interface PineMarkerDesc {
 
 export interface PineChartModel {
   series: PineSeriesDesc[];
-  /** Always drawn on the price pane. */
+  /** Each mark carries its pane: shapes follow their plot, trade marks are on the price pane. */
   markers: PineMarkerDesc[];
 }
 
@@ -81,6 +90,18 @@ function location(loc: string | undefined): PineMarkerDesc['position'] {
   return 'aboveBar';
 }
 
+/**
+ * Where a mark sits in a script's own pane. An absolute location sits at the
+ * plotted value on the pane's right scale; with no finite value it sits mid-pane.
+ */
+export function separatePosition(loc: string | undefined, value?: number | null): Pick<PineMarkerDesc, 'panePosition' | 'price' | 'onScale'> {
+  const l = (loc ?? '').toLowerCase();
+  if (l === 'absolute' && typeof value === 'number' && Number.isFinite(value)) return { panePosition: 'atPriceMiddle', price: value, onScale: true };
+  if (l === 'belowbar' || l === 'bottom') return { panePosition: 'atPriceBottom', price: 0 };
+  if (l === 'absolute') return { panePosition: 'atPriceMiddle', price: 0.5 };
+  return { panePosition: 'atPriceTop', price: 1 };
+}
+
 export function buildPineChart(result: PineResult, candles: Candle[], fallbackColor: string): PineChartModel {
   const series: PineSeriesDesc[] = [];
   const markers: PineMarkerDesc[] = [];
@@ -109,10 +130,14 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     }
     if (plot.kind === 'plotshape') {
       candles.forEach((c, i) => {
-        if (!plot.values[i]) return;
+        const abs = (plot.location ?? '').toLowerCase() === 'absolute';
+        const v = plot.values[i];
+        if (abs ? v === null || v === undefined || !Number.isFinite(v) : !v) return;
         markers.push({
           time: c.time,
+          pane,
           position: location(plot.location),
+          ...separatePosition(plot.location, plot.values[i]),
           shape: shapeMarker(plot.shape),
           color: cssColor(plot.colors?.[i], color),
           size: 1,
@@ -135,6 +160,9 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     const long = t.direction === 'long';
     markers.push({
       time: t.entryTime,
+      pane: 'price',
+      panePosition: 'atPriceMiddle',
+      price: 0.5,
       position: long ? 'belowBar' : 'aboveBar',
       shape: long ? 'arrowUp' : 'arrowDown',
       color: long ? UP : DOWN,
@@ -142,7 +170,7 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
       size: 1,
     });
     if (t.exitTime !== null) {
-      markers.push({ time: t.exitTime, position: long ? 'aboveBar' : 'belowBar', shape: 'circle', color: EXIT, size: 0.6 });
+      markers.push({ time: t.exitTime, pane: 'price', panePosition: 'atPriceMiddle', price: 0.5, position: long ? 'aboveBar' : 'belowBar', shape: 'circle', color: EXIT, size: 0.6 });
     }
   }
   markers.sort((a, b) => a.time - b.time);

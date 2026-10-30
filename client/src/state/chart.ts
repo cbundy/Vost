@@ -161,6 +161,8 @@ export interface ChartState {
   live: boolean;
   liveStatus: LiveStatus;
   liveDetail: string;
+  /** the person's live choice, apart from the stream state; never persisted */
+  liveWanted: boolean;
 
   /* backtest */
   btConfig: BacktestConfig;
@@ -353,6 +355,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
 
   const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
     dropReplay();
+    if (activeDatasetId != null && (get().live || liveHandle)) stopLive(); // a local dataset never streams
     set({
       candles,
       chartRange: null,
@@ -386,11 +389,122 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     schedulePineAll();
   };
 
+  const restoreFull = (fullCandles: Candle[]) => {
+    dropReplay();
+    set({
+      replay: null,
+      candles: fullCandles,
+      fullCandles: null,
+      chartRange: null,
+      dataKey: uid('data_'),
+      btResult: null,
+      btError: null,
+      optResult: null,
+    });
+    schedulePineAll();
+  };
+
   const stopLive = () => {
     liveSession++;
     liveHandle?.stop();
     liveHandle = null;
     set({ live: false, liveStatus: 'off', liveDetail: '' });
+  };
+
+  // Opens the live stream for the current symbol and timeframe (a no-op target is the caller's check).
+  const startStream = () => {
+    const { providerId, symbol, timeframe } = get();
+    const provider = getProvider(providerId);
+    if (!provider.startLive) return;
+    get().exitReplay(); // live bars land at the end of the real chart
+    if (get().chartRangeFetched) {
+      // a fetched span is not the latest bars: reload them, which reconnects live
+      set({ live: true, liveStatus: 'connecting', liveDetail: '' });
+      void get().loadData().then(() => {
+        if (get().loadState === 'error') stopLive();
+      });
+      return;
+    }
+    const { fullCandles } = get();
+    if (fullCandles) restoreFull(fullCandles); // live bars land at the end of the full data
+    liveSession++;
+    const session = liveSession;
+    liveHandle?.stop();
+    set({ live: true, liveStatus: 'connecting', liveDetail: '' });
+
+    // After an outage (the exchange feed or the connection to the server) the stream
+    // resumes at the current bar: fetch what was missed once and merge it by time.
+    const liveBars = () => {
+      const rp = get().replay;
+      return rp?.phase === 'active' ? rp.source : get().candles;
+    };
+    let backfilling = false;
+    const backfill = async (): Promise<void> => {
+      const bars = liveBars();
+      const last = bars[bars.length - 1];
+      if (!last || backfilling) return;
+      backfilling = true;
+      const dataKey = get().dataKey;
+      const elapsed = Math.floor((Date.now() / 1000 - last.time) / intervalSeconds(timeframe));
+      const count = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
+      try {
+        const recent = await provider.fetchHistory({ symbol, timeframe, bars: count, ...sourceOpt(provider) });
+        if (session !== liveSession || get().dataKey !== dataKey) return; // stopped or switched meanwhile
+        const rp = get().replay;
+        if (rp?.phase === 'active') set({ replay: { ...rp, source: mergeCandles(rp.source, recent) } });
+        else {
+          set({ candles: mergeCandles(get().candles, recent) });
+          schedulePineAll();
+        }
+      } catch (err) {
+        if (session !== liveSession) return;
+        env.pushMessage(
+          'Live',
+          'warning',
+          `Live data came back for ${symbol} ${timeframe}, but the bars missed meanwhile could not be loaded (${err instanceof Error ? err.message : String(err)}). The chart may have a gap; reload the data to fill it.`,
+        );
+      } finally {
+        backfilling = false;
+      }
+    };
+
+    // A drop can surface as reconnecting -> connecting -> live (the server relay opens a fresh upstream
+    // entry, so its first status is 'connecting'), so remember any disruption, not just the status before live.
+    let wasLive = false;
+    let disrupted = false;
+    liveHandle = provider.startLive({
+      symbol,
+      timeframe,
+      ...sourceOpt(provider),
+      onLog: (severity, text) => env.pushMessage('Live', severity, text),
+      onStatus: (status, detail) => {
+        set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' });
+        if (status === 'reconnecting' || status === 'error' || (status === 'connecting' && wasLive)) disrupted = true;
+        if (status === 'live') {
+          if (disrupted) void backfill();
+          disrupted = false;
+          wasLive = true;
+        }
+      },
+      onKline: (candle, closed) => {
+        const rp = get().replay;
+        if (rp?.phase === 'active') {
+          // the chart stays where replay is; the live bar waits in the source
+          const next = applyKline(rp.source, candle);
+          if (next !== rp.source) set({ replay: { ...rp, source: next } });
+        } else {
+          const prev = get().candles;
+          const next = applyKline(prev, candle);
+          if (next !== prev) {
+            set({ candles: next });
+            schedulePineAll();
+          }
+        }
+        if (closed && get().showTrades && get().btResult) {
+          /* keep backtest results untouched; user re-runs manually */
+        }
+      },
+    });
   };
 
   return {
@@ -410,6 +524,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     live: false,
     liveStatus: 'off',
     liveDetail: '',
+    liveWanted: true,
     pineInputs: [],
     btRunning: false,
     btProgress: 0,
@@ -484,8 +599,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         if (candles.length < 2) throw new Error(`Not enough data returned for ${symbol}.`);
         setCandles(candles, `${provider.name} · ${symbol} · ${tf}`, null);
         const s = get();
-        if (s.live && provider.startLive) s.setLive(true); // reconnect for the new symbol/tf
-        else if (s.live) s.setLive(false);
+        if (s.liveWanted && provider.startLive) startStream(); // (re)connect for the new symbol/tf
+        else if (s.live || liveHandle) stopLive();
       } catch (err) {
         if (token !== requestToken) return;
         set({ loadState: 'error' });
@@ -623,14 +738,22 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         announce({ kind: 'range', range: null });
         return true;
       }
-      if (state.live) {
-        env.pushToast('error', 'Turn live off before cropping the chart: live bars land at the end of the full data.');
-        return false;
-      }
+      // The toast comes after the announce: layout sync dedupes it against the receivers' identical text.
+      let paused = false;
+      const pauseLive = () => {
+        if (!get().live) return;
+        stopLive();
+        paused = true;
+      };
+      const pausedToast = () => {
+        if (paused) env.pushToast('info', 'Live is paused while the chart is cropped. Clear the range to go live again.');
+      };
       const crop = cropToChartRange(full, range);
       if (crop.ok) {
+        pauseLive();
         applyRange(crop.slice, full, range, state.chartRangeFetched);
         announce({ kind: 'range', range });
+        pausedToast();
         return true;
       }
       if (crop.error !== 'outside' || state.activeDatasetId != null) {
@@ -658,6 +781,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           env.pushToast('error', chartRangeErrorText('too-few-bars'));
           return false;
         }
+        pauseLive();
         applyRange(slice, fetched, range, true);
         set({ loadState: 'ready' });
         if (range.from != null && slice[0].time - range.from > intervalSeconds(timeframe)) {
@@ -667,6 +791,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           env.pushToast('info', text);
         }
         announce({ kind: 'range', range });
+        pausedToast();
         return true;
       } catch (err) {
         if (token !== requestToken) return false;
@@ -680,22 +805,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       const { fullCandles, chartRangeFetched } = get();
       if (opts?.broadcast !== false) env.onSync(id0, { kind: 'range', range: null });
       if (!fullCandles) return;
-      if (chartRangeFetched) {
-        await get().loadData(); // back to the latest bars; setCandles resets the range state
+      if (chartRangeFetched || (get().liveWanted && getProvider(get().providerId).startLive)) {
+        await get().loadData(); // back to the latest bars (and live); setCandles resets the range state
         return;
       }
-      dropReplay();
-      set({
-        replay: null,
-        candles: fullCandles,
-        fullCandles: null,
-        chartRange: null,
-        dataKey: uid('data_'),
-        btResult: null,
-        btError: null,
-        optResult: null,
-      });
-      schedulePineAll();
+      restoreFull(fullCandles);
     },
 
     startReplayPick() {
@@ -987,8 +1101,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     },
 
     setLive(v) {
-      const { providerId, symbol, timeframe } = get();
-      const provider = getProvider(providerId);
+      const provider = getProvider(get().providerId);
+      set({ liveWanted: v });
       if (!v) {
         stopLive();
         return;
@@ -997,94 +1111,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('info', `Live streaming is not available for ${provider.name} data.`);
         return;
       }
-      get().exitReplay(); // live bars land at the end of the real chart
-      if (get().chartRangeFetched) {
-        // a fetched span is not the latest bars: reload them, which reconnects live
-        set({ live: true, liveStatus: 'connecting', liveDetail: '' });
-        void get().loadData().then(() => {
-          if (get().loadState === 'error') stopLive();
-        });
-        return;
-      }
-      void get().clearChartRange({ broadcast: false }); // live bars land at the end of the full data
-      liveSession++;
-      const session = liveSession;
-      liveHandle?.stop();
-      set({ live: true, liveStatus: 'connecting', liveDetail: '' });
-
-      // After an outage (the exchange feed or the connection to the server) the stream
-      // resumes at the current bar: fetch what was missed once and merge it by time.
-      const liveBars = () => {
-        const rp = get().replay;
-        return rp?.phase === 'active' ? rp.source : get().candles;
-      };
-      let backfilling = false;
-      const backfill = async (): Promise<void> => {
-        const bars = liveBars();
-        const last = bars[bars.length - 1];
-        if (!last || backfilling) return;
-        backfilling = true;
-        const dataKey = get().dataKey;
-        const elapsed = Math.floor((Date.now() / 1000 - last.time) / intervalSeconds(timeframe));
-        const count = Math.min(MAX_BARS, Math.max(2, elapsed + 2));
-        try {
-          const recent = await provider.fetchHistory({ symbol, timeframe, bars: count, ...sourceOpt(provider) });
-          if (session !== liveSession || get().dataKey !== dataKey) return; // stopped or switched meanwhile
-          const rp = get().replay;
-          if (rp?.phase === 'active') set({ replay: { ...rp, source: mergeCandles(rp.source, recent) } });
-          else {
-            set({ candles: mergeCandles(get().candles, recent) });
-            schedulePineAll();
-          }
-        } catch (err) {
-          if (session !== liveSession) return;
-          env.pushMessage(
-            'Live',
-            'warning',
-            `Live data came back for ${symbol} ${timeframe}, but the bars missed meanwhile could not be loaded (${err instanceof Error ? err.message : String(err)}). The chart may have a gap; reload the data to fill it.`,
-          );
-        } finally {
-          backfilling = false;
-        }
-      };
-
-      // A drop can surface as reconnecting -> connecting -> live (the server relay opens a fresh upstream
-      // entry, so its first status is 'connecting'), so remember any disruption, not just the status before live.
-      let wasLive = false;
-      let disrupted = false;
-      liveHandle = provider.startLive({
-        symbol,
-        timeframe,
-        ...sourceOpt(provider),
-        onLog: (severity, text) => env.pushMessage('Live', severity, text),
-        onStatus: (status, detail) => {
-          set({ liveStatus: status, liveDetail: detail ?? '', live: status !== 'off' });
-          if (status === 'reconnecting' || status === 'error' || (status === 'connecting' && wasLive)) disrupted = true;
-          if (status === 'live') {
-            if (disrupted) void backfill();
-            disrupted = false;
-            wasLive = true;
-          }
-        },
-        onKline: (candle, closed) => {
-          const rp = get().replay;
-          if (rp?.phase === 'active') {
-            // the chart stays where replay is; the live bar waits in the source
-            const next = applyKline(rp.source, candle);
-            if (next !== rp.source) set({ replay: { ...rp, source: next } });
-          } else {
-            const prev = get().candles;
-            const next = applyKline(prev, candle);
-            if (next !== prev) {
-              set({ candles: next });
-              schedulePineAll();
-            }
-          }
-          if (closed && get().showTrades && get().btResult) {
-            /* keep backtest results untouched; user re-runs manually */
-          }
-        },
-      });
+      startStream();
     },
 
     async searchSymbols(query) {

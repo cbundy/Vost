@@ -166,3 +166,86 @@ describe('setLive backfill on a custom interval', () => {
     chartOf(useStore).getState().setLive(false);
   });
 });
+
+describe('live by default', () => {
+  const bars: Candle[] = Array.from({ length: 5 }, (_, i) => ({ time: 1_700_000_000 + i * 3600, open: 1, high: 2, low: 0.5, close: 1.5, volume: 1 }));
+  const streaming = () => {
+    const stop = vi.fn();
+    const startLive = vi.fn((o: { onStatus: (s: 'live') => void }) => {
+      o.onStatus('live');
+      return { stop };
+    });
+    const provider = { ...providers.demoProvider, name: 'Fake', supportsLive: true, startLive, fetchHistory: async () => bars } as never;
+    return { startLive, stop, provider };
+  };
+  const st = () => chartOf(useStore).getState();
+
+  it('starts on its own after the first load, and again on every switch while the choice is on', async () => {
+    const { startLive, provider } = streaming();
+    vi.spyOn(providers, 'getProvider').mockReturnValue(provider);
+    st().setLive(true); // reset the choice and the stream left by earlier tests
+    startLive.mockClear();
+    await st().loadData();
+    expect(startLive).toHaveBeenCalledOnce();
+    expect(st().live).toBe(true);
+    st().setTimeframe('1h');
+    await vi.waitFor(() => expect(startLive).toHaveBeenCalledTimes(2));
+    await st().loadData();
+    st().setSymbol('ETHUSDT', { load: true });
+    await vi.waitFor(() => expect(startLive).toHaveBeenCalledTimes(4));
+    st().openWatchItem('binance', 'SOLUSDT');
+    await vi.waitFor(() => expect(startLive).toHaveBeenCalledTimes(5));
+    st().setProvider('binance');
+    await vi.waitFor(() => expect(startLive).toHaveBeenCalledTimes(6));
+    st().setLive(false);
+  });
+
+  it('stays off after the person turns it off, until it is turned back on', async () => {
+    const { startLive, provider } = streaming();
+    vi.spyOn(providers, 'getProvider').mockReturnValue(provider);
+    await st().loadData();
+    st().setLive(false);
+    startLive.mockClear();
+    expect(st().liveWanted).toBe(false);
+    for (const act of [
+      () => st().setTimeframe('4h'),
+      () => st().setSymbol('ETHUSDT', { load: true }),
+      () => st().openWatchItem('binance', 'SOLUSDT'),
+      () => st().setProvider('binance'),
+    ]) {
+      act();
+      await vi.waitFor(() => expect(st().loadState).toBe('ready'));
+      await st().loadData();
+      expect(st().live).toBe(false);
+    }
+    expect(startLive).not.toHaveBeenCalled();
+    st().setLive(true);
+    expect(startLive).toHaveBeenCalledOnce();
+    await st().loadData();
+    expect(startLive).toHaveBeenCalledTimes(2);
+    st().setLive(false);
+  });
+
+  it('opens no stream and no toast for a market or a dataset that cannot stream, and goes live again on return', async () => {
+    const live = streaming();
+    const quiet = { ...providers.demoProvider, name: 'Quiet', supportsLive: false, fetchHistory: async () => bars } as never;
+    const spy = vi.spyOn(providers, 'getProvider').mockReturnValue(live.provider);
+    st().setLive(true);
+    await st().loadData();
+    expect(st().live).toBe(true);
+    live.startLive.mockClear();
+    const toasts = useStore.getState().toasts.length;
+    spy.mockReturnValue(quiet);
+    await st().loadData();
+    expect(st().live).toBe(false);
+    expect(st().liveWanted).toBe(true);
+    st().addDataset({ name: 'd', candles: bars, source: 'csv', description: 'd', barSeconds: 3600, barLabel: '1h' });
+    expect(st().live).toBe(false);
+    expect(useStore.getState().toasts).toHaveLength(toasts);
+    spy.mockReturnValue(live.provider);
+    await st().loadData();
+    expect(live.startLive).toHaveBeenCalledOnce();
+    expect(st().live).toBe(true);
+    st().setLive(false);
+  });
+});

@@ -396,6 +396,13 @@ export const uiAudit: Scenario = {
     // ---- live on / off / on --------------------------------------------------------------------------------------
     await ctx.step('live on, off, on again', async () => {
       await snap('before live');
+      await act('live off (start)', async () => {
+        // charts open live: turn it off first so each "live on" below really starts the stream
+        if (narrow) await openMore();
+        await liveButton.first().click();
+        if (narrow) await page.keyboard.press('Escape');
+        await settle(400);
+      });
       for (let i = 0; i < 3; i++) {
         await act(`live on #${i + 1}`, async () => {
           if (narrow) await openMore();
