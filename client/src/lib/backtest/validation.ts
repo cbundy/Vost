@@ -9,11 +9,13 @@ import { gridSize, runOptimizeAsync, type OptimizeConfig, type OptimizeOutput } 
 import { robustnessScores, type RobustnessScore } from './robustness';
 import { runAnyBacktest } from './runner';
 import type { BacktestConfig, Metrics } from './types';
+import { checkWalkForwardLimit, runWalkForward, walkForwardBacktests, walkForwardProblem, type WalkForwardConfig, type WalkForwardOutput } from './walkForward';
 
 export type ValidationConfig =
   | { method: 'none' }
   | { method: 'split'; inSamplePct: number; topN: number }
-  | { method: 'robustness'; radius: number; rankByScore: boolean };
+  | { method: 'robustness'; radius: number; rankByScore: boolean }
+  | WalkForwardConfig;
 
 export const DEFAULT_SPLIT = { method: 'split', inSamplePct: 70, topN: 10 } as const satisfies ValidationConfig;
 export const DEFAULT_ROBUSTNESS = { method: 'robustness', radius: 1, rankByScore: false } as const satisfies ValidationConfig;
@@ -72,7 +74,18 @@ export type RobustnessOutput = RobustnessSettings & {
 
 export type ValidationOutput = SplitOutput | RobustnessOutput;
 
-export type ValidatedOptimizeOutput = OptimizeOutput & { validation?: ValidationOutput };
+
+/** A walk-forward run's output sits beside `validation` (the split's) so the split's types stay as they are. */
+export type ValidatedOptimizeOutput = OptimizeOutput & { validation?: ValidationOutput; walkForward?: WalkForwardOutput };
+
+/** Backtests a run does: the grid, plus the validation's own runs. Checked against MAX_GRID_COMBOS for walk-forward. */
+export function totalBacktests(opt: OptimizeConfig): number {
+  const combos = gridSize(opt);
+  const v = opt.validation;
+  if (v?.method === 'walk-forward') return walkForwardBacktests(v.windows, combos);
+  if (v?.method === 'split') return combos + Math.min(v.topN, combos);
+  return combos;
+}
 
 export interface SplitBars {
   inSample: Candle[];
@@ -98,6 +111,7 @@ export function validationProblem(v: ValidationConfig | undefined, bars: number)
     }
     return null;
   }
+  if (v.method === 'walk-forward') return walkForwardProblem(v, bars);
   if (!Number.isInteger(v.inSamplePct) || v.inSamplePct < SPLIT_PCT_MIN || v.inSamplePct > SPLIT_PCT_MAX) {
     return `In-sample % must be a whole number from ${SPLIT_PCT_MIN} to ${SPLIT_PCT_MAX}.`;
   }
@@ -131,6 +145,11 @@ export async function runValidatedOptimize(
 
   const problem = validationProblem(v, candles.length);
   if (problem) throw new Error(problem);
+  if (v.method === 'walk-forward') {
+    checkWalkForwardLimit(v.windows, gridSize(opt));
+    const { walkForward, grid } = await runWalkForward(candles, baseConfig, opt, v, onProgress);
+    return { ...grid, walkForward };
+  }
   if (v.method === 'robustness') {
     const out = await runOptimizeAsync(candles, baseConfig, opt, onProgress);
     return {

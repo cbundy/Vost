@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const optimizer: Scenario = {
   name: 'optimizer',
-  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a robustness run on two parameters (settings, table ranked by Robustness, the most robust mark on the heatmap), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a robustness run on two parameters (settings, table ranked by Robustness, the most robust mark on the heatmap), a walk-forward (settings with the range hint, rolling and anchored results with the joined held-out chart, a refused 21 windows), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -44,6 +44,44 @@ export const optimizer: Scenario = {
     await ctx.screenshot('split-invalid');
     await ctx.step('back to no validation', async () => {
       await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Validation').selectOption('none');
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+    });
+    await ctx.step('walk-forward settings: 5 windows, 70%, rolling', async () => {
+      await page.getByLabel('Validation').selectOption('walk-forward');
+      await page.getByLabel('Windows').fill('5');
+      await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Mode').selectOption('rolling');
+      await page.getByText(/^5 windows · in-sample [\d,]+ bars/).waitFor();
+      await page.getByRole('button', { name: /Optimize [\d,]+ backtests \(5 windows/ }).waitFor();
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-settings');
+    await ctx.step('run the walk-forward and show its results', async () => {
+      await page.getByRole('button', { name: /Optimize [\d,]+ backtests/ }).click();
+      await page.getByText(/Combined held-out/).waitFor();
+      await page.getByText(/Results \(last window in-sample\)/).waitFor();
+      await page.getByText(/Held-out equity, joined/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-results');
+    await ctx.step('anchored', async () => {
+      await page.getByLabel('Mode').selectOption('anchored');
+      await page.getByText(/\(anchored: \d+ to \d+\)/).waitFor();
+      await page.getByRole('button', { name: /Optimize [\d,]+ backtests/ }).click();
+      await page.getByText(/^anchored$/).waitFor();
+      await page.getByText(/Combined held-out/).waitFor();
+      await page.getByText(/Held-out equity, joined/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-anchored');
+    await ctx.step('refuse 21 windows', async () => {
+      await page.getByLabel('Windows').fill('21');
+      await page.getByText(/Windows must be a whole number/).waitFor();
+      await page.getByText(/Windows must be a whole number/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-refused');
+    await ctx.step('back to no validation again', async () => {
+      await page.getByLabel('Windows').fill('5');
       await page.getByLabel('Validation').selectOption('none');
       await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
       await page.getByText(/Results ·/).waitFor();

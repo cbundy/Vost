@@ -74,6 +74,10 @@ function handleTarget(def: DrawingTool, drag: Drag, prim: DrawingPrimitive, dx: 
   return { x: h.x + dx, y: h.y + dy };
 }
 
+/** A tool whose drawing spans the pane's width or height places even when its anchor is off the scale on that axis. */
+const spansX = (t?: DrawingTool) => t?.priceOnly === true || t?.fullWidth === true;
+const spansY = (t?: DrawingTool) => t?.timeOnly === true || t?.fullHeight === true;
+
 type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[]; before: Drawing[] };
 type Draft = { drawing: Drawing; start: Pt; /** pressing: the button is down; waiting: the first anchor is placed, the next click ends it. */ phase: 'pressing' | 'waiting' };
 
@@ -380,8 +384,8 @@ export function useDrawings(
     let lastTap: { id: string; t: number; p: Pt } | null = null;
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
-    const snap = (a: Anchor, priceOnly = false): Anchor =>
-      magnetRef.current ? snapToBar(chartStore.getState().candles, a, { priceOnly }) : a;
+    const snap = (a: Anchor, def?: DrawingTool): Anchor =>
+      magnetRef.current ? snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }) : a;
 
     const point = (e: PointerEvent): Pt => {
       const r = el.getBoundingClientRect();
@@ -466,7 +470,7 @@ export function useDrawings(
         const def = getTool(toolId);
         const raw = prim.toAnchor(p);
         if (!def || !raw || !hasDataRef.current) return;
-        const anchor = snap(raw, def.priceOnly);
+        const anchor = snap(raw, def);
         claim(e);
         const draft = draftRef.current;
         if (draft) {
@@ -494,8 +498,8 @@ export function useDrawings(
       }
       const st = getState();
       const d = st.drawings.find((x) => x.id === hit.id);
-      const anyX = getTool(d?.tool ?? '')?.priceOnly === true;
-      const origPts = d?.anchors.map((a) => prim.toPoint(a, anyX));
+      const dt = getTool(d?.tool ?? '');
+      const origPts = d?.anchors.map((a) => prim.toPoint(a, spansX(dt), spansY(dt)));
       if (!d || !origPts || origPts.some((q) => !q)) return;
       selectedRef.current = d.id;
       claim(e);
@@ -521,7 +525,7 @@ export function useDrawings(
       if (draft) {
         const raw = prim.toAnchor(p);
         if (raw) {
-          const a = snap(raw, getTool(draft.drawing.tool)?.priceOnly);
+          const a = snap(raw, getTool(draft.drawing.tool));
           draftRef.current = { ...draft, drawing: { ...draft.drawing, anchors: [draft.drawing.anchors[0], a] } };
           sync();
         }
@@ -546,7 +550,8 @@ export function useDrawings(
           const q = drag.origPts[i];
           const a = prim.toAnchor({ x: q.x + dx, y: q.y + dy });
           if (!a) return orig;
-          const placed = drag.handle !== null ? snap(a, def.priceOnly) : a;
+          const placed = drag.handle !== null ? snap(a, def) : a;
+          if (def.timeOnly) return { time: placed.time, price: orig.price };
           return def.priceOnly ? { time: orig.time, price: placed.price } : placed;
         });
         setState(preview(getState(), drag.id, next), false);

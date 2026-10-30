@@ -15,5 +15,5 @@ export const ray = lineTool(
       </Svg>
     ),
   },
-  true,
+  { extendRight: true },
 );

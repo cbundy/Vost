@@ -17,6 +17,7 @@ import { fmtNum, pnlClass } from '../lib/format';
 import type { ChartState } from '../state/chart';
 import { Heatmap } from './OptimizerHeatmap';
 import { HeldOutCheck } from './OptimizerValidation';
+import { WalkForwardResults } from './OptimizerWalkForward';
 
 type Result = NonNullable<ChartState['optResult']>;
 
@@ -63,7 +64,7 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
     <div className="mt-3">
       <div className="row mb-2 wrap">
         <span className="section-title" style={{ margin: 0 }}>
-          Results{split ? ' (in-sample)' : ''} · {METRIC_LABELS[metric]}
+          Results{result.walkForward ? ' (last window in-sample)' : split ? ' (in-sample)' : ''} · {METRIC_LABELS[metric]}
         </span>
         <span className="badge">{result.combos} combos</span>
         {rob && (
@@ -136,6 +137,15 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
         </button>
       </div>
 
+      {result.walkForward && (
+        <WalkForwardResults
+          walkForward={result.walkForward}
+          keys={result.keys}
+          metric={metric}
+          initialCapital={result.context.initialCapital}
+          onApply={onApply}
+        />
+      )}
       {split && <HeldOutCheck validation={split} keys={result.keys} metric={metric} onApply={onApply} />}
 
       <Heatmap key={result.keys.join('|')} rows={result.rows} keys={result.keys} metric={metric} onApply={onApply} robustBest={robustBest && robustBest !== result.rows[0] ? { row: robustBest, score: robustScore } : null} />

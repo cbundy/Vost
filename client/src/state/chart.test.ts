@@ -358,6 +358,85 @@ describe('btRange', () => {
     });
   });
 
+  describe('walk-forward validation', () => {
+    const walk = { method: 'walk-forward', windows: 3, inSamplePct: 70, anchored: false } as const;
+    function fakeWorker(reply: boolean) {
+      const posts: Array<{ id: string; type: string; candles: unknown[]; optimize?: unknown }> = [];
+      const made: Array<{ terminated: boolean }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string; candles: unknown[] }) {
+          posts.push(req);
+          if (reply) {
+            const walkForward = { method: 'walk-forward', windows: 3, inSamplePct: 70, anchored: false, spans: [], results: [], incomplete: 0, failed: 0, combined: null, equity: [] };
+            queueMicrotask(() =>
+              this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, walkForward } }),
+            );
+          }
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      return { posts, made };
+    }
+
+    it('posts the setting and keeps the result with the per-window spans', async () => {
+      const { useStore, candles } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: walk });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(1);
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(walk);
+      const r = st().optResult!;
+      expect(r.walkForward?.method).toBe('walk-forward');
+      expect(r.validation).toBeUndefined();
+      const w = r.context.walkForward!;
+      expect(w).toMatchObject({ method: 'walk-forward', windows: 3, inSamplePct: 70, anchored: false });
+      expect(w.spans).toHaveLength(3);
+      const n = candles.length;
+      const oos = Math.floor(n / (3 + 70 / 30));
+      expect(w.spans[2].heldOut).toEqual({ from: candles[n - oos].time, to: candles[n - 1].time, bars: oos });
+      expect(w.spans[0].inSample.bars).toBe(n - 3 * oos);
+    });
+
+    it('an invalid setting toasts and posts nothing', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: { ...walk, windows: 1 } });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(0);
+      expect(st().optRunning).toBe(false);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error' && /Windows/.test(t.text))).toBe(true);
+    });
+
+    it('cancel during a walk-forward run brings back the previous result', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      fakeWorker(true);
+      await st().runOptimizer();
+      const earlier = st().optResult;
+      expect(earlier).not.toBeNull();
+      const { made } = fakeWorker(false);
+      st().setOptConfig({ validation: walk });
+      const run = st().runOptimizer();
+      expect(st().optResult).toBeNull();
+      st().cancelOptimizer();
+      await run;
+      expect(made[0].terminated).toBe(true);
+      expect(st().optResult).toBe(earlier);
+      expect(st().optRunning).toBe(false);
+    });
+  });
+
   describe('cancelOptimizer', () => {
     function stubWorkers(answer: boolean) {
       const made: FakeW[] = [];

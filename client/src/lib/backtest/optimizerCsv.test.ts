@@ -199,3 +199,69 @@ describe('optimizeResultToCsv with a robustness validation', () => {
     expect(csv).not.toMatch(/heldout/);
   });
 });
+
+describe('optimizeResultToCsv with a walk-forward', () => {
+  const span = (from: number, to: number, bars: number) => ({ from, to, bars });
+  const spans = [
+    { inSample: span(1_700_000_000, 1_700_050_000, 17), heldOut: span(1_700_060_000, 1_700_070_000, 4) },
+    { inSample: span(1_700_010_000, 1_700_060_000, 17), heldOut: span(1_700_070_000, 1_700_086_400, 4) },
+  ];
+  const wfCtx: OptimizeRunContext = { ...ctx, walkForward: { method: 'walk-forward', windows: 2, inSamplePct: 80, anchored: true, spans } };
+  const win = (index: number, status: 'ok' | 'failed' | 'no-winner') => ({
+    index,
+    inSample: spans[index - 1].inSample,
+    heldOut: spans[index - 1].heldOut,
+    status,
+    params: status === 'no-winner' ? null : { fast: 5, slow: 20 },
+    inSampleMetrics: status === 'no-winner' ? null : sample,
+    inSampleValue: status === 'no-winner' ? null : 1.5,
+    heldOutMetrics: status === 'ok' ? { ...sample, totalReturnPct: -2.5, maxDrawdownPct: -4, trades: 3 } : null,
+    heldOutValue: status === 'ok' ? 0.5 : null,
+  });
+  const complete = {
+    ...result,
+    walkForward: {
+      ...wfCtx.walkForward!,
+      results: [win(1, 'ok'), win(2, 'ok')],
+      incomplete: 0,
+      failed: 0,
+      combined: { totalReturnPct: 4.5, maxDrawdownPct: -6, trades: 6, efficiency: null },
+      equity: [],
+    },
+  };
+  const lines = (r: unknown, c = wfCtx) => optimizeContextLines(c, r as Parameters<typeof optimizeContextLines>[1]);
+
+  it('adds the settings, one block per window and the combined figures', () => {
+    const l = lines(complete);
+    expect(l).toContain('# validation: walk-forward');
+    expect(l).toContain('# windows: 2');
+    expect(l).toContain('# in-sample %: 80');
+    expect(l).toContain('# mode: anchored');
+    expect(l).toContain('# window 1 in-sample bars: 17');
+    expect(l).toContain(`# window 2 held-out from: ${new Date(1_700_070_000 * 1000).toISOString()}`);
+    expect(l).toContain('# window 1 params: fast=5; slow=20');
+    expect(l).toContain('# window 1 in-sample sharpe: 1.5');
+    expect(l).toContain('# window 2 held-out return %: -2.5');
+    expect(l).toContain('# window 2 held-out max drawdown %: -4');
+    expect(l).toContain('# window 2 held-out trades: 3');
+    expect(l).toContain('# combined held-out return %: 4.5');
+    expect(l).toContain('# combined held-out max drawdown %: -6');
+    expect(l).toContain('# combined held-out trades: 6');
+    expect(l).toContain('# walk-forward efficiency: n/a');
+  });
+
+  it('records failed and no-winner windows and an incomplete combined result', () => {
+    const l = lines({ ...complete, walkForward: { ...complete.walkForward, results: [win(1, 'failed'), win(2, 'no-winner')], incomplete: 2, failed: 1, combined: null } });
+    expect(l).toContain('# window 1 held-out: failed');
+    expect(l).toContain('# window 2 held-out: no winner');
+    expect(l).toContain('# combined held-out: incomplete (0 of 2 windows have a held-out result)');
+    expect(l.some((x) => x.startsWith('# combined held-out return'))).toBe(false);
+  });
+
+  it('rows are the last window grid without held-out columns', () => {
+    const csv = optimizeResultToCsv(complete, wfCtx);
+    expect(csv).not.toMatch(/heldout/);
+    const header = csv.split('\n').find((x) => !x.startsWith('# '))!;
+    expect(header.split(',').slice(0, 3)).toEqual(['rank', 'fast', 'slow']);
+  });
+});

@@ -31,6 +31,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private skipId: string | null = null;
   private selectedId: string | null = null;
   private axisViews: ISeriesPrimitiveAxisView[] = [];
+  private timeViews: ISeriesPrimitiveAxisView[] = [];
   private readonly view: IPrimitivePaneView;
 
   /**
@@ -86,18 +87,34 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return this.axisViews;
   }
 
+  timeAxisViews(): readonly ISeriesPrimitiveAxisView[] {
+    return this.timeViews;
+  }
+
   updateAllViews(): void {
     this.rebuildAxisViews();
   }
 
   /** Chart pixels of an anchor, or null when it cannot be placed (no data, off the scales). */
-  toPoint(a: Anchor, anyX = false): Pt | null {
+  toPoint(a: Anchor, anyX = false, anyY = false): Pt | null {
     if (!this.chart || !this.series) return null;
     const x = this.chart.timeScale().logicalToCoordinate(timeToLogical(this.getTimes(), a.time) as never);
-    const y = this.series.priceToCoordinate(a.price);
-    // A price-only tool (horizontal line) spans the width, so a time far off the scale still places it.
+    let y: number | null = this.series.priceToCoordinate(a.price);
+    // A tool that spans the width (horizontal line) still places when its time is off the scale, and one that
+    // spans the height (vertical line) when its price is: that coordinate is clamped into the pane.
+    if (y === null && anyY) y = this.clampedY(a.price);
     if (y === null || (x === null && !anyX)) return null;
     return { x: x ?? 0, y };
+  }
+
+  /** The pane edge a price off the scale lies beyond, or null when there is no scale to tell. */
+  private clampedY(price: number): number | null {
+    if (!this.chart || !this.series) return null;
+    const height = this.chart.paneSize(0).height;
+    const top = this.series.coordinateToPrice(0);
+    const bottom = this.series.coordinateToPrice(height);
+    if (top === null || bottom === null) return height / 2;
+    return price >= Math.max(top, bottom) === top >= bottom ? 0 : height;
   }
 
   /** Anchor under a chart pixel, or null. */
@@ -113,9 +130,11 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
 
   private points(d: Drawing): Pt[] | null {
     const pts: Pt[] = [];
-    const anyX = getTool(d.tool)?.priceOnly === true;
+    const tool = getTool(d.tool);
+    const anyX = tool?.priceOnly === true || tool?.fullWidth === true;
+    const anyY = tool?.timeOnly === true || tool?.fullHeight === true;
     for (const a of d.anchors) {
-      const pt = this.toPoint(a, anyX);
+      const pt = this.toPoint(a, anyX, anyY);
       if (!pt) return null;
       pts.push(pt);
     }
@@ -219,20 +238,46 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     });
   }
 
-  /** Horizontal lines label their price on the price axis. */
+  /** The labels each drawing shows on the axes, as its tool declares them (the selected drawing's anchors, a horizontal line's price). */
   private rebuildAxisViews(): void {
     const series = this.series;
-    if (!series) {
+    const chart = this.chart;
+    if (!series || !chart) {
       this.axisViews = [];
+      this.timeViews = [];
       return;
     }
-    const lines = this.drawings.filter((d) => d.tool === 'horizontalLine');
-    this.axisViews = lines.map((d) => ({
-      coordinate: () => series.priceToCoordinate(d.anchors[0].price) ?? -1000,
-      text: () => series.priceFormatter().format(d.anchors[0].price),
-      textColor: () => '#09090b',
-      backColor: () => cssColor(this.styleOf(d).values.labelColor),
-      visible: () => this.shown(d) && this.styleOf(d).values.showLabel === true && series.priceToCoordinate(d.anchors[0].price) !== null,
-    }));
+    const price: ISeriesPrimitiveAxisView[] = [];
+    const time: ISeriesPrimitiveAxisView[] = [];
+    for (const d of this.drawings) {
+      const tool = getTool(d.tool);
+      if (!tool?.axisLabels) continue;
+      const { values } = this.styleOf(d);
+      const labels = tool.axisLabels(d.anchors, values, d.id === this.selectedId);
+      const back = () => cssColor(values.labelColor ?? theme.accent2);
+      for (const p of labels.price ?? []) {
+        price.push({
+          coordinate: () => series.priceToCoordinate(p) ?? -1000,
+          text: () => series.priceFormatter().format(p),
+          textColor: () => '#09090b',
+          backColor: back,
+          visible: () => this.shown(d) && series.priceToCoordinate(p) !== null,
+        });
+      }
+      for (const t of labels.time ?? []) {
+        time.push({
+          coordinate: () => chart.timeScale().logicalToCoordinate(timeToLogical(this.getTimes(), t) as never) ?? -1000,
+          text: () => {
+            const fmt = chart.options().localization.timeFormatter;
+            return fmt ? fmt(t as Time) : String(t);
+          },
+          textColor: () => '#09090b',
+          backColor: back,
+          visible: () => this.shown(d) && chart.timeScale().logicalToCoordinate(timeToLogical(this.getTimes(), t) as never) !== null,
+        });
+      }
+    }
+    this.axisViews = price;
+    this.timeViews = time;
   }
 }

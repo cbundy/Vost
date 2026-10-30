@@ -87,13 +87,27 @@ The grid is searched on the in-sample bars only, so the table, heatmap and the t
 
 **Export results CSV** adds `validation`, `in-sample %`, `top results checked` and the in-sample and held-out from, to and bars lines, and the columns `heldout_rank` and one `heldout_<measure>` per measure, filled for checked rows and empty for the rest. With **None** the file is unchanged.
 
-Indicators start again at the held-out boundary, so the first bars of the held-out part trade less than they would in a continuous run; keep the held-out part long enough for that not to matter.
+Indicators start again at the held-out boundary, so the first bars of the held-out part trade less than they would in a continuous run; keep the held-out part long enough for that not to matter. A walk-forward has this at every held-out boundary, one per window.
+
+**Walk-forward** repeats the check over several windows. **Windows** is a whole number from 2 to 20, **In-sample %** a whole number from 50 to 95 and **Mode** is **Rolling** or **Anchored** (defaults 5, 70 and Rolling). With `n` bars, `k` windows and `p` the in-sample %, each held-out block is `floor(n / (k + p / (100 - p)))` bars and the in-sample part is the rest of the range minus the `k` blocks. The blocks sit one after the other and the last one ends at the last bar. In **Rolling** mode each window's in-sample part is that same number of bars just before its block, so it slides forward; in **Anchored** mode it runs from the first bar up to its block, so it grows. Every part needs at least 3 bars, otherwise **Optimize** is disabled and the pane says which part is too short; the range hint shows the bar counts.
+
+For each window the grid is searched on its in-sample bars, the best result with a ranking value is the winner, and the winner is run once as a fresh backtest on its held-out block. A window with no winner shows "no winner" and a held-out run that fails shows "failed". The **Walk-forward** section lists one row per window (spans, winning parameters, the ranking metric in-sample and held-out, held-out total return, max drawdown and trades, and **Apply**), then the combined held-out result: total return (the windows' returns compounded), max drawdown on the joined equity (the peak carried across windows), total trades and the walk-forward efficiency (mean held-out CAGR over mean in-sample CAGR of the winners, n/a when one is missing or the in-sample mean is not positive), with a chart of the joined held-out equity. When any window has no held-out result the section says so and shows no combined figures. The table and heatmap above show the last window's in-sample grid and are titled "Results (last window in-sample)".
+
+Cost: a walk-forward does `windows x combinations + windows` backtests, and the same 100,000 limit applies to that total: the button reads "Optimize N backtests (k windows x C combinations)" and a total over the limit disables it. The progress bar covers all windows and **Cancel** brings back the previous result, never a partial one. **Export results CSV** adds `validation: walk-forward`, `windows`, `in-sample %` and `mode` lines, a block of lines per window (in-sample and held-out from, to and bars, the parameters, the in-sample ranking value and the held-out return, max drawdown and trades, or `failed` / `no winner`) and the combined figures; the rows are the last window's grid, without held-out columns.
 
 ![Choosing an in-sample / out-of-sample split](../evidence/optimizer/optimizer-split-settings-desktop.png)
 
 ![The held-out check next to the in-sample results](../evidence/optimizer/optimizer-held-out-check-desktop.png)
 
 ![An in-sample % out of range disables Optimize](../evidence/optimizer/optimizer-split-invalid-desktop.png)
+
+![Walk-forward settings with the range hint and the cost on the button](../evidence/optimizer/optimizer-walk-forward-settings-desktop.png)
+
+![Walk-forward results: one row per window, the combined figures and the joined held-out equity](../evidence/optimizer/optimizer-walk-forward-results-desktop.png)
+
+![Anchored mode](../evidence/optimizer/optimizer-walk-forward-anchored-desktop.png)
+
+![Too many windows disables Optimize](../evidence/optimizer/optimizer-walk-forward-refused-desktop.png)
 
 #### Robustness
 

@@ -5,6 +5,8 @@ import type { Anchor } from '../../../lib/drawings';
 
 export type ToolRenderOpts = { selected: boolean };
 
+export type AxisLabels = { price?: readonly number[]; time?: readonly number[] };
+
 /** What a tool may know about the chart besides its anchors' pixels. */
 export interface ToolView {
   /** Pane size in pixels. */
@@ -52,6 +54,16 @@ export interface DrawingTool {
   settings?: readonly SettingField[];
   /** A drag moves it vertically only (the time of its anchor is kept). */
   priceOnly?: boolean;
+  /** A drag moves it horizontally only (the price of its anchor is kept): the vertical line. */
+  timeOnly?: boolean;
+  /** The drawing spans the pane's width (or height), so it places and hits even when its anchor is off the scale on that axis. */
+  fullWidth?: boolean;
+  fullHeight?: boolean;
+  /**
+   * The labels the drawing shows on the axes: prices on the price axis, times on the time axis. Absent: none.
+   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise.
+   */
+  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean): AxisLabels;
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;
   /** Whether a press at p grabs the drawing's body. */
   hit(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
