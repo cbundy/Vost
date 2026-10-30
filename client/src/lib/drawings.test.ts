@@ -427,6 +427,18 @@ describe('the line tools', () => {
   });
 });
 
+describe('the channel tools', () => {
+  it('round trips each with three (regression: two) anchors and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['parallelChannel', 'regressionTrend', 'flatTopBottom', 'disjointChannel'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 2, 3, 3]);
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] === 3 ? 2 : 3) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('drawing management edits', () => {
   const t = (id: string): Drawing => ({ id, tool: 'trendLine', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] });
   const three = () => emptyState([t('a'), t('b'), t('c')]);

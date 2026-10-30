@@ -1,0 +1,7 @@
+ok   Parallel channel stored - parallelChannel:3
+ok   Regression trend stored - parallelChannel:3,regressionTrend:2
+ok   Flat top/bottom stored - parallelChannel:3,regressionTrend:2,flatTopBottom:3
+ok   Disjoint channel stored - parallelChannel:3,regressionTrend:2,flatTopBottom:3,disjointChannel:3
+ok   chart painted
+ok   four drawings after reload
+ok   unchanged by the timeframe change

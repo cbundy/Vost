@@ -9,7 +9,7 @@ import type {
   SeriesAttachedParameter,
   Time,
 } from 'lightweight-charts';
-import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
+import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
 import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
 import type { Anchor, Drawing } from '../../lib/drawings';
 import { theme } from '../../lib/theme';
@@ -43,6 +43,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     private readonly getTimes: () => readonly number[],
     private readonly getTimeframe: () => string = () => '',
     private readonly getDefaults: () => Readonly<Record<string, Record<string, unknown>>> = () => ({}),
+    /** The loaded bars (ascending), for tools that read them. */
+    private readonly getCandles: () => readonly OhlcBar[] = () => [],
   ) {
     const renderer: IPrimitivePaneRenderer = {
       draw: (target: RenderTarget) => this.paint(target),
@@ -177,6 +179,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       anchors: d.anchors,
       text: d.text ?? '',
       times: this.getTimes(),
+      candles: this.getCandles(),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,
       formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
       style: values,
@@ -233,17 +236,20 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
             ctx.stroke();
           }
         }
-        // A draft whose two anchors are still equal (first tap placed) shows that anchor as a handle.
-        const [first, second] = d.anchors;
-        if (d === this.draft && d.anchors.length === 2 && first.time === second.time && first.price === second.price) {
-          const p0 = pts[0];
-          ctx.beginPath();
-          ctx.arc(p0.x, p0.y, HANDLE_RADIUS, 0, Math.PI * 2);
-          ctx.fillStyle = theme.bg;
-          ctx.fill();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = theme.text;
-          ctx.stroke();
+        if (d === this.draft) {
+          // A draft with more than two anchors shows the ones placed so far as handles (the last still follows the
+          // pointer). A two-anchor draft shows its first anchor only while the second is still on it (first tap placed).
+          const [first, second] = d.anchors;
+          const placed = tool.anchors > 2 ? d.anchors.length - 1 : first.time === second.time && first.price === second.price ? 1 : 0;
+          for (const p0 of pts.slice(0, placed)) {
+            ctx.beginPath();
+            ctx.arc(p0.x, p0.y, HANDLE_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = theme.bg;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = theme.text;
+            ctx.stroke();
+          }
         }
         ctx.restore();
       }
