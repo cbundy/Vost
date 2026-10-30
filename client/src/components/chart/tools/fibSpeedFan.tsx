@@ -1,4 +1,4 @@
-import { HIT_TOLERANCE, distToSegment, type Pt } from '../../../lib/drawingGeometry';
+import { HIT_TOLERANCE, distToSegment, inTriangle, type Pt } from '../../../lib/drawingGeometry';
 import { FIB_SPEED_TABLE, cssColor } from '../../../lib/drawingStyle';
 import { fanValue } from '../../../lib/geometry/fib';
 import { theme } from '../../../lib/theme';
@@ -18,14 +18,6 @@ function layout(pts: Pt[], view: ToolView): Layout {
   const price = enabledLevels(view.style, 'priceLevels').map((l) => ({ ratio: l.value, color: l.color, end: { x: b.x, y: fanValue(a.y, b.y, l.value, reverse) } }));
   const time = enabledLevels(view.style, 'timeLevels').map((l) => ({ ratio: l.value, color: l.color, end: { x: fanValue(a.x, b.x, l.value, reverse), y: b.y } }));
   return { price, time };
-}
-
-const cross = (o: Pt, p: Pt, q: Pt) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
-function inTriangle(p: Pt, a: Pt, b: Pt, c: Pt): boolean {
-  const d1 = cross(a, b, p);
-  const d2 = cross(b, c, p);
-  const d3 = cross(c, a, p);
-  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
 }
 
 /** Fan lines from point 1 through the price and time levels of the box that point 1 and point 2 span. */

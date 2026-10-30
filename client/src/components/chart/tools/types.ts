@@ -88,6 +88,8 @@ export interface DrawingTool {
   hit(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
   /** Where the selection handles go. */
   handles(pts: Pt[], view: ToolView): Pt[];
+  /** Adjusts the pixels of a drawing once, when its last anchor is placed (the fixed Gann square makes itself square). */
+  settle?(pts: Pt[]): Pt[];
   /**
    * The new anchor pixels when handle `handle` is dragged to p. Absent: handle i moves anchor i.
    */

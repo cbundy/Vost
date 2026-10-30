@@ -32,7 +32,7 @@ import {
   removeMany,
 } from './drawings';
 
-const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, text: 1 };
+const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, gannBox: 2, gannSquareFixed: 2, gannSquare: 2, gannFan: 2, text: 1 };
 const TEXT = new Set(['text']);
 const TRANSIENT = new Set(['measure']);
 const store = new Map<string, string>();
@@ -171,9 +171,9 @@ describe('storage', () => {
     };
     expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS).sources).toEqual({ s: [trend('a'), { id: 'p', tool: 'toString', anchors: [] }, hline('b')] });
   });
-  it('keeps ray, rectangle and the fibonacci tools with 2 anchors and drops other counts', () => {
+  it('keeps ray, rectangle, the fibonacci and the gann tools with 2 anchors and drops other counts', () => {
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
-    const two = ['ray', 'rectangle', 'fibRetracement', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpiral', 'fibSpeedArcs'];
+    const two = ['ray', 'rectangle', 'fibRetracement', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpiral', 'fibSpeedArcs', 'gannBox', 'gannSquareFixed', 'gannSquare', 'gannFan'];
     const ok = two.map((tool) => ({ id: tool, tool, anchors: an(2) }));
     const bad = two.flatMap((tool) => [1, 3].map((n) => ({ id: `${tool}${n}`, tool, anchors: an(n) })));
     expect(parseStore({ version: 1, sources: { s: [...ok, ...bad] } }, COUNTS).sources).toEqual({ s: ok });

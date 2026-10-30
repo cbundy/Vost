@@ -235,3 +235,19 @@ export function measureSummary(
     direction: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
   };
 }
+
+const cross = (o: Pt, p: Pt, q: Pt) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+
+/** Whether p is inside (or on the edge of) the triangle a-b-c. */
+export function inTriangle(p: Pt, a: Pt, b: Pt, c: Pt): boolean {
+  const d1 = cross(a, b, p);
+  const d2 = cross(b, c, p);
+  const d3 = cross(c, a, p);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+
+/** Whether p is inside the convex-from-the-first-point polygon (a triangle fan from poly[0]). */
+export function inFanPolygon(p: Pt, poly: readonly Pt[]): boolean {
+  for (let i = 2; i < poly.length; i++) if (inTriangle(p, poly[0], poly[i - 1], poly[i])) return true;
+  return false;
+}

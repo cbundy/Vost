@@ -25,6 +25,25 @@ export function drawLevelLabel(ctx: CanvasRenderingContext2D, text: string, x: n
   ctx.fillText(text, x, y);
 }
 
+/**
+ * Draws labels one by one and drops any whose text would leave the pane or print over one already drawn,
+ * so crowded levels (a small box, many ratios) stay readable. Order matters: the first label wins.
+ */
+export function labelPlacer(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const drawn: { l: number; r: number; t: number; b: number }[] = [];
+  return (text: string, x: number, y: number, align: CanvasTextAlign = 'left', baseline: CanvasTextBaseline = 'bottom'): void => {
+    const w = ctx.measureText?.(text)?.width || text.length * 6;
+    const h = 12;
+    const l = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+    const t = baseline === 'top' ? y : baseline === 'middle' ? y - h / 2 : y - h;
+    const box = { l, r: l + w, t, b: t + h };
+    if (box.l < 0 || box.r > width || box.t < 0 || box.b > height) return;
+    if (drawn.some((d) => box.l < d.r + 2 && box.r + 2 > d.l && box.t < d.b && box.b > d.t)) return;
+    drawn.push(box);
+    drawLevelLabel(ctx, text, x, y, align, baseline);
+  };
+}
+
 /** The dashed muted path through the anchors (A-B-C) that the three-point Fibonacci tools draw. */
 export function drawPath(ctx: CanvasRenderingContext2D, pts: readonly { x: number; y: number }[]): void {
   if (pts.length < 2) return;

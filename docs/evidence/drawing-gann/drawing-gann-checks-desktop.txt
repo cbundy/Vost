@@ -1,0 +1,36 @@
+ok   nothing stored after Escape
+ok   Gann box stored - gannBox:2
+ok   Gann square fixed stored - gannBox:2,gannSquareFixed:2
+ok   Gann square stored - gannBox:2,gannSquareFixed:2,gannSquare:2
+ok   Gann fan stored - gannBox:2,gannSquareFixed:2,gannSquare:2,gannFan:2
+ok   chart painted
+ok   Gann box resized by a handle - [[{"time":1619136000,"price":1.4115679608958267},{"time":1641600000,"price":94.93049883845018}],[{"time":1619136000,"price":1.4115679608958267},{"time":1641600000,"price":83.94980157923496}]]
+ok   Gann box first point moved - [[{"time":1619136000,"price":1.4115679608958267},{"time":1641600000,"price":83.94980157923496}],[{"time":1641600000,"price":83.94980157923496},{"time":1621209600,"price":1.4115679608958267}]]
+ok   Gann box undo reverts the move
+ok   Gann box settings are titled for the tool
+ok   Gann box restyled - {"priceLevels":[{"value":0,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.382,"color":"accent","on":false},{"value":0.5,"color":"accent","on":true},{"value":0.618,"co
+ok   Gann box undo reverts the restyle
+ok   Gann box redo restores the restyle
+ok   Gann square fixed resized by a handle - [[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.69590220548623}],[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.64710729799451}]]
+ok   Gann square fixed first point moved - [[{"time":1654905600,"price":1.4115679608958267},{"time":1679616000,"price":88.64710729799451}],[{"time":1656979200,"price":1.4115679608958267},{"time":1679616000,"price":88.64710729799451}]]
+ok   Gann square fixed undo reverts the move
+ok   Gann square fixed settings are titled for the tool
+ok   Gann square fixed restyled - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":false},{"value":0.618,"color":
+ok   Gann square fixed undo reverts the restyle
+ok   Gann square fixed redo restores the restyle
+ok   Gann square resized by a handle - [[{"time":1684022400,"price":126.10348200326989},{"time":1705276800,"price":219.62242218927668}],[{"time":1684022400,"price":126.10348200326989},{"time":1705276800,"price":208.64172493006143}]]
+ok   Gann square first point moved - [[{"time":1684022400,"price":126.10348200326989},{"time":1705276800,"price":208.64172493006143}],[{"time":1686096000,"price":126.10348200326989},{"time":1705276800,"price":208.64172493006143}]]
+ok   Gann square undo reverts the move
+ok   Gann square settings are titled for the tool
+ok   Gann square restyled - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":false},{"value":0.618,"color":
+ok   Gann square undo reverts the restyle
+ok   Gann square redo restores the restyle
+ok   Gann fan resized by a handle - [[{"time":1713225600,"price":1.4115679608958267},{"time":1723852800,"price":63.757515673630465}],[{"time":1713225600,"price":1.4115679608958267},{"time":1723852800,"price":52.776818414415246}]]
+ok   Gann fan first point moved - [[{"time":1713225600,"price":1.4115679608958267},{"time":1723852800,"price":52.776818414415246}],[{"time":1715299200,"price":1.4115679608958267},{"time":1723852800,"price":52.776818414415246}]]
+ok   Gann fan undo reverts the move
+ok   Gann fan settings are titled for the tool
+ok   Gann fan restyled - {"levels":[{"value":0.125,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.333,"color":"accent","on":true},{"value":0.5,"color":"accent","on":true},{"value":1,"color":"
+ok   Gann fan undo reverts the restyle
+ok   Gann fan redo restores the restyle
+ok   four drawings after reload
+ok   unchanged by the timeframe change
