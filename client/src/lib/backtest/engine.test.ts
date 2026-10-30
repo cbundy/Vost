@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
 import { generateDemoCandles } from '../providers/demo';
 import { runBacktest } from './engine';
-import { computeMetrics } from './metrics';
+import { buyHoldCurve, computeMetrics } from './metrics';
 import { runFullBacktest } from './runner';
 import { buildSignals, strategies } from './strategies';
 import { defaultBacktestConfig, type BacktestConfig } from './types';
@@ -99,6 +99,25 @@ describe('backtest engine', () => {
     const signals = new Array(30).fill(null).map((_, i) => (i >= 1 ? -1 : null));
     const { trades } = runBacktest(candles, signals, cfg({ allowShort: false }));
     expect(trades).toHaveLength(0);
+  });
+});
+
+describe('buyHoldCurve', () => {
+  it('scales the capital by close over the first close', () => {
+    expect(buyHoldCurve(makeCandles([100, 110, 120, 90]), 10000)).toEqual([10000, 11000, 12000, 9000]);
+  });
+  it('is flat when the first close is not positive, and empty without candles', () => {
+    expect(buyHoldCurve(makeCandles([0, 5, 6]), 10000)).toEqual([10000, 10000, 10000]);
+    expect(buyHoldCurve([], 10000)).toEqual([]);
+  });
+  it('runFullBacktest carries a curve matching the Buy & hold metric', () => {
+    const candles = makeCandles([100, 110, 120, 90]);
+    const r = runFullBacktest(candles, cfg());
+    expect(r.buyHold).toHaveLength(r.equity.length);
+    expect(r.buyHold[0]).toBe(r.metrics.initialCapital);
+    const last = r.buyHold[r.buyHold.length - 1];
+    expect(last).toBeCloseTo(0.9 * r.metrics.initialCapital, 6);
+    expect(last).toBeCloseTo(r.metrics.initialCapital * (1 + r.metrics.buyHoldPct / 100), 6);
   });
 });
 

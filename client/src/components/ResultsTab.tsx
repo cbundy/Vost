@@ -63,15 +63,16 @@ export function ResultsTab() {
   };
 
   const exportEquity = () => {
-    const rows = btResult.equity.map((p) => [
+    const rows = btResult.equity.map((p, i) => [
       new Date(p.time * 1000).toISOString(),
       p.equity.toFixed(4),
       p.drawdownPct.toFixed(4),
       p.position,
+      (btResult.buyHold[i] ?? 0).toFixed(4),
     ]);
     downloadFile(
       `vost_equity_${sanitizeFileName(dataLabel || 'run')}.csv`,
-      rowsToCsv(['time', 'equity', 'drawdown_pct', 'position'], rows),
+      rowsToCsv(['time', 'equity', 'drawdown_pct', 'position', 'buy_hold'], rows),
     );
   };
 
@@ -100,7 +101,7 @@ export function ResultsTab() {
         <Metric label="Final equity" value={fmtMoney(m.finalEquity)} />
         <Metric label="Net P/L" value={fmtMoney(m.finalEquity - m.initialCapital)} className={pnlClass(m.finalEquity - m.initialCapital)} />
         <Metric label="Total return" value={fmtPct(m.totalReturnPct)} className={pnlClass(m.totalReturnPct)} />
-        <Metric label="Buy & hold" value={fmtPct(m.buyHoldPct)} className={pnlClass(m.buyHoldPct)} title="Return of simply holding the asset over the same period" />
+        <Metric label="Buy & hold" value={fmtPct(m.buyHoldPct)} className={pnlClass(m.buyHoldPct)} title="Return of simply holding the asset over the same period (ignores fees and slippage)" />
         <Metric label="CAGR" value={fmtPct(m.cagrPct)} className={pnlClass(m.cagrPct)} />
         <Metric label="Sharpe" value={fmtNum(m.sharpe, 2)} title="Annualised Sharpe ratio of bar returns" />
         <Metric label="Sortino" value={fmtNum(m.sortino, 2)} title="Annualised Sortino ratio (downside deviation)" />
