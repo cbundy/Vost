@@ -235,7 +235,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   }
 
   /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */
-  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style' | 'cells'>>, size?: { width: number; height: number }): ToolView {
+  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style' | 'cells' | 'image'>>, size?: { width: number; height: number }): ToolView {
     const series = this.series;
     const { values, styled } = this.styleOf(d);
     const pane = size ?? (this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 });
@@ -245,6 +245,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       anchors: d.anchors,
       text: d.text ?? '',
       cells: d.cells ?? [],
+      image: d.image,
       times: this.getTimes(),
       candles: this.getCandles(),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,

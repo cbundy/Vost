@@ -21,6 +21,7 @@ import { drawingLines } from './drawing-lines.ts';
 import { drawingPatterns } from './drawing-patterns.ts';
 import { drawingRail } from './drawing-rail.ts';
 import { drawingShapes } from './drawing-shapes.ts';
+import { drawingImage } from './drawing-image.ts';
 import { drawingNotes } from './drawing-notes.ts';
 import { drawingPriceMarkers } from './drawing-price-markers.ts';
 import { drawingTable } from './drawing-table.ts';
@@ -46,7 +47,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, btProgress, btRange, btResults, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingGann, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPriceMarkers, drawingRail, drawingShapes, drawingTable, drawingText, drawingToolbar, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, btProgress, btRange, btResults, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingGann, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPriceMarkers, drawingRail, drawingShapes, drawingTable, drawingText, drawingToolbar, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();

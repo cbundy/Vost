@@ -557,6 +557,7 @@ export function ChartPanel({
     onToggleFavorite: toggleFavorite,
     lastTool,
     disabled: !drawings.hasData,
+    imagesOff: !drawings.imagesAvailable,
     magnet: drawings.magnet,
     onMagnet: drawings.toggleMagnet,
     magnetStrength: drawings.magnetStrength,
