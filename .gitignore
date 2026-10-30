@@ -106,4 +106,8 @@ coverage/
 # Local data
 data/
 *.sqlite
+
+# Core dumps from crashed processes (kernel.core_pattern=core writes them to the cwd)
+/core
+/core.[0-9]*
 # --- end repo-owned ---
