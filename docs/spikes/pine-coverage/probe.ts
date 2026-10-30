@@ -4,9 +4,12 @@
  * Run: `timeout 180 npx vite-node docs/spikes/pine-coverage/probe.ts > docs/spikes/pine-coverage/output.txt`
  * (vite-node because client/src/lib/pine/runtime.ts uses extensionless imports). Exits 0; deterministic.
  */
+import { readFileSync } from 'node:fs';
 import { PineTS } from 'pinets';
 import { runPine } from '../../../client/src/lib/pine/runtime';
 import type { Candle } from '../../../client/src/types';
+
+const pinetsVersion: string = JSON.parse(readFileSync(new URL('../../../node_modules/pinets/package.json', import.meta.url), 'utf8')).version;
 
 // 120 daily bars from 2023-11-14, a deterministic wave with a trend, so crosses and pivots occur.
 const T0 = 1700000000 - (1700000000 % 86400);
@@ -140,7 +143,7 @@ strat('strategy', 'strategy-exit-stop-limit', 'if ta.crossover(close, ta.sma(clo
 strat('strategy', 'strategy-order-close-all', 'if bar_index % 20 == 0\n    strategy.order("O", strategy.long, 1)\nif bar_index % 20 == 10\n    strategy.close_all()');
 strat('strategy', 'strategy-limit-stop-entry', 'if bar_index % 30 == 0\n    strategy.entry("L", strategy.long, limit=close*0.99)\nif bar_index % 30 == 15\n    strategy.entry("S", strategy.short, stop=close*0.99)\nif bar_index % 30 == 25\n    strategy.close_all()');
 strat('strategy', 'strategy-cancel', 'if bar_index % 10 == 0\n    strategy.entry("L", strategy.long, limit=close*0.5)\nif bar_index % 10 == 5\n    strategy.cancel("L")');
-full('strategy', 'strategy-risk', '//@version=6\nstrategy("c", overlay=true)\nstrategy.risk.max_drawdown(10, strategy.percent_of_equity)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nstrategy.risk.allow_entry_in(strategy.direction.long)\n' + ENTRY);
+// strategy.risk.* rules: see the 'strategy-risk' block after the cases (each rule is run with and without).
 full('strategy', 'strategy-commission-slippage', '//@version=6\nstrategy("c", overlay=true, initial_capital=10000, commission_type=strategy.commission.percent, commission_value=0.1, slippage=2)\n' + ENTRY);
 full('strategy', 'strategy-pyramiding', '//@version=6\nstrategy("c", overlay=true, pyramiding=3)\nif bar_index % 5 == 0\n    strategy.entry("L" + str.tostring(bar_index), strategy.long)\nif bar_index % 25 == 24\n    strategy.close_all()');
 full('strategy', 'strategy-qty-percent-equity', '//@version=6\nstrategy("c", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=50)\n' + ENTRY);
@@ -242,7 +245,7 @@ async function vostRun(src: string, libs?: Record<string, string>): Promise<stri
   }
 }
 
-console.log(`Pine v6 coverage probe: ${cases.length} cases, ${candles.length} synthetic daily candles from ${new Date(candles[0].time * 1000).toISOString().slice(0, 10)}, PineTS ticker VOST timeframe D`);
+console.log(`PineTS ${pinetsVersion} - Pine v6 coverage probe: ${cases.length} cases, ${candles.length} synthetic daily candles from ${new Date(candles[0].time * 1000).toISOString().slice(0, 10)}, PineTS ticker VOST timeframe D`);
 for (const c of cases) {
   console.log(`\n## ${c.row} / ${c.id}`);
   console.log(`  pinets : ${await rawRun(c.src, c.libs)}`);
@@ -263,4 +266,65 @@ for (const c of cases) {
   }
   console.log('\n## timeframe / runPine on 1h candles');
   console.log(`  runPine: ${line}`);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// strategy.risk.*: one case per rule. Each strategy would break the limit; it runs once with the rule and once
+// without (control), through raw PineTS and through runPine. Printed: trades, closed profit, last bar with an entry.
+// The two intraday rules run on hourly candles (24 bars per day), the others on the daily ones.
+const hourlyCandles = candles.map((c, i) => ({ ...c, time: T0 + i * 3600 }));
+const hourlyData = hourlyCandles.map((c, i) => ({
+  openTime: c.time * 1000,
+  closeTime: (i + 1 < hourlyCandles.length ? hourlyCandles[i + 1].time : c.time + 3600) * 1000 - 1,
+  open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume,
+}));
+const RISK_HEAD = '//@version=6\nstrategy("c", overlay=true, initial_capital=10000, pyramiding=5)\n';
+// Buys on every 3rd bar and closes on the next, so it trades all the time; the shorts alternate with the longs.
+const CHURN = 'if bar_index % 4 == 0\n    strategy.entry("L", strategy.long)\nif bar_index % 4 == 1\n    strategy.close("L")\nif bar_index % 4 == 2\n    strategy.entry("S", strategy.short)\nif bar_index % 4 == 3\n    strategy.close("S")\n';
+interface RiskCase { rule: string; rows: 'daily' | 'hourly'; rule_src: string; body: string }
+const riskCases: RiskCase[] = [
+  { rule: 'allow_entry_in', rows: 'daily', rule_src: 'strategy.risk.allow_entry_in(strategy.direction.long)', body: CHURN },
+  { rule: 'max_drawdown', rows: 'daily', rule_src: 'strategy.risk.max_drawdown(30, strategy.cash)', body: CHURN.replace(/strategy.long\)/, 'strategy.long, 20)').replace(/strategy.short\)/, 'strategy.short, 20)') },
+  { rule: 'max_intraday_loss', rows: 'hourly', rule_src: 'strategy.risk.max_intraday_loss(5, strategy.cash)', body: CHURN.replace(/strategy.long\)/, 'strategy.long, 10)').replace(/strategy.short\)/, 'strategy.short, 10)') },
+  { rule: 'max_cons_loss_days', rows: 'daily', rule_src: 'strategy.risk.max_cons_loss_days(2)', body: CHURN },
+  { rule: 'max_intraday_filled_orders', rows: 'hourly', rule_src: 'strategy.risk.max_intraday_filled_orders(4)', body: CHURN },
+  { rule: 'max_position_size', rows: 'daily', rule_src: 'strategy.risk.max_position_size(3)', body: 'if bar_index % 10 == 0\n    strategy.entry("L", strategy.long, 8)\nif bar_index % 10 == 5\n    strategy.close("L")\n' },
+];
+
+async function riskRaw(src: string, data: typeof pineData, tf: string): Promise<string> {
+  const quiet = mute();
+  try {
+    const ctx: any = await new PineTS(data, 'VOST', tf).run(src);
+    const all = [...(ctx.strategy?.closedtrades ?? []), ...(ctx.strategy?.opentrades ?? [])];
+    const net = (ctx.strategy?.closedtrades ?? []).reduce((a: number, t: any) => a + (Number(t.profit) || 0), 0);
+    const last = all.reduce((a: number, t: any) => Math.max(a, Number(t.entry_bar_index ?? -1)), -1);
+    return `trades=${all.length} closed-profit=${+net.toFixed(2)} last-entry-bar=${last}`;
+  } catch (e: any) {
+    return 'ERR ' + short(String(e?.message ?? e));
+  } finally {
+    quiet.restore();
+  }
+}
+async function riskVost(src: string, cs: Candle[]): Promise<string> {
+  const quiet = mute();
+  try {
+    const r = await runPine(src, cs);
+    if (!r.ok) return 'ERR ' + short(r.error.message);
+    const net = r.trades.reduce((a, t) => a + (t.profit ?? 0), 0);
+    const last = r.trades.reduce((a, t) => Math.max(a, t.entryIndex), -1);
+    return `trades=${r.trades.length} closed-profit=${+net.toFixed(2)} last-entry-bar=${last}`;
+  } finally {
+    quiet.restore();
+  }
+}
+for (const rc of riskCases) {
+  const hourly = rc.rows === 'hourly';
+  const data = hourly ? hourlyData : pineData;
+  const cs = hourly ? hourlyCandles : candles;
+  const tf = hourly ? '60' : 'D';
+  console.log(`\n## strategy-risk / ${rc.rule} (${hourly ? 'hourly' : 'daily'} candles)`);
+  for (const [label, src] of [['with rule   ', RISK_HEAD + rc.rule_src + '\n' + rc.body], ['without rule', RISK_HEAD + rc.body]] as const) {
+    console.log(`  pinets  ${label}: ${await riskRaw(src, data, tf)}`);
+    console.log(`  runPine ${label}: ${await riskVost(src, cs)}`);
+  }
 }
