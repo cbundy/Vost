@@ -1,0 +1,21 @@
+ok   priceRange stored with two anchors - [{"id":"dmvuzcera1rg2r","tool":"priceRange","anchors":[{"time":1766707200,"price":135.0282657824019},{"time":1773446400,"price":191.0703157191844}]}]
+ok   dateRange stored with two anchors - [{"id":"dmvuzcfd72gfew","tool":"dateRange","anchors":[{"time":1775088000,"price":199.07632068509616},{"time":1781136000,"price":167.0522957629824}]}]
+ok   datePriceRange stored with two anchors - [{"id":"dmvuzcg633juy2","tool":"datePriceRange","anchors":[{"time":1782518400,"price":207.08233070947466},{"time":1788566400,"price":143.03427074831365}]}]
+ok   the first anchor stayed, the second moved
+ok   titled for the tool
+ok   offers Line colour
+ok   offers Line width
+ok   offers Background
+ok   offers Background opacity
+ok   offers Text colour
+ok   offers Font size
+ok   offers Label background
+ok   offers Extend top
+ok   offers Extend bottom
+ok   the width is stored
+info priceRange: change 69.30, pct 51.32, ticks 6930, seconds 7689600, bars inside 90, volume 4411879
+info dateRange: change -32.02, pct -16.09, ticks -3202, seconds 6048000, bars inside 71, volume 3659577
+info datePriceRange: change -64.05, pct -30.93, ticks -6405, seconds 6048000, bars inside 71, volume 3597086
+ok   storage is unchanged after a reload
+ok   and after a timeframe change
+ok   no console error
