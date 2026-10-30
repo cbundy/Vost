@@ -299,7 +299,7 @@ export async function runPine(
       position: isStrategy ? positionSeries(trades, candles.length) : [],
       ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
       messages: mapMessages(ctx, takeLogs(ctx)),
-      ...drawingsField(mapDrawings(ctx.plots ?? {}, candles.map((c) => c.time))),
+      ...drawingsField(mapDrawings(ctx.plots ?? {}, candles.map((c) => c.time), candles, overlay)),
     };
   } catch (err) {
     const error = parseError(err);

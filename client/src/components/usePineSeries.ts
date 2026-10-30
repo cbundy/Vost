@@ -9,6 +9,7 @@ import {
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
   type LineWidth,
+  type MouseEventParams,
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
@@ -99,6 +100,19 @@ export function usePineSeries(
   const paneState = paneStateRef ?? ownState;
   const chartStore = useChartStore();
   const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], fills: [] as BuiltFill[], objects: [] as BuiltDrawings[], descs: [] as PineSeriesDesc[] });
+
+  // The pointer goes to every drawings primitive, which shows a label's or table cell's tooltip when it is over one.
+  useEffect(() => {
+    if (!chart) return;
+    const onMove = (p: MouseEventParams<Time>) => {
+      for (const o of ref.current.objects) o.prim.crosshairMoved(p.paneIndex, p.point);
+    };
+    chart.subscribeCrosshairMove(onMove);
+    return () => {
+      chart.unsubscribeCrosshairMove(onMove);
+      for (const o of ref.current.objects) o.prim.setHover(null);
+    };
+  }, [chart]);
 
   useEffect(() => {
     if (!chart) return;

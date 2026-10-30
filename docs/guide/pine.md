@@ -63,13 +63,19 @@ A script that draws in its own pane (`overlay=false`) shows its `plotshape` and 
 
 ## Drawing objects
 
-The `line`, `box`, `polyline` and `linefill` objects a script makes are drawn on the chart, in the state the script left them: a line moved with `line.set_xy2` is where it ended up, and a deleted object is gone. A script with `overlay=false` draws them in its own pane, on that pane's scale (a script that only draws still gets a pane); an object made with `force_overlay=true` goes on the candles. They follow the script: hiding it hides them, and during a replay they show only once the replay has reached the end of the run.
+The `line`, `box`, `polyline`, `linefill`, `label` and `table` objects a script makes are drawn on the chart, in the state the script left them: a line moved with `line.set_xy2` is where it ended up, and a deleted object is gone. A script with `overlay=false` draws them in its own pane, on that pane's scale (a script that only draws still gets a pane); an object made with `force_overlay=true` goes on the candles. They follow the script: hiding it hides them, and during a replay they show only once the replay has reached the end of the run.
 
 Lines keep their colour, width and style (solid, dashed, dotted, or an arrow at either or both ends) and can extend left, right or both to the edge of the pane, so a line that ends bars after the last candle reaches into the empty space on the right. Boxes draw their border, background and text, aligned and wrapped as the script says. Polylines can be closed, filled and curved. A `linefill` shades the area between its two lines, extensions included. `max_lines_count`, `max_boxes_count` and `max_polylines_count` keep the newest objects.
 
 ![Lines, boxes, polylines and a line fill drawn on the candles by a Pine script](../evidence/pine-drawings/pine-drawings-overlay-desktop.png)
 
-The objects are only a picture of the script's output: you cannot select, move, edit or save them, and a click on one goes through to the chart. `label` and `table` objects are not shown yet.
+`label` objects show at their bar and price in the style the script gave: the bubble styles (`label_up`, `label_down`, `label_left`, `label_right`, `label_center` and the four corner styles) with a pointer toward the bar, `style_none` and `style_text_outline` as text alone, and the shapes (`circle`, `square`, `diamond`, `cross`, `xcross`, triangles, arrows, `flag`) with the text beside them. Colours, text size, `\n` line breaks and text alignment are kept, and `yloc.abovebar` / `yloc.belowbar` put a label just above the bar's high or below its low. `max_labels_count` keeps the newest labels.
+
+`table` objects are pinned to the place the script chose out of the nine (`position.top_left` to `position.bottom_right`) and stay there while you scroll or zoom the chart. Each cell shows its text, colours, size and alignment, merged cells span their range, and the table's background, border and frame are drawn. A column or row with no cell takes no space.
+
+![Labels in several styles and a table drawn by a Pine script; hovering a label shows its tooltip](../evidence/pine-drawings/pine-drawings-labels-tooltip-desktop.png)
+
+Hover a label or a table cell that has a tooltip and the text shows next to the pointer. Apart from that the objects are only a picture of the script's output: you cannot select, move, edit or save them, and a click on one goes through to the chart.
 
 ## Converting old scripts
 
