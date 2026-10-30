@@ -455,6 +455,19 @@ describe('the pitchfork tools', () => {
   });
 });
 
+describe('the three-point Fibonacci tools', () => {
+  it('round trips each with three anchors and a custom levels list and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'pitchfan'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3, 3, 3, 3]);
+    const style = { levels: [{ value: 0.5, color: '#112233', on: true }, { value: 3, color: 'accent', on: false }] };
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(3), style }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(2) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('drawing management edits', () => {
   const t = (id: string): Drawing => ({ id, tool: 'trendLine', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] });
   const three = () => emptyState([t('a'), t('b'), t('c')]);

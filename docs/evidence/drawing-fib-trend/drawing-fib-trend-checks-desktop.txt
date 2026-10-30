@@ -1,0 +1,44 @@
+ok   nothing stored after Escape
+ok   Trend-based fib extension stored - fibExtension:3
+ok   Fib channel stored - fibExtension:3,fibChannel:3
+ok   Fib wedge stored - fibExtension:3,fibChannel:3,fibWedge:3
+ok   Pitchfan stored - fibExtension:3,fibChannel:3,fibWedge:3,pitchfan:3
+ok   Trend-based fib time stored - fibExtension:3,fibChannel:3,fibWedge:3,pitchfan:3,fibTrendTime:3
+ok   chart painted
+ok   Trend-based fib extension moved by its body - [[{"time":1619136000,"price":16.99805023485328},{"time":1628380800,"price":110.51699972931245},{"time":1636329600,"price":63.757515673630465}],[{"time":1615680000,"price":16.99805023485328},{"time":1624924800,"price":110.51699972931245},{"time":1632873600,"price":63.757515673630465}]]
+ok   Trend-based fib extension resized by a handle - [[{"time":1615680000,"price":16.99805023485328},{"time":1624924800,"price":110.51699972931245},{"time":1632873600,"price":63.757515673630465}],[{"time":1615680000,"price":6.017352975638065},{"time":1624924800,"price":110.51699972931245},{"time":1632873600,"price":63.757515673630465}]]
+ok   Trend-based fib extension settings are titled for the tool
+ok   Trend-based fib extension level 0.618 switched off - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.236,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":true},{"value":0.618,"color":"accent","on":false},{"value":0.786,"color":"accent","on":true},{"value":1,"color":"accent","on":true},{"value":1.618,"color":"accent","on":true},{"value":2.618,"color":"accent","on":true},{"value":3.618,"color":"accent","on":true},{"value":4.236,"color":"accent","on":true}],"extendRight":true,"showPercent":true}
+ok   Extend right and Show percent stored
+ok   Trend-based fib extension undo reverts the restyle
+ok   Trend-based fib extension redo restores the restyle
+ok   Fib channel moved by its body - [[{"time":1641600000,"price":16.99805023485328},{"time":1661558400,"price":48.17103339967301},{"time":1654905600,"price":110.51699972931245}],[{"time":1638144000,"price":16.99805023485328},{"time":1658102400,"price":48.17103339967301},{"time":1651449600,"price":110.51699972931245}]]
+ok   Fib channel resized by a handle - [[{"time":1638144000,"price":16.99805023485328},{"time":1658102400,"price":48.17103339967301},{"time":1651449600,"price":110.51699972931245}],[{"time":1638144000,"price":6.017352975638065},{"time":1658102400,"price":48.17103339967301},{"time":1651449600,"price":110.51699972931245}]]
+ok   Fib channel settings are titled for the tool
+ok   Fib channel level 0.618 switched off - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.236,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":true},{"value":0.618,"color":"accent","on":false},{"value":0.786,"color":"accent","on":true},{"value":1,"color":"accent","on":true},{"value":1.618,"color":"accent","on":true},{"value":2.618,"color":"accent","on":true},{"value":3.618,"color":"accent","on":true},{"value":4.236,"color":"accent","on":true}],"showLevels":false}
+ok   Show levels off stored
+ok   Fib channel undo reverts the restyle
+ok   Fib channel redo restores the restyle
+ok   Fib wedge moved by its body - [[{"time":1674777600,"price":16.99805023485328},{"time":1689379200,"price":32.58455112571554},{"time":1676073600,"price":94.93049883845018}],[{"time":1671321600,"price":16.99805023485328},{"time":1685923200,"price":32.58455112571554},{"time":1672617600,"price":94.93049883845018}]]
+ok   Fib wedge resized by a handle - [[{"time":1671321600,"price":16.99805023485328},{"time":1685923200,"price":32.58455112571554},{"time":1672617600,"price":94.93049883845018}],[{"time":1671321600,"price":6.017352975638065},{"time":1685923200,"price":32.58455112571554},{"time":1672617600,"price":94.93049883845018}]]
+ok   Fib wedge settings are titled for the tool
+ok   Fib wedge level 0.618 switched off - {"levels":[{"value":0.236,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":true},{"value":0.618,"color":"accent","on":false},{"value":0.786,"color":"accent","on":true},{"value":1,"color":"accent","on":true}],"showLabels":false}
+ok   Show labels off stored
+ok   Fib wedge undo reverts the restyle
+ok   Fib wedge redo restores the restyle
+ok   Pitchfan moved by its body - [[{"time":1668124800,"price":188.44943902445695},{"time":1697328000,"price":244.56080406690626},{"time":1697328000,"price":157.27646516808963}],[{"time":1664668800,"price":188.44943902445695},{"time":1693872000,"price":244.5608040669063},{"time":1693872000,"price":157.27646516808963}]]
+ok   Pitchfan resized by a handle - [[{"time":1664668800,"price":188.44943902445695},{"time":1693872000,"price":244.5608040669063},{"time":1693872000,"price":157.27646516808963}],[{"time":1664668800,"price":177.46874176524173},{"time":1693872000,"price":244.5608040669063},{"time":1693872000,"price":157.27646516808963}]]
+ok   Pitchfan settings are titled for the tool
+ok   Pitchfan level 0.618 on and recoloured - {"levels":[{"value":0.25,"color":"#ffb74d","on":false},{"value":0.382,"color":"#81c784","on":false},{"value":0.5,"color":"#089981","on":true},{"value":0.618,"color":"#ff00ff","on":true},{"value":0.75,"color":"#00bcd4","on":false},{"value":1,"color":"#2962FF","on":true},{"value":1.5,"color":"#9c27b0","on":false},{"value":1.75,"color":"#e91e63","on":false},{"value":2,"color":"#F77C80","on":false}],"background":false}
+ok   Background off stored
+ok   Pitchfan undo reverts the restyle
+ok   Pitchfan redo restores the restyle
+ok   Trend-based fib time moved by its body - [[{"time":1707955200,"price":63.757515673630465},{"time":1715904000,"price":157.27646516808963},{"time":1721174400,"price":110.51699972931245}],[{"time":1704499200,"price":63.757515673630465},{"time":1712448000,"price":157.27646516808963},{"time":1717718400,"price":110.51699972931245}]]
+ok   Trend-based fib time resized by a handle - [[{"time":1704499200,"price":63.757515673630465},{"time":1712448000,"price":157.27646516808963},{"time":1717718400,"price":110.51699972931245}],[{"time":1704499200,"price":52.776818414415246},{"time":1712448000,"price":157.27646516808963},{"time":1717718400,"price":110.51699972931245}]]
+ok   Trend-based fib time settings are titled for the tool
+ok   Trend-based fib time level 0.618 switched off - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":true},{"value":0.618,"color":"accent","on":false},{"value":1,"color":"accent","on":true},{"value":1.382,"color":"accent","on":true},{"value":1.618,"color":"accent","on":true},{"value":2,"color":"accent","on":true},{"value":2.382,"color":"accent","on":true},{"value":2.618,"color":"accent","on":true},{"value":3,"color":"accent","on":true},{"value":3.618,"color":"accent","on":true},{"value":4.236,"color":"accent","on":true}],"showLabels":false}
+ok   Show labels off stored
+ok   Trend-based fib time undo reverts the restyle
+ok   Trend-based fib time redo restores the restyle
+ok   five drawings after reload
+ok   unchanged by the timeframe change

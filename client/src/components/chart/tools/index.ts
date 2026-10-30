@@ -14,12 +14,17 @@ import { horizontalRay } from './horizontalRay';
 import { infoLine } from './infoLine';
 import { trendAngle } from './trendAngle';
 import { verticalLine } from './verticalLine';
+import { fibChannel } from './fibChannel';
 import { fibCircles } from './fibCircles';
+import { fibExtension } from './fibExtension';
 import { fibRetracement } from './fibRetracement';
 import { fibSpeedArcs } from './fibSpeedArcs';
 import { fibSpeedFan } from './fibSpeedFan';
 import { fibSpiral } from './fibSpiral';
 import { fibTimeZone } from './fibTimeZone';
+import { fibTrendTime } from './fibTrendTime';
+import { fibWedge } from './fibWedge';
+import { pitchfan } from './pitchfan';
 import { horizontalLine } from './horizontalLine';
 import { ray } from './ray';
 import { measure } from './measure';
@@ -30,7 +35,7 @@ import type { SettingField } from '../../../lib/drawingStyle';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, fibRetracement, fibTimeZone, fibSpeedFan, fibCircles, fibSpiral, fibSpeedArcs, text, anchoredText, measure];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, text, anchoredText, measure];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);
