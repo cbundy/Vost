@@ -33,6 +33,7 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
   - Flat top/bottom takes three points: a sloped edge from the first two and a flat edge at the third point's price, filled between.
   - Disjoint channel takes three points: a first edge from the first two, and a second edge that starts at the third and mirrors the first edge's rise, so the two edges are not parallel. They are filled between.
   - Three-point drawings are placed with three clicks or taps, or press, drag and release for the first two and then a click or tap. Each placed point stays, a preview follows the pointer for the next one, and Escape cancels the drawing.
+- **Pitchfork**, **Schiff pitchfork**, **Modified Schiff pitchfork** and **Inside pitchfork** (the Pitchforks section of the Lines list): pick a tool and place three points by clicks or taps, or press, drag and release for the first two and then a click. A median line runs from the first point (Pitchfork), from the middle of the first two points at the first point's time (Schiff), from the middle of the first two points (Modified Schiff) or from the middle of the first two points (Inside, the same origin as Modified Schiff), through the middle of points two and three. Coloured level lines run parallel to the median on both sides, level 1 through points two and three, and a fill sits between neighbouring lines. In the settings, the levels (0.5 and 1 on to begin with) are switched on and off, recoloured, edited, added and removed, the median can be hidden, restyled, the Background turned off, the lines extended backward, and the Style changed to another of the four constructions.
 - A selected line shows its price on the price axis and its time on the time axis.
 - **Text** and **Anchored text**: click the chart and type a note in place. Enter adds a line, Ctrl+Enter (Cmd+Enter) saves, Escape cancels. Double-click a note to edit it. Anchored text keeps its spot on the pane when the chart moves. See [Text and Anchored text](drawing-annotations.md).
 - **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick.
@@ -44,6 +45,8 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 ![A regression trend restyled with the hlc3 source and 3 deviations](../evidence/drawing-channels/drawing-channels-styled-regressionTrend-desktop.png)
 
 ![A parallel channel being placed: two points down, the third follows the pointer](../evidence/drawing-channels/drawing-channels-preview-parallelChannel-desktop.png)
+
+![The pitchfork tools](../evidence/drawing-pitchforks/drawing-pitchforks-all-desktop.png)
 
 ![Fibonacci retracement](../evidence/drawings/drawings-fib-desktop.png)
 
