@@ -58,7 +58,7 @@ export function marketTimeframe(market: PineMarket | undefined, candles: Candle[
 }
 
 /** Compares timeframes by meaning ("D" and "1D" are the same). */
-function normalizeTimeframe(tf: string): string {
+export function normalizeTimeframe(tf: string): string {
   const m = /^(\d*)([SDWM]?)$/i.exec(tf.trim());
   if (!m) return tf.trim().toUpperCase();
   return `${m[1] || '1'}${m[2].toUpperCase()}`;
