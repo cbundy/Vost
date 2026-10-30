@@ -15,6 +15,8 @@ import type { BacktestResult, BacktestConfig } from '../lib/backtest/types';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/optimizer';
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
+import { getStrategy } from '../lib/backtest/strategies';
+import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
@@ -171,7 +173,8 @@ export interface ChartState {
   optConfig: OptimizeConfig;
   optRunning: boolean;
   optProgress: number;
-  optResult: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; combos: number; errored: number } | null;
+  /** The last finished run, with the settings it ran with (kept for the export). */
+  optResult: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; combos: number; errored: number; context: OptimizeRunContext } | null;
 
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
@@ -836,6 +839,26 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         return;
       }
       const previous = optRun ? optRun.previous : get().optResult;
+      const swept = new Set(optConfig.sweeps.map((sw) => sw.key));
+      const context: OptimizeRunContext = {
+        strategyId: btConfig.strategyId,
+        strategyName: getStrategy(btConfig.strategyId).name,
+        params: Object.fromEntries(Object.entries(btConfig.params).filter(([k]) => !swept.has(k) && !k.startsWith('__'))),
+        symbol: get().symbol,
+        timeframe: get().timeframe,
+        dataLabel: get().dataLabel,
+        rangeFrom: candles[0]?.time ?? null,
+        rangeTo: candles[candles.length - 1]?.time ?? null,
+        bars: candles.length,
+        initialCapital: btConfig.initialCapital,
+        positionSizePct: btConfig.positionSizePct,
+        feeBps: btConfig.feeBps,
+        slippageBps: btConfig.slippageBps,
+        stopLossPct: btConfig.stopLossPct,
+        takeProfitPct: btConfig.takeProfitPct,
+        allowShort: btConfig.allowShort,
+        sweeps: optConfig.sweeps.map((sw) => ({ ...sw })),
+      };
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
       const call = optimizerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
@@ -849,7 +872,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         optRun = null;
         if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
         set({
-          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored },
+          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored, context },
           optRunning: false,
           optProgress: 1,
         });

@@ -245,6 +245,22 @@ describe('btRange', () => {
       const earlier = st().optResult;
       expect(earlier?.combos).toBe(7);
 
+      // the run's settings are kept with the result; later edits do not change them
+      const ctx = earlier!.context;
+      expect(ctx.strategyId).toBe(st().btConfig.strategyId);
+      expect(ctx.initialCapital).toBe(st().btConfig.initialCapital);
+      expect(ctx.bars).toBe(st().candles.length);
+      expect(ctx.sweeps).toEqual(st().optConfig.sweeps);
+      const before = JSON.stringify(ctx);
+      const startCapital = st().btConfig.initialCapital;
+      st().setBtConfig({ initialCapital: startCapital + 5000, feeBps: 77 });
+      st().setBtRange({ from: st().candles[3].time, to: null });
+      st().setOptConfig({ sweeps: [{ key: 'slow', from: 1, to: 2, step: 1 }] });
+      expect(st().optResult!.context).toBe(ctx);
+      expect(JSON.stringify(ctx)).toBe(before);
+      expect(ctx.initialCapital).toBe(startCapital);
+      expect(ctx.feeBps).not.toBe(77);
+
       const made2 = stubWorkers(false);
       const run = st().runOptimizer();
       expect(st().optRunning).toBe(true);
@@ -259,6 +275,7 @@ describe('btRange', () => {
       expect(st().optRunning).toBe(false);
       expect(st().optProgress).toBe(0);
       expect(st().optResult).toBe(earlier);
+      expect(st().optResult!.context.initialCapital).toBe(startCapital); // its own context, not the cancelled run's
       expect(snap(useStore).toasts.some((t) => t.kind === 'error')).toBe(false);
 
       // a late message from the cancelled worker (its real handler, the run's real id) changes nothing
