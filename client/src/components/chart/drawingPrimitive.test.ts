@@ -35,13 +35,13 @@ describe('toPoint', () => {
   });
   it('places a vertical line whose price is scrolled off the scale, and hits it', () => {
     const prim = make();
-    prim.set([{ id: 'v', tool: 'verticalLine', anchors: [{ time: 200, price: 900 }] }], null, null);
+    prim.set([{ id: 'v', tool: 'verticalLine', anchors: [{ time: 200, price: 900 }] }], [], null);
     expect(prim.hit({ x: 10, y: 120 })).toEqual({ id: 'v', handle: null });
     expect(prim.hit({ x: 60, y: 120 })).toBeNull();
   });
   it('places a cross line with either coordinate off its scale', () => {
     const prim = make();
-    prim.set([{ id: 'c', tool: 'crossLine', anchors: [{ time: 200, price: 900 }] }], null, null);
+    prim.set([{ id: 'c', tool: 'crossLine', anchors: [{ time: 200, price: 900 }] }], [], null);
     expect(prim.hit({ x: 10, y: 50 })).toEqual({ id: 'c', handle: null });
     expect(prim.hit({ x: 300, y: 1 })).toEqual({ id: 'c', handle: null });
   });
@@ -54,10 +54,10 @@ describe('axis views', () => {
 
   it('shows a price and a time label for the selected cross line only', () => {
     const prim = make((t) => `t${t}`);
-    prim.set([cross], null, null);
+    prim.set([cross], [], null);
     expect(prim.priceAxisViews()).toHaveLength(0);
     expect(prim.timeAxisViews()).toHaveLength(0);
-    prim.set([cross], 'c', null);
+    prim.set([cross], ['c'], null);
     expect(texts(prim.priceAxisViews())).toEqual(['$40']);
     expect(texts(prim.timeAxisViews())).toEqual(['t200']);
     expect(prim.priceAxisViews()[0].coordinate()).toBe(120);
@@ -66,17 +66,17 @@ describe('axis views', () => {
   });
   it('labels the horizontal line price as before, selected or not, and not with showLabel false', () => {
     const prim = make();
-    prim.set([hline], null, null);
+    prim.set([hline], [], null);
     expect(texts(prim.priceAxisViews())).toEqual(['$70']);
-    prim.set([hline], 'h', null);
+    prim.set([hline], ['h'], null);
     expect(texts(prim.priceAxisViews())).toEqual(['$70']);
     expect(prim.timeAxisViews()).toHaveLength(0);
-    prim.set([{ ...hline, style: { showLabel: false } }], 'h', null);
+    prim.set([{ ...hline, style: { showLabel: false } }], ['h'], null);
     expect(prim.priceAxisViews()).toHaveLength(0);
   });
   it('hides a price label that is off the scale', () => {
     const prim = make();
-    prim.set([{ ...hline, anchors: [{ time: 100, price: 900 }] }], null, null);
+    prim.set([{ ...hline, anchors: [{ time: 100, price: 900 }] }], [], null);
     expect(prim.priceAxisViews()[0].visible?.()).toBe(false);
   });
 });
@@ -114,11 +114,11 @@ describe('a draft with several anchors', () => {
     const a = { time: 100, price: 10 };
     const b = { time: 200, price: 50 };
     const c = { time: 300, price: 30 };
-    prim.set([], null, draft([a, b]));
+    prim.set([], [], draft([a, b]));
     expect(paint(prim)).toEqual([[0, 180]]);
-    prim.set([], null, draft([a, b, b]));
+    prim.set([], [], draft([a, b, b]));
     expect(paint(prim)).toEqual([[0, 180], [10, 100]]);
-    prim.set([], null, draft([a, b, c]));
+    prim.set([], [], draft([a, b, c]));
     expect(paint(prim)).toHaveLength(2);
   });
 });
@@ -127,9 +127,31 @@ describe('locked drawings', () => {
   const trend = { id: 't', tool: 'trendLine', anchors: [{ time: 100, price: 20 }, { time: 300, price: 80 }] };
   it('hits a selected drawing handle only while it is unlocked', () => {
     const prim = make();
-    prim.set([trend], 't', null);
+    prim.set([trend], ['t'], null);
     expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 't', handle: 0 });
-    prim.set([{ ...trend, locked: true }], 't', null);
+    prim.set([{ ...trend, locked: true }], ['t'], null);
     expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 't', handle: null });
+  });
+});
+
+describe('selection list', () => {
+  const trend = { id: 't', tool: 'trendLine', anchors: [{ time: 100, price: 20 }, { time: 300, price: 80 }] };
+  const hline = { id: 'h', tool: 'horizontalLine', anchors: [{ time: 100, price: 50 }] };
+  const vline = { id: 'v', tool: 'verticalLine', anchors: [{ time: 200, price: 50 }] };
+  it('idsInBox returns a drawing inside, leaves one partly outside, tests a horizontal line on y and a vertical line on x', () => {
+    const prim = make();
+    prim.set([trend, hline, vline], [], null);
+    expect(prim.idsInBox({ left: -5, top: 0, right: 30, bottom: 200 })).toEqual(['t', 'h', 'v']);
+    expect(prim.idsInBox({ left: -5, top: 0, right: 15, bottom: 200 })).toEqual(['h', 'v']);
+    expect(prim.idsInBox({ left: 100, top: 90, right: 150, bottom: 110 })).toEqual(['h']);
+    expect(prim.idsInBox({ left: 5, top: 500, right: 15, bottom: 600 })).toEqual(['v']);
+  });
+  it('hit grabs a handle with one drawing selected and none with two', () => {
+    const prim = make();
+    const other = { ...trend, id: 'u' };
+    prim.set([trend, other], ['t'], null);
+    expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 't', handle: 0 });
+    prim.set([trend, other], ['t', 'u'], null);
+    expect(prim.hit({ x: 0, y: 160 })).toEqual({ id: 'u', handle: null });
   });
 });
