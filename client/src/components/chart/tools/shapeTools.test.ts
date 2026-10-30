@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { smoothPath } from '../../../lib/geometry/freehand';
 import { resolveStyle } from '../../../lib/drawingStyle';
 import { arrow } from './arrow';
 import { arrowMarkDown, arrowMarkUp } from './arrowMark';
@@ -190,6 +191,18 @@ describe('brush and highlighter', () => {
     expect(brush.hit(ring, { x: 150, y: 150 }, view(brush, '', { fill: true }))).toBe(true);
     const open = [{ x: 100, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 200 }];
     expect(brush.hit(open, { x: 150, y: 150 }, view(brush, '', { fill: true }))).toBe(false);
+  });
+  it('hits the smoothed curve it draws, not the raw corner', () => {
+    const peak = [{ x: 100, y: 100 }, { x: 160, y: 220 }, { x: 220, y: 100 }];
+    for (const smoothing of [5, 20]) {
+      const curve = smoothPath(peak, smoothing);
+      for (let i = 0; i < curve.length - 1; i++) {
+        const m = { x: (curve[i].x + curve[i + 1].x) / 2, y: (curve[i].y + curve[i + 1].y) / 2 };
+        expect(brush.hit(peak, m, view(brush, '', { smoothing }))).toBe(true);
+      }
+    }
+    const tip = { x: 160, y: 218 };
+    expect(brush.hit(peak, tip, view(brush, '', { smoothing: 20 }))).toBe(false);
   });
   it('draw without throwing for any point count and smoothing', () => {
     for (const t of [brush, highlighter]) {

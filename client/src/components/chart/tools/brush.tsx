@@ -57,8 +57,9 @@ export const brush: DrawingTool = {
     ctx.stroke();
   },
   hit(pts, p, view, tolerance = HIT_TOLERANCE) {
-    if (strokeHit(pts, p, (view.style.width as number) / 2, tolerance)) return true;
-    return view.style.fill === true && closed(pts) && pointInPolygon(p, pts);
+    const line = smoothPath(pts, view.style.smoothing as number);
+    if (strokeHit(line, p, (view.style.width as number) / 2, tolerance)) return true;
+    return view.style.fill === true && closed(pts) && pointInPolygon(p, line);
   },
   handles: () => [],
 };

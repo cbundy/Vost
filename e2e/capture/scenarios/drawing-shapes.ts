@@ -382,6 +382,12 @@ export const drawingShapes: Scenario = {
         const mp = await at({ x: bw[0].x + 30 / ((await box()).width * 0.7), y: bw[0].y - 20 / (await box()).height });
         await page.mouse.dblclick(mp.x, mp.y);
         await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Smoothing', { exact: true }).fill('0');
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('Brush smoothing 0 stored', (await stored()).find((x) => x.tool === 'brush')?.style?.smoothing === 0);
+        await page.mouse.dblclick(mp.x, mp.y);
+        await dialog.waitFor({ state: 'visible' });
         await dialog.getByLabel('Smoothing', { exact: true }).fill('20');
         await dialog.getByRole('button', { name: 'OK' }).click();
         await dialog.waitFor({ state: 'hidden' });
@@ -408,6 +414,9 @@ export const drawingShapes: Scenario = {
       check('ten drawings after reload', (await stored()).length === 10);
       const strokes = (await stored()).filter((x) => x.tool === 'brush' || x.tool === 'highlighter');
       check('both strokes keep 2 to 200 points', strokes.length === 2 && strokes.every((x) => x.anchors.length >= 2 && x.anchors.length <= 200), strokes.map((x) => x.anchors.length).join());
+      const box = (x: Stored) => JSON.stringify(x.anchors);
+      check('both strokes keep their exact anchors after reload', strokes.every((x) => box(x) === box(before.find((b) => b.id === x.id)!)), strokes.map((x) => x.anchors.length).join());
+      check('the brush keeps smoothing 20 after reload', strokes.find((x) => x.tool === 'brush')?.style?.smoothing === 20);
       await ctx.screenshot('reloaded');
       await page.locator('select[title="Timeframe"]').selectOption('1h');
       await page.waitForTimeout(1500);
