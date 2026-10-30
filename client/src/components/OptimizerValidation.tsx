@@ -12,29 +12,78 @@ import {
   type ValidationConfig,
   type ValidationOutput,
 } from '../lib/backtest/validation';
+import {
+  DEFAULT_WALK_FORWARD,
+  WF_PCT_MAX,
+  WF_PCT_MIN,
+  WF_WINDOWS_MAX,
+  WF_WINDOWS_MIN,
+  type WalkForwardConfig,
+} from '../lib/backtest/walkForward';
 import { fmtNum, fmtPct, fmtTime, pnlClass } from '../lib/format';
 import { useStore } from '../state/store';
 import type { MetricKey } from '../lib/backtest/optimizer';
 
 type Split = Extract<ValidationConfig, { method: 'split' }>;
 
-/** The Validation select and, for a split, its two inputs. The last split values survive a switch to None and back. */
+const wholeOrNaN = (text: string): number => (text === '' ? NaN : Number(text));
+
+/** The Validation select and the inputs of the chosen method. The last split and walk-forward values survive a switch away and back. */
 export function ValidationSettings({ value, onChange }: { value: ValidationConfig; onChange: (v: ValidationConfig) => void }) {
   const lastSplit = useRef<Split>({ ...DEFAULT_SPLIT });
+  const lastWalk = useRef<WalkForwardConfig>({ ...DEFAULT_WALK_FORWARD });
   if (value.method === 'split') lastSplit.current = value;
+  if (value.method === 'walk-forward') lastWalk.current = value;
   const split = value.method === 'split' ? value : null;
+  const walk = value.method === 'walk-forward' ? value : null;
   return (
     <>
       <label className="form-field">
         <span>Validation</span>
         <select
           value={value.method}
-          onChange={(e) => onChange(e.target.value === 'split' ? { ...lastSplit.current } : { method: 'none' })}
+          onChange={(e) =>
+            onChange(e.target.value === 'split' ? { ...lastSplit.current } : e.target.value === 'walk-forward' ? { ...lastWalk.current } : { method: 'none' })
+          }
         >
           <option value="none">None</option>
           <option value="split">In-sample / out-of-sample</option>
+          <option value="walk-forward">Walk-forward</option>
         </select>
       </label>
+      {walk && (
+        <>
+          <label className="form-field">
+            <span>Windows</span>
+            <input
+              type="number"
+              min={WF_WINDOWS_MIN}
+              max={WF_WINDOWS_MAX}
+              step={1}
+              value={Number.isNaN(walk.windows) ? '' : walk.windows}
+              onChange={(e) => onChange({ ...walk, windows: wholeOrNaN(e.target.value) })}
+            />
+          </label>
+          <label className="form-field">
+            <span>In-sample %</span>
+            <input
+              type="number"
+              min={WF_PCT_MIN}
+              max={WF_PCT_MAX}
+              step={1}
+              value={Number.isNaN(walk.inSamplePct) ? '' : walk.inSamplePct}
+              onChange={(e) => onChange({ ...walk, inSamplePct: wholeOrNaN(e.target.value) })}
+            />
+          </label>
+          <label className="form-field">
+            <span>Mode</span>
+            <select value={walk.anchored ? 'anchored' : 'rolling'} onChange={(e) => onChange({ ...walk, anchored: e.target.value === 'anchored' })}>
+              <option value="rolling">Rolling</option>
+              <option value="anchored">Anchored</option>
+            </select>
+          </label>
+        </>
+      )}
       {split && (
         <>
           <label className="form-field">

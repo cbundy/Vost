@@ -1,7 +1,8 @@
 import { rowsToCsv, sanitizeFileName } from '../export';
 import { METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from './optimizer';
 import type { Metrics } from './types';
-import type { SplitSettings, ValidationOutput } from './validation';
+import type { Span, SplitSettings, ValidationOutput } from './validation';
+import type { WalkForwardOutput, WalkForwardSettings } from './walkForward';
 
 /** The settings an optimizer run started with; stored beside its result so later edits do not change an export. */
 export interface OptimizeRunContext {
@@ -26,6 +27,8 @@ export interface OptimizeRunContext {
   sweeps: SweepParam[];
   /** The validation the run used (absent with none). */
   validation?: SplitSettings;
+  /** The walk-forward the run used (absent otherwise). */
+  walkForward?: WalkForwardSettings;
 }
 
 export interface OptimizeResultLike {
@@ -35,6 +38,7 @@ export interface OptimizeResultLike {
   combos: number;
   errored: number;
   validation?: ValidationOutput;
+  walkForward?: WalkForwardOutput;
 }
 
 /** Every Metrics field, in file order. The type forces a new Metrics field to be listed here. */
@@ -109,6 +113,44 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
       ...span('in-sample', v.inSample),
       ...span('held-out', v.heldOut),
     );
+  }
+  const w = result.walkForward;
+  if (c.walkForward) {
+    lines.push(
+      'validation: walk-forward',
+      `windows: ${c.walkForward.windows}`,
+      `in-sample %: ${c.walkForward.inSamplePct}`,
+      `mode: ${c.walkForward.anchored ? 'anchored' : 'rolling'}`,
+    );
+    const spanLines = (name: string, s: Span) => [`${name} from: ${iso(s.from)}`, `${name} to: ${iso(s.to)}`, `${name} bars: ${s.bars}`];
+    const num = (v: number | null | undefined) => (v == null || Number.isNaN(v) ? '' : String(v));
+    c.walkForward.spans.forEach((s, i) => {
+      const n = i + 1;
+      const r = w?.results[i];
+      lines.push(...spanLines(`window ${n} in-sample`, s.inSample), ...spanLines(`window ${n} held-out`, s.heldOut));
+      if (!r) return;
+      lines.push(`window ${n} params: ${r.params ? Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join('; ') : ''}`);
+      lines.push(`window ${n} in-sample ${result.metric}: ${num(r.inSampleValue)}`);
+      if (r.status === 'ok' && r.heldOutMetrics) {
+        lines.push(
+          `window ${n} held-out return %: ${num(r.heldOutMetrics.totalReturnPct)}`,
+          `window ${n} held-out max drawdown %: ${num(r.heldOutMetrics.maxDrawdownPct)}`,
+          `window ${n} held-out trades: ${num(r.heldOutMetrics.trades)}`,
+        );
+      } else {
+        lines.push(`window ${n} held-out: ${r.status === 'failed' ? 'failed' : 'no winner'}`);
+      }
+    });
+    if (w?.combined) {
+      lines.push(
+        `combined held-out return %: ${num(w.combined.totalReturnPct)}`,
+        `combined held-out max drawdown %: ${num(w.combined.maxDrawdownPct)}`,
+        `combined held-out trades: ${num(w.combined.trades)}`,
+        `walk-forward efficiency: ${num(w.combined.efficiency) || 'n/a'}`,
+      );
+    } else if (w) {
+      lines.push(`combined held-out: incomplete (${w.results.length - w.incomplete} of ${w.windows} windows have a held-out result)`);
+    }
   }
   return lines.map((l) => `# ${oneLine(l)}`);
 }

@@ -20,6 +20,7 @@ import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
 import { getStrategy } from '../lib/backtest/strategies';
 import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
+import { walkForwardWindows, type WalkForwardOutput } from '../lib/backtest/walkForward';
 import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
@@ -192,6 +193,7 @@ export interface ChartState {
     combos: number;
     errored: number;
     validation?: ValidationOutput;
+    walkForward?: WalkForwardOutput;
     context: OptimizeRunContext;
   } | null;
 
@@ -930,6 +932,13 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         const parts = splitBars(candles, v.inSamplePct);
         context.validation = { method: 'split', inSamplePct: v.inSamplePct, topN: v.topN, inSample: spanOf(parts.inSample), heldOut: spanOf(parts.heldOut) };
       }
+      if (v && v.method === 'walk-forward') {
+        const spans = walkForwardWindows(candles.length, v).map((w) => ({
+          inSample: spanOf(candles.slice(w.inSample.from, w.inSample.to)),
+          heldOut: spanOf(candles.slice(w.heldOut.from, w.heldOut.to)),
+        }));
+        context.walkForward = { method: 'walk-forward', windows: v.windows, inSamplePct: v.inSamplePct, anchored: v.anchored, spans };
+      }
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
       const call = optimizerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
@@ -943,7 +952,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         optRun = null;
         if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
         set({
-          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored, validation: msg.validation, context },
+          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored, validation: msg.validation, walkForward: msg.walkForward, context },
           optRunning: false,
           optProgress: 1,
         });

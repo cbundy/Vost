@@ -8,10 +8,12 @@ import { MIN_RANGE_BARS } from '../timeRange';
 import { gridSize, runOptimizeAsync, type OptimizeConfig, type OptimizeOutput } from './optimizer';
 import { runAnyBacktest } from './runner';
 import type { BacktestConfig, Metrics } from './types';
+import { checkWalkForwardLimit, runWalkForward, walkForwardBacktests, walkForwardProblem, type WalkForwardConfig, type WalkForwardOutput } from './walkForward';
 
 export type ValidationConfig =
   | { method: 'none' }
-  | { method: 'split'; inSamplePct: number; topN: number };
+  | { method: 'split'; inSamplePct: number; topN: number }
+  | WalkForwardConfig;
 
 export const DEFAULT_SPLIT = { method: 'split', inSamplePct: 70, topN: 10 } as const satisfies ValidationConfig;
 export const SPLIT_PCT_MIN = 50;
@@ -53,7 +55,17 @@ export type ValidationOutput = SplitSettings & {
   failed: number;
 };
 
-export type ValidatedOptimizeOutput = OptimizeOutput & { validation?: ValidationOutput };
+/** A walk-forward run's output sits beside `validation` (the split's) so the split's types stay as they are. */
+export type ValidatedOptimizeOutput = OptimizeOutput & { validation?: ValidationOutput; walkForward?: WalkForwardOutput };
+
+/** Backtests a run does: the grid, plus the validation's own runs. Checked against MAX_GRID_COMBOS for walk-forward. */
+export function totalBacktests(opt: OptimizeConfig): number {
+  const combos = gridSize(opt);
+  const v = opt.validation;
+  if (v?.method === 'walk-forward') return walkForwardBacktests(v.windows, combos);
+  if (v?.method === 'split') return combos + Math.min(v.topN, combos);
+  return combos;
+}
 
 export interface SplitBars {
   inSample: Candle[];
@@ -73,6 +85,7 @@ export function spanOf(candles: Candle[]): Span {
 /** Why a validation setting cannot run on `bars` bars, or null. Shared by the pane, the state and the engine. */
 export function validationProblem(v: ValidationConfig | undefined, bars: number): string | null {
   if (!v || v.method === 'none') return null;
+  if (v.method === 'walk-forward') return walkForwardProblem(v, bars);
   if (!Number.isInteger(v.inSamplePct) || v.inSamplePct < SPLIT_PCT_MIN || v.inSamplePct > SPLIT_PCT_MAX) {
     return `In-sample % must be a whole number from ${SPLIT_PCT_MIN} to ${SPLIT_PCT_MAX}.`;
   }
@@ -106,6 +119,11 @@ export async function runValidatedOptimize(
 
   const problem = validationProblem(v, candles.length);
   if (problem) throw new Error(problem);
+  if (v.method === 'walk-forward') {
+    checkWalkForwardLimit(v.windows, gridSize(opt));
+    const { walkForward, grid } = await runWalkForward(candles, baseConfig, opt, v, onProgress);
+    return { ...grid, walkForward };
+  }
   const { inSample, heldOut } = splitBars(candles, v.inSamplePct);
 
   // The number of checks is only known once the grid has ranked; until then assume the most it could be.

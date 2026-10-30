@@ -8,7 +8,8 @@ import { selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 import { OptimizerResults } from './OptimizerResults';
 import { ValidationSettings } from './OptimizerValidation';
-import { splitBars, spanOf, validationProblem } from '../lib/backtest/validation';
+import { splitBars, spanOf, totalBacktests, validationProblem } from '../lib/backtest/validation';
+import { walkForwardSizes } from '../lib/backtest/walkForward';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
 
@@ -39,6 +40,11 @@ export function OptimizerTab() {
   const validation = optConfig.validation ?? { method: 'none' as const };
   const validationText = range.error == null ? validationProblem(validation, range.count) : null;
   const rangeSpans = (() => {
+    if (validation.method === 'walk-forward' && range.error == null && validationText == null) {
+      const { isLen, oosLen } = walkForwardSizes(range.count, validation);
+      const anchored = validation.anchored ? ` (anchored: ${isLen} to ${isLen + (validation.windows - 1) * oosLen})` : '';
+      return `${validation.windows} windows · in-sample ${fmtNum(isLen, 0)} bars · held-out ${fmtNum(oosLen, 0)} bars each${anchored}`;
+    }
     if (validation.method !== 'split' || range.error != null || validationText != null) return null;
     const parts = splitBars(range.slice, validation.inSamplePct);
     const f = (s: ReturnType<typeof spanOf>) => `${fmtNum(s.bars, 0)} bars ${fmtTime(s.from, { timeZone })} → ${fmtTime(s.to, { timeZone })}`;
@@ -80,7 +86,10 @@ export function OptimizerTab() {
   const nextFree = numericParams.find((p) => !usedKeys.has(p.key));
   const patchSweep = (i: number, patch: Partial<SweepParam>) =>
     setOptConfig({ sweeps: optConfig.sweeps.map((sw, j) => (j === i ? { ...sw, ...patch } : sw)) });
-  const overLimit = combos > MAX_GRID_COMBOS;
+  const walking = validation.method === 'walk-forward';
+  // Only walk-forward adds backtests beyond the grid that count against the limit.
+  const total = walking ? totalBacktests(optConfig) : combos;
+  const overLimit = total > MAX_GRID_COMBOS;
 
   return (
     <div>
@@ -142,11 +151,13 @@ export function OptimizerTab() {
 
       <div className="row mt-3 wrap">
         <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0 || overLimit || stepProblem != null || validationText != null} onClick={() => void runOptimizer()}>
-          {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : `Optimize ${combos} combinations`}
+          {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : walking && Number.isFinite(total) ? `Optimize ${fmtNum(total, 0)} backtests (${validation.windows} windows x ${fmtNum(combos, 0)} combinations)` : `Optimize ${combos} combinations`}
         </button>
         {overLimit && (
           <span className="hint" style={{ color: 'var(--amber)' }}>
-            Grid too large: {fmtNum(combos, 0)} combinations, the limit is {fmtNum(MAX_GRID_COMBOS, 0)}. Narrow a range or raise a step.
+            {walking
+              ? `Too many backtests: ${fmtNum(total, 0)} (${validation.windows} windows x ${fmtNum(combos, 0)} combinations + ${validation.windows}), the limit is ${fmtNum(MAX_GRID_COMBOS, 0)}. Use fewer windows, narrow a range or raise a step.`
+              : `Grid too large: ${fmtNum(combos, 0)} combinations, the limit is ${fmtNum(MAX_GRID_COMBOS, 0)}. Narrow a range or raise a step.`}
           </span>
         )}
         {stepProblem != null && (
@@ -159,7 +170,7 @@ export function OptimizerTab() {
             {validationText}
           </span>
         )}
-        {!overLimit && combos > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
+        {!overLimit && total > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
         <span className="hint">{rangeText}</span>
         {rangeSpans && <span className="hint">{rangeSpans}</span>}
         <span className="hint">{numericParams.length === 0 ? 'This strategy has no numeric parameters to sweep.' : ''}</span>
