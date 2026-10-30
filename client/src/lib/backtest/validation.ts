@@ -5,6 +5,8 @@
  */
 import type { Candle } from '../../types';
 import { MIN_RANGE_BARS } from '../timeRange';
+import { MC_MAX_RUNS, MC_MIN_RUNS } from './monteCarlo';
+import { runMonteCarloValidation, type MonteCarloValidationOutput, type MonteCarloValidationSettings } from './optimizerMonteCarlo';
 import { gridSize, runOptimizeAsync, type OptimizeConfig, type OptimizeOutput } from './optimizer';
 import { robustnessScores, type RobustnessScore } from './robustness';
 import { runAnyBacktest } from './runner';
@@ -15,9 +17,11 @@ export type ValidationConfig =
   | { method: 'none' }
   | { method: 'split'; inSamplePct: number; topN: number }
   | { method: 'robustness'; radius: number; rankByScore: boolean }
+  | MonteCarloValidationSettings
   | WalkForwardConfig;
 
 export const DEFAULT_SPLIT = { method: 'split', inSamplePct: 70, topN: 10 } as const satisfies ValidationConfig;
+export { DEFAULT_MONTE_CARLO_VALIDATION } from './optimizerMonteCarlo';
 export const DEFAULT_ROBUSTNESS = { method: 'robustness', radius: 1, rankByScore: false } as const satisfies ValidationConfig;
 export const ROBUST_RADIUS_MIN = 1;
 export const ROBUST_RADIUS_MAX = 3;
@@ -72,7 +76,7 @@ export type RobustnessOutput = RobustnessSettings & {
   scores: RobustnessScore[];
 };
 
-export type ValidationOutput = SplitOutput | RobustnessOutput;
+export type ValidationOutput = SplitOutput | RobustnessOutput | MonteCarloValidationOutput;
 
 
 /** A walk-forward run's output sits beside `validation` (the split's) so the split's types stay as they are. */
@@ -83,7 +87,7 @@ export function totalBacktests(opt: OptimizeConfig): number {
   const combos = gridSize(opt);
   const v = opt.validation;
   if (v?.method === 'walk-forward') return walkForwardBacktests(v.windows, combos);
-  if (v?.method === 'split') return combos + Math.min(v.topN, combos);
+  if (v?.method === 'split' || v?.method === 'monte-carlo') return combos + Math.min(v.topN, combos);
   return combos;
 }
 
@@ -112,6 +116,17 @@ export function validationProblem(v: ValidationConfig | undefined, bars: number)
     return null;
   }
   if (v.method === 'walk-forward') return walkForwardProblem(v, bars);
+  if (v.method === 'monte-carlo') {
+    if (!Number.isInteger(v.topN) || v.topN < SPLIT_TOPN_MIN || v.topN > SPLIT_TOPN_MAX) {
+      return `Top results to check must be a whole number from ${SPLIT_TOPN_MIN} to ${SPLIT_TOPN_MAX}.`;
+    }
+    if (!Number.isInteger(v.iterations) || v.iterations < MC_MIN_RUNS || v.iterations > MC_MAX_RUNS) {
+      return `Runs must be a whole number from ${MC_MIN_RUNS} to ${MC_MAX_RUNS.toLocaleString('en-US')}.`;
+    }
+    if (!Number.isInteger(v.seed)) return 'Seed must be a whole number.';
+    if (v.mcMethod !== 'shuffle' && v.mcMethod !== 'bootstrap') return 'Method must be shuffle or bootstrap.';
+    return null;
+  }
   if (!Number.isInteger(v.inSamplePct) || v.inSamplePct < SPLIT_PCT_MIN || v.inSamplePct > SPLIT_PCT_MAX) {
     return `In-sample % must be a whole number from ${SPLIT_PCT_MIN} to ${SPLIT_PCT_MAX}.`;
   }
@@ -150,6 +165,7 @@ export async function runValidatedOptimize(
     const { walkForward, grid } = await runWalkForward(candles, baseConfig, opt, v, onProgress);
     return { ...grid, walkForward };
   }
+  if (v.method === 'monte-carlo') return runMonteCarloValidation(candles, baseConfig, opt, v, onProgress);
   if (v.method === 'robustness') {
     const out = await runOptimizeAsync(candles, baseConfig, opt, onProgress);
     return {

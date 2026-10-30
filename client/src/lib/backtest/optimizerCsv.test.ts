@@ -265,3 +265,45 @@ describe('optimizeResultToCsv with a walk-forward', () => {
     expect(header.split(',').slice(0, 3)).toEqual(['rank', 'fast', 'slow']);
   });
 });
+
+describe('optimizeResultToCsv with a Monte Carlo validation', () => {
+  const mcSettings = { method: 'monte-carlo' as const, topN: 1, iterations: 500, mcMethod: 'bootstrap' as const, seed: 3 };
+  const mcCtx: OptimizeRunContext = { ...ctx, validation: mcSettings };
+  const checks = [
+    {
+      rank: 1,
+      params: { fast: 5, slow: 20 },
+      value: 1.23,
+      trades: 12,
+      status: 'ok' as const,
+      result: { finalReturn: { p5: -1, p25: 0, p50: 2, p75: 3, p95: 5 }, maxDrawdown: { p5: 1, p25: 2, p50: 3, p75: 4, p95: 6 }, probLossPct: 12.5 } as never,
+    },
+  ];
+  const withV = { ...result, validation: { ...mcSettings, checks, failed: 0 } };
+  const csv = optimizeResultToCsv(withV, mcCtx);
+  const lines = csv.split('\n');
+  const contextLines = lines.filter((l) => l.startsWith('# '));
+  const records = parseCsv(lines.slice(contextLines.length).join('\n'));
+
+  it('adds the context lines', () => {
+    expect(contextLines).toEqual(expect.arrayContaining([
+      '# validation: monte-carlo',
+      '# top results checked: 1',
+      '# runs: 500',
+      '# method: bootstrap (resample trades)',
+      '# seed: 3',
+      '# max drawdown is measured trade to trade',
+    ]));
+    expect(optimizeContextLines({ ...mcCtx, validation: { ...mcSettings, mcMethod: 'shuffle' } }, result)).toContain('# method: shuffle (shuffle trade order)');
+  });
+
+  it('adds nine columns filled for checked ranks and empty for the rest', () => {
+    const header = records[0];
+    expect(header.slice(3 + METRIC_KEYS.length)).toEqual([
+      'mc_status', 'mc_trades', 'mc_return_p5', 'mc_return_p50', 'mc_return_p95', 'mc_drawdown_p5', 'mc_drawdown_p50', 'mc_drawdown_p95', 'mc_prob_loss_pct',
+    ]);
+    expect(records[1].slice(3 + METRIC_KEYS.length)).toEqual(['ok', '12', '-1', '2', '5', '1', '3', '6', '12.5']);
+    expect(records[2].slice(3 + METRIC_KEYS.length)).toEqual(Array(9).fill(''));
+    expect(records.every((r) => r.length === header.length)).toBe(true);
+  });
+});

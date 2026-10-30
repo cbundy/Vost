@@ -1,5 +1,6 @@
 import { rowsToCsv, sanitizeFileName } from '../export';
 import { METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from './optimizer';
+import type { MonteCarloValidationSettings } from './optimizerMonteCarlo';
 import type { Metrics } from './types';
 import type { RobustnessSettings, Span, SplitSettings, ValidationOutput } from './validation';
 import type { WalkForwardOutput, WalkForwardSettings } from './walkForward';
@@ -26,7 +27,7 @@ export interface OptimizeRunContext {
   allowShort: boolean;
   sweeps: SweepParam[];
   /** The validation the run used (absent with none). */
-  validation?: SplitSettings | RobustnessSettings;
+  validation?: SplitSettings | RobustnessSettings | MonteCarloValidationSettings;
   /** The walk-forward the run used (absent otherwise). */
   walkForward?: WalkForwardSettings;
 }
@@ -102,6 +103,15 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
   const v = c.validation;
   if (v?.method === 'robustness') {
     lines.push(`validation: ${v.method}`, `neighbourhood: ${v.radius}`, `rank by robustness: ${v.rankByScore ? 'yes' : 'no'}`);
+  } else if (v?.method === 'monte-carlo') {
+    lines.push(
+      `validation: ${v.method}`,
+      `top results checked: ${v.topN}`,
+      `runs: ${v.iterations}`,
+      `method: ${v.mcMethod} (${v.mcMethod === 'shuffle' ? 'shuffle trade order' : 'resample trades'})`,
+      `seed: ${v.seed}`,
+      'max drawdown is measured trade to trade',
+    );
   } else if (v) {
     const span = (name: string, s: SplitSettings['inSample']) => [
       `${name} from: ${iso(s.from)}`,
@@ -164,23 +174,54 @@ function cell(v: number | null | undefined): string | number {
   return v;
 }
 
+const MC_CSV_COLUMNS = [
+  'mc_status',
+  'mc_trades',
+  'mc_return_p5',
+  'mc_return_p50',
+  'mc_return_p95',
+  'mc_drawdown_p5',
+  'mc_drawdown_p50',
+  'mc_drawdown_p95',
+  'mc_prob_loss_pct',
+];
+
 /** The whole run as CSV: `# ` context lines, then rank, swept params and every Metrics field, one row per combination in ranking order. */
 export function optimizeResultToCsv(result: OptimizeResultLike, context: OptimizeRunContext): string {
   const rv = result.validation?.method === 'robustness' ? result.validation : null;
   const v = result.validation?.method === 'split' ? result.validation : null;
+  const mc = result.validation?.method === 'monte-carlo' ? result.validation : null;
   const header = [
     'rank',
     ...result.keys,
     ...METRIC_KEYS,
     ...(v ? ['heldout_rank', ...METRIC_KEYS.map((k) => `heldout_${k}`)] : []),
+    ...(mc ? MC_CSV_COLUMNS : []),
     ...(rv ? ['neighbour_mean', 'neighbour_min', 'neighbour_count', 'robustness'] : []),
   ];
   const checks = new Map((v?.checks ?? []).map((ch) => [ch.rank, ch]));
+  const mcChecks = new Map((mc?.checks ?? []).map((ch) => [ch.rank, ch]));
   const rows = result.rows.map((r, i) => {
     const base = [i + 1, ...result.keys.map((k) => cell(r.params[k])), ...METRIC_KEYS.map((k) => cell(r.metrics[k]))];
     if (rv) {
       const s = rv.scores[i];
       return [...base, cell(s?.neighbourMean), cell(s?.neighbourMin), cell(s?.neighbourCount), cell(s?.robustness)];
+    }
+    if (mc) {
+      const ch = mcChecks.get(i + 1);
+      const m = ch?.result;
+      return [
+        ...base,
+        ch?.status ?? '',
+        cell(ch?.trades),
+        cell(m?.finalReturn.p5),
+        cell(m?.finalReturn.p50),
+        cell(m?.finalReturn.p95),
+        cell(m?.maxDrawdown.p5),
+        cell(m?.maxDrawdown.p50),
+        cell(m?.maxDrawdown.p95),
+        cell(m?.probLossPct),
+      ];
     }
     if (!v) return base;
     const ch = checks.get(i + 1);

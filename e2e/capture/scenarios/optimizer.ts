@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const optimizer: Scenario = {
   name: 'optimizer',
-  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a robustness run on two parameters (settings, table ranked by Robustness, the most robust mark on the heatmap), a walk-forward (settings with the range hint, rolling and anchored results with the joined held-out chart, a refused 21 windows), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a robustness run on two parameters (settings, table ranked by Robustness, the most robust mark on the heatmap), a walk-forward (settings with the range hint, rolling and anchored results with the joined held-out chart, a refused 21 windows), a Monte Carlo check of the top 5 results (settings, the sortable table, sorted by chance of a loss), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -144,6 +144,31 @@ export const optimizer: Scenario = {
     });
     await ctx.screenshot('robustness-heatmap');
     await ctx.step('back to no validation', async () => {
+      await page.getByLabel('Validation').selectOption('none');
+    });
+    await ctx.step('Monte Carlo settings: top 5, 500 runs, shuffle, seed 1', async () => {
+      await page.getByLabel('Validation').selectOption('monte-carlo');
+      const field = (name: string) => page.locator('label.form-field', { has: page.getByText(name, { exact: true }) });
+      await field('Top results to check').locator('input').fill('5');
+      await field('Runs').locator('input').fill('500');
+      await field('Method').locator('select').selectOption('shuffle');
+      await field('Seed').locator('input').fill('1');
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('monte-carlo-settings');
+    await ctx.step('run it and show the Monte Carlo table', async () => {
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Monte Carlo ·/).waitFor();
+      await page.getByText(/Monte Carlo ·/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('monte-carlo-results');
+    await ctx.step('sort the Monte Carlo table by chance of a loss', async () => {
+      await page.getByRole('columnheader', { name: /Chance of a loss/ }).getByRole('button').click();
+      await page.locator('th[aria-sort="ascending"]', { hasText: 'Chance of a loss' }).waitFor();
+      await page.getByText(/Monte Carlo ·/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('monte-carlo-sorted');
+    await ctx.step('back to no validation before the MACD sweep', async () => {
       await page.getByLabel('Validation').selectOption('none');
     });
     await ctx.step('three-parameter MACD sweep', async () => {
