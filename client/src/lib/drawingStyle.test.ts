@@ -61,9 +61,14 @@ describe('default styles equal the look drawings had before styles', () => {
   it('anchored text', () => {
     expect(defaults('anchoredText')).toMatchObject({ size: 14, bold: false, italic: false, align: 'left', wrap: false, wrapWidth: 240 });
   });
-  it('every default colour names a theme token, not a fixed hex', () => {
+  it('every default colour names a theme token, not a fixed hex (the pitchforks keep TradingView\'s fixed palette)', () => {
     for (const t of TOOLS) {
-      for (const f of t.settings ?? []) if (f.kind === 'color') expect(Object.keys(theme)).toContain(f.default);
+      const fixed = t.id.toLowerCase().endsWith('pitchfork');
+      for (const f of t.settings ?? []) {
+        if (f.kind !== 'color') continue;
+        if (fixed) expect(f.default).toMatch(/^#[0-9a-fA-F]{6}$/);
+        else expect(Object.keys(theme)).toContain(f.default);
+      }
     }
   });
   it('every drawing is visible on every timeframe kind', () => {

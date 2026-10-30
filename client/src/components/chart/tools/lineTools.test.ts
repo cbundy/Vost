@@ -32,7 +32,7 @@ const B = { time: 200, price: 20 };
 describe('registry', () => {
   it('lists the lines in TradingView order', () => {
     expect(TOOLS.filter((t) => t.group === 'lines').map((t) => t.id)).toEqual([
-      'trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle', 'horizontalLine', 'horizontalRay', 'verticalLine', 'crossLine', 'parallelChannel', 'regressionTrend', 'flatTopBottom', 'disjointChannel',
+      'trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle', 'horizontalLine', 'horizontalRay', 'verticalLine', 'crossLine', 'parallelChannel', 'regressionTrend', 'flatTopBottom', 'disjointChannel', 'pitchfork', 'schiffPitchfork', 'modifiedSchiffPitchfork', 'insidePitchfork',
     ]);
   });
 });
