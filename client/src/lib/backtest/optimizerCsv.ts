@@ -1,6 +1,7 @@
 import { rowsToCsv, sanitizeFileName } from '../export';
 import { METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from './optimizer';
 import type { Metrics } from './types';
+import type { SplitSettings, ValidationOutput } from './validation';
 
 /** The settings an optimizer run started with; stored beside its result so later edits do not change an export. */
 export interface OptimizeRunContext {
@@ -23,6 +24,8 @@ export interface OptimizeRunContext {
   takeProfitPct: number | null;
   allowShort: boolean;
   sweeps: SweepParam[];
+  /** The validation the run used (absent with none). */
+  validation?: SplitSettings;
 }
 
 export interface OptimizeResultLike {
@@ -31,6 +34,7 @@ export interface OptimizeResultLike {
   metric: MetricKey;
   combos: number;
   errored: number;
+  validation?: ValidationOutput;
 }
 
 /** Every Metrics field, in file order. The type forces a new Metrics field to be listed here. */
@@ -91,6 +95,21 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
     `combinations: ${result.combos}`,
     `failed: ${result.errored}`,
   ];
+  const v = c.validation;
+  if (v) {
+    const span = (name: string, s: SplitSettings['inSample']) => [
+      `${name} from: ${iso(s.from)}`,
+      `${name} to: ${iso(s.to)}`,
+      `${name} bars: ${s.bars}`,
+    ];
+    lines.push(
+      `validation: ${v.method}`,
+      `in-sample %: ${v.inSamplePct}`,
+      `top results checked: ${v.topN}`,
+      ...span('in-sample', v.inSample),
+      ...span('held-out', v.heldOut),
+    );
+  }
   return lines.map((l) => `# ${oneLine(l)}`);
 }
 
@@ -103,12 +122,15 @@ function cell(v: number | null | undefined): string | number {
 
 /** The whole run as CSV: `# ` context lines, then rank, swept params and every Metrics field, one row per combination in ranking order. */
 export function optimizeResultToCsv(result: OptimizeResultLike, context: OptimizeRunContext): string {
-  const header = ['rank', ...result.keys, ...METRIC_KEYS];
-  const rows = result.rows.map((r, i) => [
-    i + 1,
-    ...result.keys.map((k) => cell(r.params[k])),
-    ...METRIC_KEYS.map((k) => cell(r.metrics[k])),
-  ]);
+  const v = result.validation;
+  const header = ['rank', ...result.keys, ...METRIC_KEYS, ...(v ? ['heldout_rank', ...METRIC_KEYS.map((k) => `heldout_${k}`)] : [])];
+  const checks = new Map((v?.checks ?? []).map((ch) => [ch.rank, ch]));
+  const rows = result.rows.map((r, i) => {
+    const base = [i + 1, ...result.keys.map((k) => cell(r.params[k])), ...METRIC_KEYS.map((k) => cell(r.metrics[k]))];
+    if (!v) return base;
+    const ch = checks.get(i + 1);
+    return [...base, cell(ch?.heldOutRank), ...METRIC_KEYS.map((k) => cell(ch?.heldOut?.[k]))];
+  });
   return [...optimizeContextLines(context, result), rowsToCsv(header, rows)].join('\n');
 }
 

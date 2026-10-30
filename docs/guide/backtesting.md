@@ -57,3 +57,19 @@ The table and heatmap are labelled with the parameters you swept, and each resul
 ![Three parameters swept together, with the heatmap axis pickers](../evidence/optimizer/optimizer-three-parameters-desktop.png)
 
 ![A long run with its Cancel button](../evidence/optimizer/optimizer-cancel-visible-desktop.png)
+
+### Validating results
+
+A grid search finds the parameters that fit the past best, which says little about how they do on data they have not seen. **Validation** in the Optimizer tab checks this. **None** (the default) behaves as described above. **In-sample / out-of-sample** splits the backtest range by bars: the first `floor(bars x In-sample % / 100)` bars are the in-sample part and the rest is held out. **In-sample %** is a whole number from 50 to 95 and **Top results to check** a whole number from 1 to 50 (defaults 70 and 10). Out of range or fractional values, or a part with fewer than 3 bars, disable **Optimize** and the pane says why; with the split on, the range hint names both parts. The values you last chose for the split are kept while you switch to **None** and back.
+
+The grid is searched on the in-sample bars only, so the table, heatmap and the title "Results (in-sample)" show in-sample results. Each of the top results (fewer if fewer have a ranking value) is then run again as a fresh backtest on the held-out bars alone, with the starting capital again and no position carried over. The **Held-out check** section below the table names both parts (dates in your time zone, bar counts) and lists one row per checked result: its in-sample rank, the swept parameters, the ranking metric, total return, Sharpe, max drawdown and trades for in-sample and held-out side by side, and its held-out rank (by the ranking metric, higher first). **Apply** works as in the table. A held-out run that fails is shown as failed and counted, not dropped. **Cancel** stops either phase and brings back the previous result.
+
+**Export results CSV** adds `validation`, `in-sample %`, `top results checked` and the in-sample and held-out from, to and bars lines, and the columns `heldout_rank` and one `heldout_<measure>` per measure, filled for checked rows and empty for the rest. With **None** the file is unchanged.
+
+Indicators start again at the held-out boundary, so the first bars of the held-out part trade less than they would in a continuous run; keep the held-out part long enough for that not to matter.
+
+![Choosing an in-sample / out-of-sample split](../evidence/optimizer/optimizer-split-settings-desktop.png)
+
+![The held-out check next to the in-sample results](../evidence/optimizer/optimizer-held-out-check-desktop.png)
+
+![An in-sample % out of range disables Optimize](../evidence/optimizer/optimizer-split-invalid-desktop.png)

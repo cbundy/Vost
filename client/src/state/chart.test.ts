@@ -209,6 +209,86 @@ describe('btRange', () => {
     expect(sent[0].candles[30].time).toBe(to);
   });
 
+  describe('split validation', () => {
+    const split = { method: 'split', inSamplePct: 70, topN: 3 } as const;
+    function fakeWorker(reply: boolean) {
+      const posts: Array<{ id: string; type: string; candles: unknown[]; optimize?: unknown }> = [];
+      const made: Array<{ terminated: boolean }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string; candles: unknown[] }) {
+          posts.push(req);
+          if (reply) {
+            const validation = { method: 'split', inSamplePct: 70, topN: 3, inSample: { from: 1, to: 2, bars: 5 }, heldOut: { from: 3, to: 4, bars: 2 }, checks: [], failed: 0 };
+            queueMicrotask(() =>
+              this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, validation } }),
+            );
+          }
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      return { posts, made };
+    }
+
+    it('sends the whole range with the setting and keeps validation and its context', async () => {
+      const { useStore, candles } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: split });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].candles).toHaveLength(candles.length);
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(split);
+      const r = st().optResult!;
+      expect(r.validation?.method).toBe('split');
+      const cut = Math.floor((candles.length * 70) / 100);
+      expect(r.context.validation).toEqual({
+        method: 'split',
+        inSamplePct: 70,
+        topN: 3,
+        inSample: { from: candles[0].time, to: candles[cut - 1].time, bars: cut },
+        heldOut: { from: candles[cut].time, to: candles[candles.length - 1].time, bars: candles.length - cut },
+      });
+    });
+
+    it('an invalid split toasts and posts nothing', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: { method: 'split', inSamplePct: 99, topN: 3 } });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(0);
+      expect(st().optRunning).toBe(false);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error' && /In-sample %/.test(t.text))).toBe(true);
+    });
+
+    it('cancel during a split run brings back the previous result', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      fakeWorker(true);
+      await st().runOptimizer();
+      const earlier = st().optResult;
+      expect(earlier).not.toBeNull();
+      const { made } = fakeWorker(false);
+      st().setOptConfig({ validation: split });
+      const run = st().runOptimizer();
+      expect(st().optResult).toBeNull();
+      st().cancelOptimizer();
+      await run;
+      expect(made[0].terminated).toBe(true);
+      expect(st().optResult).toBe(earlier);
+      expect(st().optRunning).toBe(false);
+    });
+  });
+
   describe('cancelOptimizer', () => {
     function stubWorkers(answer: boolean) {
       const made: FakeW[] = [];

@@ -15,6 +15,7 @@ import { downloadFile } from '../lib/export';
 import { fmtNum, pnlClass } from '../lib/format';
 import type { ChartState } from '../state/chart';
 import { Heatmap } from './OptimizerHeatmap';
+import { HeldOutCheck } from './OptimizerValidation';
 
 type Result = NonNullable<ChartState['optResult']>;
 
@@ -48,7 +49,7 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
     <div className="mt-3">
       <div className="row mb-2 wrap">
         <span className="section-title" style={{ margin: 0 }}>
-          Results · {METRIC_LABELS[metric]}
+          Results{result.validation ? ' (in-sample)' : ''} · {METRIC_LABELS[metric]}
         </span>
         <span className="badge">{result.combos} combos</span>
         {result.errored > 0 && <span className="badge red">{result.errored} failed</span>}
@@ -110,6 +111,8 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
           Next
         </button>
       </div>
+
+      {result.validation && <HeldOutCheck validation={result.validation} keys={result.keys} metric={metric} onApply={onApply} />}
 
       <Heatmap key={result.keys.join('|')} rows={result.rows} keys={result.keys} metric={metric} onApply={onApply} />
     </div>

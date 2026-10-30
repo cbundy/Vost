@@ -113,3 +113,52 @@ describe('optimizeResultToCsv', () => {
     expect(optimizerCsvFileName(ctx)).toBe('vost_optimizer_BTC_USD_1h.csv');
   });
 });
+
+describe('optimizeResultToCsv with a split validation', () => {
+  const span = (from: number, to: number, bars: number) => ({ from, to, bars });
+  const splitCtx: OptimizeRunContext = {
+    ...ctx,
+    validation: { method: 'split', inSamplePct: 70, topN: 1, inSample: span(1_700_000_000, 1_700_050_000, 17), heldOut: span(1_700_060_000, 1_700_086_400, 8) },
+  };
+  const held: Metrics = { ...sample, totalReturnPct: -2.5, trades: 3 };
+  const withV = {
+    ...result,
+    validation: {
+      ...splitCtx.validation!,
+      failed: 0,
+      checks: [{ rank: 1, params: { fast: 5, slow: 20 }, inSample: sample, heldOut: held, heldOutValue: 1.5, heldOutRank: 1 }],
+    },
+  };
+  const csv = optimizeResultToCsv(withV, splitCtx);
+  const lines = csv.split('\n');
+  const contextLines = lines.filter((l) => l.startsWith('# '));
+  const records = parseCsv(lines.slice(contextLines.length).join('\n'));
+
+  it('adds the validation context lines', () => {
+    expect(contextLines).toContain('# validation: split');
+    expect(contextLines).toContain('# in-sample %: 70');
+    expect(contextLines).toContain('# top results checked: 1');
+    expect(contextLines).toContain('# in-sample bars: 17');
+    expect(contextLines).toContain('# held-out bars: 8');
+    expect(contextLines).toContain(`# held-out from: ${new Date(1_700_060_000 * 1000).toISOString()}`);
+    expect(contextLines).toContain(`# in-sample to: ${new Date(1_700_050_000 * 1000).toISOString()}`);
+  });
+
+  it('adds heldout columns, filled for checked rows and empty for the rest', () => {
+    const header = records[0];
+    expect(header.slice(0, 3 + METRIC_KEYS.length)).toEqual(['rank', 'fast', 'slow', ...METRIC_KEYS]);
+    expect(header.slice(3 + METRIC_KEYS.length)).toEqual(['heldout_rank', ...METRIC_KEYS.map((k) => `heldout_${k}`)]);
+    const col = (k: string) => header.indexOf(k);
+    expect(records[1][col('heldout_rank')]).toBe('1');
+    expect(records[1][col('heldout_totalReturnPct')]).toBe('-2.5');
+    expect(records[1][col('heldout_trades')]).toBe('3');
+    expect(records[1][col('heldout_cagrPct')]).toBe('');
+    for (const k of ['heldout_rank', ...METRIC_KEYS.map((m) => `heldout_${m}`)]) expect(records[2][col(k)]).toBe('');
+    expect(records.every((r) => r.length === header.length)).toBe(true);
+  });
+
+  it('without validation the file has no validation lines or heldout columns', () => {
+    const plain = optimizeResultToCsv(result, ctx);
+    expect(plain).not.toMatch(/validation|heldout/);
+  });
+});

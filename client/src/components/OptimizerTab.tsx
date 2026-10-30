@@ -7,6 +7,8 @@ import { useStore } from '../state/store';
 import { selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 import { OptimizerResults } from './OptimizerResults';
+import { ValidationSettings } from './OptimizerValidation';
+import { splitBars, spanOf, validationProblem } from '../lib/backtest/validation';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
 
@@ -33,6 +35,15 @@ export function OptimizerTab() {
       : range.error === 'too-few-bars'
         ? 'Range: fewer than 3 bars (set in Backtest)'
         : `Range: ${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars · ${fmtTime(range.slice[0].time, { timeZone })} → ${fmtTime(range.slice[range.slice.length - 1].time, { timeZone })} (set in Backtest)`;
+
+  const validation = optConfig.validation ?? { method: 'none' as const };
+  const validationText = range.error == null ? validationProblem(validation, range.count) : null;
+  const rangeSpans = (() => {
+    if (validation.method !== 'split' || range.error != null || validationText != null) return null;
+    const parts = splitBars(range.slice, validation.inSamplePct);
+    const f = (s: ReturnType<typeof spanOf>) => `${fmtNum(s.bars, 0)} bars ${fmtTime(s.from, { timeZone })} → ${fmtTime(s.to, { timeZone })}`;
+    return `In-sample: ${f(spanOf(parts.inSample))} · Held-out: ${f(spanOf(parts.heldOut))}`;
+  })();
 
   const strategy = getStrategy(btConfig.strategyId);
   const pineInputs = useChart((s) => s.pineInputs);
@@ -126,10 +137,11 @@ export function OptimizerTab() {
             ))}
           </select>
         </label>
+        <ValidationSettings value={validation} onChange={(v) => setOptConfig({ validation: v })} />
       </div>
 
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0 || overLimit || stepProblem != null} onClick={() => void runOptimizer()}>
+        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0 || overLimit || stepProblem != null || validationText != null} onClick={() => void runOptimizer()}>
           {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : `Optimize ${combos} combinations`}
         </button>
         {overLimit && (
@@ -142,8 +154,14 @@ export function OptimizerTab() {
             {stepProblem} is a whole-number parameter: use a whole-number step.
           </span>
         )}
+        {validationText != null && (
+          <span className="hint" style={{ color: 'var(--amber)' }}>
+            {validationText}
+          </span>
+        )}
         {!overLimit && combos > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
         <span className="hint">{rangeText}</span>
+        {rangeSpans && <span className="hint">{rangeSpans}</span>}
         <span className="hint">{numericParams.length === 0 ? 'This strategy has no numeric parameters to sweep.' : ''}</span>
       </div>
 
