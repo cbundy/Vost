@@ -10,6 +10,7 @@ import { btResults } from './bt-results.ts';
 import { chartRange } from './chart-range.ts';
 import { chartReset } from './chart-reset.ts';
 import { drawingChannels } from './drawing-channels.ts';
+import { drawingCycles } from './drawing-cycles.ts';
 import { drawingPitchforks } from './drawing-pitchforks.ts';
 import { drawingManage } from './drawing-manage.ts';
 import { drawingFib } from './drawing-fib.ts';
@@ -40,7 +41,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, btProgress, btRange, btResults, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingFib, drawingFibTrend, drawingGann, drawingPitchforks, drawingLines, drawingManage, drawingPatterns, drawingRail, drawingShapes, drawingText, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, btProgress, btRange, btResults, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingFib, drawingFibTrend, drawingGann, drawingPitchforks, drawingLines, drawingManage, drawingPatterns, drawingRail, drawingShapes, drawingText, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();
