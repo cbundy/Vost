@@ -3200,6 +3200,144 @@ a:hover {
   justify-content: space-between;
 }
 
+/* ------------------------- drawing settings dialog ------------------------- */
+
+.ds-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ds-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 6px 10px;
+  color: var(--muted);
+}
+
+.ds-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.ds-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.ds-row.ds-wide {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.ds-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ds-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ds-control input[type='number'],
+.ds-num input {
+  width: 90px;
+  min-width: 0;
+}
+
+.ds-control input[type='range'] {
+  width: 140px;
+  min-width: 0;
+}
+
+.ds-control input[type='color'],
+.ds-level input[type='color'] {
+  width: 36px;
+  height: 26px;
+  padding: 0;
+}
+
+.ds-num {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds-error {
+  color: var(--red);
+  font-size: 11px;
+}
+
+.ds-readout {
+  color: var(--muted-2);
+  font-size: 11px;
+  min-width: 36px;
+}
+
+.ds-hint {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.ds-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ds-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ds-level input[type='number'] {
+  width: 90px;
+  min-width: 0;
+}
+
+.ds-coord {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 16px;
+  padding: 6px 0;
+}
+
+.ds-coord .ds-label {
+  width: 100%;
+}
+
+.ds-coord label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ds-spacer {
+  flex: 1 1 auto;
+}
+
+@media (max-width: 600px) {
+  .ds-control input[type='range'] {
+    width: 100px;
+  }
+}
+
 /* ------------------------- named layouts: top bar menu ------------------------- */
 
 .layout-name-wrap {

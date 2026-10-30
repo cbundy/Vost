@@ -10,6 +10,7 @@ import type {
   Time,
 } from 'lightweight-charts';
 import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
+import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
 import type { Anchor, Drawing } from '../../lib/drawings';
 import { theme } from '../../lib/theme';
 import { getTool } from './tools';
@@ -32,7 +33,15 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private axisViews: ISeriesPrimitiveAxisView[] = [];
   private readonly view: IPrimitivePaneView;
 
-  constructor(private readonly getTimes: () => readonly number[]) {
+  /**
+   * `getTimeframe` is the chart's timeframe (a drawing can be hidden on some kinds of it) and `getDefaults` the user's
+   * saved default style per tool.
+   */
+  constructor(
+    private readonly getTimes: () => readonly number[],
+    private readonly getTimeframe: () => string = () => '',
+    private readonly getDefaults: () => Readonly<Record<string, Record<string, unknown>>> = () => ({}),
+  ) {
     const renderer: IPrimitivePaneRenderer = {
       draw: (target: RenderTarget) => this.paint(target),
     };
@@ -113,9 +122,23 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return pts;
   }
 
+  /** A drawing's effective style: its own values, else the user's default for its tool, else the tool's. */
+  private styleOf(d: Pick<Drawing, 'tool' | 'style'>) {
+    const tool = getTool(d.tool);
+    const defaults = this.getDefaults();
+    const own = Object.prototype.hasOwnProperty.call(defaults, d.tool) ? defaults[d.tool] : undefined;
+    return resolveStyle(tool?.settings ?? [], d.style, own);
+  }
+
+  /** Whether the drawing shows on the chart's current timeframe; a drawing of an unknown tool never does. */
+  private shown(d: Pick<Drawing, 'tool' | 'style'>): boolean {
+    return !!getTool(d.tool) && visibleOn(this.styleOf(d).values, timeframeKind(this.getTimeframe()));
+  }
+
   /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */
-  viewFor(d: Pick<Drawing, 'anchors' | 'text'>, size?: { width: number; height: number }): ToolView {
+  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style'>>, size?: { width: number; height: number }): ToolView {
     const series = this.series;
+    const { values, styled } = this.styleOf(d);
     const pane = size ?? (this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 });
     return {
       width: pane.width,
@@ -125,12 +148,14 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       times: this.getTimes(),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,
       formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
+      style: values,
+      styled,
     };
   }
 
   /** What a press at p would grab: the selected drawing's handles first, then drawings from the top. */
   hit(p: Pt, opts: HitOpts = MOUSE_HIT): DrawingHit | null {
-    const sel = this.drawings.find((d) => d.id === this.selectedId);
+    const sel = this.drawings.find((d) => d.id === this.selectedId && this.shown(d));
     if (sel) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
@@ -141,6 +166,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     }
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i];
+      if (!this.shown(d)) continue;
       const tool = getTool(d.tool);
       const pts = tool && this.points(d);
       if (tool && pts && tool.hit(pts, p, this.viewFor(d), opts.tolerance)) return { id: d.id, handle: null };
@@ -157,7 +183,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
       const all = [...this.drawings, ...(this.measure ? [this.measure] : []), ...(this.draft ? [this.draft] : [])];
       for (const d of all) {
-        if (d.id === this.skipId) continue;
+        if (d.id === this.skipId || !this.shown(d)) continue;
         const tool = getTool(d.tool);
         const pts = tool && this.points(d);
         if (!tool || !pts) continue;
@@ -205,8 +231,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       coordinate: () => series.priceToCoordinate(d.anchors[0].price) ?? -1000,
       text: () => series.priceFormatter().format(d.anchors[0].price),
       textColor: () => '#09090b',
-      backColor: () => theme.amber,
-      visible: () => series.priceToCoordinate(d.anchors[0].price) !== null,
+      backColor: () => cssColor(this.styleOf(d).values.labelColor),
+      visible: () => this.shown(d) && this.styleOf(d).values.showLabel === true && series.priceToCoordinate(d.anchors[0].price) !== null,
     }));
   }
 }

@@ -1,0 +1,21 @@
+ok   one drawing, no style
+ok   titled for the tool
+ok   tabs: Style, Coordinates, Visibility (no Text) - Style,Coordinates,Visibility
+ok   default width is shown
+ok   nothing is stored before OK
+ok   style stored - {"color":"#ff4d4d","width":3,"lineStyle":"dashed","extendRight":true}
+ok   undo cleared the style
+ok   redo reapplied it
+ok   style kept after reload - {"color":"#ff4d4d","width":3,"lineStyle":"dashed","extendRight":true}
+ok   Cancel kept width 3
+ok   Escape kept width 3
+ok   the cancelled edits left no undo step (nothing to undo after the reload)
+ok   a non-finite entry is refused in place
+ok   the anchor price moved - 110.51699972931245 -> 121.5686997022437
+ok   an empty level is refused in place
+ok   level added and background on - {"levels":[{"value":0,"color":"accent","on":true},{"value":0.236,"color":"accent","on":true},{"value":0.382,"color":"acc
+ok   the default is saved in prefs - {"trendLine":{"color":"#ff4d4d","opacity":1,"width":3,"lineStyle":"dashed","extendLeft":false,"extendRight":true,"arrowStart":false,"arrowEnd":false,"showPriceChange":false,"showAngle":false,"showBars":false}}
+ok   the new line has no style of its own
+ok   its dialog shows the saved default
+ok   hidden on days: not hit
+ok   version 2
