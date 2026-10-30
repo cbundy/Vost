@@ -21,7 +21,8 @@ ok   Cursors lists tools - 4
 ok   Cursors items have a star
 ok   Cursors flyout is inside the viewport
 ok   Lines has the Lines heading
-ok   Lines lists tools - 3
+ok   Lines has the Channels heading
+ok   Lines lists tools - 13
 ok   Lines items have a star
 ok   Lines flyout is inside the viewport
 ok   Fibonacci and Gann has the Fibonacci heading
@@ -43,16 +44,16 @@ ok   Annotations flyout is inside the viewport
 ok   only one flyout is open
 ok   an outside press closes it
 ok   focus starts on the current tool
-ok   ArrowDown moves to Horizontal line
-ok   End goes to Ray
+ok   ArrowDown moves to Ray
+ok   End goes to Disjoint channel
 ok   ArrowDown wraps to Trend line
-ok   ArrowUp wraps to Ray
+ok   ArrowUp wraps to Disjoint channel
 ok   Home goes to Trend line
 ok   Escape closes it
 ok   focus is back on the group button
 ok   ArrowLeft closes it too
 ok   focus is back again
-ok   Enter picks Ray and closes the menu
+ok   Enter picks Info line and closes the menu
 ok   Escape leaves the tool
 ok   long press opened Shapes
 ok   the long press did not pick the tool

@@ -26,11 +26,23 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 - **Eraser**: a press on a drawing deletes it (one undo step), a press on empty chart does nothing, and the pointer over a drawing shows it will be erased. It is off while drawings are hidden. Escape goes back to the cursor.
 - **Trend line**, **Ray**, **Info line**, **Extended line**, **Trend angle**, **Rectangle** and **Fibonacci retracement**: pick a tool, then click two points on the chart (or press, drag and release). The info line labels its price change, bars, angle and distance, the extended line continues both ways to the edge of the chart, and the trend angle draws an arc with its angle in degrees and a dotted horizontal from the first point.
 - **Horizontal line**, **Horizontal ray**, **Vertical line** and **Cross line**: pick a tool and click once. The horizontal ray runs from the point to the right edge, the vertical line spans the full height and the cross line is a horizontal and a vertical line through the point. A vertical line only moves in time: dragging it keeps its price.
+- **Parallel channel**, **Regression trend**, **Flat top/bottom** and **Disjoint channel** (the Channels section of the Lines list):
+  - Parallel channel takes three points. The first two set a line, the third sets how far the second, parallel line is from it. A dashed middle line and a fill sit between them, and both lines can extend left and right. Dragging an end keeps the lines parallel; the handle in the middle of the second line sets the gap.
+  - Regression trend takes two points. It fits a straight line to the chosen price (close, open, high, low, hl2, hlc3 or ohlc4) of the bars between them, and draws a line above and below it at the chosen number of standard deviations (2 to begin with), with a fill. It follows the bars as they change and can extend left and right. With fewer than two bars between the points it draws nothing.
+  - Flat top/bottom takes three points: a sloped edge from the first two and a flat edge at the third point's price, filled between.
+  - Disjoint channel takes three points: a first edge from the first two, and a second edge that starts at the third and mirrors the first edge's rise, so the two edges are not parallel. They are filled between.
+  - Three-point drawings are placed with three clicks or taps, or press, drag and release for the first two and then a click or tap. Each placed point stays, a preview follows the pointer for the next one, and Escape cancels the drawing.
 - A selected line shows its price on the price axis and its time on the time axis.
 - **Text**: click the chart and type a note in place. Enter saves, Escape cancels. Double-click a note to edit it.
 - **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick.
 
 ![The line tools](../evidence/drawing-lines/drawing-lines-all-desktop.png)
+
+![The channel tools](../evidence/drawing-channels/drawing-channels-all-desktop.png)
+
+![A regression trend restyled with the hlc3 source and 3 deviations](../evidence/drawing-channels/drawing-channels-styled-regressionTrend-desktop.png)
+
+![A parallel channel being placed: two points down, the third follows the pointer](../evidence/drawing-channels/drawing-channels-preview-parallelChannel-desktop.png)
 
 ![Fibonacci retracement](../evidence/drawings/drawings-fib-desktop.png)
 
@@ -58,6 +70,8 @@ Double-click a drawing (a note opens its text editor instead) to open its settin
   - Trend line, ray, info line, extended line and trend angle: colour, opacity, width, solid, dashed or dotted, extend left and right, an arrow at either end, and price change, angle, bars and distance (the info line shows them all and the extended line extends both ways to begin with).
   - Horizontal ray, vertical line and cross line: colour, opacity, width and line style.
   - Horizontal line: colour, opacity, width, line style, and the price label on the axis with its colour.
+  - Parallel channel, flat top/bottom and disjoint channel: line colour, width and style, fill colour and opacity (parallel channel also a middle line switch and extend left and right).
+  - Regression trend: line colours (base, upper, lower), width and style, fill, extend left and right, the source (close, open, high, low, hl2, hlc3, ohlc4) and the deviation.
   - Rectangle: border colour, width and style, fill colour and opacity, extend left and right.
   - Fibonacci retracement: edit, add (up to 24), remove, colour and switch off each level, show prices and levels, reverse, extend lines and a background between levels.
   - Text: colour, size, bold, italic, background and border.

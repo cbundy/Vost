@@ -10,7 +10,7 @@ ok   Cross is listed
 ok   Ray is not listed while Lines is closed
 ok   Lines opens
 ok   Ray is listed now
-ok   the menu stays inside the screen - {"x":8,"y":91,"width":250,"height":473}
+ok   the menu stays inside the screen - {"x":8,"y":91,"width":250,"height":745}
 ok   menu stays open after a star
 ok   the star is pressed
 ok   Escape closes the menu
