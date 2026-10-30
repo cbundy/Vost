@@ -27,6 +27,18 @@ Select a pattern to see a handle on every point and the price and time of each p
 
 ![A pattern restyled with its ratios hidden](../evidence/drawing-patterns/drawing-patterns-styled-xabcdPattern-desktop.png)
 
+## Elliott waves
+
+The **Elliott waves** section of the **Patterns** family holds five tools: **Elliott impulse wave** (6 points: the origin and waves 1 to 5), **Elliott correction wave** (4 points: the origin and A B C), **Elliott triangle wave** (6 points: the origin and A to E), **Elliott double combo wave** (4 points: the origin and W X Y) and **Elliott triple combo wave** (6 points: the origin and W X Y X Z). Place them point by point like the chart patterns: each click places the next point and the following point moves with the pointer; Escape cancels.
+
+![The five Elliott wave tools drawn together](../evidence/drawing-elliott/drawing-elliott-all-desktop.png)
+
+- The lines join the points in order and each wave's label sits beside its point, above a peak and below a trough. The origin point has no label.
+- **Wave degree** (on the **Style** tab) sets the notation of the labels. From the largest to the smallest: Grand Supercycle, Supercycle, Cycle, Primary, Intermediate (the default), Minor, Minute, Minuette and Sub-Minuette. An impulse reads ((I)), (I), I for the first three, ((1)), (1), 1 for the next three and ((i)), (i), i for the last three; the other tools use the same brackets on the letters A B C (upper case from Grand Supercycle to Minor, lower case below). Changing the degree relabels the drawing at once.
+- Select a wave to see a handle on every point; drag a handle to move that point, or a line to move the whole drawing. The settings are the line colour, width and style, the wave degree, and the label text colour and size, plus the Coordinates and Visibility tabs. Waves are saved with the chart.
+
+![An impulse wave relabelled to the Minor degree](../evidence/drawing-elliott/drawing-elliott-styled-elliottImpulse-desktop.png)
+
 ## Cycle tools
 
 The **Cycles** section holds three tools placed with two points, like a trend line: click twice, tap twice, or press, drag and release. Handles sit on the two points; drag a handle to change the period, or the body to move the drawing. Each repeats across the whole chart, to the left and right of the points, and the selected drawing shows its time labels on the time axis.
