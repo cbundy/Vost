@@ -5,6 +5,8 @@ export const ray = lineTool(
   {
     id: 'ray',
     label: 'Ray',
+    group: 'lines',
+    section: 'Lines',
     icon: (
       <Svg>
         <circle cx="5" cy="19" r="2" />

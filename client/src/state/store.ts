@@ -5,6 +5,7 @@
  *
  * `prefs.v1` stays one flat object: the app writes the active chart's fields together with its own.
  */
+import { DEFAULT_BAR_POS, sanitizeBarPos, sanitizeCursorKind, sanitizeFavorites, sanitizeLastTool, type BarPos, type CursorKind } from '../lib/drawingRail';
 import { create } from 'zustand';
 import type { Dataset } from '../types';
 import { uid } from '../types';
@@ -77,6 +78,10 @@ interface Prefs {
   drawingsHidden?: boolean;
   /** The style new drawings of a tool start with, per tool id (see lib/drawingStyle). */
   drawingDefaults?: Record<string, Record<string, unknown>>;
+  drawingFavorites?: string[];
+  drawingLastTool?: Record<string, string>;
+  cursorKind?: CursorKind;
+  favoritesBarPos?: BarPos;
   buildTimeframes?: boolean;
   customTimeframes?: Interval[];
 }
@@ -163,6 +168,14 @@ export interface AppState {
   drawingMagnet: boolean;
   drawingsHidden: boolean;
   drawingDefaults: Record<string, Record<string, unknown>>;
+  /** Rail entry keys (see lib/drawingRail.ts) the person starred, in the order the favourites bar shows them. */
+  drawingFavorites: string[];
+  /** The last entry used from each rail family, shown on the family's button. */
+  drawingLastTool: Record<string, string>;
+  /** How the cursor mode looks on the chart. */
+  cursorKind: CursorKind;
+  /** Top-left of the floating favourites bar inside the chart area, in px. */
+  favoritesBarPos: BarPos;
   /** Build every timeframe above the provider's lowest from the next lower native one, instead of the exchange's own bars. */
   buildTimeframes: boolean;
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
@@ -259,6 +272,10 @@ export interface AppState {
   setDrawingsHidden(v: boolean): void;
   /** Saves (or with null clears) the style new drawings of a tool start with. */
   setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
+  toggleDrawingFavorite(key: string): void;
+  setDrawingLastTool(group: string, key: string): void;
+  setCursorKind(kind: CursorKind): void;
+  setFavoritesBarPos(pos: BarPos): void;
   setTimeZone(tz: string): void;
   /** Loads a provider's full symbol list once (silent fallback to popular symbols on error). */
   loadSymbolCatalog(providerId: string): Promise<void>;
@@ -297,6 +314,10 @@ export const useStore = create<AppState>()((set, get) => {
       drawingMagnet: s.drawingMagnet,
       drawingsHidden: s.drawingsHidden,
       drawingDefaults: s.drawingDefaults,
+      drawingFavorites: s.drawingFavorites,
+      drawingLastTool: s.drawingLastTool,
+      cursorKind: s.cursorKind,
+      favoritesBarPos: s.favoritesBarPos,
       buildTimeframes: s.buildTimeframes,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
@@ -478,6 +499,10 @@ export const useStore = create<AppState>()((set, get) => {
     drawingMagnet: false,
     drawingsHidden: false,
     drawingDefaults: {},
+    drawingFavorites: [],
+    drawingLastTool: {},
+    cursorKind: 'cross',
+    favoritesBarPos: { ...DEFAULT_BAR_POS },
     buildTimeframes: false,
     customTimeframes: [],
     charts: firstCharts,
@@ -560,6 +585,10 @@ export const useStore = create<AppState>()((set, get) => {
         drawingMagnet: prefs.drawingMagnet === true,
         drawingsHidden: prefs.drawingsHidden === true,
         drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
+        drawingFavorites: sanitizeFavorites(prefs.drawingFavorites),
+        drawingLastTool: sanitizeLastTool(prefs.drawingLastTool),
+        cursorKind: sanitizeCursorKind(prefs.cursorKind),
+        favoritesBarPos: sanitizeBarPos(prefs.favoritesBarPos),
         buildTimeframes: prefs.buildTimeframes === true,
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
@@ -815,6 +844,31 @@ export const useStore = create<AppState>()((set, get) => {
       const valid = style ? sanitizeDefaults({ [tool]: style }, toolSettings)[tool] : undefined;
       if (valid) next[tool] = valid;
       set({ drawingDefaults: next });
+      persistPrefs();
+    },
+
+    toggleDrawingFavorite(key) {
+      const cur = get().drawingFavorites;
+      const next = cur.includes(key) ? cur.filter((k) => k !== key) : sanitizeFavorites([...cur, key]);
+      set({ drawingFavorites: next });
+      persistPrefs();
+    },
+
+    setDrawingLastTool(group, key) {
+      const cur = get().drawingLastTool;
+      const next = sanitizeLastTool({ ...cur, [group]: key });
+      if (next[group] !== key) return; // not an entry of that family
+      set({ drawingLastTool: { ...cur, [group]: key } });
+      persistPrefs();
+    },
+
+    setCursorKind(kind) {
+      set({ cursorKind: sanitizeCursorKind(kind) });
+      persistPrefs();
+    },
+
+    setFavoritesBarPos(pos) {
+      set({ favoritesBarPos: sanitizeBarPos(pos) });
       persistPrefs();
     },
 

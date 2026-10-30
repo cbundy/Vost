@@ -57,3 +57,51 @@ export const PencilIcon = () => (
     <path d="M14 7l3 3" />
   </Svg>
 );
+
+export const CrossIcon = () => (
+  <Svg>
+    <path d="M12 3v18M3 12h18" />
+  </Svg>
+);
+
+export const DotIcon = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="3" fill="currentColor" />
+  </Svg>
+);
+
+export const EraserIcon = () => (
+  <Svg>
+    <path d="M7 21h12M5 15l9-9a2 2 0 0 1 3 0l3 3a2 2 0 0 1 0 3l-7 7H9z" />
+    <path d="M9 11l6 6" />
+  </Svg>
+);
+
+export const StarIcon = ({ filled = false }: { filled?: boolean }) => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />
+  </svg>
+);
+
+export const ChevronRightIcon = () => (
+  <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M8 4l8 8-8 8" />
+  </svg>
+);
+
+export const ChevronDownIcon = () => (
+  <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 8l8 8 8-8" />
+  </svg>
+);
+
+export const GripIcon = () => (
+  <svg width={10} height={14} viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+    <circle cx="3" cy="3" r="1.2" />
+    <circle cx="7" cy="3" r="1.2" />
+    <circle cx="3" cy="7" r="1.2" />
+    <circle cx="7" cy="7" r="1.2" />
+    <circle cx="3" cy="11" r="1.2" />
+    <circle cx="7" cy="11" r="1.2" />
+  </svg>
+);

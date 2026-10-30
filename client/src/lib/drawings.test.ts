@@ -65,6 +65,15 @@ describe('edits and history', () => {
     expect(s.drawings[0].anchors).toEqual([{ time: 150, price: 15 }, { time: 300, price: 25 }]);
     expect(s.past).toHaveLength(3);
   });
+  it('erasing a drawing is one undo step that undo brings back in place', () => {
+    let s = add(add(add(emptyState(), trend('a')), hline('b')), trend('c'));
+    const before = s.past.length;
+    s = remove(s, 'b');
+    expect(s.past).toHaveLength(before + 1);
+    expect(s.drawings.map((d) => d.id)).toEqual(['a', 'c']);
+    s = undo(s);
+    expect(s.drawings.map((d) => d.id)).toEqual(['a', 'b', 'c']);
+  });
   it('undoes and redoes in order', () => {
     let s = add(emptyState(), trend('a'));
     s = add(s, hline('b'));

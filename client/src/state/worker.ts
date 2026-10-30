@@ -44,7 +44,7 @@ function getWorker(): Worker | null {
   }
 }
 
-export function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) => void): Promise<WorkerResponse> {
+export function workerCall(req: Exclude<WorkerRequestBody, { type: 'optimize' }>, onProgress?: (pct: number) => void): Promise<WorkerResponse> {
   const w = getWorker();
   const id = uid('req_');
   if (!w) {
@@ -61,8 +61,6 @@ export function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) =>
           void import('../lib/pine/runtime')
             .then((m) => m.runPine(req.source, req.candles, req.inputs))
             .then((outcome) => resolve({ id, type: 'pineResult', outcome }), reject);
-        } else {
-          reject(new Error('Optimizer requires Web Worker support.'));
         }
       } catch (err) {
         reject(err instanceof Error ? err : new Error(String(err)));
@@ -73,4 +71,63 @@ export function workerCall(req: WorkerRequestBody, onProgress?: (pct: number) =>
     pending.set(id, { resolve, reject, onProgress });
     w.postMessage({ ...req, id });
   });
+}
+
+/** Rejection of an optimizer run that was cancelled. */
+export class CancelledError extends Error {
+  constructor() {
+    super('Optimizer cancelled');
+    this.name = 'AbortError';
+  }
+}
+
+/**
+ * One optimizer run on its own dedicated Worker, created for the call and terminated when it settles or is
+ * cancelled. Never touches the shared worker, so cancelling cannot disturb other charts' backtests or Pine runs.
+ */
+export function optimizerCall(
+  req: Extract<WorkerRequestBody, { type: 'optimize' }>,
+  onProgress?: (pct: number) => void,
+): { promise: Promise<WorkerResponse>; cancel: () => void } {
+  let w: Worker;
+  try {
+    w = new Worker(new URL('../lib/workers/backtest.worker.ts', import.meta.url), { type: 'module' });
+  } catch {
+    return { promise: Promise.reject(new Error('Optimizer requires Web Worker support.')), cancel: () => {} };
+  }
+  const id = uid('opt_');
+  let settled = false;
+  let rejectFn: (err: Error) => void = () => {};
+  const finish = () => {
+    settled = true;
+    w.onmessage = null;
+    w.onerror = null;
+    w.terminate();
+  };
+  const promise = new Promise<WorkerResponse>((resolve, reject) => {
+    rejectFn = reject;
+    w.onmessage = (ev: MessageEvent<WorkerResponse>) => {
+      const msg = ev.data;
+      if (settled || msg.id !== id) return;
+      if (msg.type === 'progress') {
+        onProgress?.(msg.pct);
+        return;
+      }
+      finish();
+      if (msg.type === 'error') reject(new Error(msg.message));
+      else resolve(msg);
+    };
+    w.onerror = () => {
+      if (settled) return;
+      finish();
+      reject(new Error('Optimizer worker crashed'));
+    };
+    w.postMessage({ ...req, id });
+  });
+  const cancel = () => {
+    if (settled) return;
+    finish();
+    rejectFn(new CancelledError());
+  };
+  return { promise, cancel };
 }

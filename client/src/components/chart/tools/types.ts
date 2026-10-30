@@ -26,10 +26,17 @@ export interface ToolView {
   styled: boolean;
 }
 
+/** The rail's tool families, in rail order (see lib/drawingRail.ts for labels). */
+export type DrawingGroup = 'cursors' | 'lines' | 'fib-gann' | 'patterns' | 'forecast-measure' | 'shapes' | 'annotations' | 'icons';
+
 /** One drawing tool. Geometry is in chart pixels (the anchors are already converted). */
 export interface DrawingTool {
   id: string;
   label: string;
+  /** The family the tool belongs to in the rail. */
+  group: DrawingGroup;
+  /** The heading inside the family's flyout (for example "Lines", "Fibonacci"). */
+  section: string;
   /** The rail button's icon. */
   icon: ReactNode;
   /** Anchors the tool needs before it is finished. */

@@ -374,6 +374,10 @@ describe('chart registry and flat prefs', () => {
     drawingMagnet: true,
     drawingsHidden: true,
     drawingDefaults: { trendLine: { width: 3 } },
+    drawingFavorites: ['ray', 'eraser'],
+    drawingLastTool: { lines: 'ray', cursors: 'cursor.dot' },
+    cursorKind: 'dot',
+    favoritesBarPos: { x: 120, y: 44 },
     buildTimeframes: true,
     customTimeframes: ['2h'],
   });
@@ -401,6 +405,43 @@ describe('chart registry and flat prefs', () => {
     expect([app.sidePanel, app.sidePanelCollapsed, app.drawingMagnet, app.drawingsHidden, app.buildTimeframes]).toEqual(['data', true, true, true, true]);
   });
 
+  it('reads the drawing rail prefs with sanitising, and old prefs without them load the defaults', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    localStorage.setItem(
+      'vost.prefs.v1',
+      JSON.stringify({ ...seed(), drawingFavorites: ['ray', 'nope', 'ray', 7], drawingLastTool: { lines: 'rectangle', shapes: 'rectangle' }, cursorKind: 'star', favoritesBarPos: { x: 'a', y: 2 } }),
+    );
+    useStore.getState().init();
+    let app = useStore.getState();
+    expect(app.drawingFavorites).toEqual(['ray']);
+    expect(app.drawingLastTool).toEqual({ shapes: 'rectangle' });
+    expect(app.cursorKind).toBe('cross');
+    expect(app.favoritesBarPos).toEqual({ x: 56, y: 12 });
+    const old: Record<string, unknown> = seed();
+    for (const k of ['drawingFavorites', 'drawingLastTool', 'cursorKind', 'favoritesBarPos']) delete old[k];
+    localStorage.setItem('vost.prefs.v1', JSON.stringify(old));
+    useStore.getState().init();
+    app = useStore.getState();
+    expect([app.drawingFavorites, app.drawingLastTool, app.cursorKind, app.favoritesBarPos]).toEqual([[], {}, 'cross', { x: 56, y: 12 }]);
+  });
+
+  it('toggles favourites and remembers the last tool of a family', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    const s = useStore.getState();
+    s.toggleDrawingFavorite('ray');
+    s.toggleDrawingFavorite('trendLine');
+    s.toggleDrawingFavorite('bogus');
+    expect(useStore.getState().drawingFavorites).toEqual(['ray', 'trendLine']);
+    s.toggleDrawingFavorite('ray');
+    expect(useStore.getState().drawingFavorites).toEqual(['trendLine']);
+    s.setDrawingLastTool('lines', 'ray');
+    s.setDrawingLastTool('lines', 'rectangle'); // not in the family: dropped
+    expect(useStore.getState().drawingLastTool).toEqual({ lines: 'ray' });
+  });
+
   it('writes prefs.v1 back flat with the same keys, from the chart and the app together', async () => {
     const prefs = seed();
     localStorage.setItem('vost.prefs.v1', JSON.stringify(prefs));
@@ -419,6 +460,10 @@ describe('chart registry and flat prefs', () => {
     expect(saved.providerId).toBe('kraken');
     expect(saved.timeZone).toBe('Asia/Tehran');
     expect(saved.buildTimeframes).toBe(true);
+    expect(saved.drawingFavorites).toEqual(['ray', 'eraser']);
+    expect(saved.drawingLastTool).toEqual({ lines: 'ray', cursors: 'cursor.dot' });
+    expect(saved.cursorKind).toBe('dot');
+    expect(saved.favoritesBarPos).toEqual({ x: 120, y: 44 });
     for (const v of Object.values(saved)) expect(v).not.toHaveProperty('candles');
   });
 

@@ -45,6 +45,8 @@ function corner(a: Pt, view: ToolView): Pt {
 export const text: DrawingTool = {
   id: 'text',
   label: 'Text',
+  group: 'annotations',
+  section: 'Text',
   icon: (
     <Svg>
       <path d="M5 6V5h14v1M12 5v14M9 19h6" />

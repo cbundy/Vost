@@ -15,6 +15,8 @@ function bounds([a, b]: Pt[], view: ToolView): [Pt, Pt] {
 export const rectangle: DrawingTool = {
   id: 'rectangle',
   label: 'Rectangle',
+  group: 'shapes',
+  section: 'Shapes',
   icon: (
     <Svg>
       <rect x="4" y="6" width="16" height="12" rx="1" />

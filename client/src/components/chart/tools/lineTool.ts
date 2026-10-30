@@ -71,7 +71,7 @@ function drawStats(ctx: CanvasRenderingContext2D, lines: string[], b: Pt, view: 
 }
 
 /** A two-anchor line tool: trend line and ray differ only in their id, label, icon and default extension. */
-export function lineTool(base: Pick<DrawingTool, 'id' | 'label' | 'icon'>, extendRight: boolean): DrawingTool {
+export function lineTool(base: Pick<DrawingTool, 'id' | 'label' | 'group' | 'section' | 'icon'>, extendRight: boolean): DrawingTool {
   return {
     ...base,
     anchors: 2,

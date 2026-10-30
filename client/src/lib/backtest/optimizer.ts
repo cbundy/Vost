@@ -1,5 +1,5 @@
 /**
- * Parameter sweep optimizer. Grid search over one or two strategy parameters,
+ * Parameter sweep optimizer. Grid search over any number of strategy parameters,
  * ranked by a chosen metric. Runs entirely in the browser (Web Worker).
  */
 import type { Candle } from '../../types';
@@ -28,9 +28,8 @@ export interface SweepParam {
 }
 
 export interface OptimizeConfig {
-  sweepA: SweepParam;
-  /** Optional second parameter (creates a 2D grid). */
-  sweepB: SweepParam | null;
+  /** One sweep per parameter, in sweep order (first outermost). The grid is their product. */
+  sweeps: SweepParam[];
   metric: MetricKey;
 }
 
@@ -56,15 +55,16 @@ export const MAX_GRID_COMBOS = 100_000;
 export function defaultOptimizeConfig(config: BacktestConfig): OptimizeConfig {
   const strategy = getStrategy(config.strategyId);
   const numeric = strategy.params.filter((p) => p.type !== 'select' && !p.key.startsWith('__'));
-  const a = numeric[0]?.key ?? 'fast';
-  const b = numeric[1]?.key ?? 'slow';
-  const aDefault = config.params[a] ?? strategy.params.find((p) => p.key === a)?.default ?? 10;
-  const bDefault = config.params[b] ?? strategy.params.find((p) => p.key === b)?.default ?? 30;
-  return {
-    sweepA: { key: a, from: Math.max(1, Math.round(aDefault * 0.5)), to: Math.max(2, Math.round(aDefault * 1.5)), step: 1 },
-    sweepB: b !== a ? { key: b, from: Math.max(2, Math.round(bDefault * 0.5)), to: Math.max(3, Math.round(bDefault * 1.5)), step: 2 } : null,
-    metric: 'sharpe',
-  };
+  if (numeric.length === 0) {
+    return { sweeps: [{ key: 'fast', from: 5, to: 15, step: 1 }, { key: 'slow', from: 15, to: 45, step: 2 }], metric: 'sharpe' };
+  }
+  const sweeps: SweepParam[] = numeric.slice(0, 2).map((p, i) => {
+    const d = config.params[p.key] ?? p.default ?? (i === 0 ? 10 : 30);
+    return i === 0
+      ? { key: p.key, from: Math.max(1, Math.round(d * 0.5)), to: Math.max(2, Math.round(d * 1.5)), step: 1 }
+      : { key: p.key, from: Math.max(2, Math.round(d * 0.5)), to: Math.max(3, Math.round(d * 1.5)), step: 2 };
+  });
+  return { sweeps, metric: 'sharpe' };
 }
 
 export function paramValues(s: SweepParam): number[] {
@@ -84,13 +84,16 @@ function valueCount(s: SweepParam): number {
   return Math.floor((Math.abs(s.to - s.from)) / step + 1e-9) + 1;
 }
 
-/** Number of combinations in the grid (shared with the UI). */
-export function gridSize(opt: Pick<OptimizeConfig, 'sweepA' | 'sweepB'>): number {
-  return valueCount(opt.sweepA) * (opt.sweepB ? valueCount(opt.sweepB) : 1);
+/** Number of combinations in the grid (shared with the UI): the product of every sweep's value count. */
+export function gridSize(opt: Pick<OptimizeConfig, 'sweeps'>): number {
+  if (opt.sweeps.length === 0) return 0;
+  let n = 1;
+  for (const s of opt.sweeps) n *= valueCount(s);
+  return n;
 }
 
 function sweptKeys(opt: OptimizeConfig): string[] {
-  return opt.sweepB ? [opt.sweepA.key, opt.sweepB.key] : [opt.sweepA.key];
+  return opt.sweeps.map((s) => s.key);
 }
 
 function checkLimit(combos: number): void {
@@ -99,14 +102,32 @@ function checkLimit(combos: number): void {
   }
 }
 
-function* gridCombos(opt: OptimizeConfig): Generator<Record<string, number>> {
-  const valuesB = opt.sweepB ? paramValues(opt.sweepB) : [null];
-  for (const va of paramValues(opt.sweepA)) {
-    for (const vb of valuesB) {
-      const params: Record<string, number> = { [opt.sweepA.key]: va };
-      if (vb != null && opt.sweepB) params[opt.sweepB.key] = vb;
-      yield params;
+function checkSweeps(opt: OptimizeConfig): void {
+  if (opt.sweeps.length === 0) throw new Error('Add at least one parameter to sweep.');
+  const seen = new Set<string>();
+  for (const s of opt.sweeps) {
+    if (seen.has(s.key)) throw new Error(`Parameter ${s.key} is swept more than once.`);
+    seen.add(s.key);
+  }
+}
+
+/** Every combination once, in odometer order (first sweep outermost, last innermost), without building the grid. */
+function* gridCombos(opt: Pick<OptimizeConfig, 'sweeps'>): Generator<Record<string, number>> {
+  const lists = opt.sweeps.map(paramValues);
+  if (lists.length === 0 || lists.some((l) => l.length === 0)) return;
+  const idx = lists.map(() => 0);
+  for (;;) {
+    const params: Record<string, number> = {};
+    for (let i = 0; i < lists.length; i++) params[opt.sweeps[i].key] = lists[i][idx[i]];
+    yield params;
+    let d = lists.length - 1;
+    while (d >= 0) {
+      idx[d]++;
+      if (idx[d] < lists[d].length) break;
+      idx[d] = 0;
+      d--;
     }
+    if (d < 0) return;
   }
 }
 
@@ -121,6 +142,7 @@ export function runOptimize(
   opt: OptimizeConfig,
   onProgress?: (pct: number) => void,
 ): OptimizeOutput {
+  checkSweeps(opt);
   const combos = gridSize(opt);
   checkLimit(combos);
   const rows: OptimizeRow[] = [];
@@ -146,6 +168,7 @@ export async function runOptimizeAsync(
   opt: OptimizeConfig,
   onProgress?: (pct: number) => void,
 ): Promise<OptimizeOutput> {
+  checkSweeps(opt);
   const combos = gridSize(opt);
   checkLimit(combos);
   const rows: OptimizeRow[] = [];

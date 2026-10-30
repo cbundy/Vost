@@ -35,6 +35,8 @@ function xRange(pts: { x: number }[], view: ToolView): [number, number] {
 export const fibRetracement: DrawingTool = {
   id: 'fibRetracement',
   label: 'Fibonacci retracement',
+  group: 'fib-gann',
+  section: 'Fibonacci',
   icon: (
     <Svg>
       <line x1="3" y1="5" x2="21" y2="5" />
