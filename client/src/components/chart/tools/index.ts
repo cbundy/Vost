@@ -65,6 +65,8 @@ import { measure } from './measure';
 import { anchoredVwap } from './anchoredVwap';
 import { fixedRangeVolumeProfile } from './fixedRangeVolumeProfile';
 import { anchoredVolumeProfile } from './anchoredVolumeProfile';
+import { longPosition } from './longPosition';
+import { shortPosition } from './shortPosition';
 import { glyphTools } from './glyph';
 import { rectangle } from './rectangle';
 import { text } from './text';
@@ -74,7 +76,7 @@ import type { AnchorSpec, Validators } from '../../../lib/drawings';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, brush, highlighter, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, rotatedRectangle, ellipse, triangle, arc, curve, doubleCurve, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, headAndShoulders, trianglePattern, threeDrives, elliottImpulse, elliottCorrection, elliottTriangle, elliottDoubleCombo, elliottTripleCombo, cyclicLines, timeCycles, sineLine, text, anchoredText, table, note, anchoredNote, priceNote, callout, comment, priceLabel, signpost, flagMark, image, anchoredVwap, fixedRangeVolumeProfile, anchoredVolumeProfile, measure, ...glyphTools];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, brush, highlighter, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, rotatedRectangle, ellipse, triangle, arc, curve, doubleCurve, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, headAndShoulders, trianglePattern, threeDrives, elliottImpulse, elliottCorrection, elliottTriangle, elliottDoubleCombo, elliottTripleCombo, cyclicLines, timeCycles, sineLine, text, anchoredText, table, note, anchoredNote, priceNote, callout, comment, priceLabel, signpost, flagMark, image, longPosition, shortPosition, anchoredVwap, fixedRangeVolumeProfile, anchoredVolumeProfile, measure, ...glyphTools];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);

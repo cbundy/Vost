@@ -45,9 +45,11 @@ import { dragCorner, fitToHalfPane, naturalEnd } from '../../lib/geometry/image'
 import { subscribeBitmaps } from './imageCache';
 import { IMAGE_TOOL, adoptFile, dragHasFiles, droppedFile, getPending, openChooser, pictureFrom, setPending } from './imagePlacement';
 import { TABLE_DEFAULT_COLS, TABLE_DEFAULT_ROWS, emptyCells, stepCell } from '../../lib/geometry/table';
+import { useDrawingToolbar } from './useDrawingToolbar';
 import { armedGlyph, hoverGlyph, previewStyleDrag } from './glyphPlacement';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
+import type { DragMods } from './tools/types';
 import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, GLYPH_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
@@ -106,6 +108,12 @@ export type DrawingEditor = {
 function handleTarget(def: DrawingTool, drag: Drag, item: DragItem, prim: DrawingPrimitive, dx: number, dy: number): Pt {
   const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, cells: item.origCells, style: item.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
+}
+
+/** What a handle drag may know besides the pointer: the Shift key and the drawing's view (its effective style, the tick size). */
+function dragMods(prim: DrawingPrimitive, item: DragItem, shift: boolean): DragMods {
+  const view = prim.viewFor({ tool: item.tool, anchors: item.origAnchors, style: item.origStyle });
+  return { shift, style: view.style, view };
 }
 
 /** One drawing a drag moves, as it was when the press began. */
@@ -192,6 +200,8 @@ export function useDrawings(
   hasDataRef.current = hasData;
 
   const publishRef = useRef<() => void>(() => {});
+  const toolbarRefreshRef = useRef<() => void>(() => {});
+  const toolbarFollowRef = useRef<(p: DrawingPrimitive) => () => void>(() => () => {});
 
   const getState = useCallback((): DrawingsState => {
     const k = keyRef.current;
@@ -222,6 +232,7 @@ export function useDrawings(
       );
     }
     publishRef.current();
+    toolbarRefreshRef.current();
   }, [getState]);
 
   const setState = useCallback(
@@ -463,6 +474,20 @@ export function useDrawings(
   actionsRef.current = actions;
   publishRef.current = usePublishDrawings({ active, sourceKey: key, getState, selectedRef, primRef, hiddenRef, actions });
 
+  const toolbar = useDrawingToolbar({
+    getState,
+    setState,
+    selectedRef,
+    primRef,
+    containerRef,
+    hiddenRef,
+    toolRef,
+    isDragging: () => dragRef.current != null,
+    isEditing: () => editTargetRef.current != null || settingsOpenRef.current != null,
+  });
+  toolbarRefreshRef.current = toolbar.refresh;
+  toolbarFollowRef.current = toolbar.follow;
+
   /* The input follows its anchor when the chart pans, zooms or resizes. */
   useEffect(() => {
     const el = containerRef.current;
@@ -502,8 +527,10 @@ export function useDrawings(
     prim.setLockAll(lockAllRef.current);
     series.attachPrimitive(prim);
     primRef.current = prim;
+    const unfollow = toolbarFollowRef.current(prim);
     sync();
     return () => {
+      unfollow();
       primRef.current = null;
       try {
         series.detachPrimitive(prim);
@@ -677,7 +704,7 @@ export function useDrawings(
         const def = getTool(id);
         const pts = placed.map((a) => prim.toPoint(a, def));
         if (pts.every((q) => q)) {
-          const mapped = settle(pts as Pt[]).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
+          const mapped = settle(pts as Pt[], prim.viewFor({ tool: id, anchors: placed })).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
           if (mapped.some((a) => !a)) {
             // A point the tool added cannot be put on the chart: the drawing is not stored.
             draftRef.current = null;
@@ -965,10 +992,7 @@ export function useDrawings(
           if (!def) continue;
           const dragged =
             drag.handle !== null && def.dragHandle
-              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy), {
-                  shift: e.shiftKey && !touch,
-                  style: prim.viewFor({ tool: item.tool, anchors: item.origAnchors, style: item.origStyle }).style,
-                })
+              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy), dragMods(prim, item, e.shiftKey && !touch))
               : null;
           moves[item.id] = item.origAnchors.map((orig, i) => {
             if (dragged) {
@@ -989,8 +1013,8 @@ export function useDrawings(
       }
       if (e.buttons === 0) {
         const placing = getTool(toolRef.current);
-        if ((placing?.cells || placing?.glyph) && !hiddenRef.current && hasDataRef.current) {
-          // A table, icon, emoji or sticker follows the pointer until it is placed.
+        if ((placing?.hoverPreview || placing?.glyph) && !hiddenRef.current && hasDataRef.current) {
+          // A table, icon, emoji, sticker or position follows the pointer until it is placed.
           const raw = inPlot(p) ? prim.toAnchor(p, placing) : null;
           if (raw) {
             const anchor = snap(raw, placing);
@@ -1310,6 +1334,9 @@ export function useDrawings(
     /** Lock, rename, order, clone, copy and paste, and the lookup behind the right-click menu. */
     actions,
     drawingCount,
+    /** The floating toolbar's model (null when it is hidden) and its quick style edit. */
+    toolbar: toolbar.model,
+    setStyleField: toolbar.setStyleField,
     /** The open settings dialog's model, or null. */
     settings,
     /** The glyph tool whose picker is open, or null; the chosen item arms the tool. */

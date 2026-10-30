@@ -20,7 +20,7 @@ const FAMILIES: { id: string; label: string; first: string; sections: string[] }
   { id: 'lines', label: 'Lines', first: 'Trend line', sections: ['Lines', 'Channels'] },
   { id: 'fib-gann', label: 'Fibonacci and Gann', first: 'Fibonacci retracement', sections: ['Fibonacci', 'Gann'] },
   { id: 'patterns', label: 'Patterns', first: 'XABCD pattern', sections: ['Chart patterns', 'Cycles'] },
-  { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Anchored VWAP', sections: ['Volume-based', 'Measurers'] },
+  { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Long position', sections: ['Forecasting', 'Volume-based', 'Measurers'] },
   { id: 'shapes', label: 'Shapes', first: 'Brush', sections: ['Brushes', 'Shapes'] },
   { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text', 'Notes'] },
 ];

@@ -1,0 +1,18 @@
+ok   nothing is stored before the click
+ok   one long position with three anchors - [{"id":"dmvuvlweh1e9z6","tool":"longPosition","anchors":[{"time":1769904000,"price":170.4171372568371},{"time":1774483200,"price":189.59177262996434},{"time":1774483200,"price":160.82981957027346}]}]
+ok   the target is above and the stop below the entry - 170.4171372568371 189.59177262996434 160.82981957027346
+ok   target and stop share the end time, after the start - 1769904000 1774483200 1774483200
+ok   the entry did not move
+ok   the target moved but stays above the entry - 189.59177262996434 -> 170.7486489334126 (entry 170.4171372568371)
+ok   and sits within a few pixels of it - 0.3315116765755022 of 19.174635373127245
+ok   titled for the tool
+ok   the Inputs tab follows Style - Style,Inputs,Coordinates,Visibility
+ok   the inputs and style are stored - {"riskUnit":"amount","risk":100,"accountSize":5000,"alwaysStats":true}
+ok   long: the bars decide it as designed - {"result":"target","time":1787702400,"price":200.6888914}
+ok   short: the bars decide it as designed - {"result":"stop","time":1779753600,"price":163.2802582}
+info long: entry 166.98 target 200.69 stop 157.36, risk +1000.00, Qty 103, R/R 3.50388392245, closed at target, Closed P&L +3471.89
+info short: entry 132.79 target 121.53 stop 163.28, risk +1000.00, Qty 32, R/R 0.369226722649, closed at stop, Closed P&L -975.84
+ok   storage is unchanged after a reload
+ok   and after a timeframe change
+ok   a short position with the target below and the stop above - {"id":"dmvuvm6du19t9k","tool":"shortPosition","anchors":[{"time":1696118400,"price":150.5050314681926},{"time":1722038400,"price":115.22039094191439},{"time":1722038400,"price":168.1473517313317}]}
+ok   no console error

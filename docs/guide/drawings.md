@@ -30,6 +30,7 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 - **XABCD pattern**, **Cypher pattern**, **ABCD pattern**, **Head and shoulders**, **Triangle pattern** and **Three drives**: click four to seven points one by one (see [Chart patterns](drawing-patterns.md)).
 - **Elliott impulse wave** (6 points), **Elliott correction wave** (4), **Elliott triangle wave** (6), **Elliott double combo wave** (4) and **Elliott triple combo wave** (6): click the points one by one (see [Elliott waves](drawing-patterns.md#elliott-waves)).
 - **Cyclic lines**, **Time cycles** and **Sine line**: click two points, like a trend line; the pattern repeats across the chart (see [Cycle tools](drawing-patterns.md#cycle-tools)).
+- **Long position** and **Short position** (the Forecasting section of the family before Measure): one click places an entry with a target and a stop zone, and the risk, quantity and profit or loss (see [Forecasting and measuring tools](drawing-forecast.md#positions)).
 - **Horizontal line**, **Horizontal ray**, **Vertical line** and **Cross line**: pick a tool and click once. The horizontal ray runs from the point to the right edge, the vertical line spans the full height and the cross line is a horizontal and a vertical line through the point. A vertical line only moves in time: dragging it keeps its price.
 - **Parallel channel**, **Regression trend**, **Flat top/bottom** and **Disjoint channel** (the Channels section of the Lines list):
   - Parallel channel takes three points. The first two set a line, the third sets how far the second, parallel line is from it. A dashed middle line and a fill sit between them, and both lines can extend left and right. Dragging an end keeps the lines parallel; the handle in the middle of the second line sets the gap.
@@ -128,6 +129,14 @@ Right-click a drawing to select it and open its menu, headed by its name (or its
 Right-click empty chart for **Add alert at** the price, **Paste** (off while nothing is copied) and **Remove drawings** (the same confirm as Delete all drawings, off with no drawings).
 
 ![The empty chart menu](../evidence/drawing-manage/drawing-manage-empty-menu-desktop.png)
+
+### Floating toolbar
+
+With the cursor tool, select one drawing and a small toolbar floats above it (below it when there is no room above, always inside the chart) and follows it as you pan, zoom, drag the price scale or resize the chart. It has a colour swatch row (plus a custom colour), a width list and a line style list, each only for the settings the tool has; then **Settings**, **Lock** (pressed while locked), **Clone**, **Delete** and **More**, which holds the same items as the right-click menu. Each quick pick is one undo step and also works on a locked drawing. The toolbar hides while you drag, while the settings dialog or a text editor is open, with Hide all drawings on, and when two or more drawings are selected. Pressing it never draws, drags or pans the chart.
+
+![The floating toolbar with its colour popover](../evidence/drawing-toolbar/drawing-toolbar-colour-desktop.png)
+
+![The More menu of the toolbar](../evidence/drawing-toolbar/drawing-toolbar-more-desktop.png)
 
 ### Object tree
 

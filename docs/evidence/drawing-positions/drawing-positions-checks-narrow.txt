@@ -1,0 +1,5 @@
+ok   one long position with three anchors - [{"id":"dmvuvm7wk13ee1","tool":"longPosition","anchors":[{"time":1771200000,"price":169.76437604172276},{"time":1787529600,"price":188.94650723741591},{"time":1787529600,"price":160.17331044387618}]}]
+ok   the target is above and the stop below the entry - 169.76437604172276 188.94650723741591 160.17331044387618
+ok   target and stop share the end time, after the start - 1771200000 1787529600 1787529600
+ok   storage is unchanged after a reload
+ok   no console error

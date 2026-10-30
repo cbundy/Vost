@@ -38,6 +38,7 @@ import {
   setCell,
   setCells,
 } from './drawings';
+import { withStyleValue } from './toolbarPickers';
 import { VALIDATORS } from '../components/chart/tools';
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, gannBox: 2, gannSquareFixed: 2, gannSquare: 2, gannFan: 2, text: 1 };
@@ -350,6 +351,15 @@ describe('setStyle', () => {
     expect(setStyle(plain, 'a', {})).toBe(plain);
     expect(setStyle(plain, 'a', undefined)).toBe(plain);
   });
+  it('a quick edit keeps the other keys, is one undo step, works on a locked drawing and is a no-op when unchanged', () => {
+    const s0 = setLocked(setStyle(add(emptyState(), trend('a')), 'a', { width: 3, lineStyle: 'dashed' }), ['a'], true);
+    const s1 = setStyle(s0, 'a', withStyleValue(s0.drawings[0].style, 'color', 'red'));
+    expect(s1.drawings[0].style).toEqual({ width: 3, lineStyle: 'dashed', color: 'red' });
+    expect(s1.drawings[0].locked).toBe(true);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(undo(s1).drawings[0].style).toEqual({ width: 3, lineStyle: 'dashed' });
+    expect(setStyle(s1, 'a', withStyleValue(s1.drawings[0].style, 'color', 'red'))).toBe(s1);
+  });
   it('clears the style with an empty one', () => {
     const s1 = setStyle(add(emptyState(), trend('a')), 'a', { width: 3 });
     expect('style' in setStyle(s1, 'a', {}).drawings[0]).toBe(false);
@@ -496,6 +506,22 @@ describe('the pattern tools', () => {
     const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an((ANCHOR_COUNTS[tool] as number) - 1) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
+describe('the position tools', () => {
+  it('round trips both with three anchors, drops a wrong count and a wrong side', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const ids = ['longPosition', 'shortPosition'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3]);
+    const an = (e: number, t: number, s: number) => [{ time: 1, price: e }, { time: 2, price: t }, { time: 2, price: s }];
+    const ok = [{ id: 'l', tool: 'longPosition', anchors: an(10, 12, 9) }, { id: 's', tool: 'shortPosition', anchors: an(10, 8, 11) }];
+    const bad = [
+      { id: 'l2', tool: 'longPosition', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] },
+      { id: 'l3', tool: 'longPosition', anchors: an(10, 8, 11) },
+      { id: 's2', tool: 'shortPosition', anchors: an(10, 12, 9) },
+    ];
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS, undefined, undefined, undefined, undefined, VALIDATORS).sources).toEqual({ s: ok });
   });
 });
 
