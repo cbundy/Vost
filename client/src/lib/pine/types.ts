@@ -31,6 +31,10 @@ export interface PineInput {
   maxval?: number;
   step?: number;
   options?: PineInputValue[];
+  /** The script's `group`, `tooltip` and `inline` arguments, when it sets them. */
+  group?: string;
+  tooltip?: string;
+  inline?: string;
 }
 
 export type PinePlotPane = 'price' | 'separate';

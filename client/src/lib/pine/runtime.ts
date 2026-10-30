@@ -301,6 +301,9 @@ export async function runPine(
       ...(m.maxval !== undefined && { maxval: m.maxval }),
       ...(m.step !== undefined && { step: m.step }),
       ...(m.options !== undefined && { options: m.options as PineInputValue[] }),
+      ...(m.group && { group: String(m.group) }),
+      ...(m.tooltip && { tooltip: String(m.tooltip) }),
+      ...(m.inline && { inline: String(m.inline) }),
     }));
 
     let trades: PineTrade[] = [];

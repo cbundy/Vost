@@ -1258,6 +1258,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         strategyId: btConfig.strategyId,
         strategyName: getStrategy(btConfig.strategyId).name,
         params: Object.fromEntries(Object.entries(btConfig.params).filter(([k]) => !swept.has(k) && !k.startsWith('__'))),
+        ...(btConfig.pineInputs && Object.keys(btConfig.pineInputs).length > 0 && { pineInputs: { ...btConfig.pineInputs } }),
         symbol: get().symbol,
         timeframe: get().timeframe,
         dataLabel: get().dataLabel,

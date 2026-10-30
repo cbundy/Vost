@@ -704,3 +704,61 @@ if barstate.islast
     expect(paged.drawings).toEqual(single.drawings);
   });
 });
+
+describe('runPine input types', () => {
+  const echo = [
+    '//@version=6',
+    'indicator("Echo", overlay=true)',
+    'col = input.color(#FF0000FF, "Col")',
+    'src = input.source(close, "Src")',
+    't = input.time(0, "T")',
+    'tf = input.timeframe("", "Tf")',
+    'ses = input.session("0000-0100", "Ses")',
+    'sym = input.symbol("A", "Sym")',
+    'txt = input.text_area("x", "Txt")',
+    'px = input.price(1.0, "Px")',
+    'if bar_index == 0',
+    '    log.info("t={0} tf={1} ses={2} sym={3} txt={4} px={5}", t, timeframe.in_seconds(tf), ses, sym, txt, px)',
+    'plot(src, "Src", color=col)',
+  ].join('\n');
+
+  it('returns each input with its type, group, tooltip and inline, leaving out what the script did not set', async () => {
+    const r = await ok('inputs');
+    const by = Object.fromEntries(r.inputs.map((i) => [i.name, i]));
+    expect(r.inputs.map((i) => i.type)).toEqual(['int', 'source', 'float', 'bool', 'color', 'color', 'timeframe', 'symbol', 'session', 'time', 'text_area', 'price']);
+    expect(by.Length).toMatchObject({ tooltip: 'Bars in the average' });
+    expect(by.Length).not.toHaveProperty('group');
+    expect(by.Length).not.toHaveProperty('inline');
+    expect(by.Multiplier).toMatchObject({ group: 'Bands', inline: 'mult' });
+    expect(by['Show bands']).toMatchObject({ group: 'Bands', inline: 'mult' });
+    expect(by['Line color']).toMatchObject({ group: 'Style', tooltip: 'Color of the average' });
+    expect(by.Source.options).toContain('hl2');
+  });
+
+  it('every type has an override that changes what the script sees', async () => {
+    const run = async (inputs?: Record<string, number | string>) => {
+      const r = await runPine(echo, candles, inputs);
+      if (!r.ok) throw new Error(r.error.message);
+      return r;
+    };
+    const base = await run();
+    const set = await run({
+      Col: '#00FF0080',
+      Src: 'open',
+      T: 1704067200000,
+      Tf: '240',
+      Ses: '1000-1100,1200-1300',
+      Sym: 'ETHUSDT',
+      Txt: 'a\nb',
+      Px: 42.5,
+    });
+    const log = (r: PineResult) => r.messages?.logs[0]?.text.replace(/(\d),(?=\d{3})/g, '$1');
+    expect(log(base)).toBe('t=0 tf=86400 ses=0000-0100 sym=A txt=x px=1');
+    // The log formatter groups digits, so the test strips the commas (the session's comma too) from what it reads.
+    expect(log(set)).toBe('t=1704067200000 tf=14400 ses=1000-11001200-1300 sym=ETHUSDT txt=a\nb px=42.5');
+    expect(set.plots[0].values).toEqual(candles.map((c) => c.open));
+    expect(base.plots[0].values).toEqual(candles.map((c) => c.close));
+    expect(String(set.plots[0].color).toLowerCase()).toContain('00ff00');
+    expect(String(base.plots[0].color).toLowerCase()).toContain('ff0000');
+  });
+});

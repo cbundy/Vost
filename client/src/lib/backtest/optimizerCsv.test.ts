@@ -307,3 +307,14 @@ describe('optimizeResultToCsv with a Monte Carlo validation', () => {
     expect(records.every((r) => r.length === header.length)).toBe(true);
   });
 });
+
+describe('Pine text inputs in the context', () => {
+  it('the fixed params line also lists them, each on one line', () => {
+    const lines = optimizeContextLines({ ...ctx, params: { Len: 10 }, pineInputs: { Src: 'open', 'Line color': '#00FF0080', Notes: 'a\nb' } }, result);
+    expect(lines[1]).toBe('# fixed params: Len=10; Src=open; Line color=#00FF0080; Notes=a b');
+  });
+
+  it('leaves the line as before without them', () => {
+    expect(optimizeContextLines(ctx, result)[1]).toBe('# fixed params: threshold=1.5; we"ird=2');
+  });
+});

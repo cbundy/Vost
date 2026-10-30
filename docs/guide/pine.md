@@ -8,6 +8,14 @@ Press **Pine Editor** in the top bar (or **Edit** on a Pine indicator in the Ind
 
 ![The Pine pane](../evidence/pine-pane/pine-pane-editor-desktop.png)
 
+### Inputs
+
+Every input of the script gets a control that fits its type: a number field, a checkbox, a select (for `input.source`, which lists the eight price sources, and for inputs with options), a color picker with an opacity slider, a UTC date-time field for `input.time`, a timeframe select (Chart, then the chart's own intervals), text fields for symbols and sessions, and a multi-line field for `input.text_area`. A symbol field suggests symbols from the current provider but never changes the chart's symbol. Inputs sit in the script's own groups (the heading), side by side where it sets `inline`, and a script's `tooltip` shows on the label (hover the label or the i mark). The same controls are in the Backtest pane.
+
+![The inputs of a script in the Pine pane](../evidence/pine-pane/pine-pane-inputs-desktop.png)
+
+![The last inputs: timeframe, symbol, session, date-time and text](../evidence/pine-pane/pine-pane-inputs-more-desktop.png)
+
 ### Messages
 
 After a successful run, a Messages section below the inputs lists what the script said on the loaded bars: the `alert()` calls that fired, the `alertcondition()`s that came true (with how many bars and the last one), and the `log.info`, `log.warning` and `log.error` lines, with times in the chart's time zone. Each list shows the newest 500 and says how many more are not shown. Pine alerts are only listed here; they are not sent to Vost's alerts, and a condition that was never true on the loaded bars is not listed. `runtime.error()` stops the run and shows its message as an error.

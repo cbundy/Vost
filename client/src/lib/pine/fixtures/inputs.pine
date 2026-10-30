@@ -1,0 +1,19 @@
+//@version=6
+indicator("Inputs", overlay=true)
+
+len = input.int(14, "Length", minval=1, maxval=200, tooltip="Bars in the average")
+src = input.source(close, "Source")
+mult = input.float(1.5, "Multiplier", step=0.1, group="Bands", inline="mult")
+useBands = input.bool(true, "Show bands", group="Bands", inline="mult")
+col = input.color(color.new(color.red, 0), "Line color", group="Style", tooltip="Color of the average")
+fade = input.color(#2962FF80, "Band color", group="Style")
+tf = input.timeframe("", "Timeframe", group="Higher timeframe")
+sym = input.symbol("", "Symbol", group="Higher timeframe")
+ses = input.session("0930-1600", "Session", group="Filters")
+from = input.time(timestamp("2024-01-01T00:00:00"), "Start", group="Filters")
+note = input.text_area("one\ntwo", "Notes", group="Filters")
+lvl = input.price(100.0, "Level", group="Filters")
+
+avg = ta.sma(src, len)
+plot(avg, "Average", color=col)
+plot(useBands ? avg * mult : na, "Upper", color=fade)
