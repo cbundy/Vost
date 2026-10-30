@@ -1,6 +1,7 @@
 import { downloadFile, rowsToCsv, sanitizeFileName } from '../lib/export';
 import { fmtCompact, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
 import { getStrategy } from '../lib/backtest/strategies';
+import { BacktestProgress } from './BacktestProgress';
 import { EquityChart } from './EquityChart';
 import { TradesTable } from './TradesTable';
 import { BreakdownTables } from './BreakdownTables';
@@ -16,10 +17,7 @@ export function ResultsTab() {
 
   if (btRunning) {
     return (
-      <div className="row">
-        <span className="spinner" />
-        <span className="hint">Running backtest in a Web Worker…</span>
-      </div>
+      <BacktestProgress />
     );
   }
 

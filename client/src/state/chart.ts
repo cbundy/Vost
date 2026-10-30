@@ -11,7 +11,7 @@ import { applyKline, mergeCandles } from '../lib/applyKline';
 import { MAX_BARS, intervalSeconds } from '../../../shared/market.ts';
 import type { Candle, Dataset, Interval } from '../types';
 import { uid } from '../types';
-import type { BacktestResult, BacktestConfig } from '../lib/backtest/types';
+import type { BacktestResult, BacktestConfig, BacktestStage } from '../lib/backtest/types';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/optimizer';
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
@@ -164,6 +164,8 @@ export interface ChartState {
   btRange: TimeRange;
   btRunning: boolean;
   btProgress: number;
+  /** Step of the running backtest, null when none runs or before the first report. */
+  btStage: BacktestStage | null;
   btResult: BacktestResult | null;
   btError: string | null;
   /** Inputs declared by the Pine script in the Backtest panel (not persisted). */
@@ -388,6 +390,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     pineInputs: [],
     btRunning: false,
     btProgress: 0,
+    btStage: null,
     btResult: null,
     btError: null,
     optConfig: defaultOptimizeConfig(initial.btConfig),
@@ -779,20 +782,22 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', timeRangeErrorText(error));
         return;
       }
-      set({ btRunning: true, btProgress: 0, btError: null });
+      set({ btRunning: true, btProgress: 0, btStage: null, btError: null });
       try {
         const t0 = performance.now();
-        const msg = await workerCall({ type: 'run', candles, config: btConfig });
+        const msg = await workerCall({ type: 'run', candles, config: btConfig }, (pct, stage) =>
+          set({ btProgress: pct, btStage: stage ?? null }),
+        );
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
         const ms = Math.round(performance.now() - t0);
-        set({ btResult: msg.result, btRunning: false, btProgress: 1 });
+        set({ btResult: msg.result, btRunning: false, btProgress: 0, btStage: null });
         env.pushToast(
           'success',
           `Backtest finished in ${ms} ms — ${msg.result.trades.length} trade(s), ${candles.length} bars.`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        set({ btRunning: false, btError: message });
+        set({ btRunning: false, btProgress: 0, btStage: null, btError: message });
         env.pushToast('error', `Backtest failed: ${message}`);
       }
     },

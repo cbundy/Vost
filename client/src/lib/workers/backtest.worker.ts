@@ -7,7 +7,7 @@ import type { Candle } from '../../types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../backtest/optimizer';
 import { runOptimizeAsync } from '../backtest/optimizer';
 import { runAnyBacktest } from '../backtest/runner';
-import type { BacktestConfig, BacktestResult } from '../backtest/types';
+import type { BacktestConfig, BacktestResult, BacktestStage } from '../backtest/types';
 import { runPine } from '../pine/runtime';
 import type { PineInputValue, PineRunOutcome } from '../pine/types';
 
@@ -23,7 +23,7 @@ export type WorkerRequestBody =
   | { type: 'pine'; source: string; candles: Candle[]; inputs?: Record<string, PineInputValue> };
 
 export type WorkerResponse =
-  | { id: string; type: 'progress'; pct: number }
+  | { id: string; type: 'progress'; pct: number; stage?: BacktestStage }
   | { id: string; type: 'result'; result: BacktestResult }
   | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; keys: string[]; combos: number; metric: MetricKey; errored: number }
   | { id: string; type: 'pineResult'; outcome: PineRunOutcome }
@@ -50,7 +50,7 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   const fail = (err: unknown) =>
     reply({ id: msg.id, type: 'error', message: err instanceof Error ? err.message : String(err) });
   if (msg.type === 'run') {
-    runAnyBacktest(msg.candles, msg.config)
+    runAnyBacktest(msg.candles, msg.config, (pct, stage) => reply({ id: msg.id, type: 'progress', pct, stage }))
       .then((result) => reply({ id: msg.id, type: 'result', result }))
       .catch(fail);
     return;

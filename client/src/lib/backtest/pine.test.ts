@@ -138,3 +138,18 @@ if ta.crossunder(fast, slow)
     }
   });
 });
+
+describe('runPineBacktest progress', () => {
+  it('reports pine then metrics, non-decreasing, ends at 1, same result as without a callback', async () => {
+    const config = cfg(fixture('strategy-sma-cross'));
+    const calls: [number, string][] = [];
+    const withCb = await runAnyBacktest(candles, config, (p, s) => calls.push([p, s]));
+    const without = await runAnyBacktest(candles, config);
+    expect(withCb).toEqual(without);
+    expect(calls[0]).toEqual([0, 'pine']);
+    expect(calls[calls.length - 1]).toEqual([1, 'metrics']);
+    for (let i = 1; i < calls.length; i++) expect(calls[i][0]).toBeGreaterThanOrEqual(calls[i - 1][0]);
+    expect(calls.filter(([, s]) => s === 'pine').every(([p]) => p <= 0.9)).toBe(true);
+    expect(calls.length).toBeLessThanOrEqual(110);
+  });
+});
