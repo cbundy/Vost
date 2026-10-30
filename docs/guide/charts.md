@@ -12,7 +12,7 @@ The one-line legend at the top of the chart shows the symbol, the open, high, lo
 
 ## Indicators
 
-Open **Indicators** in the side panel and pick **Add indicator...**: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD, or a Pine script ([Pine Script](pine.md)). Each row has a colour swatch, a show and hide button and a remove button, and its parameters (such as the period) edit live. RSI and MACD get their own panes under the chart.
+Open **Indicators** in the side panel and pick **Add indicator...**: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD, or a Pine script ([Pine Script](pine.md)), which is named by the title in its code. Each row has a colour swatch, a show and hide button and a remove button, and its parameters (such as the period) edit live. RSI and MACD get their own panes under the chart.
 
 ## Quick ranges and the Range picker
 

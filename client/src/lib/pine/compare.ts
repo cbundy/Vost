@@ -1,6 +1,7 @@
 import { Text } from '@codemirror/state';
 import { Chunk } from '@codemirror/merge';
 import { loadJson, saveJson } from '../storage';
+import { pineSourceTitle } from './title';
 
 export interface CompareSummary {
   identical: boolean;
@@ -88,8 +89,7 @@ export function savedPineScripts(): SavedPine[] {
     const o = i as { kind?: unknown; source?: unknown };
     if (o.kind !== 'pine') continue;
     const source = typeof o.source === 'string' ? o.source : '';
-    const m = /^\s*(?:indicator|strategy)\s*\(\s*(?:title\s*=\s*)?(["'])(.*?)\1/m.exec(source);
-    out.push({ label: m && m[2].trim() ? m[2].trim() : `Pine indicator ${out.length + 1}`, source });
+    out.push({ label: pineSourceTitle(source) || `Pine indicator ${out.length + 1}`, source });
   }
   return out;
 }
