@@ -133,6 +133,22 @@ export function ChartContextMenu({
             Rename
           </button>
         )}
+        {d.table && (
+          <>
+            <button role="menuitem" disabled={!d.table.canAddRow} onClick={run(() => actions.current.editTable(d.ids[0], 'addRow', d.table!.row, d.table!.col))}>
+              Add row below
+            </button>
+            <button role="menuitem" disabled={!d.table.canAddColumn} onClick={run(() => actions.current.editTable(d.ids[0], 'addColumn', d.table!.row, d.table!.col))}>
+              Add column right
+            </button>
+            <button role="menuitem" disabled={!d.table.canDeleteRow} onClick={run(() => actions.current.editTable(d.ids[0], 'deleteRow', d.table!.row, d.table!.col))}>
+              Delete row
+            </button>
+            <button role="menuitem" disabled={!d.table.canDeleteColumn} onClick={run(() => actions.current.editTable(d.ids[0], 'deleteColumn', d.table!.row, d.table!.col))}>
+              Delete column
+            </button>
+          </>
+        )}
         {item('Clone', () => actions.current.clone(d.ids))}
         {item('Copy', () => actions.current.copy(d.ids))}
         {item(d.locked ? 'Unlock' : 'Lock', () => actions.current.toggleLock(d.ids))}

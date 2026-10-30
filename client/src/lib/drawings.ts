@@ -39,6 +39,8 @@ export type Drawing = {
   hidden?: true;
   /** The drawing's own name, shown in the right-click menu. */
   name?: string;
+  /** The content of a table (rows of equal length, 1..20 by 1..20); only the Table tool has it. */
+  cells?: string[][];
 };
 
 /** Longest stored name of a drawing. */
@@ -104,6 +106,20 @@ export function setText(s: DrawingsState, id: string, text: string): DrawingsSta
   return record(s, s.drawings, s.drawings.map((x) => (x.id === id ? { ...x, text: clean } : x)));
 }
 
+/** Replaces one cell of a table as an undoable step; the same state when the cell is unchanged or does not exist. */
+export function setCell(s: DrawingsState, id: string, row: number, col: number, text: string): DrawingsState {
+  const clean = cleanText(text);
+  return mapIds(s, [id], (d) => {
+    if (!d.cells || d.cells[row]?.[col] === undefined || d.cells[row][col] === clean) return d;
+    return { ...d, cells: d.cells.map((r, i) => (i === row ? r.map((c, j) => (j === col ? clean : c)) : r)) };
+  });
+}
+
+/** Replaces a table's cells as an undoable step; the same state when they are unchanged. */
+export function setCells(s: DrawingsState, id: string, cells: string[][]): DrawingsState {
+  return mapIds(s, [id], (d) => (sameJson(d.cells, cells) ? d : { ...d, cells }));
+}
+
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Replaces one drawing's style as an undoable step (no style at all, or an empty one, clears it); the same state when unchanged. */
@@ -120,7 +136,7 @@ function withStyle(d: Drawing, style: Record<string, unknown> | undefined): Draw
 }
 
 /** What the settings dialog may change at once. */
-export type DrawingPatch = { anchors?: Anchor[]; text?: string; style?: Record<string, unknown> | undefined };
+export type DrawingPatch = { anchors?: Anchor[]; text?: string; cells?: string[][]; style?: Record<string, unknown> | undefined };
 
 /** Live preview of dialog edits: changes the drawing without touching history. Pair with {@link commit}. */
 export function previewPatch(s: DrawingsState, id: string, patch: DrawingPatch): DrawingsState {
@@ -133,6 +149,7 @@ export function previewPatch(s: DrawingsState, id: string, patch: DrawingPatch):
         const { text: _old, ...rest } = next;
         next = patch.text ? { ...rest, text: patch.text } : rest;
       }
+      if (patch.cells) next = { ...next, cells: patch.cells };
       if ('style' in patch) next = withStyle(next, patch.style && Object.keys(patch.style).length ? patch.style : undefined);
       return next;
     }),
@@ -296,6 +313,12 @@ export type DrawingStore = {
 
 const NO_TOOLS: ReadonlySet<string> = new Set();
 
+/** A tool's check of a drawing after the generic ones: the drawing as it should be kept, or null to drop it. */
+export type DrawingValidator = (d: Drawing) => Drawing | null;
+/** The validators by tool id (see `VALIDATORS` in components/chart/tools). */
+export type Validators = Readonly<Record<string, DrawingValidator>>;
+const NO_VALIDATORS: Validators = {};
+
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -305,6 +328,21 @@ const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v ==
  * drops that drawing alone. A transient tool's drawing (the measure) is never kept.
  */
 function sanitizeDrawing(
+  raw: unknown,
+  counts: AnchorCounts,
+  textTools: ReadonlySet<string>,
+  transient: ReadonlySet<string>,
+  paneTools: ReadonlySet<string>,
+  captionTools: ReadonlySet<string>,
+  validators: Validators,
+): Drawing | null {
+  const out = sanitizeKnown(raw, counts, textTools, transient, paneTools, captionTools);
+  if (!out || !Object.prototype.hasOwnProperty.call(counts, out.tool)) return out;
+  const validate = Object.prototype.hasOwnProperty.call(validators, out.tool) ? validators[out.tool] : undefined;
+  return validate ? validate(out) : out;
+}
+
+function sanitizeKnown(
   raw: unknown,
   counts: AnchorCounts,
   textTools: ReadonlySet<string>,
@@ -352,6 +390,7 @@ export function parseStore(
   transient: ReadonlySet<string> = NO_TOOLS,
   paneTools: ReadonlySet<string> = NO_TOOLS,
   captionTools: ReadonlySet<string> = NO_TOOLS,
+  validators: Validators = NO_VALIDATORS,
 ): DrawingStore {
   const none: DrawingStore = { sources: {}, newer: false };
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return none;
@@ -365,7 +404,7 @@ export function parseStore(
     const seen = new Set<string>();
     const ok: Drawing[] = [];
     for (const item of list) {
-      const d = sanitizeDrawing(item, counts, textTools, transient, paneTools, captionTools);
+      const d = sanitizeDrawing(item, counts, textTools, transient, paneTools, captionTools, validators);
       if (d && !seen.has(d.id)) {
         seen.add(d.id);
         ok.push(d);
@@ -383,9 +422,10 @@ export function loadDrawings(
   transient: ReadonlySet<string> = NO_TOOLS,
   paneTools: ReadonlySet<string> = NO_TOOLS,
   captionTools: ReadonlySet<string> = NO_TOOLS,
+  validators: Validators = NO_VALIDATORS,
 ): DrawingStore {
   const v2 = loadJson<unknown>(STORAGE_KEY, null);
-  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient, paneTools, captionTools);
+  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient, paneTools, captionTools, validators);
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */
