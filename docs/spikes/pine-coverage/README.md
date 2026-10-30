@@ -6,7 +6,7 @@ Line references are pinned to commit `92b459d` (the head of `main` when this was
 
 ## Method
 
-`probe.ts` runs 161 small v6 scripts (inline, one or more per row below) on 120 fixed synthetic daily candles, no network. Each runs twice: through raw `new PineTS(data, 'VOST', 'D').run(src)`, and through Vost's `runPine`. Per case it prints compile ok or error, what PineTS returned (plot keys with last value, live `__*__` drawing objects, alerts, warnings, console lines, strategy trades and closed profit) and what `runPine` returned (plots as `name:kind/style/pane=last value`, plots that are all null, inputs, trades). Its output is `output.txt`; rerunning gives byte-identical output.
+`probe.ts` runs 160 small v6 scripts (inline, one or more per row below) on 120 fixed synthetic daily candles, no network. Each runs twice: through raw `new PineTS(data, 'VOST', 'D').run(src)`, and through Vost's `runPine`. Per case it prints compile ok or error, what PineTS returned (plot keys with last value, live `__*__` drawing objects, alerts, warnings, console lines, strategy trades and closed profit) and what `runPine` returned (plots as `name:kind/style/pane=last value`, plots that are all null, inputs, trades). Its output is `output.txt`, whose first line names the PineTS version. Two runs on the same code and engine give identical output, and the output is refreshed on every PineTS upgrade: `scripts/pine-coverage.test.ts` fails when the version in the first line differs from the installed `pinets`, so rerun the command below (and read the diff) in the same change as the upgrade.
 
 Rerun (exits 0, a few seconds; `vite-node` is needed because `runtime.ts` uses extensionless imports):
 
@@ -89,7 +89,13 @@ Columns: **PineTS** computes it (yes / partial / no); **runPine** passes it thro
 | `strategy.order` | yes | yes | yes | `strategy-order-close-all` |
 | `strategy.exit` (stop, limit) | yes | yes | yes | `strategy-exit-stop-limit`: 2 closed, 1 open, matches. Trailing and `from_entry` forms are not probed |
 | Limit and stop entries, `strategy.cancel` | yes | yes | yes | `strategy-limit-stop-entry`, `strategy-cancel` run |
-| `strategy.risk.*` | accepted | n/a | n/a | `strategy-risk` compiles and runs. The probe does not trip a limit, so whether PineTS enforces them is **not shown** |
+| `strategy.risk.allow_entry_in` | yes | yes | yes | `strategy-risk / allow_entry_in`: short entries are refused (30 trades against 60); PineTS and `runPine` give the same trades, so a Vost backtest honours it |
+| `strategy.risk.max_drawdown` | yes | yes | yes | `strategy-risk / max_drawdown`: no entries after bar 31 (16 trades against 60); PineTS and `runPine` give the same trades, so a Vost backtest honours it |
+| `strategy.risk.max_intraday_loss` | yes | yes | yes | `strategy-risk / max_intraday_loss`: no entries after bar 97 (5 trades against 60); PineTS and `runPine` give the same trades, so a Vost backtest honours it |
+| `strategy.risk.max_cons_loss_days` | yes | yes | yes | `strategy-risk / max_cons_loss_days`: no entries after bar 8 (5 trades against 60); PineTS and `runPine` give the same trades, so a Vost backtest honours it |
+| `strategy.risk.max_intraday_filled_orders` | yes | yes | yes | `strategy-risk / max_intraday_filled_orders`: at most 4 fills a day (10 trades against 60); PineTS and `runPine` give the same trades, so a Vost backtest honours it |
+| `strategy.risk.max_position_size` | yes | yes | yes | `strategy-risk / max_position_size`: entries of 8 are capped at 3 (closed profit 55.89 against 149.04); PineTS and `runPine` give the same trades, so a Vost backtest honours it |
+| Risk close-out in the Vost trade list | yes | yes | partial | A trade closed by a risk rule appears as a normal closed trade with exit reason "signal" (`backtest/pine.ts:110` labels every closed trade so), so it is not told apart from a `strategy.close` |
 | Commission and slippage | yes | partial | partial | `strategy-commission-slippage`: closed profit 44.91 against 45.46 without; the same in `runPine`, so PineTS applies it. `commissionType/Value` are surfaced in `strategyConfig`, `slippage` is not |
 | `pyramiding` | yes | yes | yes | `strategy-pyramiding`: 15 trades, matches PineTS |
 | `default_qty_type`, `default_qty_value` | yes | yes | yes | `strategy-qty-percent-equity` (default capital 1,000,000 in v6, so the profit is large) |
@@ -99,15 +105,15 @@ Columns: **PineTS** computes it (yes / partial / no); **runPine** passes it thro
 
 ## Known engine gaps (PineTS 0.13.0)
 
-Candidates for upstream reports; none filed.
+Each gap that still reproduces on raw PineTS has a report draft in `upstream/`. None is filed: filing is the owner's step.
 
-1. `time(timeframe.period, "0000-2400")` throws "Invalid session specification". TradingView accepts `0000-2400`. Case `session-time / time-session-0000-2400`.
-2. `request.security` to another symbol or timeframe returns the chart's own bar and raises neither an error nor a warning. Cases `request / security-higher-tf, security-other-symbol`. Expected: an error, or a pluggable data source. **Changed after the pinned commit (issues 309 and 312):** other symbols fail with a message; the chart's own symbol at another timeframe has real data.
-3. `request.financial`, `economic`, `seed`, `dividends`, `splits`, `earnings` return na (warning only in `ctx.warnings`). Cases `request / request-*`.
-4. `syminfo.*` is empty or na with array data, and `math.round_to_mintick` is NaN as a result. Cases `syminfo / ...`, `math / fn math.round_to_mintick(close)`. Expected: a way to give symbol info with the data.
-5. `barstate.isrealtime`, `isconfirmed` and `isnew` are true on the last bar of a purely historical run. Case `barstate / barstate-fields`.
-6. `alert` and `alertcondition` record only on the last bar (`bar 119`) by default (fixed in Vost by `setAlertMode('all')`). Cases `alert / ...`.
-7. `varip` behaves like `var` (no intrabar state). Case `language / varip`. Expected, since there are no ticks, but worth noting.
+1. `time(timeframe.period, "0000-2400")` throws "Invalid session specification". TradingView accepts `0000-2400`. Case `session-time / time-session-0000-2400`. Draft: [upstream/01-session-0000-2400.md](upstream/01-session-0000-2400.md).
+2. `request.security` to another symbol or timeframe returns the chart's own bar and raises neither an error nor a warning. Cases `request / security-higher-tf, security-other-symbol`. Expected: an error, or a pluggable data source. **Changed after the pinned commit (issues 309 and 312):** other symbols fail with a message; the chart's own symbol at another timeframe has real data. Draft: [upstream/02-request-security-silent-chart-bar.md](upstream/02-request-security-silent-chart-bar.md).
+3. `request.financial`, `economic`, `seed`, `dividends`, `splits`, `earnings` return na (warning only in `ctx.warnings`). Cases `request / request-*`. Draft: [upstream/03-request-other-functions-na.md](upstream/03-request-other-functions-na.md).
+4. `syminfo.*` is empty or na with array data, and `math.round_to_mintick` is NaN as a result. Cases `syminfo / ...`, `math / fn math.round_to_mintick(close)`. Expected: a way to give symbol info with the data. Draft: [upstream/04-syminfo-empty-round-to-mintick.md](upstream/04-syminfo-empty-round-to-mintick.md).
+5. `barstate.isrealtime`, `isconfirmed` and `isnew` are true on the last bar of a purely historical run. Case `barstate / barstate-fields`. Draft: [upstream/05-barstate-realtime-on-last-historical-bar.md](upstream/05-barstate-realtime-on-last-historical-bar.md).
+6. `alert` and `alertcondition` record only on the last bar (`bar 119`) by default (fixed in Vost by `setAlertMode('all')`). Cases `alert / ...`. Draft: [upstream/06-alerts-only-on-last-bar.md](upstream/06-alerts-only-on-last-bar.md).
+7. `varip` behaves like `var` (no intrabar state). Case `language / varip`. Expected, since there are no ticks, so no report draft.
 
 No `ta.*`, `math.*`, array, matrix, map, str or strategy function in the probe failed to compile.
 
@@ -122,5 +128,5 @@ The owner picks which to build; this decides nothing. Ordered by value, then ris
 5. **Surface alerts, logs and warnings (done: shown in the Pine pane, not routed to Vost's alerts).** Read `ctx.alerts`, `ctx.warnings` and the log output, show them in the Pine pane. Optionally route `alertcondition` into Vost's alerts. Closes `alert`, `log`, the "empty plot, no reason" part of `request.*`. Small to medium; low risk.
 6. **Richer input controls and plot options.** Color picker, source select, time/symbol/session controls, `group`/`tooltip`/`inline`, plot `linewidth`, `offset`, step/area styles, `plotshape` text and size. Closes the `input.*` and partial plot rows. Medium; low risk.
 7. **Import resolver for libraries.** Done: `runPine` sets a resolver backed by the Vost server (open-source libraries fetched from TradingView and kept, closed-source ones pasted). Closed the imports row.
-8. **Report the engine gaps upstream** (the list above) and re-probe on each PineTS upgrade: rerun `probe.ts` and diff `output.txt`. Small; no risk.
-9. **Verify the strategy risk rules** with a probe that trips a limit. Small.
+8. **Report the engine gaps upstream** (the list above) and re-probe on each PineTS upgrade. Done: drafts are in `upstream/` and the version test enforces the re-probe. Left for the owner: filing the drafts.
+9. **Verify the strategy risk rules** with a probe that trips a limit. Done: all six rules are honoured (see the `strategy.risk.*` rows); no engine bug found, no Vost change needed.
