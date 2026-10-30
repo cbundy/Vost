@@ -2,7 +2,7 @@ import { useMemo, type MutableRefObject, type RefObject } from 'react';
 import { prune } from '../../lib/drawingSelection';
 import { MOUSE_HIT } from '../../lib/drawingGeometry';
 import { copyDrawings, isClipboardEmpty, readDrawings } from '../../lib/drawingClipboard';
-import { cloneMany, paste, removeAll, removeMany, moveTo, rename, reorderMany, setCells, setHidden, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
+import { cloneMany, paste, removeAll, removeMany, moveTo, rename, reorderMany, setCells, setHidden, setLocked, type Drawing, type DrawingsState, type ReorderTo } from '../../lib/drawings';
 import type { DrawingPrimitive } from './drawingPrimitive';
 import { TABLE_MAX, deleteColumn, deleteRow, insertColumn, insertRow, tableSize } from '../../lib/geometry/table';
 import { cellUnder } from './tableEditing';
@@ -63,7 +63,17 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
     const apply = (next: DrawingsState) => {
       if (next !== getState()) setState(next, true);
     };
+    /** The menu model of one drawing (no pointer cell). */
+    const infoOf = (d: Drawing): DrawingInfo => {
+      const tool = getTool(d.tool);
+      return { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hidden: d.hidden === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
+    };
     return {
+      /** Describes one drawing for a menu without a pointer (the floating toolbar's), or null when it is gone. */
+      infoFor(id: string): DrawingInfo | null {
+        const d = find(id);
+        return d ? infoOf(d) : null;
+      },
       /** Selects (keeping a selection the drawing is in) and describes the drawing under a screen position; null over empty chart or while drawings are hidden. */
       drawingAt(clientX: number, clientY: number): DrawingInfo | null {
         const el = containerRef.current;
@@ -79,8 +89,7 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
         if (list.length > 1) {
           return { ids: list.map((x) => x.id), count: list.length, title: `${list.length} drawings`, name: '', locked: list.every((x) => x.locked === true), hidden: list.every((x) => x.hidden === true), hasSettings: false };
         }
-        const tool = getTool(d.tool);
-        const info: DrawingInfo = { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hidden: d.hidden === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
+        const info = infoOf(d);
         const cell = CELL_TOOLS.has(d.tool) ? cellUnder(prim, d, { x: clientX - r.left, y: clientY - r.top }, true) : null;
         if (cell) {
           const { rows, cols } = tableSize(cellsOf(d.cells ?? []));

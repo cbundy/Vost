@@ -3799,6 +3799,111 @@ table.data-table th.sortable .sort-btn:focus-visible {
   margin-bottom: 8px;
 }
 
+/* ------------------------- floating drawing toolbar ------------------------- */
+
+.drawing-toolbar {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: calc(100% - 8px);
+  box-sizing: border-box;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.dt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+}
+.dt-btn:hover,
+.dt-btn[aria-expanded='true'],
+.dt-btn[aria-pressed='true'] {
+  background: var(--panel-3);
+}
+.dt-btn[aria-pressed='true'] {
+  color: var(--accent-2);
+}
+.dt-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--border-3);
+}
+.dt-line {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  border-top: 0 solid currentColor;
+  border-top-width: 2px;
+  vertical-align: middle;
+}
+.dt-popover {
+  position: fixed;
+  z-index: 230;
+  max-width: calc(100vw - 8px);
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.dt-swatches {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.dt-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-3);
+}
+.dt-swatch[aria-pressed='true'] {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.dt-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dt-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+}
+.dt-list button:hover,
+.dt-list button[aria-checked='true'] {
+  background: var(--panel-3);
+}
+@media (max-width: 400px) {
+  .dt-btn {
+    min-width: 26px;
+    padding: 0 4px;
+  }
+}
+
 /* the picker of the Icons, Emojis and Stickers tools */
 .glyph-picker {
   display: flex;
