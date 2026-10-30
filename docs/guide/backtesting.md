@@ -31,3 +31,9 @@ The **Results** tab shows 20+ metrics (return against Buy & hold, CAGR, Sharpe, 
 ## The Optimizer
 
 The **Optimizer** tab grid-searches one or two parameters (**Parameter A**, optionally B, each with **From**, **To** and **Step**) and shows how many combinations it will run. Choose the metric in **Rank by** and press **Optimize**. The best results are ranked in a table, and a heatmap shows every combination. Click a heatmap cell or press the apply button on a row to set those parameters and re-run the backtest.
+
+The table and heatmap are labelled with the parameters you swept, and each result is exactly what a single backtest with those parameters gives. Every value from **From** to **To** is tried (nothing is dropped). A grid is limited to 100,000 combinations: above that the pane says so and **Optimize** stays disabled until you narrow a range or raise a step. A whole-number parameter (such as a period) needs a whole-number step, otherwise the pane says so and **Optimize** is disabled.
+
+![Sweeping the slow period alone](../evidence/optimizer/optimizer-slow-sweep-desktop.png)
+
+![A grid over the limit](../evidence/optimizer/optimizer-over-limit-desktop.png)

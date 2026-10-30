@@ -131,5 +131,11 @@ if ta.crossunder(fast, slow)
     const vals = out.rows.map((r) => r.value as number);
     expect([...vals].sort((a, b) => b - a)).toEqual(vals);
     expect(progress[progress.length - 1]).toBe(1);
+    expect(out.keys).toEqual(['Fast', 'Slow']);
+    for (const row of out.rows) {
+      expect(Object.keys(row.params)).toEqual(['Fast', 'Slow']);
+      const single = await runAnyBacktest(candles, { ...base, params: { ...base.params, ...row.params } });
+      expect(row.metrics).toEqual(single.metrics);
+    }
   });
 });
