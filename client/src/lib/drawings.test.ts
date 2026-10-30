@@ -442,6 +442,18 @@ describe('the channel tools', () => {
   });
 });
 
+describe('the pattern tools', () => {
+  it('round trips each with its own anchor count and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4]);
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] - 1) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('drawing management edits', () => {
   const t = (id: string): Drawing => ({ id, tool: 'trendLine', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] });
   const three = () => emptyState([t('a'), t('b'), t('c')]);

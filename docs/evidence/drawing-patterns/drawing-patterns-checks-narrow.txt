@@ -1,0 +1,6 @@
+ok   XABCD pattern stored - xabcdPattern:5
+ok   Cypher pattern stored - xabcdPattern:5,cypherPattern:5
+ok   ABCD pattern stored - xabcdPattern:5,cypherPattern:5,abcdPattern:4
+ok   chart painted
+ok   three drawings after reload
+ok   unchanged by the timeframe change
