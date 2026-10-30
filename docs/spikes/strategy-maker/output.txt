@@ -1,0 +1,151 @@
+built-in strategies available: sma_cross, ema_cross, macd_cross, rsi_reversion, bollinger, donchian, buy_hold, custom, pine
+
+==== sample-daily.csv: 200 bars ====
+hidden strategy sma_cross {"fast":8,"slow":34,"direction":1}: 3 entries / 3 exits
+highlights after dropping ~15% and shifting ~30% by 1-3 bars: 3 entries / 2 exits
+hidden strategy full-series backtest: trades 3, return -2.7%, win 33.3%, R:R 0.48, dd -5.4%
+  [perf] one full backtest (engine + metrics): 1 ms, heapUsed 10 MB, rss 82 MB, peak rss so far 82 MB
+
+-- Approach A (search) on sample-daily.csv --
+  [perf] score 891 candidates by match: 18 ms, heapUsed 11 MB, rss 85 MB, peak rss so far 85 MB
+  891 candidates, tolerance 3 bars, train bars 140, highlights 2 entries / 1 exits
+  targets: R:R >= 1, win rate >= 30%, max drawdown <= 60%
+  F1 0.857 (P 0.75 R 1.00) sma_cross {"fast":8,"slow":34,"direction":1} | trades 2, R:R 0.95, win 50.0%, dd -4.2% | closest, gaps: R:R 0.95 < 1
+  F1 0.800 (P 1.00 R 0.67) sma_cross {"fast":6,"slow":34,"direction":1} | trades 1, R:R 0.00, win 0.0%, dd -4.2% | closest, gaps: R:R 0.00 < 1; win 0.0% < 30%
+  F1 0.800 (P 1.00 R 0.67) ema_cross {"fast":8,"slow":34,"direction":1} | trades 1, R:R 0.00, win 0.0%, dd -4.2% | closest, gaps: R:R 0.00 < 1; win 0.0% < 30%
+  F1 0.800 (P 1.00 R 0.67) sma_cross {"fast":10,"slow":34,"direction":1} | trades 1, R:R n/a, win 100.0%, dd -4.2% | closest, gaps: R:R n/a < 1
+  F1 0.667 (P 0.50 R 1.00) sma_cross {"fast":4,"slow":34,"direction":1} | trades 3, R:R 0.00, win 0.0%, dd -4.4% | closest, gaps: R:R 0.00 < 1; win 0.0% < 30%
+  F1 0.667 (P 0.50 R 1.00) sma_cross {"fast":30,"slow":34,"direction":1} | trades 3, R:R 0.95, win 33.3%, dd -5.7% | closest, gaps: R:R 0.95 < 1
+  F1 0.571 (P 0.50 R 0.67) ema_cross {"fast":2,"slow":34,"direction":1} | trades 2, R:R 0.00, win 0.0%, dd -6.3% | closest, gaps: R:R 0.00 < 1; win 0.0% < 30%
+  F1 0.571 (P 0.50 R 0.67) ema_cross {"fast":4,"slow":22,"direction":1} | trades 2, R:R 7.29, win 50.0%, dd -4.3% | meets targets
+  [perf] backtest top 8 on train part: 1 ms, heapUsed 10 MB, rss 85 MB, peak rss so far 85 MB
+  recovered hidden strategy (sma_cross): no, a different strategy; params: fast 4 vs hidden 8, slow 22 vs hidden 34
+  out-of-sample (last 60 bars): found trades 1, return -2.6%, win 0.0%, R:R 0.00, dd -2.6% | hidden strategy return -2.6%, dd -2.6%
+  [perf] out-of-sample check: 0 ms, heapUsed 10 MB, rss 85 MB, peak rss so far 85 MB
+
+-- Approach B (decision tree) on sample-daily.csv --
+  [perf] compute 14 indicator features: 1 ms, heapUsed 12 MB, rss 85 MB, peak rss so far 85 MB
+  [perf] train state tree (in a trade / flat) tree (depth 3): 2 ms, heapUsed 10 MB, rss 85 MB, peak rss so far 85 MB
+  state tree (in a trade / flat): held-out accuracy 100.0% on 60 bars
+  per-class recall: flat 100% of 55, in trade 100% of 5
+  feature importance: sma8/sma34-1 99%, sma10/sma30-1 1%
+  learned rules:
+    if sma8/sma34-1 <= 0.00047:
+      if sma10/sma30-1 <= 0.00053:
+        => flat (80 bars, 100% pure)
+      else:
+        => flat (8 bars, 75% pure)
+    else:
+      => in trade (52 bars, 100% pure)
+  tree entries/exits vs highlights on held-out bars (tolerance 3): F1 1.000 (P 1.00 R 1.00)
+  [perf] train event tree (none / entry / exit) tree (depth 4): 2 ms, heapUsed 10 MB, rss 85 MB, peak rss so far 85 MB
+  event tree (none / entry / exit): held-out accuracy 96.7% on 60 bars
+  per-class recall: none 100% of 58, entry 0% of 1, exit 0% of 1
+  feature importance: macd_hist/close 54%, close/sma10-1 33%, ret1 14%
+  learned rules:
+    if close/sma10-1 <= 0.02408:
+      if ret1 <= 0.00607:
+        => none (103 bars, 100% pure)
+      else:
+        if macd_hist/close <= -0.00156:
+          => none (8 bars, 75% pure)
+        else:
+          => none (24 bars, 100% pure)
+    else:
+      => none (5 bars, 80% pure)
+  [perf] generate synthetic series: 35 ms, heapUsed 30 MB, rss 111 MB, peak rss so far 111 MB
+
+==== synthetic (seed 20260101): 100000 bars ====
+hidden strategy sma_cross {"fast":8,"slow":34,"direction":1}: 1757 entries / 1757 exits
+highlights after dropping ~15% and shifting ~30% by 1-3 bars: 1509 entries / 1516 exits
+hidden strategy full-series backtest: trades 1757, return 1542.5%, win 32.6%, R:R 2.49, dd -73.2%
+  [perf] one full backtest (engine + metrics): 47 ms, heapUsed 43 MB, rss 161 MB, peak rss so far 164 MB
+
+-- Approach A (search) on synthetic (seed 20260101) --
+  [perf] score 891 candidates by match: 6739 ms, heapUsed 106 MB, rss 373 MB, peak rss so far 443 MB
+  891 candidates, tolerance 3 bars, train bars 70000, highlights 1051 entries / 1048 exits
+  targets: R:R >= 1, win rate >= 30%, max drawdown <= 60%
+  F1 0.925 (P 0.86 R 1.00) sma_cross {"fast":8,"slow":34,"direction":1} | trades 1220, R:R 2.47, win 32.6%, dd -73.2% | closest, gaps: dd 73.2% > 60%
+  F1 0.828 (P 0.80 R 0.86) sma_cross {"fast":10,"slow":34,"direction":1} | trades 1127, R:R 2.39, win 34.0%, dd -66.5% | closest, gaps: dd 66.5% > 60%
+  F1 0.804 (P 0.71 R 0.92) sma_cross {"fast":6,"slow":34,"direction":1} | trades 1353, R:R 2.59, win 31.0%, dd -76.7% | closest, gaps: dd 76.7% > 60%
+  F1 0.800 (P 0.77 R 0.83) sma_cross {"fast":8,"slow":38,"direction":1} | trades 1133, R:R 2.70, win 32.0%, dd -64.6% | closest, gaps: dd 64.6% > 60%
+  F1 0.791 (P 0.70 R 0.90) sma_cross {"fast":8,"slow":30,"direction":1} | trades 1349, R:R 2.33, win 33.0%, dd -79.9% | closest, gaps: dd 79.9% > 60%
+  F1 0.778 (P 0.72 R 0.85) sma_cross {"fast":10,"slow":30,"direction":1} | trades 1239, R:R 2.34, win 34.4%, dd -69.2% | closest, gaps: dd 69.2% > 60%
+  F1 0.772 (P 0.71 R 0.85) sma_cross {"fast":6,"slow":38,"direction":1} | trades 1261, R:R 2.79, win 30.1%, dd -71.3% | closest, gaps: dd 71.3% > 60%
+  F1 0.759 (P 0.76 R 0.75) sma_cross {"fast":10,"slow":38,"direction":1} | trades 1038, R:R 2.46, win 34.1%, dd -63.7% | closest, gaps: dd 63.7% > 60%
+  [perf] backtest top 8 on train part: 132 ms, heapUsed 137 MB, rss 379 MB, peak rss so far 443 MB
+  recovered hidden strategy (sma_cross): yes, same strategy; params: fast 8 vs hidden 8, slow 34 vs hidden 34
+  out-of-sample (last 30000 bars): found trades 537, return 161.5%, win 32.6%, R:R 2.53, dd -60.3% | hidden strategy return 161.5%, dd -60.3%
+  [perf] out-of-sample check: 9 ms, heapUsed 164 MB, rss 384 MB, peak rss so far 443 MB
+
+-- Approach B (decision tree) on synthetic (seed 20260101) --
+  [perf] compute 14 indicator features: 78 ms, heapUsed 183 MB, rss 400 MB, peak rss so far 443 MB
+  [perf] train state tree (in a trade / flat) tree (depth 3): 120 ms, heapUsed 183 MB, rss 403 MB, peak rss so far 443 MB
+  state tree (in a trade / flat): held-out accuracy 86.3% on 30000 bars
+  per-class recall: flat 86% of 15143, in trade 87% of 14857
+  feature importance: sma8/sma34-1 100%, sma10/sma30-1 0%, ema12/ema26-1 0%
+  learned rules:
+    if sma8/sma34-1 <= -0.00079:
+      if sma10/sma30-1 <= -0.00551:
+        if ema12/ema26-1 <= -0.01274:
+          => flat (3508 bars, 90% pure)
+        else:
+          => flat (21039 bars, 88% pure)
+      else:
+        if sma8/sma34-1 <= -0.00142:
+          => flat (8787 bars, 83% pure)
+        else:
+          => flat (974 bars, 77% pure)
+    else:
+      if sma8/sma34-1 <= 0.00030:
+        if sma8/sma34-1 <= 0.00001:
+          => flat (1343 bars, 76% pure)
+        else:
+          => in trade (454 bars, 77% pure)
+      else:
+        if sma8/sma34-1 <= 0.00567:
+          => in trade (8500 bars, 80% pure)
+        else:
+          => in trade (25395 bars, 88% pure)
+  tree entries/exits vs highlights on held-out bars (tolerance 3): F1 0.924 (P 0.86 R 1.00)
+  [perf] train event tree (none / entry / exit) tree (depth 4): 65 ms, heapUsed 163 MB, rss 405 MB, peak rss so far 443 MB
+  event tree (none / entry / exit): held-out accuracy 96.9% on 30000 bars
+  per-class recall: none 100% of 29080, entry 0% of 452, exit 0% of 468
+  feature importance: sma8/sma34-1 81%, macd_hist/close 18%, sma10/sma30-1 1%, close/sma30-1 0%
+  learned rules:
+    if sma8/sma34-1 <= -0.00502:
+      if close/sma30-1 <= 0.00694:
+        if macd_hist/close <= -0.00505:
+          => none (426 bars, 96% pure)
+        else:
+          if sma8/sma34-1 <= -0.00885:
+            => none (21096 bars, 100% pure)
+          else:
+            => none (5468 bars, 99% pure)
+      else:
+        => none (473 bars, 96% pure)
+    else:
+      if sma8/sma34-1 <= 0.00308:
+        if macd_hist/close <= -0.00127:
+          if sma8/sma34-1 <= 0.00004:
+            => none (2295 bars, 74% pure)
+          else:
+            => none (1223 bars, 95% pure)
+        else:
+          if sma8/sma34-1 <= -0.00021:
+            => none (5582 bars, 95% pure)
+          else:
+            => none (4036 bars, 79% pure)
+      else:
+        if sma10/sma30-1 <= 0.00442:
+          if macd_hist/close <= 0.00277:
+            => none (3585 bars, 98% pure)
+          else:
+            => none (393 bars, 89% pure)
+        else:
+          if close/sma30-1 <= -0.00780:
+            => none (428 bars, 96% pure)
+          else:
+            => none (24995 bars, 100% pure)
+
+done. peak rss over the whole run: 443 MB [perf]
