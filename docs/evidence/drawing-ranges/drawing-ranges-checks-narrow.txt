@@ -1,6 +1,6 @@
-ok   priceRange stored with two anchors - [{"id":"dmvuzcofa1b4g8","tool":"priceRange","anchors":[{"time":1767571200,"price":134.961115705249},{"time":1775174400,"price":191.04033027209408}]}]
-ok   dateRange stored with two anchors - [{"id":"dmvuzcp4a2a4br","tool":"dateRange","anchors":[{"time":1777075200,"price":199.05164909264346},{"time":1783987200,"price":167.00637953611277}]}]
-ok   datePriceRange stored with two anchors - [{"id":"dmvuzcpta3bupl","tool":"datePriceRange","anchors":[{"time":1785542400,"price":207.06296218752595},{"time":1792368000,"price":142.9724345257984}]}]
+ok   priceRange placed by taps, stored with two anchors - [{"id":"dmvuzxj7e1bbrg","tool":"priceRange","anchors":[{"time":1767571200,"price":134.961115705249},{"time":1775174400,"price":191.04033027209408}]}]
+ok   dateRange placed by taps, stored with two anchors - [{"id":"dmvuzxjwd2empi","tool":"dateRange","anchors":[{"time":1777075200,"price":199.05164909264346},{"time":1783987200,"price":167.00637953611277}]}]
+ok   datePriceRange placed by taps, stored with two anchors - [{"id":"dmvuzxklf3v2yj","tool":"datePriceRange","anchors":[{"time":1785542400,"price":207.06296218752595},{"time":1792368000,"price":142.9724345257984}]}]
 ok   three drawings stored
 ok   storage is unchanged after a reload
 ok   no console error

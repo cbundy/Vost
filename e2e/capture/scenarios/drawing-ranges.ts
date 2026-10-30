@@ -18,7 +18,7 @@ export const drawingRanges: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'Price range, Date range and Date and price range: each is placed by press-drag-release (preview captured mid-drag) or two clicks, selected with handles and axis labels, resized by a handle, restyled (colour, fill off, extend on) through its settings dialog, its figures worked out again on the same bars on the same bars, then a reload and a timeframe change; at 390 px each is placed by taps',
+    'Price range, Date range and Date and price range: each is placed by press-drag-release (preview captured mid-drag) or two clicks, selected with handles and axis labels, resized by a handle, restyled (colour, fill off, extend on) through its settings dialog, its figures worked out again on the same bars and written out for comparison with the labels, then a reload and a timeframe change; at 390 px each is placed by taps',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -82,18 +82,23 @@ export const drawingRanges: Scenario = {
       for (const s of specs) {
         const { a, b } = pts[s.id];
         await pickTool(s.label);
-        if (!narrow && s.id !== 'dateRange') {
+        if (!narrow) {
+          // Press-drag-release first, undone, then the same tool placed by two clicks.
           await page.mouse.move(a.x, a.y);
           await page.mouse.down();
           await page.mouse.move(b.x, b.y, { steps: 8 });
           await ctx.screenshot(`${s.id}-preview`);
           await page.mouse.up();
-        } else {
-          await tap(a);
-          await tap(b);
+          const dragged = (await mine()).filter((d) => d.tool === s.id);
+          check(`${s.id} placed by press-drag-release, stored with two anchors`, dragged.length === 1 && dragged[0].anchors.length === 2, JSON.stringify(dragged));
+          await page.keyboard.press('Control+z');
+          check(`${s.id} dragged copy undone`, (await mine()).filter((d) => d.tool === s.id).length === 0);
+          await pickTool(s.label);
         }
+        await tap(a);
+        await tap(b);
         const list = (await mine()).filter((d) => d.tool === s.id);
-        check(`${s.id} stored with two anchors`, list.length === 1 && list[0].anchors.length === 2, JSON.stringify(list));
+        check(`${s.id} placed by ${narrow ? 'taps' : 'two clicks'}, stored with two anchors`, list.length === 1 && list[0].anchors.length === 2, JSON.stringify(list));
       }
       await ctx.screenshot('placed');
     });
@@ -117,18 +122,30 @@ export const drawingRanges: Scenario = {
       });
 
       await ctx.step('settings dialog and a restyle', async () => {
-        const { a, b } = pts.dateRange;
-        await page.mouse.dblclick((a.x + b.x) / 2, (a.y + b.y) / 2);
-        await dialog.waitFor();
-        check('titled for the tool', (await dialog.getByRole('heading').textContent()) === 'Date range settings');
-        for (const label of ['Line colour', 'Line width', 'Background', 'Background opacity', 'Text colour', 'Font size', 'Label background', 'Extend top', 'Extend bottom']) {
-          check(`offers ${label}`, (await dialog.getByText(label, { exact: true }).count()) > 0);
+        for (const [id, title, extend] of [
+          ['dateRange', 'Date range', ['Extend top', 'Extend bottom']],
+          ['priceRange', 'Price range', ['Extend left', 'Extend right']],
+        ] as const) {
+          const { a, b } = pts[id];
+          await page.mouse.dblclick((a.x + b.x) / 2, (a.y + b.y) / 2);
+          await dialog.waitFor();
+          check(`${id} dialog titled for the tool`, (await dialog.getByRole('heading').textContent()) === `${title} settings`);
+          if (id === 'dateRange') {
+            for (const label of ['Line colour', 'Line width', 'Background', 'Background opacity', 'Text colour', 'Font size', 'Label background', ...extend]) {
+              check(`offers ${label}`, (await dialog.getByText(label, { exact: true }).count()) > 0);
+            }
+            await ctx.screenshot('date-range-settings');
+          }
+          await dialog.getByLabel('Line colour', { exact: true }).fill('#ff00ff');
+          await dialog.getByLabel('Line width', { exact: true }).fill('3');
+          await dialog.getByLabel('Background', { exact: true }).uncheck();
+          for (const label of extend) await dialog.getByLabel(label, { exact: true }).check();
+          await dialog.getByRole('button', { name: 'OK' }).click();
+          await dialog.waitFor({ state: 'hidden' });
+          const style = (await mine()).find((d) => d.tool === id)!.style ?? {};
+          check(`${id} colour, width, Background off and both extends stored`, style.color === '#ff00ff' && style.width === 3 && style.fill === false && style[id === 'dateRange' ? 'extendTop' : 'extendLeft'] === true && style[id === 'dateRange' ? 'extendBottom' : 'extendRight'] === true, JSON.stringify(style));
+          await page.keyboard.press('Escape');
         }
-        await ctx.screenshot('date-range-settings');
-        await dialog.getByLabel('Line width').fill('3');
-        await dialog.getByRole('button', { name: 'OK' }).click();
-        await dialog.waitFor({ state: 'hidden' });
-        check('the width is stored', (await mine()).find((d) => d.tool === 'dateRange')!.style?.width === 3);
         await ctx.screenshot('restyled');
       });
 
@@ -141,6 +158,7 @@ export const drawingRanges: Scenario = {
           const inside = bars.filter((c) => c.time >= lo && c.time <= hi);
           const volume = inside.reduce((n, c) => n + (Number.isFinite(c.volume) && (c.volume as number) > 0 ? (c.volume as number) : 0), 0);
           const change = y.price - x.price;
+          check(`${d.tool} figures are finite and the bars inside are counted`, Number.isFinite(change) && Number.isFinite(volume) && inside.length > 0, `change ${change}, volume ${volume}, bars ${inside.length}`);
           checks.push(`info ${d.tool}: change ${change.toFixed(2)}, pct ${x.price === 0 ? '-' : ((change / x.price) * 100).toFixed(2)}, ticks ${Math.round(change / 0.01)}, seconds ${hi - lo}, bars inside ${inside.length}, volume ${volume}`);
         }
       });

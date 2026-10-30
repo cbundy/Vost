@@ -92,6 +92,33 @@ describe('arrows and hit on the arrow', () => {
   });
 });
 
+describe('extension', () => {
+  function boxOf(tool: DrawingTool, over: Record<string, unknown>) {
+    const rects: number[][] = [];
+    const ctx = new Proxy({}, {
+      get: (_, k) => (k === 'strokeRect' ? (...a: number[]) => rects.push(a) : k === 'measureText' ? (t: string) => ({ width: t.length * 6 }) : () => undefined),
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    tool.draw(ctx, pts, view(tool, anchors, {}, over), opts);
+    return rects[0];
+  }
+  it('the price range reaches the pane edges only on an extended side', () => {
+    expect(boxOf(priceRange, {})).toEqual([100, 200, 200, 100]);
+    expect(boxOf(priceRange, { extendLeft: true })).toEqual([0, 200, 300, 100]);
+    expect(boxOf(priceRange, { extendRight: true })).toEqual([100, 200, W - 100, 100]);
+    expect(boxOf(priceRange, { extendLeft: true, extendRight: true })).toEqual([0, 200, W, 100]);
+  });
+  it('the date range reaches the pane edges only on an extended side', () => {
+    expect(boxOf(dateRange, { extendTop: true })).toEqual([100, 0, 200, 300]);
+    expect(boxOf(dateRange, { extendBottom: true })).toEqual([100, 200, 200, H - 200]);
+    expect(boxOf(dateRange, { extendTop: true, extendBottom: true })).toEqual([100, 0, 200, H]);
+  });
+  it('a hit lands in the extended part', () => {
+    expect(priceRange.hit(pts, { x: 30, y: 250 }, view(priceRange, anchors))).toBe(false);
+    expect(priceRange.hit(pts, { x: 30, y: 250 }, view(priceRange, anchors, {}, { extendLeft: true }))).toBe(true);
+  });
+});
+
 describe('axis labels', () => {
   const style = {};
   it('label the prices, the times, or both while selected only', () => {
