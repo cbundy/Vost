@@ -6,6 +6,14 @@ import type { EquityPoint, Metrics, Trade } from './types';
 
 const YEAR_SECONDS = 365.25 * 24 * 3600;
 
+/** Equity of simply holding the asset: the initial capital scaled by close over the first close (fees and slippage ignored). */
+export function buyHoldCurve(candles: Candle[], initialCapital: number): number[] {
+  if (candles.length === 0) return [];
+  const first = candles[0].close;
+  if (!(first > 0)) return candles.map(() => initialCapital);
+  return candles.map((c) => (initialCapital * c.close) / first);
+}
+
 export function medianBarSeconds(equity: EquityPoint[]): number {
   const diffs: number[] = [];
   const step = Math.max(1, Math.floor(equity.length / 2000));

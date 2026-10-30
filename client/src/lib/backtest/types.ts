@@ -93,6 +93,8 @@ export interface BacktestResult {
   trades: Trade[];
   equity: EquityPoint[];
   metrics: Metrics;
+  /** Buy and hold equity per bar (same length as `equity`), ignoring fees and slippage. */
+  buyHold: number[];
   config: BacktestConfig;
   signals?: Signal[];
 }
