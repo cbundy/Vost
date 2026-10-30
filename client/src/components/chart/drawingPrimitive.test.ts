@@ -74,6 +74,16 @@ describe('axis views', () => {
     prim.set([{ ...hline, style: { showLabel: false } }], ['h'], null);
     expect(prim.priceAxisViews()).toHaveLength(0);
   });
+  it('labels the times of a selected time zone from the loaded bars', () => {
+    const prim = make((t) => `t${t}`);
+    const zone = { id: 'z', tool: 'fibTimeZone', anchors: [{ time: 100, price: 10 }, { time: 200, price: 20 }], style: { levels: [{ value: 0, on: true, color: 'accent' }, { value: 1, on: true, color: 'accent' }, { value: 3, on: true, color: 'accent' }, { value: 5, on: false, color: 'accent' }] } };
+    prim.set([zone], [], null);
+    expect(prim.timeAxisViews()).toHaveLength(0);
+    prim.set([zone], ['z'], null);
+    // one unit is one bar (100 s); level 3 is past the last bar and is extrapolated
+    expect(texts(prim.timeAxisViews())).toEqual(['t100', 't200', 't400']);
+    expect(prim.timeAxisViews()[2].coordinate()).toBe(30);
+  });
   it('hides a price label that is off the scale', () => {
     const prim = make();
     prim.set([{ ...hline, anchors: [{ time: 100, price: 900 }] }], [], null);

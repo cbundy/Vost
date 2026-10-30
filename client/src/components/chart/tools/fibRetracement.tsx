@@ -1,21 +1,18 @@
-import { HIT_TOLERANCE, fibLevelPrices } from '../../../lib/drawingGeometry';
+import { HIT_TOLERANCE } from '../../../lib/drawingGeometry';
 import { DEFAULT_LEVELS, cssColor, type FibLevel } from '../../../lib/drawingStyle';
+import { fibLevelPrices } from '../../../lib/geometry/fib';
 import { theme } from '../../../lib/theme';
 import { Svg } from '../../DrawingIcons';
 import { boolField, opacityField } from './fields';
+import { drawLevelLabel, enabledLevels, levelLabel } from './fibLevels';
 import type { DrawingTool, ToolView } from './types';
 
 type Level = { ratio: number; price: number; y: number; color: string };
 
-/** The levels that are on, with their ratio, price and colour, ordered by ratio. */
-function enabled(view: ToolView): FibLevel[] {
-  return (view.style.levels as FibLevel[]).filter((l) => l.on).sort((a, b) => a.value - b.value);
-}
-
 /** Pixel y of every enabled level that is on the price scale. */
 function levels(view: ToolView): Level[] {
   const [start, end] = view.anchors;
-  const on = enabled(view);
+  const on: FibLevel[] = enabledLevels(view.style);
   const prices = fibLevelPrices(start.price, end.price, on.map((l) => l.value), view.style.reverse === true);
   const out: Level[] = [];
   prices.forEach((price, i) => {
@@ -66,8 +63,6 @@ export const fibRetracement: DrawingTool = {
       }
     }
     ctx.lineWidth = selected ? 1.5 : 1;
-    ctx.font = '11px sans-serif';
-    ctx.textBaseline = 'bottom';
     const showLevel = view.style.showLevels === true;
     const showPrice = view.style.showPrices === true;
     for (const l of ls) {
@@ -77,11 +72,8 @@ export const fibRetracement: DrawingTool = {
       ctx.strokeStyle = selected && !view.styled ? theme.accent2 : cssColor(l.color);
       ctx.stroke();
       if (!showLevel && !showPrice) continue;
-      ctx.fillStyle = theme.muted;
-      ctx.textAlign = 'left';
-      const price = view.formatPrice(l.price);
-      const label = showLevel && showPrice ? `${l.ratio} (${price})` : showLevel ? `${l.ratio}` : price;
-      ctx.fillText(label, Math.max(2, Math.min(x0 + 4, view.width - 110)), l.y - 2);
+      const label = levelLabel(l.ratio, view.formatPrice(l.price), showLevel, showPrice);
+      drawLevelLabel(ctx, label, Math.max(2, Math.min(x0 + 4, view.width - 110)), l.y - 2);
     }
     ctx.save();
     ctx.setLineDash([4, 4]);

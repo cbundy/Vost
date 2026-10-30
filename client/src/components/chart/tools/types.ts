@@ -68,9 +68,10 @@ export interface DrawingTool {
   fullHeight?: boolean;
   /**
    * The labels the drawing shows on the axes: prices on the price axis, times on the time axis. Absent: none.
-   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise.
+   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise. `times` are the
+   * loaded bars' times, for a tool whose labels are not at its anchors.
    */
-  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean): AxisLabels;
+  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean, times?: readonly number[]): AxisLabels;
   /**
    * While a drawing with more than two anchors is placed, `pts` holds fewer points than `anchors` (the placed ones
    * and the moving one): draw what can be drawn, never throw.

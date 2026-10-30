@@ -303,7 +303,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const tool = getTool(d.tool);
       if (!tool?.axisLabels) continue;
       const { values } = this.styleOf(d);
-      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id));
+      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id), this.getTimes());
       const back = () => cssColor(values.labelColor ?? theme.accent2);
       for (const p of labels.price ?? []) {
         price.push({
