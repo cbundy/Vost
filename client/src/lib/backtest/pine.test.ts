@@ -87,6 +87,9 @@ if bar_index % 30 == 10
     expect(script.metrics.initialCapital).toBe(5000);
     expect(script.config.feeBps).toBeCloseTo(10, 8);
     expect(script.trades[0].fees).toBeCloseTo(((t.entryPrice + t.exitPrice) * t.qty * 10) / 10000, 6);
+    expect(script.buyHold).toHaveLength(script.equity.length);
+    expect(script.buyHold[0]).toBe(5000);
+    expect(panel.buyHold[0]).toBe(20000);
     const sum = script.trades.reduce((a, x) => a + x.pnl, 0);
     expect(script.equity[script.equity.length - 1].equity).toBeCloseTo(5000 + sum, 6);
   });
@@ -120,8 +123,7 @@ if ta.crossunder(fast, slow)
       base,
       {
         ...defaultOptimizeConfig(base),
-        sweepA: { key: 'Fast', from: 5, to: 10, step: 5 },
-        sweepB: { key: 'Slow', from: 20, to: 40, step: 20 },
+        sweeps: [{ key: 'Fast', from: 5, to: 10, step: 5 }, { key: 'Slow', from: 20, to: 40, step: 20 }],
         metric: 'totalReturnPct',
       },
       (p) => progress.push(p),
@@ -131,5 +133,26 @@ if ta.crossunder(fast, slow)
     const vals = out.rows.map((r) => r.value as number);
     expect([...vals].sort((a, b) => b - a)).toEqual(vals);
     expect(progress[progress.length - 1]).toBe(1);
+    expect(out.keys).toEqual(['Fast', 'Slow']);
+    for (const row of out.rows) {
+      expect(Object.keys(row.params)).toEqual(['Fast', 'Slow']);
+      const single = await runAnyBacktest(candles, { ...base, params: { ...base.params, ...row.params } });
+      expect(row.metrics).toEqual(single.metrics);
+    }
+  });
+});
+
+describe('runPineBacktest progress', () => {
+  it('reports pine then metrics, non-decreasing, ends at 1, same result as without a callback', async () => {
+    const config = cfg(fixture('strategy-sma-cross'));
+    const calls: [number, string][] = [];
+    const withCb = await runAnyBacktest(candles, config, (p, s) => calls.push([p, s]));
+    const without = await runAnyBacktest(candles, config);
+    expect(withCb).toEqual(without);
+    expect(calls[0]).toEqual([0, 'pine']);
+    expect(calls[calls.length - 1]).toEqual([1, 'metrics']);
+    for (let i = 1; i < calls.length; i++) expect(calls[i][0]).toBeGreaterThanOrEqual(calls[i - 1][0]);
+    expect(calls.filter(([, s]) => s === 'pine').every(([p]) => p <= 0.9)).toBe(true);
+    expect(calls.length).toBeLessThanOrEqual(110);
   });
 });

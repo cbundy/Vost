@@ -1,11 +1,14 @@
 import { HANDLE_RADIUS, HIT_TOLERANCE } from '../../../lib/drawingGeometry';
 import { theme } from '../../../lib/theme';
 import { Svg } from '../../DrawingIcons';
+import { applyDash, boolField, colorField, lineStyleField, opacityField, strokeColor, strokeWidth, widthField } from './fields';
 import type { DrawingTool } from './types';
 
 export const horizontalLine: DrawingTool = {
   id: 'horizontalLine',
   label: 'Horizontal line',
+  group: 'lines',
+  section: 'Lines',
   icon: (
     <Svg>
       <line x1="3" y1="12" x2="21" y2="12" />
@@ -14,12 +17,22 @@ export const horizontalLine: DrawingTool = {
   ),
   anchors: 1,
   priceOnly: true,
-  draw(ctx, [a], { width }, { selected }) {
+  settings: [
+    colorField('color', 'Colour', 'amber'),
+    opacityField('opacity', 'Opacity', 0.85),
+    widthField('width', 'Width', 1.5),
+    lineStyleField('lineStyle', 'Line style'),
+    boolField('showLabel', 'Price label on the axis', true),
+    colorField('labelColor', 'Label colour', 'amber'),
+  ],
+  axisLabels: (anchors, style) => (style.showLabel === true ? { price: [anchors[0].price] } : {}),
+  draw(ctx, [a], view, { selected }) {
     ctx.beginPath();
     ctx.moveTo(0, a.y);
-    ctx.lineTo(width, a.y);
-    ctx.strokeStyle = selected ? theme.amber : 'rgba(245,158,11,0.85)';
-    ctx.lineWidth = selected ? 2 : 1.5;
+    ctx.lineTo(view.width, a.y);
+    ctx.strokeStyle = strokeColor(view, selected, theme.amber);
+    ctx.lineWidth = strokeWidth(view, selected);
+    applyDash(ctx, view.style.lineStyle);
     ctx.stroke();
   },
   hit: ([a], p, _view, tolerance = HIT_TOLERANCE) => Math.abs(p.y - a.y) <= tolerance,

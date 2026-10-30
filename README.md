@@ -40,7 +40,7 @@ Each area below has a page in the [user guide](docs/guide/README.md).
 - Bar replay: pick a starting bar (click it or type a date, and pick a new one at any time during replay), then step or play forward at 1, 3 or 10 bars a second with no look-ahead in the chart, indicators, Pine output or trade markers; backtests still use all the data and live bars keep arriving in the background ([guide](docs/guide/replay.md))
 - Layouts ([guide](docs/guide/layouts.md)): 1 to 16 charts in 55 arrangements with one active chart, **Sync in layout** switches (symbol, interval, crosshair, time, date range) and named layouts you can save (Ctrl/Cmd+S), autosave, copy, rename and reopen
 - Custom intervals ([guide](docs/guide/timeframes.md)): any number-and-unit timeframe such as 2h, 10m or 3M from **Add interval...** in the timeframe picker
-- Drawings ([guide](docs/guide/drawings.md)): trend line, horizontal line, ray, rectangle, Fibonacci, text notes, measure and magnet, saved per symbol
+- Drawings ([guide](docs/guide/drawings.md)): trend line, horizontal line, ray, rectangle, Fibonacci, text notes, measure and magnet, saved per symbol, each with its own style and a settings dialog
 - Price alerts ([guide](docs/guide/alerts.md)): the server watches prices around the clock and can message you on Telegram
 - Watchlist ([guide](docs/guide/watchlist.md)): lists, sections, tags and live quotes
 - Pine Script ([guide](docs/guide/pine.md)): Pine v5 and v6 indicators and strategies, an editor pane, old-script conversion, TradingView libraries and a side-by-side compare page
@@ -59,7 +59,7 @@ Each area below has a page in the [user guide](docs/guide/README.md).
 - Engine: single position, next-bar-open fills, bps fees & slippage per side, intrabar stops/takes (stop-first conservative assumption, gap-through fills), shorts optional
 - Results: 20+ metrics (CAGR, Sharpe, Sortino, Calmar, max drawdown & duration, profit factor, exposure, expectancy…), equity + underwater chart, full trade log, CSV exports, trade markers drawn on the chart
 - Time range: the backtester and the optimizer run on the From / To range set in the Backtest pane (default: all loaded data)
-- **Optimizer**: grid-search one or two parameters, ranked by any metric, with a clickable heatmap — apply the best combo and re-run in one click
+- **Optimizer**: grid-search any number of parameters, ranked by any metric, with a clickable heatmap and a Cancel button — apply the best combo and re-run in one click
 
 ## Quick start
 
@@ -156,7 +156,7 @@ Signals are computed per bar from data **up to and including that bar**, then ex
 
 Risk controls: initial capital, position size (% of equity), fees (bps), slippage (bps), stop loss %, take profit %, long/short toggle.
 
-The **Optimizer** runs full backtests over a 1D or 2D parameter grid inside the same Web Worker (progress bar included), ranks results by any metric, and renders a heatmap. Click a cell → parameters applied → backtest re-run. The backtester and the optimizer both run on the time range set in the Backtest pane (empty = all loaded data).
+The **Optimizer** runs full backtests over a parameter grid of any number of parameters in a dedicated Web Worker (progress bar and Cancel included), ranks results by any metric, and renders a heatmap. Click a cell → parameters applied → backtest re-run. The backtester and the optimizer both run on the time range set in the Backtest pane (empty = all loaded data).
 
 Custom strategies are plain JavaScript with indicator helpers, executed in the worker:
 
@@ -219,7 +219,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 
 ## Roadmap
 
-- [x] Drawing tools: trend line, horizontal line, ray, rectangle, Fibonacci retracement and text notes (select, move, resize, delete, undo/redo, saved per symbol), magnet, hide all, delete all and touch drawing with a phone menu, plus a temporary measure tool (price change, percent, bars and time)
+- [x] Drawing tools: trend line, horizontal line, ray, rectangle, Fibonacci retracement and text notes (select, move, resize, delete, undo/redo, saved per symbol), per-drawing styles (colour, opacity, width, line style, fill, extend, Fibonacci levels, text size) with a settings dialog (double-click a drawing), saved defaults and per-timeframe visibility, magnet, hide all, delete all and touch drawing with a phone menu, plus a temporary measure tool (price change, percent, bars and time)
 - [x] Price alerts (stored and watched by the server around the clock, optional Telegram message)
 - [ ] Alerts on indicator conditions
 - [x] Multiple chart layouts (named, saved in the browser)

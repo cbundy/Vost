@@ -7,6 +7,12 @@
  * enabled in the configuration.
  */
 
+/** The step a running backtest is in, reported with its progress. */
+export type BacktestStage = 'signals' | 'simulating' | 'pine' | 'metrics';
+
+/** Progress of a run: `pct` is 0..1 and never decreases; the last call is 1. */
+export type BacktestProgress = (pct: number, stage: BacktestStage) => void;
+
 /** Desired exposure for a bar: 1 long, -1 short, 0 flat, null = "not computed yet". */
 export type Signal = -1 | 0 | 1 | null;
 
@@ -87,6 +93,8 @@ export interface BacktestResult {
   trades: Trade[];
   equity: EquityPoint[];
   metrics: Metrics;
+  /** Buy and hold equity per bar (same length as `equity`), ignoring fees and slippage. */
+  buyHold: number[];
   config: BacktestConfig;
   signals?: Signal[];
 }

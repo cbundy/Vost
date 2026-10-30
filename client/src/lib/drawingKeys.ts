@@ -2,7 +2,7 @@
  * Which drawing action a key press means for one chart. Every chart panel listens on the window, so only the
  * active chart's panel may act: one Ctrl+Z must undo on one chart, not on all of them.
  */
-export type DrawingKeyAction = 'escape' | 'undo' | 'redo' | 'delete' | null;
+export type DrawingKeyAction = 'escape' | 'undo' | 'redo' | 'delete' | 'copy' | 'paste' | 'end-draft' | 'undo-point' | null;
 
 export interface DrawingKeyContext {
   /** This chart is the one the top bar and panels act on. */
@@ -13,6 +13,8 @@ export interface DrawingKeyContext {
   dragging: boolean;
   /** A drawing is selected. */
   hasSelection: boolean;
+  /** An open-ended drawing (a path, a polyline) is being placed on this chart: Enter ends it, Backspace removes its last point. */
+  drafting?: boolean;
 }
 
 export interface KeyLike {
@@ -28,7 +30,13 @@ export function drawingKeyAction(e: KeyLike, ctx: DrawingKeyContext): DrawingKey
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
   if (e.key === 'Escape') return 'escape';
+  if (ctx.drafting && !mod && !e.altKey && !e.shiftKey) {
+    if (e.key === 'Enter') return 'end-draft';
+    if (e.key === 'Backspace') return 'undo-point';
+  }
   if (mod && !e.altKey && (k === 'z' || k === 'y')) return k === 'y' || e.shiftKey ? 'redo' : 'undo';
+  if (mod && !e.altKey && !e.shiftKey && k === 'c' && ctx.hasSelection) return 'copy';
+  if (mod && !e.altKey && !e.shiftKey && k === 'v') return 'paste';
   if (!mod && (e.key === 'Delete' || e.key === 'Backspace') && ctx.hasSelection) return 'delete';
   return null;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
 import { generateDemoCandles } from '../providers/demo';
 import { runBacktest } from './engine';
-import { computeMetrics } from './metrics';
+import { buyHoldCurve, computeMetrics } from './metrics';
 import { runFullBacktest } from './runner';
 import { buildSignals, strategies } from './strategies';
 import { defaultBacktestConfig, type BacktestConfig } from './types';
@@ -102,6 +102,25 @@ describe('backtest engine', () => {
   });
 });
 
+describe('buyHoldCurve', () => {
+  it('scales the capital by close over the first close', () => {
+    expect(buyHoldCurve(makeCandles([100, 110, 120, 90]), 10000)).toEqual([10000, 11000, 12000, 9000]);
+  });
+  it('is flat when the first close is not positive, and empty without candles', () => {
+    expect(buyHoldCurve(makeCandles([0, 5, 6]), 10000)).toEqual([10000, 10000, 10000]);
+    expect(buyHoldCurve([], 10000)).toEqual([]);
+  });
+  it('runFullBacktest carries a curve matching the Buy & hold metric', () => {
+    const candles = makeCandles([100, 110, 120, 90]);
+    const r = runFullBacktest(candles, cfg());
+    expect(r.buyHold).toHaveLength(r.equity.length);
+    expect(r.buyHold[0]).toBe(r.metrics.initialCapital);
+    const last = r.buyHold[r.buyHold.length - 1];
+    expect(last).toBeCloseTo(0.9 * r.metrics.initialCapital, 6);
+    expect(last).toBeCloseTo(r.metrics.initialCapital * (1 + r.metrics.buyHoldPct / 100), 6);
+  });
+});
+
 describe('metrics', () => {
   it('computes drawdown, total return and buy & hold', () => {
     const prices = [100, 110, 120, 90];
@@ -178,5 +197,35 @@ describe('demo data generator', () => {
       expect(c.low).toBeLessThanOrEqual(Math.min(c.open, c.close));
     }
     for (let i = 1; i < a.length; i++) expect(a[i].time).toBeGreaterThan(a[i - 1].time);
+  });
+});
+
+describe('backtest progress', () => {
+  const candles = generateDemoCandles({ bars: 1000 });
+  const config = cfg({ strategyId: 'sma_cross', params: { fast: 10, slow: 30 } });
+
+  it('reports non-decreasing progress through the stages, ends at 1, and leaves the result unchanged', () => {
+    const calls: [number, string][] = [];
+    const withCb = runFullBacktest(candles, config, (p, s) => calls.push([p, s]));
+    const without = runFullBacktest(candles, config);
+    expect(withCb).toEqual(without);
+    expect(calls.length).toBeLessThanOrEqual(110);
+    expect(calls.length).toBeGreaterThan(50);
+    for (let i = 1; i < calls.length; i++) expect(calls[i][0]).toBeGreaterThanOrEqual(calls[i - 1][0]);
+    expect(calls[0]).toEqual([0, 'signals']);
+    expect(calls[calls.length - 1]).toEqual([1, 'metrics']);
+    const order = ['signals', 'simulating', 'metrics'];
+    const idx = calls.map(([, s]) => order.indexOf(s));
+    expect(idx.every((v) => v >= 0)).toBe(true);
+    for (let i = 1; i < idx.length; i++) expect(idx[i]).toBeGreaterThanOrEqual(idx[i - 1]);
+    expect(new Set(idx).size).toBe(3);
+  });
+
+  it('the engine alone reports in 0..1 and ends at 1', () => {
+    const signals = buildSignals(candles, 'sma_cross', { fast: 10, slow: 30 });
+    const seen: number[] = [];
+    runBacktest(candles, signals, config, (p) => seen.push(p));
+    expect(seen[seen.length - 1]).toBe(1);
+    expect(seen.every((p) => p >= 0 && p <= 1)).toBe(true);
   });
 });

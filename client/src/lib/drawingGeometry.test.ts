@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIB_LEVELS, distToSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
+import { barSlotTime, distToSegment, extendSegment, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -74,6 +74,11 @@ describe('snapToBar', () => {
     expect(snapToBar(bars, { time: hourly[1], price: 101.2 })).toEqual({ time: hourly[1], price: 101 });
     expect(snapToBar(bars, { time: hourly[1], price: 103.2 })).toEqual({ time: hourly[1], price: 103 });
   });
+  it('timeOnly takes the bar time and keeps the anchor price', () => {
+    expect(snapToBar(bars, { time: hourly[3] + 0.4 * H, price: 112 }, { timeOnly: true })).toEqual({ time: hourly[3], price: 112 });
+    const off = { time: hourly[0] - 0.6 * H, price: 105 };
+    expect(snapToBar(bars, off, { timeOnly: true })).toBe(off);
+  });
   it('leaves an anchor outside every bar unchanged', () => {
     const left = { time: hourly[0] - 0.6 * H, price: 105 };
     const right = { time: hourly[7] + 0.6 * H, price: 105 };
@@ -91,17 +96,27 @@ describe('snapToBar', () => {
   });
 });
 
-describe('ray, rectangle and fibonacci geometry', () => {
-  it('fibLevelPrices puts 0 at the end, 1 at the start and 0.5 at the midpoint, up and down', () => {
-    for (const [start, end] of [[100, 200], [200, 100]]) {
-      const p = fibLevelPrices(start, end);
-      expect(p).toHaveLength(FIB_LEVELS.length);
-      expect(p[0]).toBe(end);
-      expect(p[p.length - 1]).toBe(start);
-      expect(p[FIB_LEVELS.indexOf(0.5)]).toBe(150);
-    }
+describe('extendSegment', () => {
+  const a = { x: 100, y: 100 };
+  const b = { x: 200, y: 100 };
+  it('keeps the segment when neither side extends', () => {
+    expect(extendSegment(a, b, 500, 300, false, false)).toEqual([a, b]);
   });
+  it('continues to the pane edge on the extended side only', () => {
+    expect(extendSegment(a, b, 500, 300, false, true)).toEqual([a, { x: 500, y: 100 }]);
+    expect(extendSegment(a, b, 500, 300, true, false)).toEqual([{ x: 0, y: 100 }, b]);
+    expect(extendSegment(a, b, 500, 300, true, true)).toEqual([{ x: 0, y: 100 }, { x: 500, y: 100 }]);
+  });
+  it('follows a slanted line and keeps an end that is already off the pane', () => {
+    const [from, to] = extendSegment({ x: 0, y: 0 }, { x: 100, y: 100 }, 500, 300, false, true);
+    expect(from).toEqual({ x: 0, y: 0 });
+    expect(to).toEqual({ x: 300, y: 300 });
+    const far = { x: 900, y: 100 };
+    expect(extendSegment(a, far, 500, 300, false, true)[1]).toEqual(far);
+  });
+});
 
+describe('ray and rectangle geometry', () => {
   it('rayEnd ends on the pane edge, on the line through a and b', () => {
     const W = 200;
     const H = 100;
@@ -176,5 +191,23 @@ describe('measureSummary', () => {
   it('is flat when price is unchanged and has no percent from a zero start', () => {
     expect(measureSummary({ time: 0, price: 5 }, { time: H, price: 5 }, times).direction).toBe('flat');
     expect(measureSummary({ time: 0, price: 0 }, { time: H, price: 3 }, times).pct).toBeNull();
+  });
+});
+
+describe('barSlotTime', () => {
+  it('rounds to the nearest bar inside the data', () => {
+    expect(barSlotTime(hourly, 3.4)).toBe(hourly[3]);
+    expect(barSlotTime(hourly, 3.6)).toBe(hourly[4]);
+    expect(barSlotTime(hourly, 5)).toBe(hourly[5]);
+  });
+  it('lands on a whole step past either end', () => {
+    expect(barSlotTime(hourly, 9.7)).toBe(hourly[7] + 3 * H);
+    expect(barSlotTime(hourly, 7.3)).toBe(hourly[7]);
+    expect(barSlotTime(hourly, -2.4)).toBe(hourly[0] - 2 * H);
+  });
+  it('gives 0 with no bars and the bar time with one bar', () => {
+    expect(barSlotTime([], 3.2)).toBe(0);
+    expect(barSlotTime([500], 0.3)).toBe(500);
+    expect(barSlotTime([500], -0.2)).toBe(500);
   });
 });

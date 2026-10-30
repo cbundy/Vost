@@ -3,7 +3,7 @@ import type { Scenario } from '../scenario.ts';
 
 /** Reads the saved drawings of the demo source (waits past the 400 ms debounce first). */
 const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v1');
+  const raw = localStorage.getItem('vost.drawings.v2');
   const all = raw ? JSON.parse(raw).sources : {};
   return all['demo:DEMO'] ?? [];
 })()`;
@@ -15,6 +15,18 @@ const TB = { x: 0.94, y: 0.25 };
 const RAY = [{ x: 0.3, y: 0.35 }, { x: 0.45, y: 0.45 }];
 const RECT = [{ x: 0.3, y: 0.55 }, { x: 0.5, y: 0.7 }];
 const FIB = [{ x: 0.55, y: 0.15 }, { x: 0.75, y: 0.45 }];
+
+/** The rail family (its flyout or phone section) each tool sits in. */
+const GROUP_OF: Record<string, string> = {
+  Cross: 'Cursors',
+  'Trend line': 'Lines',
+  'Horizontal line': 'Lines',
+  Ray: 'Lines',
+  Rectangle: 'Shapes',
+  'Fibonacci retracement': 'Fibonacci and Gann',
+  Text: 'Annotations',
+  Measure: 'Forecasting and measurers',
+};
 
 export const drawings: Scenario = {
   name: 'drawings',
@@ -52,16 +64,22 @@ export const drawings: Scenario = {
       });
       const menuBtn = page.getByRole('button', { name: 'Drawing tools', exact: true });
       const menu = page.getByRole('group', { name: 'Drawing tools menu' });
-      const pick = (name: string) => menu.getByRole('button', { name, exact: true });
+      /** A menu button; a tool inside a collapsed family section opens the section first. */
+      const pick = async (name: string) => {
+        const btn = menu.getByRole('button', { name, exact: true });
+        const family = GROUP_OF[name];
+        if (family && !(await btn.isVisible())) await menu.getByRole('button', { name: family, exact: true }).tap();
+        return btn;
+      };
       await ctx.step('the drawing menu opens, lists every entry and closes on Escape', async () => {
         check('menu button has title and aria-haspopup', (await menuBtn.getAttribute('title')) === 'Drawing tools' && (await menuBtn.getAttribute('aria-haspopup')) !== null);
         check('collapsed at start', (await menuBtn.getAttribute('aria-expanded')) === 'false');
         await menuBtn.tap();
         check('expanded', (await menuBtn.getAttribute('aria-expanded')) === 'true');
-        for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Text', 'Measure', 'Magnet', 'Hide all drawings', 'Delete all drawings']) {
-          check(`menu has ${name}`, await pick(name).isVisible());
+        for (const name of ['Cross', 'Trend line', 'Horizontal line', 'Text', 'Measure', 'Magnet', 'Hide all drawings', 'Delete all drawings']) {
+          check(`menu has ${name}`, await (await pick(name)).isVisible());
         }
-        check('Delete all disabled with no drawings', await pick('Delete all drawings').isDisabled());
+        check('Delete all disabled with no drawings', await (await pick('Delete all drawings')).isDisabled());
         await ctx.screenshot('menu');
         await page.keyboard.press('Escape');
         check('Escape closes it', (await menuBtn.getAttribute('aria-expanded')) === 'false');
@@ -73,7 +91,7 @@ export const drawings: Scenario = {
       };
       await ctx.step('pick Trend line and draw it with two taps', async () => {
         await menuBtn.tap();
-        await pick('Trend line').tap();
+        await (await pick('Trend line')).tap();
         check('menu closed after picking', (await menuBtn.getAttribute('aria-expanded')) === 'false');
         const a = await at(0.35, 0.6);
         const b = await at(0.7, 0.3);
@@ -144,14 +162,14 @@ export const drawings: Scenario = {
       await ctx.step('pick Text, tap, type and commit a note with touch', async () => {
         const before = (await stored()).length;
         await menuBtn.tap();
-        await pick('Text').tap();
+        await (await pick('Text')).tap();
         const p = await at(0.3, 0.25);
         await page.touchscreen.tap(p.x, p.y);
         await input.waitFor({ state: 'visible' });
         check('the input is focused', await input.evaluate((el) => el === document.activeElement));
         await page.keyboard.type('touch note');
         await ctx.screenshot('touch-text-typing');
-        await page.keyboard.press('Enter');
+        await page.keyboard.press('Control+Enter');
         const list = await stored();
         check('one text drawing added', list.length === before + 1 && list.at(-1)!.tool === 'text');
         check('with its text', (list.at(-1) as unknown as { text: string }).text === 'touch note');
@@ -162,7 +180,7 @@ export const drawings: Scenario = {
         const shot = () => page.locator('.chart-container').screenshot();
         const base = await shot();
         await menuBtn.tap();
-        await pick('Measure').tap();
+        await (await pick('Measure')).tap();
         const a = await at(0.35, 0.7);
         const b = await at(0.65, 0.5);
         await page.touchscreen.tap(a.x, a.y);
@@ -177,17 +195,45 @@ export const drawings: Scenario = {
       return;
     }
 
+    /** Opens a family's flyout and returns the tool's item in it. */
+    const flyoutItem = async (name: string) => {
+      await rail.getByRole('button', { name: `Open ${GROUP_OF[name]} tools`, exact: true }).click();
+      const item = page.getByRole('menuitemradio', { name, exact: true });
+      await item.waitFor();
+      return item;
+    };
+    /** Picks a tool through its family button, or the flyout when the family shows another tool. */
+    const pickTool = async (name: string) => {
+      const btn = rail.getByRole('button', { name, exact: true });
+      if ((await btn.count()) > 0) await btn.click();
+      else await (await flyoutItem(name)).click();
+    };
+    /** A tool's title, pressed and disabled state, read from its family button or (closing it again) its flyout item. */
+    const toolState = async (name: string) => {
+      const btn = rail.getByRole('button', { name, exact: true });
+      if ((await btn.count()) > 0) {
+        const pr = await btn.getAttribute('aria-pressed');
+        return { title: await btn.getAttribute('title'), pressed: pr === null ? null : pr === 'true', disabled: await btn.isDisabled() };
+      }
+      const item = await flyoutItem(name);
+      const pr = await item.getAttribute('aria-checked');
+      const s = { title: await item.getAttribute('title'), pressed: pr === null ? null : pr === 'true', disabled: await item.isDisabled() };
+      await page.keyboard.press('Escape');
+      await item.waitFor({ state: 'detached' });
+      return s;
+    };
+
     await ctx.step('the rail sits left of the chart canvas', async () => {
       const r = await rail.boundingBox();
       const b = await box();
       if (!r) throw new Error('no rail box');
       check('rail left of canvas', r.x + r.width <= b.x + 0.5, `rail right=${r.x + r.width} canvas left=${b.x}`);
       check('rail about 40px wide', Math.abs(r.width - 40) <= 2, `${r.width}`);
-      for (const name of ['Cursor', 'Trend line', 'Horizontal line', 'Ray', 'Rectangle', 'Fibonacci retracement', 'Text', 'Measure']) {
-        const btn = rail.getByRole('button', { name, exact: true });
-        check(`${name} button has title and aria-pressed`, (await btn.getAttribute('title')) === name && (await btn.getAttribute('aria-pressed')) !== null);
+      for (const name of ['Cross', 'Trend line', 'Horizontal line', 'Ray', 'Rectangle', 'Fibonacci retracement', 'Text', 'Measure']) {
+        const s = await toolState(name);
+        check(`${name} has title and a pressed state`, s.title === name && s.pressed !== null);
       }
-      check('Cursor pressed at start', (await rail.getByRole('button', { name: 'Cursor' }).getAttribute('aria-pressed')) === 'true');
+      check('Cross (the cursor) pressed at start', (await toolState('Cross')).pressed === true);
     });
     await ctx.screenshot('rail');
 
@@ -212,7 +258,7 @@ export const drawings: Scenario = {
     await ctx.step('magnet snaps a dragged trend line to a bar', async () => {
       await press('Magnet').click();
       check('Magnet pressed', (await pressed('Magnet')) === 'true');
-      await press('Trend line').click();
+      await pickTool('Trend line');
       const a = await aAt(0.5, 0.4);
       const b = await aAt(0.7, 0.3);
       await page.mouse.move(a.x, a.y);
@@ -235,15 +281,15 @@ export const drawings: Scenario = {
       const before = await stored();
       await press('Hide all drawings').click();
       check('Hide all pressed', (await pressed('Hide all drawings')) === 'true');
-      check('Trend line disabled', await press('Trend line').isDisabled());
-      check('Horizontal line disabled', await press('Horizontal line').isDisabled());
-      check('title still names the tool', (await press('Trend line').getAttribute('title')) === 'Trend line');
+      check('Trend line disabled', (await toolState('Trend line')).disabled);
+      check('Horizontal line disabled', (await toolState('Horizontal line')).disabled);
+      check('title still names the tool', (await toolState('Trend line')).title === 'Trend line');
       await page.waitForTimeout(300);
       await ctx.screenshot('hidden');
       check('stored drawings unchanged', JSON.stringify(await stored()) === JSON.stringify(before));
       await press('Hide all drawings').click();
       check('Hide all off again', (await pressed('Hide all drawings')) === 'false');
-      check('Trend line enabled again', await press('Trend line').isEnabled());
+      check('Trend line enabled again', !(await toolState('Trend line')).disabled);
       await page.waitForTimeout(300);
     });
 
@@ -279,8 +325,8 @@ export const drawings: Scenario = {
     };
 
     await ctx.step('draw a trend line', async () => {
-      await rail.getByRole('button', { name: 'Trend line' }).click();
-      check('Trend line pressed', (await rail.getByRole('button', { name: 'Trend line' }).getAttribute('aria-pressed')) === 'true');
+      await pickTool('Trend line');
+      check('Trend line pressed', (await toolState('Trend line')).pressed === true);
       const a = await at(TA.x, TA.y);
       const b = await at(TB.x, TB.y);
       await page.mouse.move(a.x, a.y);
@@ -288,11 +334,11 @@ export const drawings: Scenario = {
       await page.mouse.move(b.x, b.y, { steps: 15 });
       await page.mouse.up();
       check('one drawing saved', (await stored()).length === 1);
-      check('tool back to Cursor', (await rail.getByRole('button', { name: 'Cursor' }).getAttribute('aria-pressed')) === 'true');
+      check('tool back to Cursor', (await toolState('Cross')).pressed === true);
     });
 
     await ctx.step('draw a horizontal line', async () => {
-      await rail.getByRole('button', { name: 'Horizontal line' }).click();
+      await pickTool('Horizontal line');
       const p = await at(0.5, 0.8);
       await page.mouse.click(p.x, p.y);
       const list = await stored();
@@ -300,8 +346,8 @@ export const drawings: Scenario = {
     });
 
     const drawDrag = async (name: string, from: { x: number; y: number }, to: { x: number; y: number }, total: number) => {
-      await rail.getByRole('button', { name, exact: true }).click();
-      check(`${name} pressed`, (await rail.getByRole('button', { name, exact: true }).getAttribute('aria-pressed')) === 'true');
+      await pickTool(name);
+      check(`${name} pressed`, (await toolState(name)).pressed === true);
       const a = await at(from.x, from.y);
       const b = await at(to.x, to.y);
       await page.mouse.move(a.x, a.y);
@@ -451,15 +497,15 @@ export const drawings: Scenario = {
 
     await ctx.step('Text: click the plot, type and press Enter', async () => {
       const total = (await stored()).length;
-      await press('Text').click();
-      check('Text pressed', (await pressed('Text')) === 'true');
+      await pickTool('Text');
+      check('Text pressed', (await toolState('Text')).pressed === true);
       const p = await at(NOTE.x, NOTE.y);
       await page.mouse.click(p.x, p.y);
       await input.waitFor({ state: 'visible' });
       check('the input is focused', await input.evaluate((el) => el === document.activeElement));
-      check('tool back to Cursor', (await pressed('Cursor')) === 'true');
+      check('tool back to Cursor', (await toolState('Cross')).pressed === true);
       await page.keyboard.type('first note');
-      await page.keyboard.press('Enter');
+      await page.keyboard.press('Control+Enter');
       const list = await notes();
       check('one text drawing stored with the text', list.length === 1 && list[0].text === 'first note', JSON.stringify(list));
       check('exactly one drawing added', (await stored()).length === total + 1);
@@ -483,7 +529,7 @@ export const drawings: Scenario = {
       check('Ctrl+Z inside the input did not change storage', (await stored()).length === total && (await notes())[0].text === 'first note');
       await page.keyboard.press('Control+y');
       check('the input is still open', (await input.count()) === 1);
-      await page.keyboard.press('Enter');
+      await page.keyboard.press('Control+Enter');
       const list = await notes();
       check('the text changed', list.length === 1 && list[0].text === 'first noed', list[0]?.text);
       check('no drawing lost', (await stored()).length === total);
@@ -492,7 +538,7 @@ export const drawings: Scenario = {
 
     await ctx.step('Text: Escape cancels a new note', async () => {
       const total = (await stored()).length;
-      await press('Text').click();
+      await pickTool('Text');
       const p = await at(0.6, 0.85);
       await page.mouse.click(p.x, p.y);
       await input.waitFor({ state: 'visible' });
@@ -514,7 +560,7 @@ export const drawings: Scenario = {
     await ctx.step('Measure: drag up, nothing stored, Escape clears', async () => {
       const total = (await stored()).length;
       const base = await cont.screenshot();
-      await press('Measure').click();
+      await pickTool('Measure');
       const a = await at(0.4, 0.6);
       const b = await at(0.6, 0.4);
       await page.mouse.move(a.x, a.y);
@@ -532,7 +578,7 @@ export const drawings: Scenario = {
     });
 
     await ctx.step('Measure: drag down, a click clears it, a reload keeps no measure', async () => {
-      await press('Measure').click();
+      await pickTool('Measure');
       const a = await at(0.4, 0.4);
       const b = await at(0.6, 0.6);
       await page.mouse.move(a.x, a.y);

@@ -1,0 +1,7 @@
+ok   Gann box stored - gannBox:2
+ok   Gann square fixed stored - gannBox:2,gannSquareFixed:2
+ok   Gann square stored - gannBox:2,gannSquareFixed:2,gannSquare:2
+ok   Gann fan stored - gannBox:2,gannSquareFixed:2,gannSquare:2,gannFan:2
+ok   chart painted
+ok   four drawings after reload
+ok   unchanged by the timeframe change

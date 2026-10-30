@@ -44,6 +44,11 @@ export function formatSummary(s: CompareSummary, refLabel: string): string {
   return `${n}: +${lines(s.added)}, -${lines(s.removed)} vs ${refLabel}${s.approximate ? ' (approximate)' : ''}`;
 }
 
+/** The header line of a compared pane: `Empty` for an empty text (nothing to compare), otherwise the formatted summary. */
+export function describeCompare(reference: string, text: string, refLabel: string): string {
+  return text === '' ? 'Empty' : formatSummary(compareSummary(reference, text), refLabel);
+}
+
 export const PANE_LABELS = ['Code A', 'Code B', 'Code C', 'Code D'] as const;
 
 export interface CompareState {

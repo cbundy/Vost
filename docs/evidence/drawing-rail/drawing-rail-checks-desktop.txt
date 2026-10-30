@@ -1,0 +1,99 @@
+ok   one chevron per non-empty family - 6
+ok   Cursors shows Cross
+ok   Cursors has aria-pressed
+ok   Lines shows Trend line
+ok   Lines has aria-pressed
+ok   Fibonacci and Gann shows Fibonacci retracement
+ok   Fibonacci and Gann has aria-pressed
+ok   Forecasting and measurers shows Measure
+ok   Forecasting and measurers has aria-pressed
+ok   Shapes shows Rectangle
+ok   Shapes has aria-pressed
+ok   Annotations shows Text
+ok   Annotations has aria-pressed
+ok   Patterns and Icons are hidden until they have tools
+ok   Cross pressed at start
+ok   Magnet stays below the divider
+ok   Hide all drawings stays below the divider
+ok   Delete all drawings stays below the divider
+ok   Cursors has the Cursors heading
+ok   Cursors lists tools - 4
+ok   Cursors items have a star
+ok   Cursors flyout is inside the viewport
+ok   Lines has the Lines heading
+ok   Lines has the Channels heading
+ok   Lines lists tools - 13
+ok   Lines items have a star
+ok   Lines flyout is inside the viewport
+ok   Fibonacci and Gann has the Fibonacci heading
+ok   Fibonacci and Gann lists tools - 1
+ok   Fibonacci and Gann items have a star
+ok   Fibonacci and Gann flyout is inside the viewport
+ok   Forecasting and measurers has the Measurers heading
+ok   Forecasting and measurers lists tools - 1
+ok   Forecasting and measurers items have a star
+ok   Forecasting and measurers flyout is inside the viewport
+ok   Shapes has the Shapes heading
+ok   Shapes lists tools - 1
+ok   Shapes items have a star
+ok   Shapes flyout is inside the viewport
+ok   Annotations has the Text heading
+ok   Annotations lists tools - 1
+ok   Annotations items have a star
+ok   Annotations flyout is inside the viewport
+ok   only one flyout is open
+ok   an outside press closes it
+ok   focus starts on the current tool
+ok   ArrowDown moves to Ray
+ok   End goes to Disjoint channel
+ok   ArrowDown wraps to Trend line
+ok   ArrowUp wraps to Disjoint channel
+ok   Home goes to Trend line
+ok   Escape closes it
+ok   focus is back on the group button
+ok   ArrowLeft closes it too
+ok   focus is back again
+ok   Enter picks Info line and closes the menu
+ok   Escape leaves the tool
+ok   long press opened Shapes
+ok   the long press did not pick the tool
+ok   the menu closed
+ok   Lines shows Ray, pressed
+ok   lastTool saved
+ok   after a reload Lines still shows Ray
+ok   no bar without favourites
+ok   the menu is still open
+ok   the star is pressed
+ok   favourites saved in order - ["ray"]
+ok   the bar lists Ray then Eraser
+ok   picking from the bar presses it
+ok   and the rail
+ok   the bar moved right and down - {"x":96,"y":53,"width":96,"height":40} -> {"x":296,"y":213,"width":96,"height":40}
+ok   the position is saved - {"x":256,"y":172}
+ok   the position is kept after a reload - {"x":296,"y":213,"width":96,"height":40} vs {"x":296,"y":213,"width":96,"height":40}
+ok   dragged past the corner it stays inside the chart area - {"x":1040,"y":540,"width":96,"height":40}
+ok   dragged past the top-left it stays inside - {"x":40,"y":41,"width":96,"height":40}
+ok   Cross pressed on the rail
+ok   Dot pressed on the rail
+ok   Arrow pressed on the rail
+ok   Cross draws the crosshair line
+ok   Dot draws no crosshair line
+ok   Arrow draws no crosshair line
+ok   Cross keeps the price label
+ok   Dot keeps the price label
+ok   Arrow keeps the price label
+ok   Dot shows a dot pointer - url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%3E%3Ccircle%20cx%3D%228%22%20cy%3D%228%22%20r%3D%223%22%20fill%3D%22%23e5e7eb%22%20stroke%3D%22%23111827%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E") 8 8, default
+ok   Arrow keeps the default pointer
+ok   Cross keeps the default pointer
+ok   the cursor kind is saved
+ok   the Dot kind is kept after a reload
+ok   one drawing stored
+ok   Eraser pressed
+ok   a press on empty chart deletes nothing
+ok   the pointer over the drawing shows it will be erased - url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2210%22%20r%3D%228%22%20fill%3D%22none%22%20stroke%3D%22%23ef4444%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22M5%2015L15%205%22%20stroke%3D%22%23ef4444%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E") 10 10, not-allowed
+ok   the press erased the drawing
+ok   one undo brings it back
+ok   after Escape a press on the drawing selects it instead of erasing it
+ok   the cursor mode, not the eraser, is current
+ok   Eraser disabled while hidden
+ok   the cursor kinds stay enabled

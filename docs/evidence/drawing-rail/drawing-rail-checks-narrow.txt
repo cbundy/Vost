@@ -1,0 +1,23 @@
+ok   section Cursors is a button with aria-expanded
+ok   section Lines is a button with aria-expanded
+ok   section Fibonacci and Gann is a button with aria-expanded
+ok   section Forecasting and measurers is a button with aria-expanded
+ok   section Shapes is a button with aria-expanded
+ok   section Annotations is a button with aria-expanded
+ok   the cursors section is open for the cursor mode
+ok   the lines section is closed
+ok   Cross is listed
+ok   Ray is not listed while Lines is closed
+ok   Lines opens
+ok   Ray is listed now
+ok   the menu stays inside the screen - {"x":8,"y":91,"width":250,"height":745}
+ok   menu stays open after a star
+ok   the star is pressed
+ok   Escape closes the menu
+ok   focus is back on the menu button
+ok   the favourites bar shows with Ray
+ok   the bar is inside the chart area - {"x":56,"y":53,"width":60,"height":40}
+ok   Ray pressed in the bar
+ok   the lines section is open for the current tool
+ok   menu closed after picking
+ok   Trend line pressed in the bar-less menu state

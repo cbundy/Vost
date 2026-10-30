@@ -1,0 +1,8 @@
+ok   Fib time zone stored - fibTimeZone:2
+ok   Fib speed resistance fan stored - fibTimeZone:2,fibSpeedFan:2
+ok   Fib circles stored - fibTimeZone:2,fibSpeedFan:2,fibCircles:2
+ok   Fib spiral stored - fibTimeZone:2,fibSpeedFan:2,fibCircles:2,fibSpiral:2
+ok   Fib speed resistance arcs stored - fibTimeZone:2,fibSpeedFan:2,fibCircles:2,fibSpiral:2,fibSpeedArcs:2
+ok   chart painted
+ok   five drawings after reload
+ok   unchanged by the timeframe change

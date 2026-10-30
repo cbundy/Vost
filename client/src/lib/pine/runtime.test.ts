@@ -232,3 +232,20 @@ describe('runPine library imports', () => {
     expect(r.inputs.map((i) => i.name)).toEqual(['Len']);
   });
 });
+
+describe('runPine with onProgress (paged run)', () => {
+  const names = ['strategy-sma-cross', 'strategy-exit', 'ema-cross', 'macd', 'rsi', 'bollinger', 'overlays', 'wavetrend-v6'];
+  for (const name of names) {
+    it(`${name}: paged outcome deep-equals the unpaged one; progress is non-decreasing and ends at 1`, async () => {
+      const plain = await runPine(fixture(name), candles);
+      const calls: number[] = [];
+      const paged = await runPine(fixture(name), candles, {}, { onProgress: (p) => calls.push(p) });
+      expect(plain.ok).toBe(true);
+      expect(paged).toEqual(plain);
+      expect(calls.length).toBeGreaterThan(1);
+      expect(calls.length).toBeLessThanOrEqual(110);
+      expect(calls[calls.length - 1]).toBe(1);
+      for (let i = 1; i < calls.length; i++) expect(calls[i]).toBeGreaterThanOrEqual(calls[i - 1]);
+    });
+  }
+});

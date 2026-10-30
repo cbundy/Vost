@@ -168,6 +168,40 @@ describe('btRange', () => {
     return fresh;
   };
 
+  it('runMonteCarlo matches the engine, and its result goes stale with the backtest it came from', async () => {
+    const { runMonteCarlo } = await import('../lib/backtest/monteCarlo');
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    await st().runBacktest();
+    const source = st().btResult!;
+    expect(source.trades.length).toBeGreaterThanOrEqual(2);
+    st().setMcConfig({ iterations: 200, method: 'bootstrap', seed: 5 });
+    await st().runMonteCarlo();
+    const mc = st().mcResult!;
+    expect(mc.source).toBe(source);
+    expect(mc.result).toEqual(
+      runMonteCarlo({ trades: source.trades, initialCapital: source.metrics.initialCapital }, { iterations: 200, method: 'bootstrap', seed: 5 }),
+    );
+    expect(st().mcRunning).toBe(false);
+    // a second backtest and Clear both leave the old result's source behind
+    await st().runBacktest();
+    expect(st().mcResult!.source).not.toBe(st().btResult);
+    st().clearBacktest();
+    expect(st().btResult).toBeNull();
+    expect(st().mcResult!.source).not.toBe(st().btResult);
+  });
+
+  it('runMonteCarlo drops a reply that lands after the backtest was replaced', async () => {
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    await st().runBacktest();
+    const pending = st().runMonteCarlo();
+    st().clearBacktest(); // replaced while the run is in flight
+    await pending;
+    expect(st().mcResult).toBeNull();
+    expect(st().mcRunning).toBe(false);
+  });
+
   it('runBacktest only sees in-range bars', async () => {
     const { useStore, candles } = await setup();
     const from = candles[20].time;
@@ -190,10 +224,11 @@ describe('btRange', () => {
     class FakeWorker {
       onmessage: ((ev: { data: unknown }) => void) | null = null;
       onerror: (() => void) | null = null;
+      terminate() {}
       postMessage(req: { id: string; candles: { time: number }[] }) {
         sent.push(req);
         queueMicrotask(() =>
-          this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], metric: 'sharpe', combos: 0, errored: 0 } }),
+          this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: [], metric: 'sharpe', combos: 0, errored: 0 } }),
         );
       }
     }
@@ -206,6 +241,359 @@ describe('btRange', () => {
     expect(sent[0].candles).toHaveLength(31);
     expect(sent[0].candles[0].time).toBe(from);
     expect(sent[0].candles[30].time).toBe(to);
+  });
+
+  describe('monte-carlo validation', () => {
+    it('sends the setting to the worker and keeps it in the run context', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const posts: Array<{ id: string; optimize?: unknown }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        postMessage(req: { id: string }) {
+          posts.push(req);
+          const validation = { method: 'monte-carlo', topN: 5, iterations: 500, mcMethod: 'bootstrap', seed: 4, checks: [], failed: 0 };
+          queueMicrotask(() => this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, validation } }));
+        }
+        terminate() {}
+      }
+      vi.stubGlobal('Worker', FakeW);
+      const mc = { method: 'monte-carlo', topN: 5, iterations: 500, mcMethod: 'bootstrap', seed: 4 } as const;
+      st().setOptConfig({ validation: mc });
+      await st().runOptimizer();
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(mc);
+      expect(st().optResult!.context.validation).toEqual(mc);
+    });
+  });
+
+  describe('split validation', () => {
+    const split = { method: 'split', inSamplePct: 70, topN: 3 } as const;
+    function fakeWorker(reply: boolean) {
+      const posts: Array<{ id: string; type: string; candles: unknown[]; optimize?: unknown }> = [];
+      const made: Array<{ terminated: boolean }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string; candles: unknown[] }) {
+          posts.push(req);
+          if (reply) {
+            const validation = { method: 'split', inSamplePct: 70, topN: 3, inSample: { from: 1, to: 2, bars: 5 }, heldOut: { from: 3, to: 4, bars: 2 }, checks: [], failed: 0 };
+            queueMicrotask(() =>
+              this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, validation } }),
+            );
+          }
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      return { posts, made };
+    }
+
+    it('sends the whole range with the setting and keeps validation and its context', async () => {
+      const { useStore, candles } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: split });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].candles).toHaveLength(candles.length);
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(split);
+      const r = st().optResult!;
+      expect(r.validation?.method).toBe('split');
+      const cut = Math.floor((candles.length * 70) / 100);
+      expect(r.context.validation).toEqual({
+        method: 'split',
+        inSamplePct: 70,
+        topN: 3,
+        inSample: { from: candles[0].time, to: candles[cut - 1].time, bars: cut },
+        heldOut: { from: candles[cut].time, to: candles[candles.length - 1].time, bars: candles.length - cut },
+      });
+    });
+
+    it('a robustness run sends the setting and keeps it in the context', async () => {
+      const { useStore, candles } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const posts: Array<{ id: string; candles: unknown[]; optimize?: unknown }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        postMessage(req: { id: string; candles: unknown[] }) {
+          posts.push(req);
+          const validation = { method: 'robustness', radius: 2, rankByScore: true, scores: [] };
+          queueMicrotask(() => this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, validation } }));
+        }
+        terminate() {}
+      }
+      vi.stubGlobal('Worker', FakeW);
+      const robust = { method: 'robustness', radius: 2, rankByScore: true } as const;
+      st().setOptConfig({ validation: robust });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].candles).toHaveLength(candles.length);
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(robust);
+      expect(st().optResult!.validation?.method).toBe('robustness');
+      expect(st().optResult!.context.validation).toEqual(robust);
+    });
+
+    it('a bad neighbourhood toasts and posts nothing', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: { method: 'robustness', radius: 0, rankByScore: false } });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(0);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error' && /Neighbourhood/.test(t.text))).toBe(true);
+    });
+
+    it('an invalid split toasts and posts nothing', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: { method: 'split', inSamplePct: 99, topN: 3 } });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(0);
+      expect(st().optRunning).toBe(false);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error' && /In-sample %/.test(t.text))).toBe(true);
+    });
+
+    it('cancel during a split run brings back the previous result', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      fakeWorker(true);
+      await st().runOptimizer();
+      const earlier = st().optResult;
+      expect(earlier).not.toBeNull();
+      const { made } = fakeWorker(false);
+      st().setOptConfig({ validation: split });
+      const run = st().runOptimizer();
+      expect(st().optResult).toBeNull();
+      st().cancelOptimizer();
+      await run;
+      expect(made[0].terminated).toBe(true);
+      expect(st().optResult).toBe(earlier);
+      expect(st().optRunning).toBe(false);
+    });
+  });
+
+  describe('walk-forward validation', () => {
+    const walk = { method: 'walk-forward', windows: 3, inSamplePct: 70, anchored: false } as const;
+    function fakeWorker(reply: boolean) {
+      const posts: Array<{ id: string; type: string; candles: unknown[]; optimize?: unknown }> = [];
+      const made: Array<{ terminated: boolean }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string; candles: unknown[] }) {
+          posts.push(req);
+          if (reply) {
+            const walkForward = { method: 'walk-forward', windows: 3, inSamplePct: 70, anchored: false, spans: [], results: [], incomplete: 0, failed: 0, combined: null, equity: [] };
+            queueMicrotask(() =>
+              this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, walkForward } }),
+            );
+          }
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      return { posts, made };
+    }
+
+    it('posts the setting and keeps the result with the per-window spans', async () => {
+      const { useStore, candles } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: walk });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(1);
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(walk);
+      const r = st().optResult!;
+      expect(r.walkForward?.method).toBe('walk-forward');
+      expect(r.validation).toBeUndefined();
+      const w = r.context.walkForward!;
+      expect(w).toMatchObject({ method: 'walk-forward', windows: 3, inSamplePct: 70, anchored: false });
+      expect(w.spans).toHaveLength(3);
+      const n = candles.length;
+      const oos = Math.floor(n / (3 + 70 / 30));
+      expect(w.spans[2].heldOut).toEqual({ from: candles[n - oos].time, to: candles[n - 1].time, bars: oos });
+      expect(w.spans[0].inSample.bars).toBe(n - 3 * oos);
+    });
+
+    it('an invalid setting toasts and posts nothing', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const { posts } = fakeWorker(true);
+      st().setOptConfig({ validation: { ...walk, windows: 1 } });
+      await st().runOptimizer();
+      expect(posts).toHaveLength(0);
+      expect(st().optRunning).toBe(false);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error' && /Windows/.test(t.text))).toBe(true);
+    });
+
+    it('cancel during a walk-forward run brings back the previous result', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      fakeWorker(true);
+      await st().runOptimizer();
+      const earlier = st().optResult;
+      expect(earlier).not.toBeNull();
+      const { made } = fakeWorker(false);
+      st().setOptConfig({ validation: walk });
+      const run = st().runOptimizer();
+      expect(st().optResult).toBeNull();
+      st().cancelOptimizer();
+      await run;
+      expect(made[0].terminated).toBe(true);
+      expect(st().optResult).toBe(earlier);
+      expect(st().optRunning).toBe(false);
+    });
+  });
+
+  describe('cancelOptimizer', () => {
+    function stubWorkers(answer: boolean) {
+      const made: FakeW[] = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        posts: Array<{ id: string; type: string }> = [];
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string }) {
+          this.posts.push(req);
+          if (req.type === 'optimize' && answer)
+            queueMicrotask(() =>
+              this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0 } }),
+            );
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      return made;
+    }
+
+    it('restores the earlier result, pushes no error, terminates only that worker, ignores late messages', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const made = stubWorkers(true);
+      await st().runOptimizer();
+      expect(made).toHaveLength(1);
+      expect(made[0].terminated).toBe(true); // an answered run terminates its dedicated worker
+      const earlier = st().optResult;
+      expect(earlier?.combos).toBe(7);
+
+      // the run's settings are kept with the result; later edits do not change them
+      const ctx = earlier!.context;
+      expect(ctx.strategyId).toBe(st().btConfig.strategyId);
+      expect(ctx.initialCapital).toBe(st().btConfig.initialCapital);
+      expect(ctx.bars).toBe(st().candles.length);
+      expect(ctx.sweeps).toEqual(st().optConfig.sweeps);
+      const before = JSON.stringify(ctx);
+      const startCapital = st().btConfig.initialCapital;
+      st().setBtConfig({ initialCapital: startCapital + 5000, feeBps: 77 });
+      st().setBtRange({ from: st().candles[3].time, to: null });
+      st().setOptConfig({ sweeps: [{ key: 'slow', from: 1, to: 2, step: 1 }] });
+      expect(st().optResult!.context).toBe(ctx);
+      expect(JSON.stringify(ctx)).toBe(before);
+      expect(ctx.initialCapital).toBe(startCapital);
+      expect(ctx.feeBps).not.toBe(77);
+
+      const made2 = stubWorkers(false);
+      const run = st().runOptimizer();
+      expect(st().optRunning).toBe(true);
+      expect(st().optResult).toBeNull();
+      const lateHandler = made2[0].onmessage;
+      const lateId = made2[0].posts[0].id;
+      expect(lateHandler).not.toBeNull();
+      st().cancelOptimizer();
+      await run;
+      expect(made2).toHaveLength(1);
+      expect(made2[0].terminated).toBe(true);
+      expect(st().optRunning).toBe(false);
+      expect(st().optProgress).toBe(0);
+      expect(st().optResult).toBe(earlier);
+      expect(st().optResult!.context.initialCapital).toBe(startCapital); // its own context, not the cancelled run's
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error')).toBe(false);
+
+      // a late message from the cancelled worker (its real handler, the run's real id) changes nothing
+      lateHandler?.({ data: { id: lateId, type: 'optimizeResult', rows: [], keys: [], metric: 'sharpe', combos: 99, errored: 0 } });
+      expect(st().optResult).toBe(earlier);
+      expect(st().optRunning).toBe(false);
+
+      // the next run builds a fresh worker and posts its request to it
+      const made3 = stubWorkers(false);
+      void st().runOptimizer();
+      expect(made3).toHaveLength(1);
+      expect(made3[0].posts.map((q) => q.type)).toEqual(['optimize']);
+      expect(made3[0].posts[0].id).not.toBe(lateId);
+      st().cancelOptimizer();
+    });
+
+    it('does not touch the shared worker: a backtest in flight during the cancel still resolves', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const made: Array<{ terminated: boolean; onmessage: ((ev: { data: unknown }) => void) | null; last?: { id: string } }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        last?: { id: string };
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string }) {
+          this.last = req;
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      const bt = st().runBacktest();
+      const shared = made[0];
+      void st().runOptimizer();
+      expect(made).toHaveLength(2);
+      st().cancelOptimizer();
+      expect(shared.terminated).toBe(false);
+      expect(made[1].terminated).toBe(true);
+      const { runFullBacktest } = await import('../lib/backtest/runner');
+      const result = runFullBacktest(st().candles, st().btConfig);
+      shared.onmessage?.({ data: { id: shared.last!.id, type: 'result', result } });
+      await bt;
+      expect(st().btResult).not.toBeNull();
+    });
+  });
+
+  it('applyOptimizeRow sets exactly the row params and the next backtest equals the row metrics', async () => {
+    const { useStore } = await setup();
+    const { runOptimize } = await import('../lib/backtest/optimizer');
+    const st = () => chartOf(useStore).getState();
+    st().setBtConfig({ feeBps: 0, slippageBps: 0 });
+    const out = runOptimize(chartOf(useStore).getState().candles, st().btConfig, {
+      sweeps: [{ key: 'slow', from: 20, to: 40, step: 10 }],
+      metric: 'totalReturnPct',
+    });
+    const row = out.rows[out.rows.length - 1];
+    expect(Object.keys(row.params)).toEqual(['slow']);
+    const before = { ...st().btConfig.params };
+    await st().applyOptimizeRow(row);
+    expect(st().btConfig.params).toEqual({ ...before, ...row.params });
+    expect(st().btResult!.metrics).toEqual(row.metrics);
   });
 
   it('From later than To starts nothing and pushes an error toast', async () => {
@@ -1088,6 +1476,36 @@ describe('replay', () => {
     expect(bad.getState().drawingMagnet).toBe(false);
     expect(bad.getState().drawingsHidden).toBe(false);
   });
+
+  it('drawing defaults: persisted per tool, bad or unknown entries load as nothing', async () => {
+    const load = async (prefs: Record<string, unknown>) => {
+      vi.resetModules();
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const st = track((await import('./store')).useStore);
+      st.getState().init();
+      return st;
+    };
+    const fresh = await load({});
+    expect(fresh.getState().drawingDefaults).toEqual({});
+    fresh.getState().setDrawingDefault('trendLine', { width: 3, color: '#ff0000', bogus: 1 });
+    fresh.getState().setDrawingDefault('ghost', { width: 3 });
+    expect(fresh.getState().drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+    fresh.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+
+    vi.resetModules();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const again = track((await import('./store')).useStore);
+    again.getState().init();
+    expect(again.getState().drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+    again.getState().setDrawingDefault('trendLine', null);
+    expect(again.getState().drawingDefaults).toEqual({});
+
+    for (const bad of ['x', 5, [], null, { ghost: { width: 3 }, trendLine: 'x', ray: { width: 'wide' }, rectangle: [] }]) {
+      expect((await load({ drawingDefaults: bad })).getState().drawingDefaults).toEqual({});
+    }
+  });
 });
 
 
@@ -1306,5 +1724,91 @@ describe('two chart stores stay apart', () => {
     expect(b.getState().symbol).toBe('BBB');
     expect(b.getState().candles).toHaveLength(40);
     expect(b.getState().loadState).toBe('ready');
+  });
+});
+
+describe('runBacktest progress', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  async function boot() {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const text = readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8');
+    const candles = candlesFromCsvText(text).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    chartOf(useStore).setState({ candles });
+    return { useStore, candles };
+  }
+
+  it('btProgress and btStage follow the worker messages and reset when the run ends', async () => {
+    const { useStore } = await boot();
+    const seen: [number, string | null, boolean][] = [];
+    class FakeWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string }) {
+        const send = (data: unknown) => this.onmessage?.({ data: { id: req.id, ...(data as object) } });
+        const snap = () => {
+          const s = chartOf(useStore).getState();
+          seen.push([s.btProgress, s.btStage, s.btRunning]);
+        };
+        queueMicrotask(async () => {
+          const { runFullBacktest } = await import('../lib/backtest/runner');
+          send({ type: 'progress', pct: 0.3, stage: 'simulating' });
+          snap();
+          send({ type: 'progress', pct: 0.95, stage: 'metrics' });
+          snap();
+          send({ type: 'result', result: runFullBacktest(chartOf(useStore).getState().candles, chartOf(useStore).getState().btConfig) });
+        });
+      }
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    await chartOf(useStore).getState().runBacktest();
+    expect(seen).toEqual([
+      [0.3, 'simulating', true],
+      [0.95, 'metrics', true],
+    ]);
+    const s = chartOf(useStore).getState();
+    expect(s.btRunning).toBe(false);
+    expect(s.btStage).toBeNull();
+    expect(s.btProgress).toBe(0);
+    expect(s.btResult).not.toBeNull();
+  });
+
+  it('an error reply clears progress and stage', async () => {
+    const { useStore } = await boot();
+    class FakeWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string }) {
+        queueMicrotask(() => {
+          this.onmessage?.({ data: { id: req.id, type: 'progress', pct: 0.5, stage: 'simulating' } });
+          this.onmessage?.({ data: { id: req.id, type: 'error', message: 'boom' } });
+        });
+      }
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    await chartOf(useStore).getState().runBacktest();
+    const s = chartOf(useStore).getState();
+    expect(s.btRunning).toBe(false);
+    expect(s.btError).toBe('boom');
+    expect(s.btStage).toBeNull();
+    expect(s.btProgress).toBe(0);
+  });
+
+  it('the main-thread fallback reports progress too', async () => {
+    const { useStore } = await boot();
+    vi.stubGlobal('Worker', class { constructor() { throw new Error('no workers'); } });
+    const stages = new Set<string>();
+    const unsub = chartOf(useStore).subscribe((s) => { if (s.btStage) stages.add(s.btStage); });
+    await chartOf(useStore).getState().runBacktest();
+    unsub();
+    expect([...stages]).toEqual(expect.arrayContaining(['signals', 'simulating', 'metrics']));
+    expect(chartOf(useStore).getState().btRunning).toBe(false);
   });
 });

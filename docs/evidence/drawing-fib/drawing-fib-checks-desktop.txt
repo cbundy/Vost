@@ -1,0 +1,44 @@
+ok   nothing stored after Escape
+ok   Fib time zone stored - fibTimeZone:2
+ok   Fib speed resistance fan stored - fibTimeZone:2,fibSpeedFan:2
+ok   Fib circles stored - fibTimeZone:2,fibSpeedFan:2,fibCircles:2
+ok   Fib spiral stored - fibTimeZone:2,fibSpeedFan:2,fibCircles:2,fibSpiral:2
+ok   Fib speed resistance arcs stored - fibTimeZone:2,fibSpeedFan:2,fibCircles:2,fibSpiral:2,fibSpeedArcs:2
+ok   chart painted
+ok   Fib time zone resized by a handle - [[{"time":1617753600,"price":94.93049883845018},{"time":1619136000,"price":157.27646516808963}],[{"time":1617753600,"price":94.93049883845018},{"time":1619136000,"price":146.2957679088744}]]
+ok   Fib time zone first point moved - [[{"time":1617753600,"price":94.93049883845018},{"time":1619136000,"price":146.2957679088744}],[{"time":1619827200,"price":94.93049883845018},{"time":1619136000,"price":146.2957679088744}]]
+ok   Fib time zone undo reverts the move
+ok   Fib time zone settings are titled for the tool
+ok   Fib time zone restyled - {"levels":[{"value":0,"color":"accent","on":true},{"value":1,"color":"accent","on":true},{"value":2,"color":"accent","on":false},{"value":3,"color":"accent","on":true},{"value":5,"color":"accent","on"
+ok   Fib time zone undo reverts the restyle
+ok   Fib time zone redo restores the restyle
+ok   Fib speed resistance fan resized by a handle - [[{"time":1639008000,"price":16.99805023485328},{"time":1668124800,"price":94.93049883845018}],[{"time":1639008000,"price":16.99805023485328},{"time":1668124800,"price":83.94980157923496}]]
+ok   Fib speed resistance fan first point moved - [[{"time":1639008000,"price":16.99805023485328},{"time":1668124800,"price":83.94980157923496}],[{"time":1641081600,"price":16.99805023485328},{"time":1668124800,"price":83.94980157923496}]]
+ok   Fib speed resistance fan undo reverts the move
+ok   Fib speed resistance fan settings are titled for the tool
+ok   Fib speed resistance fan restyled - {"priceLevels":[{"value":0,"color":"accent","on":true},{"value":0.25,"color":"accent","on":true},{"value":0.382,"color":"accent","on":false},{"value":0.5,"color":"accent","on":true},{"value":0.618,"co
+ok   Fib speed resistance fan undo reverts the restyle
+ok   Fib speed resistance fan redo restores the restyle
+ok   Fib circles resized by a handle - [[{"time":1702598400,"price":188.44943902445695},{"time":1707955200,"price":141.68996427722738}],[{"time":1702598400,"price":188.44943902445695},{"time":1707955200,"price":130.70926701801218}]]
+ok   Fib circles first point moved - [[{"time":1702598400,"price":188.44943902445695},{"time":1707955200,"price":130.70926701801218}],[{"time":1704672000,"price":188.44943902445695},{"time":1707955200,"price":130.70926701801218}]]
+ok   Fib circles undo reverts the move
+ok   Fib circles settings are titled for the tool
+ok   Fib circles restyled - {"levels":[{"value":0.236,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":true},{"value":0.618,"color":"accent","on":false},{"value":0.786,"co
+ok   Fib circles undo reverts the restyle
+ok   Fib circles redo restores the restyle
+ok   Fib spiral resized by a handle - [[{"time":1641600000,"price":204.0359306068668},{"time":1649548800,"price":219.62242218927668}],[{"time":1641600000,"price":204.0359306068668},{"time":1649548800,"price":208.64172493006143}]]
+ok   Fib spiral first point moved - [[{"time":1641600000,"price":204.0359306068668},{"time":1649548800,"price":208.64172493006143}],[{"time":1643673600,"price":204.0359306068668},{"time":1649548800,"price":208.64172493006143}]]
+ok   Fib spiral undo reverts the move
+ok   Fib spiral settings are titled for the tool
+ok   Fib spiral restyled - {"counterClockwise":true}
+ok   Fib spiral undo reverts the restyle
+ok   Fib spiral redo restores the restyle
+ok   Fib speed resistance arcs resized by a handle - [[{"time":1726444800,"price":16.99805023485328},{"time":1742428800,"price":63.757515673630465}],[{"time":1726444800,"price":16.99805023485328},{"time":1742428800,"price":52.776818414415246}]]
+ok   Fib speed resistance arcs first point moved - [[{"time":1726444800,"price":16.99805023485328},{"time":1742428800,"price":52.776818414415246}],[{"time":1728518400,"price":16.99805023485328},{"time":1742428800,"price":52.776818414415246}]]
+ok   Fib speed resistance arcs undo reverts the move
+ok   Fib speed resistance arcs settings are titled for the tool
+ok   Fib speed resistance arcs restyled - {"levels":[{"value":0.236,"color":"accent","on":true},{"value":0.382,"color":"accent","on":true},{"value":0.5,"color":"accent","on":false},{"value":0.618,"color":"accent","on":true},{"value":0.786,"co
+ok   Fib speed resistance arcs undo reverts the restyle
+ok   Fib speed resistance arcs redo restores the restyle
+ok   five drawings after reload
+ok   unchanged by the timeframe change

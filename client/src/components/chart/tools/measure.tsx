@@ -11,6 +11,8 @@ const LINE = 16;
 export const measure: DrawingTool = {
   id: 'measure',
   label: 'Measure',
+  group: 'forecast-measure',
+  section: 'Measurers',
   icon: (
     <Svg>
       <path d="M3 16 16 3l5 5L8 21z" />

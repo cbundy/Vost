@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { METRIC_LABELS, paramValues, type MetricKey, type OptimizeRow } from '../lib/backtest/optimizer';
+import { gridSize, MAX_GRID_COMBOS, METRIC_LABELS, type MetricKey, type SweepParam } from '../lib/backtest/optimizer';
 import { getStrategy } from '../lib/backtest/strategies';
-import { fmtNum, fmtPct, fmtTime } from '../lib/format';
+import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
 import { useStore } from '../state/store';
 import { selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
+import { OptimizerResults } from './OptimizerResults';
+import { ValidationSettings } from './OptimizerValidation';
+import { splitBars, spanOf, totalBacktests, validationProblem } from '../lib/backtest/validation';
+import { walkForwardSizes } from '../lib/backtest/walkForward';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
 
@@ -20,6 +24,7 @@ export function OptimizerTab() {
   const timeZone = useStore((s) => s.timeZone);
   const setOptConfig = useChart((s) => s.setOptConfig);
   const runOptimizer = useChart((s) => s.runOptimizer);
+  const cancelOptimizer = useChart((s) => s.cancelOptimizer);
   const applyOptimizeRow = useChart((s) => s.applyOptimizeRow);
 
   const range = describeTimeRange(candles, btRange);
@@ -32,83 +37,104 @@ export function OptimizerTab() {
         ? 'Range: fewer than 3 bars (set in Backtest)'
         : `Range: ${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars · ${fmtTime(range.slice[0].time, { timeZone })} → ${fmtTime(range.slice[range.slice.length - 1].time, { timeZone })} (set in Backtest)`;
 
+  const validation = optConfig.validation ?? { method: 'none' as const };
+  const validationText = range.error == null ? validationProblem(validation, range.count) : null;
+  const rangeSpans = (() => {
+    if (validation.method === 'walk-forward' && range.error == null && validationText == null) {
+      const { isLen, oosLen } = walkForwardSizes(range.count, validation);
+      const anchored = validation.anchored ? ` (anchored: ${isLen} to ${isLen + (validation.windows - 1) * oosLen})` : '';
+      return `${validation.windows} windows · in-sample ${fmtNum(isLen, 0)} bars · held-out ${fmtNum(oosLen, 0)} bars each${anchored}`;
+    }
+    if (validation.method !== 'split' || range.error != null || validationText != null) return null;
+    const parts = splitBars(range.slice, validation.inSamplePct);
+    const f = (s: ReturnType<typeof spanOf>) => `${fmtNum(s.bars, 0)} bars ${fmtTime(s.from, { timeZone })} → ${fmtTime(s.to, { timeZone })}`;
+    return `In-sample: ${f(spanOf(parts.inSample))} · Held-out: ${f(spanOf(parts.heldOut))}`;
+  })();
+
   const strategy = getStrategy(btConfig.strategyId);
   const pineInputs = useChart((s) => s.pineInputs);
   const numericParams = strategy.pine
     ? pineInputs
         .filter((i) => i.type === 'int' || i.type === 'float')
-        .map((i) => ({ key: i.name, label: i.name }))
-    : strategy.params.filter((p) => p.type !== 'select');
+        .map((i) => ({ key: i.name, label: i.name, isInt: i.type === 'int' }))
+    : strategy.params.filter((p) => p.type !== 'select').map((p) => ({ key: p.key, label: p.label, isInt: p.type === 'int' }));
   const refreshPineInputs = useChart((s) => s.refreshPineInputs);
   useEffect(() => {
     if (strategy.pine && pineInputs.length === 0) void refreshPineInputs();
   }, [strategy.pine, pineInputs.length, refreshPineInputs, candles.length > 0]);
   const firstKey = numericParams[0]?.key;
+  const defaultValue = (key: string): number => {
+    if (strategy.pine) {
+      const d = pineInputs.find((i) => i.name === key)?.defval;
+      return typeof d === 'number' ? d : 10;
+    }
+    return btConfig.params[key] ?? strategy.params.find((p) => p.key === key)?.default ?? 10;
+  };
+  const defaultSweep = (key: string): SweepParam => {
+    const base = defaultValue(key);
+    return { key, from: Math.max(1, Math.round(base * 0.5)), to: Math.max(2, Math.round(base * 1.5)), step: 1 };
+  };
   useEffect(() => {
-    if (!strategy.pine || !firstKey || numericParams.some((p) => p.key === optConfig.sweepA.key)) return;
-    const d = pineInputs.find((i) => i.name === firstKey);
-    const base = typeof d?.defval === 'number' ? d.defval : 10;
-    setOptConfig({
-      sweepA: { key: firstKey, from: Math.max(1, Math.round(base * 0.5)), to: Math.max(2, Math.round(base * 1.5)), step: 1 },
-      sweepB: null,
-    });
+    if (!strategy.pine || !firstKey || optConfig.sweeps.some((sw) => numericParams.some((p) => p.key === sw.key))) return;
+    setOptConfig({ sweeps: [defaultSweep(firstKey)] });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategy.pine, firstKey]);
-  const combos = paramValues(optConfig.sweepA).length * (optConfig.sweepB ? paramValues(optConfig.sweepB).length : 1);
+  const combos = gridSize(optConfig);
+  const isIntKey = (key: string) => numericParams.find((p) => p.key === key)?.isInt === true;
+  const stepProblem = optConfig.sweeps.find((sw) => isIntKey(sw.key) && !Number.isInteger(sw.step))?.key ?? null;
+  const usedKeys = new Set(optConfig.sweeps.map((sw) => sw.key));
+  const nextFree = numericParams.find((p) => !usedKeys.has(p.key));
+  const patchSweep = (i: number, patch: Partial<SweepParam>) =>
+    setOptConfig({ sweeps: optConfig.sweeps.map((sw, j) => (j === i ? { ...sw, ...patch } : sw)) });
+  const walking = validation.method === 'walk-forward';
+  // Only walk-forward adds backtests beyond the grid that count against the limit.
+  const total = walking ? totalBacktests(optConfig) : combos;
+  const overLimit = total > MAX_GRID_COMBOS;
 
   return (
     <div>
       <div className="hint mb-2">
-        Grid-search strategy parameters in your browser — thousands of backtests, no limits, no server. Click a result to apply it and
+        Grid-search strategy parameters in your browser — up to {fmtNum(MAX_GRID_COMBOS, 0)} backtests per run, no server. Click a result to apply it and
         re-run instantly.
       </div>
 
       <div className="form-grid">
-        <label className="form-field">
-          <span>Parameter A</span>
-          <select
-            value={optConfig.sweepA.key}
-            onChange={(e) => setOptConfig({ sweepA: { ...optConfig.sweepA, key: e.target.value } })}
+        {optConfig.sweeps.map((sw, i) => (
+          <div key={i} style={{ display: 'contents' }}>
+            <label className="form-field">
+              <span>Parameter {i + 1}</span>
+              <select value={sw.key} onChange={(e) => patchSweep(i, { key: e.target.value })}>
+                {numericParams
+                  .filter((p) => p.key === sw.key || !usedKeys.has(p.key))
+                  .map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <SweepRange from={sw.from} to={sw.to} step={sw.step} onChange={(patch) => patchSweep(i, patch)}>
+              <button
+                className="ghost"
+                aria-label={`Remove parameter ${i + 1}`}
+                disabled={optConfig.sweeps.length <= 1}
+                onClick={() => setOptConfig({ sweeps: optConfig.sweeps.filter((_, j) => j !== i) })}
+              >
+                Remove
+              </button>
+            </SweepRange>
+          </div>
+        ))}
+        <div className="form-field">
+          <button
+            className="ghost"
+            aria-label="Add parameter"
+            disabled={!nextFree}
+            onClick={() => nextFree && setOptConfig({ sweeps: [...optConfig.sweeps, defaultSweep(nextFree.key)] })}
           >
-            {numericParams.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <SweepRange
-          from={optConfig.sweepA.from}
-          to={optConfig.sweepA.to}
-          step={optConfig.sweepA.step}
-          onChange={(patch) => setOptConfig({ sweepA: { ...optConfig.sweepA, ...patch } })}
-        />
-
-        <label className="form-field">
-          <span>Parameter B (2D sweep)</span>
-          <select
-            value={optConfig.sweepB?.key ?? ''}
-            onChange={(e) => {
-              if (!e.target.value) setOptConfig({ sweepB: null });
-              else setOptConfig({ sweepB: optConfig.sweepB ? { ...optConfig.sweepB, key: e.target.value } : { key: e.target.value, from: 2, to: 50, step: 2 } });
-            }}
-          >
-            <option value="">— none (1D) —</option>
-            {numericParams.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {optConfig.sweepB && (
-          <SweepRange
-            from={optConfig.sweepB.from}
-            to={optConfig.sweepB.to}
-            step={optConfig.sweepB.step}
-            onChange={(patch) => setOptConfig({ sweepB: { ...optConfig.sweepB!, ...patch } })}
-          />
-        )}
+            + Add parameter
+          </button>
+        </div>
 
         <label className="form-field">
           <span>Rank by</span>
@@ -120,39 +146,48 @@ export function OptimizerTab() {
             ))}
           </select>
         </label>
+        <ValidationSettings value={validation} onChange={(v) => setOptConfig({ validation: v })} />
       </div>
 
       <div className="row mt-3 wrap">
-        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0} onClick={() => void runOptimizer()}>
-          {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : `Optimize ${combos} combinations`}
+        <button className="primary" disabled={optRunning || candles.length < 3 || range.error != null || combos === 0 || overLimit || stepProblem != null || validationText != null} onClick={() => void runOptimizer()}>
+          {optRunning ? <span className="spinner" /> : '⛭'} {optRunning ? ' Optimizing…' : walking && Number.isFinite(total) ? `Optimize ${fmtNum(total, 0)} backtests (${validation.windows} windows x ${fmtNum(combos, 0)} combinations)` : `Optimize ${combos} combinations`}
         </button>
-        {combos > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
+        {overLimit && (
+          <span className="hint" style={{ color: 'var(--amber)' }}>
+            {walking
+              ? `Too many backtests: ${fmtNum(total, 0)} (${validation.windows} windows x ${fmtNum(combos, 0)} combinations + ${validation.windows}), the limit is ${fmtNum(MAX_GRID_COMBOS, 0)}. Use fewer windows, narrow a range or raise a step.`
+              : `Grid too large: ${fmtNum(combos, 0)} combinations, the limit is ${fmtNum(MAX_GRID_COMBOS, 0)}. Narrow a range or raise a step.`}
+          </span>
+        )}
+        {stepProblem != null && (
+          <span className="hint" style={{ color: 'var(--amber)' }}>
+            {stepProblem} is a whole-number parameter: use a whole-number step.
+          </span>
+        )}
+        {validationText != null && (
+          <span className="hint" style={{ color: 'var(--amber)' }}>
+            {validationText}
+          </span>
+        )}
+        {!overLimit && total > 2000 && <span className="hint" style={{ color: 'var(--amber)' }}>Large grid — this may take a while.</span>}
         <span className="hint">{rangeText}</span>
+        {rangeSpans && <span className="hint">{rangeSpans}</span>}
         <span className="hint">{numericParams.length === 0 ? 'This strategy has no numeric parameters to sweep.' : ''}</span>
       </div>
 
       {optRunning && (
-        <div className="progress mt-3" style={{ maxWidth: 420 }}>
-          <div style={{ width: `${Math.round(optProgress * 100)}%` }} />
+        <div className="row mt-3">
+          <div className="progress" style={{ maxWidth: 420, flex: 1 }}>
+            <div style={{ width: `${Math.round(optProgress * 100)}%` }} />
+          </div>
+          <button className="ghost" aria-label="Cancel" onClick={() => cancelOptimizer()}>
+            Cancel
+          </button>
         </div>
       )}
 
-      {optResult && (
-        <div className="mt-3">
-          <div className="row mb-2 wrap">
-            <span className="section-title" style={{ margin: 0 }}>
-              Top results · {METRIC_LABELS[optResult.metric]}
-            </span>
-            <span className="badge">{optResult.combos} combos</span>
-            {optResult.errored > 0 && <span className="badge red">{optResult.errored} failed</span>}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 16, alignItems: 'start' }}>
-            <TopResultsTable rows={optResult.rows} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
-            <Heatmap rows={optResult.rows} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
-          </div>
-        </div>
-      )}
+      {optResult && <OptimizerResults result={optResult} onApply={(row) => void applyOptimizeRow(row)} />}
     </div>
   );
 }
@@ -162,188 +197,29 @@ function SweepRange({
   to,
   step,
   onChange,
+  children,
 }: {
   from: number;
   to: number;
   step: number;
   onChange: (patch: { from?: number; to?: number; step?: number }) => void;
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="form-field" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
-      <label className="form-field" style={{ flex: 1 }}>
+    <div className="form-field" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 6 }}>
+      <label className="form-field" style={{ flex: '1 1 72px', minWidth: 72 }}>
         <span>From</span>
         <input type="number" value={from} onChange={(e) => onChange({ from: Number(e.target.value) })} />
       </label>
-      <label className="form-field" style={{ flex: 1 }}>
+      <label className="form-field" style={{ flex: '1 1 72px', minWidth: 72 }}>
         <span>To</span>
         <input type="number" value={to} onChange={(e) => onChange({ to: Number(e.target.value) })} />
       </label>
-      <label className="form-field" style={{ flex: 1 }}>
+      <label className="form-field" style={{ flex: '1 1 72px', minWidth: 72 }}>
         <span>Step</span>
         <input type="number" min={0.001} value={step} onChange={(e) => onChange({ step: Math.max(0.001, Number(e.target.value)) })} />
       </label>
+      {children}
     </div>
-  );
-}
-
-export function formatMetric(metric: MetricKey, value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return value === Number.POSITIVE_INFINITY ? '∞' : '—';
-  if (metric.endsWith('Pct')) return fmtPct(value, 1);
-  return fmtNum(value, 2);
-}
-
-function TopResultsTable({ rows, metric, onApply }: { rows: OptimizeRow[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
-  const top = rows.slice(0, 12);
-  const paramKeys = Array.from(new Set(rows.flatMap((r) => Object.keys(r.params)))).slice(0, 4);
-  return (
-    <div className="table-wrap" style={{ maxHeight: 220 }}>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            {paramKeys.map((k) => (
-              <th key={k}>{k}</th>
-            ))}
-            <th>{METRIC_LABELS[metric]}</th>
-            <th>Return</th>
-            <th>Max DD</th>
-            <th>Trades</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {top.map((row, i) => (
-            <tr key={i}>
-              <td>{i + 1}</td>
-              {paramKeys.map((k) => (
-                <td key={k}>{row.params[k] ?? '—'}</td>
-              ))}
-              <td style={{ color: 'var(--accent-2)', fontWeight: 600 }}>{formatMetric(metric, row.value)}</td>
-              <td className={row.metrics.totalReturnPct >= 0 ? 'pos' : 'neg'}>{fmtPct(row.metrics.totalReturnPct, 1)}</td>
-              <td className="neg">{fmtPct(row.metrics.maxDrawdownPct, 1)}</td>
-              <td>{row.metrics.trades}</td>
-              <td>
-                <button className="ghost" onClick={() => onApply(row)} title="Apply these parameters and run the backtest">
-                  Apply
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Heatmap({ rows, metric, onApply }: { rows: OptimizeRow[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
-  const withB = rows.filter((r) => Object.keys(r.params).length >= 2);
-  const aKey = Object.keys(rows[0]?.params ?? {})[0];
-  const bKey = Object.keys(rows[0]?.params ?? {})[1];
-  if (!aKey) return null;
-
-  const values = rows.map((r) => r.value).filter((v): v is number => v != null && Number.isFinite(v));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const aVals = Array.from(new Set(rows.map((r) => r.params[aKey]))).sort((x, y) => x - y);
-  const bVals = bKey ? Array.from(new Set(rows.map((r) => r.params[bKey]))).sort((x, y) => x - y) : [null];
-  if (aVals.length * bVals.length > 900) {
-    return <div className="hint">Heatmap hidden (grid too large). See the table instead.</div>;
-  }
-
-  const color = (v: number | null): string => {
-    if (v == null || !Number.isFinite(v)) return 'rgba(139,148,167,0.1)';
-    const t = max === min ? 0.5 : (v - min) / (max - min);
-    const r = Math.round(239 - t * (239 - 34));
-    const g = Math.round(68 + t * (197 - 68));
-    const b = Math.round(68 + t * (94 - 68));
-    return `rgba(${r},${g},${b},${0.18 + 0.45 * t})`;
-  };
-
-  const lookup = new Map<string, OptimizeRow>();
-  for (const r of rows) lookup.set(`${r.params[aKey]}|${bKey ? r.params[bKey] : ''}`, r);
-
-  const best = rows[0];
-  return (
-    <div>
-      <div className="hint mb-2">
-        Rows: <b>{aKey}</b>
-        {bKey ? (
-          <>
-            {' '}
-            · Columns: <b>{bKey}</b>
-          </>
-        ) : null}{' '}
-        · colour = {METRIC_LABELS[metric]}
-        {withB.length === 0 ? ' (1D sweep)' : ''}
-      </div>
-      <div className="heatmap" style={{ gridTemplateColumns: `52px repeat(${bVals.length}, minmax(52px, 1fr))` }}>
-        <div className="hm-head" />
-        {bVals.map((bv) => (
-          <div className="hm-head" key={String(bv)}>
-            {bv ?? '—'}
-          </div>
-        ))}
-        {aVals.map((av) => (
-          <RowCells
-            key={av}
-            av={av}
-            aKey={aKey}
-            bVals={bVals}
-            bKey={bKey}
-            lookup={lookup}
-            color={color}
-            metric={metric}
-            bestKey={best ? `${best.params[aKey]}|${bKey ? best.params[bKey] : ''}` : ''}
-            onApply={onApply}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RowCells({
-  av,
-  aKey,
-  bVals,
-  bKey,
-  lookup,
-  color,
-  metric,
-  bestKey,
-  onApply,
-}: {
-  av: number;
-  aKey: string;
-  bVals: Array<number | null>;
-  bKey: string | undefined;
-  lookup: Map<string, OptimizeRow>;
-  color: (v: number | null) => string;
-  metric: MetricKey;
-  bestKey: string;
-  onApply: (row: OptimizeRow) => void;
-}) {
-  return (
-    <>
-      <div className="hm-head">{av}</div>
-      {bVals.map((bv) => {
-        const row = lookup.get(`${av}|${bv ?? ''}`);
-        const key = `${av}|${bv ?? ''}`;
-        return (
-          <div
-            key={String(bv)}
-            className="hm-cell"
-            title={row ? `${aKey}=${av}${bKey ? `, ${bKey}=${bv}` : ''} → ${formatMetric(metric, row.value)}` : 'no result'}
-            style={{
-              background: color(row?.value ?? null),
-              outline: key === bestKey ? '1px solid var(--accent-2)' : undefined,
-            }}
-            onClick={() => row && onApply(row)}
-          >
-            {row ? formatMetric(metric, row.value) : '—'}
-          </div>
-        );
-      })}
-    </>
   );
 }

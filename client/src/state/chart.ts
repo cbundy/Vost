@@ -11,10 +11,16 @@ import { applyKline, mergeCandles } from '../lib/applyKline';
 import { MAX_BARS, intervalSeconds } from '../../../shared/market.ts';
 import type { Candle, Dataset, Interval } from '../types';
 import { uid } from '../types';
-import type { BacktestResult, BacktestConfig } from '../lib/backtest/types';
+import type { BacktestResult, BacktestConfig, BacktestStage } from '../lib/backtest/types';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/optimizer';
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
+import type { MonteCarloOptions, MonteCarloResult } from '../lib/backtest/monteCarlo';
+import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
+import { getStrategy } from '../lib/backtest/strategies';
+import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
+import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
+import { walkForwardWindows, type WalkForwardOutput } from '../lib/backtest/walkForward';
 import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
@@ -38,7 +44,7 @@ import {
   stepReplay as stepPosition,
 } from '../lib/replay';
 import { nextPineSelection } from '../lib/pineSelection';
-import { workerCall } from './worker';
+import { CancelledError, optimizerCall, workerCall } from './worker';
 import type { BroadcastOpt, SyncChange } from '../lib/layoutSync';
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
@@ -162,8 +168,16 @@ export interface ChartState {
   btRange: TimeRange;
   btRunning: boolean;
   btProgress: number;
+  /** Step of the running backtest, null when none runs or before the first report. */
+  btStage: BacktestStage | null;
   btResult: BacktestResult | null;
   btError: string | null;
+  /** Monte Carlo settings of the Results tab. */
+  mcConfig: MonteCarloOptions;
+  mcRunning: boolean;
+  mcError: string | null;
+  /** The last Monte Carlo result and the backtest result it came from; only current while `source === btResult`. */
+  mcResult: { source: BacktestResult; result: MonteCarloResult; options: MonteCarloOptions } | null;
   /** Inputs declared by the Pine script in the Backtest panel (not persisted). */
   pineInputs: PineInput[];
 
@@ -171,7 +185,17 @@ export interface ChartState {
   optConfig: OptimizeConfig;
   optRunning: boolean;
   optProgress: number;
-  optResult: { rows: OptimizeRow[]; metric: MetricKey; combos: number; errored: number } | null;
+  /** The last finished run, with the settings it ran with (kept for the export). */
+  optResult: {
+    rows: OptimizeRow[];
+    keys: string[];
+    metric: MetricKey;
+    combos: number;
+    errored: number;
+    validation?: ValidationOutput;
+    walkForward?: WalkForwardOutput;
+    context: OptimizeRunContext;
+  } | null;
 
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
@@ -216,8 +240,13 @@ export interface ChartState {
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
+  setMcConfig(patch: Partial<MonteCarloOptions>): void;
+  /** Reshuffles or resamples the current backtest's trades; a reply that lands after the backtest was replaced is dropped. */
+  runMonteCarlo(): Promise<void>;
   setOptConfig(patch: Partial<OptimizeConfig>): void;
   runOptimizer(): Promise<void>;
+  /** Stop a running optimizer sweep and bring back the result shown before it started. */
+  cancelOptimizer(): void;
   applyOptimizeRow(row: OptimizeRow): Promise<void>;
   setLive(v: boolean): void;
   searchSymbols(query: string): Promise<void>;
@@ -230,6 +259,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   const id0 = id; // the chart's id, for actions whose own argument is named id
   /* Per-chart singletons: each chart owns its own live stream, replay timer and request tokens. */
   let liveHandle: LiveHandle | null = null;
+  /** The running optimizer sweep: its cancel handle and the result shown before it started. */
+  let mcToken = 0;
+  let optRun: { cancel: () => void; previous: ChartState['optResult'] } | null = null;
   /** The replay play timer; every path that ends replay clears it. */
   let replayTimer: ReturnType<typeof setTimeout> | null = null;
   const clearReplayTimer = () => {
@@ -381,8 +413,13 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     pineInputs: [],
     btRunning: false,
     btProgress: 0,
+    btStage: null,
     btResult: null,
     btError: null,
+    mcConfig: { ...DEFAULT_MONTE_CARLO },
+    mcRunning: false,
+    mcError: null,
+    mcResult: null,
     optConfig: defaultOptimizeConfig(initial.btConfig),
     optRunning: false,
     optProgress: 0,
@@ -772,20 +809,22 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', timeRangeErrorText(error));
         return;
       }
-      set({ btRunning: true, btProgress: 0, btError: null });
+      set({ btRunning: true, btProgress: 0, btStage: null, btError: null });
       try {
         const t0 = performance.now();
-        const msg = await workerCall({ type: 'run', candles, config: btConfig });
+        const msg = await workerCall({ type: 'run', candles, config: btConfig }, (pct, stage) =>
+          set({ btProgress: pct, btStage: stage ?? null }),
+        );
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
         const ms = Math.round(performance.now() - t0);
-        set({ btResult: msg.result, btRunning: false, btProgress: 1 });
+        set({ btResult: msg.result, btRunning: false, btProgress: 0, btStage: null });
         env.pushToast(
           'success',
           `Backtest finished in ${ms} ms — ${msg.result.trades.length} trade(s), ${candles.length} bars.`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        set({ btRunning: false, btError: message });
+        set({ btRunning: false, btProgress: 0, btStage: null, btError: message });
         env.pushToast('error', `Backtest failed: ${message}`);
       }
     },
@@ -815,6 +854,37 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       set({ btResult: null, btError: null });
     },
 
+    setMcConfig(patch) {
+      set({ mcConfig: { ...get().mcConfig, ...patch } });
+    },
+
+    async runMonteCarlo() {
+      const source = get().btResult;
+      if (!source) return;
+      const options = { ...get().mcConfig };
+      const token = ++mcToken;
+      set({ mcRunning: true, mcError: null });
+      try {
+        const msg = await workerCall({
+          type: 'montecarlo',
+          trades: source.trades,
+          initialCapital: source.metrics.initialCapital,
+          options,
+        });
+        if (msg.type !== 'monteCarloResult') throw new Error('Unexpected worker reply');
+        if (token !== mcToken) return;
+        // The backtest was replaced while this ran: the result belongs to a run that is gone.
+        if (get().btResult !== source) {
+          set({ mcRunning: false });
+          return;
+        }
+        set({ mcResult: { source, result: msg.result, options }, mcRunning: false });
+      } catch (err) {
+        if (token !== mcToken) return;
+        set({ mcRunning: false, mcError: err instanceof Error ? err.message : String(err) });
+      }
+    },
+
     setOptConfig(patch) {
       set({ optConfig: { ...get().optConfig, ...patch } });
     },
@@ -831,14 +901,63 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', timeRangeErrorText(error));
         return;
       }
+      const problem = validationProblem(optConfig.validation, candles.length);
+      if (problem) {
+        env.pushToast('error', problem);
+        return;
+      }
+      const previous = optRun ? optRun.previous : get().optResult;
+      const swept = new Set(optConfig.sweeps.map((sw) => sw.key));
+      const context: OptimizeRunContext = {
+        strategyId: btConfig.strategyId,
+        strategyName: getStrategy(btConfig.strategyId).name,
+        params: Object.fromEntries(Object.entries(btConfig.params).filter(([k]) => !swept.has(k) && !k.startsWith('__'))),
+        symbol: get().symbol,
+        timeframe: get().timeframe,
+        dataLabel: get().dataLabel,
+        rangeFrom: candles[0]?.time ?? null,
+        rangeTo: candles[candles.length - 1]?.time ?? null,
+        bars: candles.length,
+        initialCapital: btConfig.initialCapital,
+        positionSizePct: btConfig.positionSizePct,
+        feeBps: btConfig.feeBps,
+        slippageBps: btConfig.slippageBps,
+        stopLossPct: btConfig.stopLossPct,
+        takeProfitPct: btConfig.takeProfitPct,
+        allowShort: btConfig.allowShort,
+        sweeps: optConfig.sweeps.map((sw) => ({ ...sw })),
+      };
+      const v = optConfig.validation;
+      if (v && v.method === 'robustness') {
+        context.validation = { method: 'robustness', radius: v.radius, rankByScore: v.rankByScore };
+      } else if (v && v.method === 'split') {
+        const parts = splitBars(candles, v.inSamplePct);
+        context.validation = { method: 'split', inSamplePct: v.inSamplePct, topN: v.topN, inSample: spanOf(parts.inSample), heldOut: spanOf(parts.heldOut) };
+      }
+      if (v && v.method === 'monte-carlo') {
+        context.validation = { method: 'monte-carlo', topN: v.topN, iterations: v.iterations, mcMethod: v.mcMethod, seed: v.seed };
+      }
+      if (v && v.method === 'walk-forward') {
+        const spans = walkForwardWindows(candles.length, v).map((w) => ({
+          inSample: spanOf(candles.slice(w.inSample.from, w.inSample.to)),
+          heldOut: spanOf(candles.slice(w.heldOut.from, w.heldOut.to)),
+        }));
+        context.walkForward = { method: 'walk-forward', windows: v.windows, inSamplePct: v.inSamplePct, anchored: v.anchored, spans };
+      }
+      optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
+      const call = optimizerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
+        if (optRun === run) set({ optProgress: pct });
+      });
+      const run = { cancel: call.cancel, previous };
+      optRun = run;
       try {
-        const msg = await workerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
-          set({ optProgress: pct });
-        });
+        const msg = await call.promise;
+        if (optRun !== run) return;
+        optRun = null;
         if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
         set({
-          optResult: { rows: msg.rows, metric: msg.metric, combos: msg.combos, errored: msg.errored },
+          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored, validation: msg.validation, walkForward: msg.walkForward, context },
           optRunning: false,
           optProgress: 1,
         });
@@ -846,9 +965,20 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           env.pushToast('error', `${msg.errored} of ${msg.combos} parameter combinations failed (see custom code).`);
         }
       } catch (err) {
-        set({ optRunning: false });
+        if (optRun !== run || err instanceof CancelledError) return;
+        optRun = null;
+        set({ optRunning: false, optResult: previous });
         env.pushToast('error', `Optimizer failed: ${err instanceof Error ? err.message : String(err)}`);
       }
+    },
+
+    cancelOptimizer() {
+      const run = optRun;
+      if (!run) return;
+      optRun = null;
+      run.cancel();
+      set({ optRunning: false, optProgress: 0, optResult: run.previous });
+      env.pushToast('info', 'Optimizer cancelled');
     },
 
     async applyOptimizeRow(row) {

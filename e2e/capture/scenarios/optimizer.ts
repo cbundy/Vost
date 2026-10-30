@@ -1,0 +1,223 @@
+import type { Scenario } from '../scenario.ts';
+
+export const optimizer: Scenario = {
+  name: 'optimizer',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, a robustness run on two parameters (settings, table ranked by Robustness, the most robust mark on the heatmap), a walk-forward (settings with the range hint, rolling and anchored results with the joined held-out chart, a refused 21 windows), a Monte Carlo check of the top 5 results (settings, the sortable table, sorted by chance of a loss), then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
+  viewports: ['desktop', 'narrow'],
+  async run(ctx) {
+    const { page } = ctx;
+    await ctx.step('open app', () => page.goto('/'));
+    await ctx.waitForChart();
+    await ctx.step('open the Optimizer pane', async () => {
+      const tab = page.locator('.dock-tab', { hasText: 'Optimizer' });
+      if (!(await tab.evaluate((el) => el.classList.contains('active')))) await tab.click();
+      await page.getByText('Parameter 1', { exact: true }).waitFor();
+    });
+    await ctx.step('sweep slow alone', async () => {
+      await page.getByRole('button', { name: 'Remove parameter 1' }).click();
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+      await page.getByText('Rows:').scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('slow-sweep');
+    await ctx.step('split 70% in-sample, check the top 10', async () => {
+      await page.getByLabel('Validation').selectOption('split');
+      await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Top results to check').fill('10');
+      await page.getByText(/^In-sample: [\d,]+ bars/).waitFor();
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('split-settings');
+    await ctx.step('run the split and show the held-out check', async () => {
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Held-out check/).waitFor();
+      await page.getByText(/Results \(in-sample\)/).waitFor();
+      await page.getByText(/Held-out check/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('held-out-check');
+    await ctx.step('refuse 99% in-sample', async () => {
+      await page.getByLabel('In-sample %').fill('99');
+      await page.getByText(/In-sample % must be a whole number/).waitFor();
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).isDisabled();
+      await page.getByText(/In-sample % must be a whole number/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('split-invalid');
+    await ctx.step('back to no validation', async () => {
+      await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Validation').selectOption('none');
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+    });
+    await ctx.step('walk-forward settings: 5 windows, 70%, rolling', async () => {
+      await page.getByLabel('Validation').selectOption('walk-forward');
+      await page.getByLabel('Windows').fill('5');
+      await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Mode').selectOption('rolling');
+      await page.getByText(/^5 windows · in-sample [\d,]+ bars/).waitFor();
+      await page.getByRole('button', { name: /Optimize [\d,]+ backtests \(5 windows/ }).waitFor();
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-settings');
+    await ctx.step('run the walk-forward and show its results', async () => {
+      await page.getByRole('button', { name: /Optimize [\d,]+ backtests/ }).click();
+      await page.getByText(/Combined held-out/).waitFor();
+      await page.getByText(/Results \(last window in-sample\)/).waitFor();
+      await page.getByText(/Held-out equity, joined/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-results');
+    await ctx.step('anchored', async () => {
+      await page.getByLabel('Mode').selectOption('anchored');
+      await page.getByText(/\(anchored: \d+ to \d+\)/).waitFor();
+      await page.getByRole('button', { name: /Optimize [\d,]+ backtests/ }).click();
+      await page.getByText(/^anchored$/).waitFor();
+      await page.getByText(/Combined held-out/).waitFor();
+      await page.getByText(/Held-out equity, joined/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-anchored');
+    await ctx.step('refuse 21 windows', async () => {
+      await page.getByLabel('Windows').fill('21');
+      await page.getByText(/Windows must be a whole number/).waitFor();
+      await page.getByText(/Windows must be a whole number/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('walk-forward-refused');
+    await ctx.step('back to no validation again', async () => {
+      await page.getByLabel('Windows').fill('5');
+      await page.getByLabel('Validation').selectOption('none');
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+    });
+    await ctx.step('sort the results by Trades, then reverse', async () => {
+      const header = page.getByRole('columnheader', { name: /Trades/ });
+      await header.getByRole('button').click();
+      await page.locator('th[aria-sort="descending"]').waitFor();
+      await header.getByRole('button').click();
+      await page.locator('th[aria-sort="ascending"]', { hasText: 'Trades' }).waitFor();
+      await page.getByText(/Results ·/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('results-sorted');
+    const num = page.locator('.form-grid input[type=number]');
+    const step = num.nth(2);
+    await ctx.step('fractional step on a whole-number parameter', async () => {
+      await step.fill('0.5');
+      await page.getByText(/whole-number parameter/).waitFor();
+      await page.getByText(/whole-number parameter/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('fractional-step');
+    await ctx.step('grid over the limit', async () => {
+      await step.fill('1');
+      await num.nth(0).fill('1');
+      await num.nth(1).fill('400');
+      await page.getByRole('button', { name: 'Add parameter' }).click();
+      await num.nth(3).fill('1');
+      await num.nth(4).fill('400');
+      await num.nth(5).fill('1');
+      await page.getByText(/Grid too large/).waitFor();
+      await page.getByText(/Grid too large/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('over-limit');
+    await ctx.step('robustness settings on a two-parameter sweep', async () => {
+      await page.goto('/');
+      await ctx.waitForChart();
+      await page.locator('.dock-tab', { hasText: 'Optimizer' }).click();
+      await page.getByText('Parameter 2', { exact: true }).waitFor();
+      await page.getByLabel('Validation').selectOption('robustness');
+      await page.getByLabel('Neighbourhood').fill('1');
+      await page.getByLabel('Rank by robustness').check();
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('robustness-settings');
+    await ctx.step('run it and show the table sorted by Robustness', async () => {
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+      await page.locator('th[aria-sort="descending"]', { hasText: 'Robustness' }).waitFor();
+      await page.getByText(/Results ·/).scrollIntoViewIfNeeded();
+      await page.getByRole('columnheader', { name: /^Robustness/ }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('robustness-results');
+    await ctx.step('show the most robust mark on the heatmap', async () => {
+      const hint = page.getByText(/^Most robust:/);
+      await hint.waitFor();
+      await hint.scrollIntoViewIfNeeded();
+      const mark = page.locator('.hm-cell[title^="Most robust"]');
+      await mark.waitFor();
+      await mark.scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('robustness-heatmap');
+    await ctx.step('back to no validation', async () => {
+      await page.getByLabel('Validation').selectOption('none');
+    });
+    await ctx.step('Monte Carlo settings: top 5, 500 runs, shuffle, seed 1', async () => {
+      await page.getByLabel('Validation').selectOption('monte-carlo');
+      const field = (name: string) => page.locator('label.form-field', { has: page.getByText(name, { exact: true }) });
+      await field('Top results to check').locator('input').fill('5');
+      await field('Runs').locator('input').fill('500');
+      await field('Method').locator('select').selectOption('shuffle');
+      await field('Seed').locator('input').fill('1');
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('monte-carlo-settings');
+    await ctx.step('run it and show the Monte Carlo table', async () => {
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Monte Carlo ·/).waitFor();
+      await page.getByText(/Monte Carlo ·/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('monte-carlo-results');
+    await ctx.step('sort the Monte Carlo table by chance of a loss', async () => {
+      await page.getByRole('columnheader', { name: /Chance of a loss/ }).getByRole('button').click();
+      await page.locator('th[aria-sort="ascending"]', { hasText: 'Chance of a loss' }).waitFor();
+      await page.getByText(/Monte Carlo ·/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('monte-carlo-sorted');
+    await ctx.step('back to no validation before the MACD sweep', async () => {
+      await page.getByLabel('Validation').selectOption('none');
+    });
+    await ctx.step('three-parameter MACD sweep', async () => {
+      await page.goto('/');
+      await ctx.waitForChart();
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
+      await page.getByLabel('Strategy').selectOption('macd_cross');
+      await page.locator('.dock-tab', { hasText: 'Optimizer' }).click();
+      await page.getByText('Parameter 1', { exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Add parameter' }).click();
+      await page.getByText('Parameter 3', { exact: true }).waitFor();
+      const n = page.locator('.form-grid input[type=number]');
+      const ranges = [
+        [8, 12, 2],
+        [20, 30, 5],
+        [6, 10, 2],
+      ];
+      for (const [i, r] of ranges.entries()) {
+        await n.nth(i * 3).fill(String(r[0]));
+        await n.nth(i * 3 + 1).fill(String(r[1]));
+        await n.nth(i * 3 + 2).fill(String(r[2]));
+      }
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+      await page.getByText(/Other parameters fixed at the best result/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('three-parameters');
+    await ctx.step('show the paging count', async () => {
+      await page.getByText(/Results ·/).scrollIntoViewIfNeeded();
+      await page.getByText(/^Rows 1-\d+ of \d+$/).waitFor();
+    });
+    await ctx.screenshot('paging');
+    await ctx.step('cancel a long run and keep the previous result', async () => {
+      const n = page.locator('.form-grid input[type=number]');
+      await n.nth(0).fill('1');
+      await n.nth(1).fill('40');
+      await n.nth(2).fill('1');
+      await n.nth(3).fill('2');
+      await n.nth(4).fill('40');
+      await n.nth(5).fill('1');
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
+    });
+    await ctx.screenshot('cancel-visible');
+    await ctx.step('press Cancel', async () => {
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByText(/Optimizer cancelled/).waitFor();
+      await page.getByText(/Results ·/).waitFor();
+    });
+    await ctx.screenshot('cancelled-restored');
+  },
+};

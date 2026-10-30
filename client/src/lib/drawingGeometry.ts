@@ -64,6 +64,14 @@ export function logicalToTime(times: readonly number[], logical: number): number
   return times[i] + (logical - i) * (times[i + 1] - times[i]);
 }
 
+/**
+ * The time of the whole bar slot nearest a fractional logical index: a bar's own time inside the data, a whole
+ * step past either end; 0 with no bars.
+ */
+export function barSlotTime(times: readonly number[], logical: number): number {
+  return logicalToTime(times, Math.round(logical));
+}
+
 /** Distance from point p to the segment a-b. */
 export function distToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;
@@ -93,12 +101,12 @@ export type OhlcBar = { time: number; open: number; high: number; low: number; c
 /**
  * Magnet: when the anchor's fractional bar index is within half a bar of a real bar, moves it to that
  * bar's time and to the nearest of its open, high, low, close. Outside every bar it is returned as is.
- * `priceOnly` keeps the time (a horizontal line).
+ * `priceOnly` keeps the time (a horizontal line); `timeOnly` keeps the price (a vertical line).
  */
 export function snapToBar(
   candles: readonly OhlcBar[],
   anchor: { time: number; price: number },
-  opts: { priceOnly?: boolean } = {},
+  opts: { priceOnly?: boolean; timeOnly?: boolean } = {},
 ): { time: number; price: number } {
   const n = candles.length;
   if (n === 0) return anchor;
@@ -111,7 +119,7 @@ export function snapToBar(
   const bar = candles[i];
   let price = bar.open;
   for (const v of [bar.high, bar.low, bar.close]) if (Math.abs(v - anchor.price) < Math.abs(price - anchor.price)) price = v;
-  return { time: opts.priceOnly ? anchor.time : bar.time, price };
+  return { time: opts.priceOnly ? anchor.time : bar.time, price: opts.timeOnly ? anchor.price : price };
 }
 
 /** Where the ray from a through b leaves the pane [0,width] x [0,height]; a itself when a equals b. */
@@ -126,6 +134,18 @@ export function rayEnd(a: Pt, b: Pt, width: number, height: number): Pt {
   else if (dy < 0) t = Math.min(t, (0 - a.y) / dy);
   t = Math.max(0, t);
   return { x: a.x + dx * t, y: a.y + dy * t };
+}
+
+/**
+ * The segment a-b drawn on the pane, optionally continued past b (`right`) and back past a (`left`) until it
+ * leaves the pane [0,width] x [0,height]. An end already outside the pane stays where it is.
+ */
+export function extendSegment(a: Pt, b: Pt, width: number, height: number, left: boolean, right: boolean): [Pt, Pt] {
+  const far = (from: Pt, to: Pt): Pt => {
+    const end = rayEnd(from, to, width, height);
+    return Math.hypot(end.x - from.x, end.y - from.y) < Math.hypot(to.x - from.x, to.y - from.y) ? { ...to } : end;
+  };
+  return [left ? far(b, a) : { ...a }, right ? far(a, b) : { ...b }];
 }
 
 /** Whether p is inside the rectangle with opposite corners a and b, or within tol of its border. */
@@ -156,14 +176,6 @@ export function rectCorners(a: Pt, b: Pt): Pt[] {
 export function rectCornerDrag(a: Pt, b: Pt, corner: number, q: Pt): [Pt, Pt] {
   const opposite = rectCorners(a, b)[(corner + 2) % 4];
   return [opposite, { x: q.x, y: q.y }];
-}
-
-/** Fibonacci retracement ratios, from the end anchor (0) to the start anchor (1). */
-export const FIB_LEVELS: readonly number[] = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-
-/** Price of each level: level r is end + (start - end) * r. */
-export function fibLevelPrices(start: number, end: number): number[] {
-  return FIB_LEVELS.map((r) => end + (start - end) * r);
 }
 
 /**
@@ -222,4 +234,20 @@ export function measureSummary(
     seconds: Math.abs(end.time - start.time),
     direction: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
   };
+}
+
+const cross = (o: Pt, p: Pt, q: Pt) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+
+/** Whether p is inside (or on the edge of) the triangle a-b-c. */
+export function inTriangle(p: Pt, a: Pt, b: Pt, c: Pt): boolean {
+  const d1 = cross(a, b, p);
+  const d2 = cross(b, c, p);
+  const d3 = cross(c, a, p);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+
+/** Whether p is inside the convex-from-the-first-point polygon (a triangle fan from poly[0]). */
+export function inFanPolygon(p: Pt, poly: readonly Pt[]): boolean {
+  for (let i = 2; i < poly.length; i++) if (inTriangle(p, poly[0], poly[i - 1], poly[i])) return true;
+  return false;
 }

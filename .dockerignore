@@ -14,3 +14,5 @@ LICENSE
 .dockerignore
 docker-compose.yml
 .gitignore
+core
+core.[0-9]*

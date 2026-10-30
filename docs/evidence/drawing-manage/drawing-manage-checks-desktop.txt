@@ -1,0 +1,59 @@
+ok   Add alert at <price> is there
+ok   Paste disabled
+ok   Remove drawings disabled
+ok   Escape closes it
+ok   one trend line
+ok   titled by the tool
+ok   every action listed - Settings,Rename,Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   stored locked
+ok   anchors unchanged
+ok   the chart did not pan or change
+ok   the menu offers Unlock
+ok   unlocked
+ok   name stored trimmed
+ok   menu titled by the name
+ok   two drawings
+ok   the copy has the original anchors and name and its own id
+ok   one undo removes the clone
+ok   two drawings
+ok   the original stayed
+ok   the clone moved
+ok   one undo removes the clone and its move
+ok   trend line then two rectangles
+ok   the first rectangle is last
+ok   the second rectangle is first
+ok   only the order changed
+ok   two undos put the order back
+ok   Paste enabled
+ok   Remove drawings enabled
+ok   four drawings
+ok   the pasted copy is on top with the copied anchors
+ok   undo removes the paste
+ok   dismissing the confirm keeps them
+ok   accepting removes them
+ok   undo brings them back
+ok   trend line and two rectangles
+ok   Shift+click two drawings selects both
+ok   Shift+click again takes it out
+ok   nothing moved
+ok   the box selected all three
+ok   no Settings or Rename for several - Clone,Copy,Lock,Bring to front,Bring forward,Send backward,Send to back,Delete
+ok   the box did not pan or zoom the chart
+ok   rectangle locked
+ok   the locked rectangle stayed
+ok   both others moved - {"d0":{"t":6912000,"p":-18.301162098692018},"d2":{"t":6912000,"p":-18.301162098692004}}
+ok   by the same offset - {"d0":{"t":6912000,"p":-18.301162098692018},"d2":{"t":6912000,"p":-18.301162098692004}}
+ok   one undo puts both back
+ok   another undo unlocks
+ok   the two moved to the top in their order
+ok   one undo restores the order
+ok   three pasted on top, in order
+ok   all three pasted are selected
+ok   Delete removes the whole selection
+ok   one undo brings all three back
+ok   the originals are left
+ok   focus left the symbol field
+ok   one drawing on the other symbol
+ok   same times and prices
+ok   a new id
+ok   the first symbol is unchanged

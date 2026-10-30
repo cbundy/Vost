@@ -1,8 +1,10 @@
 import { DOWN_COLOR, UP_COLOR, chartTheme } from '../lib/theme';
+import { MetricTip } from './MetricTip';
 import {
   AreaSeries,
   ColorType,
   HistogramSeries,
+  LineSeries,
   LineStyle,
   createChart,
   type Time,
@@ -10,7 +12,7 @@ import {
   type IChartApi,
 } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
-import { fmtTime } from '../lib/format';
+import { fmtMoney, fmtTime } from '../lib/format';
 import { fmtTick } from '../lib/time';
 import { useStore } from '../state/store';
 import type { BacktestResult } from '../lib/backtest/types';
@@ -61,6 +63,14 @@ export function EquityChart({ result }: { result: BacktestResult }) {
     equitySeries.setData(
       result.equity.map((p) => ({ time: p.time as UTCTimestamp, value: p.equity })),
     );
+    const holdSeries = chart.addSeries(LineSeries, {
+      color: chartTheme.benchmark,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: true,
+    });
+    holdSeries.setData(result.equity.map((p, i) => ({ time: p.time as UTCTimestamp, value: result.buyHold[i] })));
     equitySeries.createPriceLine({
       price: result.metrics.initialCapital,
       color: chartTheme.refLine,
@@ -103,5 +113,21 @@ export function EquityChart({ result }: { result: BacktestResult }) {
     });
   }, [timeZone, result]);
 
-  return <div ref={ref} style={{ height: 240, width: '100%' }} />;
+  const positive = result.metrics.totalReturnPct >= 0;
+  const holdFinal = result.buyHold.length > 0 ? result.buyHold[result.buyHold.length - 1] : result.metrics.initialCapital;
+  return (
+    <div>
+      <div className="equity-legend">
+        <MetricTip help="legendStrategy" className="equity-legend-item">
+          <span className="equity-swatch" style={{ background: positive ? UP_COLOR : DOWN_COLOR }} />
+          Strategy <b className="mono">{fmtMoney(result.metrics.finalEquity)}</b>
+        </MetricTip>
+        <MetricTip help="legendBuyHold" className="equity-legend-item">
+          <span className="equity-swatch dashed" style={{ borderTopColor: chartTheme.benchmark }} />
+          Buy &amp; hold <b className="mono">{fmtMoney(holdFinal)}</b>
+        </MetricTip>
+      </div>
+      <div ref={ref} style={{ height: 240, width: '100%' }} />
+    </div>
+  );
 }

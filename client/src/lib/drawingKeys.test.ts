@@ -33,3 +33,45 @@ describe('drawingKeyAction', () => {
     expect(drawingKeyAction(key('a'), ctx())).toBeNull();
   });
 });
+
+describe('copy and paste keys', () => {
+  it('maps copy with Ctrl or Cmd and a selection, paste with Ctrl or Cmd', () => {
+    expect(drawingKeyAction(key('c', { ctrlKey: true }), ctx())).toBe('copy');
+    expect(drawingKeyAction(key('C', { metaKey: true }), ctx())).toBe('copy');
+    expect(drawingKeyAction(key('v', { ctrlKey: true }), ctx())).toBe('paste');
+    expect(drawingKeyAction(key('v', { metaKey: true }), ctx({ hasSelection: false }))).toBe('paste');
+    expect(drawingKeyAction(key('c', { ctrlKey: true }), ctx({ hasSelection: false }))).toBeNull();
+    expect(drawingKeyAction(key('c'), ctx())).toBeNull();
+    expect(drawingKeyAction(key('v'), ctx())).toBeNull();
+  });
+  it('maps neither with Alt or Shift, in a text field, during a drag or on an inactive chart', () => {
+    for (const k of ['c', 'v']) {
+      expect(drawingKeyAction(key(k, { ctrlKey: true, altKey: true }), ctx())).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true, shiftKey: true }), ctx())).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true }), ctx({ editable: true }))).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true }), ctx({ dragging: true }))).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true }), ctx({ active: false }))).toBeNull();
+    }
+  });
+});
+
+describe('keys while an open-ended drawing is placed', () => {
+  const drafting = ctx({ drafting: true });
+  it('Enter ends it and Backspace removes the last point, even with a selection', () => {
+    expect(drawingKeyAction(key('Enter'), drafting)).toBe('end-draft');
+    expect(drawingKeyAction(key('Backspace'), drafting)).toBe('undo-point');
+    expect(drawingKeyAction(key('Backspace'), ctx({ drafting: true, hasSelection: false }))).toBe('undo-point');
+    expect(drawingKeyAction(key('Escape'), drafting)).toBe('escape');
+  });
+  it('without a draft Backspace still deletes the selection and Enter does nothing', () => {
+    expect(drawingKeyAction(key('Backspace'), ctx())).toBe('delete');
+    expect(drawingKeyAction(key('Backspace'), ctx({ hasSelection: false }))).toBeNull();
+    expect(drawingKeyAction(key('Enter'), ctx())).toBeNull();
+  });
+  it('does nothing in a text field, on an inactive chart or while dragging', () => {
+    for (const over of [{ editable: true }, { active: false }, { dragging: true }]) {
+      expect(drawingKeyAction(key('Enter'), ctx({ drafting: true, ...over }))).toBeNull();
+      expect(drawingKeyAction(key('Backspace'), ctx({ drafting: true, hasSelection: false, ...over }))).toBeNull();
+    }
+  });
+});
