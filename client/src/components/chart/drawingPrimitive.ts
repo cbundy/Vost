@@ -32,6 +32,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private measure: Drawing | null = null;
   private skipId: string | null = null;
   private selected: ReadonlySet<string> = new Set();
+  private hovered: string | null = null;
+  private pinned: ReadonlySet<string> = new Set();
   private box: Rect | null = null;
   private axisViews: ISeriesPrimitiveAxisView[] = [];
   private timeViews: ISeriesPrimitiveAxisView[] = [];
@@ -82,6 +84,18 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.skipId = skipId;
     this.rebuildAxisViews();
     this.requestUpdate?.();
+  }
+
+  /** The drawing the pointer is on and the ones pinned open: their tools' popups show (as the selected one's does). */
+  setPopups(hovered: string | null, pinned: ReadonlySet<string>): void {
+    this.hovered = hovered;
+    this.pinned = pinned;
+    this.requestUpdate?.();
+  }
+
+  /** Whether a drawing's popup is open: it is hovered, selected or pinned. */
+  private popupOpen(d: Drawing): boolean {
+    return d.id === this.hovered || this.selected.has(d.id) || this.pinned.has(d.id);
   }
 
   /** The selection box being dragged (chart pixels), or null. */
@@ -219,6 +233,14 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         for (let i = 0; i < hs.length; i++) if (hitsHandle(p, hs[i], opts.handleRadius)) return { id: sel.id, handle: i };
       }
     }
+    // An open popup is painted over every drawing, so it is pressed first.
+    for (let i = this.drawings.length - 1; i >= 0; i--) {
+      const d = this.drawings[i];
+      if (d.id === this.skipId || !this.popupOpen(d) || !this.shown(d)) continue;
+      const tool = getTool(d.tool);
+      const pts = tool?.popupHit && this.points(d);
+      if (tool?.popupHit && pts && tool.popupHit(pts, p, this.viewFor(d), opts.tolerance)) return { id: d.id, handle: null };
+    }
     for (let i = this.drawings.length - 1; i >= 0; i--) {
       const d = this.drawings[i];
       if (!this.shown(d)) continue;
@@ -272,6 +294,16 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
             ctx.stroke();
           }
         }
+        ctx.restore();
+      }
+      // Popups last, so no drawing covers one.
+      for (const d of this.drawings) {
+        if (d.id === this.skipId || !this.popupOpen(d) || !this.shown(d)) continue;
+        const tool = getTool(d.tool);
+        const pts = tool?.popup && this.points(d);
+        if (!tool?.popup || !pts) continue;
+        ctx.save();
+        tool.popup(ctx, pts, this.viewFor(d, mediaSize));
         ctx.restore();
       }
       const box = this.box;

@@ -7,7 +7,8 @@ export type EditorTarget = {
   id: string | null;
   /** The tool the note belongs to; a new note is written as this tool. */
   tool: string;
-  anchor: Anchor;
+  /** The anchors the note is placed at: one, or two for Callout. */
+  anchors: Anchor[];
   text: string;
   /** The tool's resolved style values (font, size, alignment, wrap) the text is typed in. */
   style: Readonly<Record<string, unknown>>;

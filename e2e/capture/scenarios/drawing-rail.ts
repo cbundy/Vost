@@ -21,7 +21,7 @@ const FAMILIES: { id: string; label: string; first: string; sections: string[] }
   { id: 'fib-gann', label: 'Fibonacci and Gann', first: 'Fibonacci retracement', sections: ['Fibonacci', 'Gann'] },
   { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Measure', sections: ['Measurers'] },
   { id: 'shapes', label: 'Shapes', first: 'Rectangle', sections: ['Shapes'] },
-  { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text'] },
+  { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text', 'Notes'] },
 ];
 
 export const drawingRail: Scenario = {

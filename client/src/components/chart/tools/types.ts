@@ -94,6 +94,13 @@ export interface DrawingTool {
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;
   /** Whether a press at p grabs the drawing's body. */
   hit(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
+  /**
+   * Painted on top of every drawing while the drawing is hovered, selected or pinned open (a note's text popup).
+   * `view` has the pane size, for keeping the popup inside it.
+   */
+  popup?(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView): void;
+  /** Whether a press at p is on the open popup, so a pinned popup can be pressed (it selects the drawing). */
+  popupHit?(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
   /** Where the selection handles go. */
   handles(pts: Pt[], view: ToolView): Pt[];
   /** Adjusts the pixels of a drawing once, when its last anchor is placed (the fixed Gann square makes itself square). It may return more points than were placed (a curve adds its control points). */

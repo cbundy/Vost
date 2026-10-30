@@ -33,6 +33,16 @@ export function textSettings(size: number, wrap: boolean): readonly SettingField
   ];
 }
 
+/** TradingView's blue and white, the defaults of the note tools (Note, Anchored note, Callout, Comment). */
+export const NOTE_BLUE = '#2962ff';
+export const NOTE_WHITE = '#ffffff';
+
+/** {@link textSettings} with the colour defaults of the note tools: white text on a blue box. */
+export function noteTextSettings(size: number, wrap: boolean, colors: { background: string; border: string } = { background: NOTE_BLUE, border: NOTE_BLUE }): readonly SettingField[] {
+  const own: Record<string, string> = { color: NOTE_WHITE, backgroundColor: colors.background, borderColor: colors.border };
+  return textSettings(size, wrap).map((f) => (f.key in own ? { ...f, default: own[f.key] } : f));
+}
+
 let measureCtx: CanvasRenderingContext2D | null | undefined;
 /** Width of a line in a font, by the canvas (an estimate where there is none). */
 export function measureWidth(s: string, font: NoteFont): number {
@@ -67,24 +77,31 @@ function origin(a: Pt, box: TextBoxLayout, view: ToolView, pane: boolean): Pt {
   return { x: Math.max(0, Math.min(a.x, view.width - box.width)), y: Math.max(0, Math.min(a.y, view.height - box.height)) };
 }
 
+/**
+ * Paints a text box with its top-left corner at `a`: fill, border and lines. `radius` rounds the corners and
+ * the selection highlights the border of an unstyled drawing.
+ */
+export function paintTextBox(ctx: CanvasRenderingContext2D, view: ToolView, a: Pt, box: TextBoxLayout, selected: boolean, radius = 4): void {
+  ctx.beginPath();
+  ctx.roundRect(a.x, a.y, box.width, box.height, radius);
+  ctx.fillStyle = cssColor(view.style.backgroundColor, view.style.backgroundOpacity as number);
+  ctx.fill();
+  ctx.lineWidth = selected ? 2 : 1;
+  ctx.strokeStyle = selected && !view.styled ? theme.accent2 : cssColor(view.style.borderColor);
+  ctx.stroke();
+  ctx.font = noteFont(boxOpts(view.style));
+  ctx.fillStyle = cssColor(view.style.color);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  box.lines.forEach((l, i) => ctx.fillText(l, a.x + box.offsets[i], a.y + NOTE_PAD + box.lineHeight * i + box.lineHeight / 2));
+}
+
 /** The shared drawing, hit and handles of a text tool. */
 export function textBoxTool(pane: boolean): Pick<DrawingTool, 'draw' | 'hit' | 'handles'> {
   return {
     draw(ctx, [p], view, { selected }) {
       const box = layoutOf(view.text, view.style);
-      const a = origin(p, box, view, pane);
-      ctx.beginPath();
-      ctx.roundRect(a.x, a.y, box.width, box.height, 4);
-      ctx.fillStyle = cssColor(view.style.backgroundColor, view.style.backgroundOpacity as number);
-      ctx.fill();
-      ctx.lineWidth = selected ? 2 : 1;
-      ctx.strokeStyle = selected && !view.styled ? theme.accent2 : cssColor(view.style.borderColor);
-      ctx.stroke();
-      ctx.font = noteFont(boxOpts(view.style));
-      ctx.fillStyle = cssColor(view.style.color);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      box.lines.forEach((l, i) => ctx.fillText(l, a.x + box.offsets[i], a.y + NOTE_PAD + box.lineHeight * i + box.lineHeight / 2));
+      paintTextBox(ctx, view, origin(p, box, view, pane), box, selected);
     },
     hit([p], at, view, tolerance = HIT_TOLERANCE) {
       const box = layoutOf(view.text, view.style);

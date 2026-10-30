@@ -1,0 +1,12 @@
+ok   a note is stored with its two lines - {"id":"dmvuqfj5c1y7zq","tool":"note","anchors":[{"time":1747872000,"price":192.30169771769852}],"text":"Earnings gap to fill\nwatch the open"}
+ok   a click pins the popup open after deselecting
+ok   another click unpins it
+ok   pinning stores nothing: the note is unchanged
+ok   stored with pane fractions in 0..1 - [{"time":0.4224137931034483,"price":0.2136150234741784}]
+ok   two different anchors stored - [{"time":1747872000,"price":151.24666551463662},{"time":1756339200,"price":104.71762534633083}]
+ok   with its text
+ok   two callouts stored - breakout level,second callout
+ok   the comment is stored
+ok   the edit is stored
+ok   storage is unchanged
+ok   all four tools are there - note,anchoredNote,callout,callout,comment
