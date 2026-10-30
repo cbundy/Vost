@@ -102,6 +102,16 @@ describe('the Elliott wave tools', () => {
         tool.draw(b.ctx, pts, view(tool, anchors, { degree: 'minor' }), { selected: false });
         expect(b.texts).toEqual(c.minor);
       });
+      it('labels the origin 0 only in its hover and selection popup, and circles a circled degree', () => {
+        const a = stubCtx();
+        tool.popup!(a.ctx, pts, view(tool, anchors));
+        expect(a.texts).toEqual(['(0)']);
+        const b = stubCtx();
+        tool.popup!(b.ctx, pts, view(tool, anchors, { degree: 'primary' }));
+        expect(b.texts).toEqual(['0']);
+        expect(b.calls.some((x) => x.startsWith('arc('))).toBe(true);
+        expect(a.calls.some((x) => x.startsWith('arc('))).toBe(false);
+      });
       it('lists every point price and time when selected, nothing otherwise', () => {
         expect(tool.axisLabels!(anchors, {}, false)).toEqual({});
         expect(tool.axisLabels!(anchors, {}, true)).toEqual({ price: anchors.map((x) => x.price), time: anchors.map((x) => x.time) });

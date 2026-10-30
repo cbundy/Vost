@@ -1,71 +1,107 @@
 /**
  * Elliott wave maths (the five Elliott wave drawing tools). Pure: no React and no canvas.
  *
- * Wave degrees and notation follow the standard Elliott wave scheme that TradingView's Elliott wave tools use
- * (Elliott impulse wave (12345), correction wave (ABC), triangle wave (ABCDE), double combo wave (WXY), triple combo
- * wave (WXYXZ)): nine degrees from the largest to the smallest, an impulse numbered with upper case Roman numerals
- * in the three largest degrees, Arabic numerals in the next three and lower case Roman numerals in the smallest
- * three, wrapped in double parentheses, single parentheses or none in turn. Corrective waves use the same wrappers
- * on upper case letters (the six largest degrees) or lower case letters (the three smallest).
- *
- * NOT CONFIRMED against TradingView's own help pages: they were unreachable from the build environment (the guessed
- * support URLs returned 404 or an unrelated page, checked 2026-10-30). The degree list is the standard nine; the
- * default degree (Intermediate) and the choice to leave the origin point unlabelled follow the builder's memory of
- * TradingView's chart behaviour. TradingView's longer list of degrees (Millennium and the Micro degrees) and any
- * per-degree colour are not modelled: the line colour is a plain setting. Confirm against TradingView and adjust
- * DEGREES, ELLIOTT_DEFAULT_DEGREE and the label sets below.
+ * Confirmed against TradingView on 2026-10-30 from its Advanced Charts line-tool bundle
+ * (https://charting-library.tradingview-widget.com/charting_library/bundles/line-tool-elliott.9c1e59073e28b2da11c6.js)
+ * and its API docs (https://www.tradingview.com/charting-library-docs/latest/api/interfaces/Charting_Library.ElliottimpulseLineToolOverrides,
+ * default `degree` 7 = Intermediate). TradingView has 15 degrees, largest first: Supermillennium to Minuscule. A degree sits in
+ * a group of three (group = floor((14 - degree index) / 3), counted from the smallest) and is drawn plain, in brackets or
+ * circled in turn within its group: the smallest of the three is plain, the middle one bracketed, the largest circled.
+ * The groups from the smallest are Arabic / lower case, lower case Roman / lower case, Arabic / upper case, upper case
+ * Roman / lower case and Arabic / upper case (the impulse numbering / the corrective letters). Each group has its own
+ * font size and weight. Every tool's label set starts at "0": the origin, which TradingView shows only while the
+ * drawing is selected or hovered. TradingView does not recolour by degree, so neither do we.
  */
 
 export interface ElliottDegree {
   value: string;
   label: string;
-  /** Which numbering family the degree uses: 0 = upper case Roman, 1 = Arabic, 2 = lower case Roman. */
-  family: 0 | 1 | 2;
-  /** How the label is wrapped: 2 = ((x)), 1 = (x), 0 = x. */
-  wrap: 0 | 1 | 2;
-  /** Whether corrective letters are upper case. */
-  upper: boolean;
+  /** TradingView's group of three degrees, 0 (the smallest) to 4: sets the numbering family, letter case, font size and weight. */
+  group: 0 | 1 | 2 | 3 | 4;
+  /** How the label is decorated: plain, in (brackets) or in a circle. */
+  decoration: 'none' | 'brackets' | 'circle';
 }
 
-/** The degrees, largest first. */
-export const ELLIOTT_DEGREES: readonly ElliottDegree[] = [
-  { value: 'grandSupercycle', label: 'Grand Supercycle', family: 0, wrap: 2, upper: true },
-  { value: 'supercycle', label: 'Supercycle', family: 0, wrap: 1, upper: true },
-  { value: 'cycle', label: 'Cycle', family: 0, wrap: 0, upper: true },
-  { value: 'primary', label: 'Primary', family: 1, wrap: 2, upper: true },
-  { value: 'intermediate', label: 'Intermediate', family: 1, wrap: 1, upper: true },
-  { value: 'minor', label: 'Minor', family: 1, wrap: 0, upper: true },
-  { value: 'minute', label: 'Minute', family: 2, wrap: 2, upper: false },
-  { value: 'minuette', label: 'Minuette', family: 2, wrap: 1, upper: false },
-  { value: 'subMinuette', label: 'Sub-Minuette', family: 2, wrap: 0, upper: false },
+const NAMES: readonly [string, string][] = [
+  ['supermillennium', 'Supermillennium'],
+  ['millennium', 'Millennium'],
+  ['submillennium', 'Submillennium'],
+  ['grandSupercycle', 'Grand Supercycle'],
+  ['supercycle', 'Supercycle'],
+  ['cycle', 'Cycle'],
+  ['primary', 'Primary'],
+  ['intermediate', 'Intermediate'],
+  ['minor', 'Minor'],
+  ['minute', 'Minute'],
+  ['minuette', 'Minuette'],
+  ['subminuette', 'Subminuette'],
+  ['micro', 'Micro'],
+  ['submicro', 'Submicro'],
+  ['minuscule', 'Minuscule'],
 ];
+
+/** The degrees, largest first, in TradingView's order. */
+export const ELLIOTT_DEGREES: readonly ElliottDegree[] = NAMES.map(([value, label], i) => {
+  const t = NAMES.length - 1 - i;
+  return { value, label, group: Math.floor(t / 3) as ElliottDegree['group'], decoration: (['none', 'brackets', 'circle'] as const)[t % 3] };
+});
 
 export const ELLIOTT_DEFAULT_DEGREE = 'intermediate';
 
+/** TradingView's font size, circle diameter (px) and weight per group, at the default text size. */
+const GROUP_STYLE: Readonly<Record<number, { font: number; circle: number; bold: boolean }>> = {
+  4: { font: 24, circle: 36, bold: true },
+  3: { font: 20, circle: 28, bold: false },
+  2: { font: 18, circle: 22, bold: false },
+  1: { font: 16, circle: 22, bold: false },
+  0: { font: 11, circle: 14, bold: true },
+};
+
+/** The text size setting TradingView's font sizes correspond to. */
+export const ELLIOTT_BASE_TEXT_SIZE = 12;
+
+/** How a degree's labels are drawn at a text size: the font size, whether bold, and the circle diameter (0 for no circle). */
+export function waveFormat(degree: string, textSize = ELLIOTT_BASE_TEXT_SIZE): { fontSize: number; bold: boolean; circle: number } {
+  const d = findDegree(degree);
+  const g = GROUP_STYLE[d.group];
+  const k = textSize / ELLIOTT_BASE_TEXT_SIZE;
+  return { fontSize: Math.round(g.font * k), bold: g.bold, circle: d.decoration === 'circle' ? Math.round(g.circle * k) : 0 };
+}
+
+function findDegree(degree: string): ElliottDegree {
+  return ELLIOTT_DEGREES.find((x) => x.value === degree) ?? ELLIOTT_DEGREES.find((x) => x.value === ELLIOTT_DEFAULT_DEGREE)!;
+}
+
 export type ElliottKind = 'impulse' | 'correction' | 'triangle' | 'doubleCombo' | 'tripleCombo';
 
-/** The wave names per tool, one per point; an empty name is an unlabelled point (the origin). */
+/** The wave names per tool, one per point; the origin is "0". */
 export const ELLIOTT_WAVES: Readonly<Record<ElliottKind, readonly string[]>> = {
-  impulse: ['', '1', '2', '3', '4', '5'],
-  correction: ['', 'A', 'B', 'C'],
-  triangle: ['', 'A', 'B', 'C', 'D', 'E'],
-  doubleCombo: ['', 'W', 'X', 'Y'],
-  tripleCombo: ['', 'W', 'X', 'Y', 'X', 'Z'],
+  impulse: ['0', '1', '2', '3', '4', '5'],
+  correction: ['0', 'A', 'B', 'C'],
+  triangle: ['0', 'A', 'B', 'C', 'D', 'E'],
+  doubleCombo: ['0', 'W', 'X', 'Y'],
+  tripleCombo: ['0', 'W', 'X', 'Y', 'X', 'Z'],
 };
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 
-/** The label text of point `index` of a tool at a degree; an unknown degree uses the default; '' for the origin or a missing point. */
+/**
+ * The label text of point `index` of a tool at a degree; an unknown degree uses the default; '' for a missing point.
+ * Brackets are part of the text; a circled degree returns the bare text (the caller draws the circle, see waveFormat).
+ */
 export function waveLabel(kind: ElliottKind, index: number, degree: string): string {
   const name = ELLIOTT_WAVES[kind][index];
   if (!name) return '';
-  const d = ELLIOTT_DEGREES.find((x) => x.value === degree) ?? ELLIOTT_DEGREES.find((x) => x.value === ELLIOTT_DEFAULT_DEGREE)!;
-  let text: string;
-  if (kind === 'impulse') {
-    const n = Number(name);
-    text = d.family === 1 ? name : d.family === 0 ? ROMAN[n] : ROMAN[n].toLowerCase();
-  } else {
-    text = d.upper ? name : name.toLowerCase();
+  const d = findDegree(degree);
+  let text = name;
+  if (index > 0) {
+    if (kind === 'impulse') {
+      // Group 1 is lower case Roman, group 3 upper case Roman, the others Arabic.
+      if (d.group === 1) text = ROMAN[Number(name)].toLowerCase();
+      else if (d.group === 3) text = ROMAN[Number(name)];
+    } else if (d.group === 1 || d.group === 3) {
+      text = name.toLowerCase();
+    }
   }
-  return '('.repeat(d.wrap) + text + ')'.repeat(d.wrap);
+  return d.decoration === 'brackets' ? `(${text})` : text;
 }
