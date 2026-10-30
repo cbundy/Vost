@@ -168,6 +168,40 @@ describe('btRange', () => {
     return fresh;
   };
 
+  it('runMonteCarlo matches the engine, and its result goes stale with the backtest it came from', async () => {
+    const { runMonteCarlo } = await import('../lib/backtest/monteCarlo');
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    await st().runBacktest();
+    const source = st().btResult!;
+    expect(source.trades.length).toBeGreaterThanOrEqual(2);
+    st().setMcConfig({ iterations: 200, method: 'bootstrap', seed: 5 });
+    await st().runMonteCarlo();
+    const mc = st().mcResult!;
+    expect(mc.source).toBe(source);
+    expect(mc.result).toEqual(
+      runMonteCarlo({ trades: source.trades, initialCapital: source.metrics.initialCapital }, { iterations: 200, method: 'bootstrap', seed: 5 }),
+    );
+    expect(st().mcRunning).toBe(false);
+    // a second backtest and Clear both leave the old result's source behind
+    await st().runBacktest();
+    expect(st().mcResult!.source).not.toBe(st().btResult);
+    st().clearBacktest();
+    expect(st().btResult).toBeNull();
+    expect(st().mcResult!.source).not.toBe(st().btResult);
+  });
+
+  it('runMonteCarlo drops a reply that lands after the backtest was replaced', async () => {
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    await st().runBacktest();
+    const pending = st().runMonteCarlo();
+    st().clearBacktest(); // replaced while the run is in flight
+    await pending;
+    expect(st().mcResult).toBeNull();
+    expect(st().mcRunning).toBe(false);
+  });
+
   it('runBacktest only sees in-range bars', async () => {
     const { useStore, candles } = await setup();
     const from = candles[20].time;

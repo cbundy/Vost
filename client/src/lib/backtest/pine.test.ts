@@ -87,6 +87,9 @@ if bar_index % 30 == 10
     expect(script.metrics.initialCapital).toBe(5000);
     expect(script.config.feeBps).toBeCloseTo(10, 8);
     expect(script.trades[0].fees).toBeCloseTo(((t.entryPrice + t.exitPrice) * t.qty * 10) / 10000, 6);
+    expect(script.buyHold).toHaveLength(script.equity.length);
+    expect(script.buyHold[0]).toBe(5000);
+    expect(panel.buyHold[0]).toBe(20000);
     const sum = script.trades.reduce((a, x) => a + x.pnl, 0);
     expect(script.equity[script.equity.length - 1].equity).toBeCloseTo(5000 + sum, 6);
   });

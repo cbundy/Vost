@@ -15,6 +15,8 @@ import type { BacktestResult, BacktestConfig, BacktestStage } from '../lib/backt
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/optimizer';
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
+import type { MonteCarloOptions, MonteCarloResult } from '../lib/backtest/monteCarlo';
+import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
 import { getStrategy } from '../lib/backtest/strategies';
 import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
@@ -169,6 +171,12 @@ export interface ChartState {
   btStage: BacktestStage | null;
   btResult: BacktestResult | null;
   btError: string | null;
+  /** Monte Carlo settings of the Results tab. */
+  mcConfig: MonteCarloOptions;
+  mcRunning: boolean;
+  mcError: string | null;
+  /** The last Monte Carlo result and the backtest result it came from; only current while `source === btResult`. */
+  mcResult: { source: BacktestResult; result: MonteCarloResult; options: MonteCarloOptions } | null;
   /** Inputs declared by the Pine script in the Backtest panel (not persisted). */
   pineInputs: PineInput[];
 
@@ -230,6 +238,9 @@ export interface ChartState {
   runBacktest(): Promise<void>;
   refreshPineInputs(): Promise<void>;
   clearBacktest(): void;
+  setMcConfig(patch: Partial<MonteCarloOptions>): void;
+  /** Reshuffles or resamples the current backtest's trades; a reply that lands after the backtest was replaced is dropped. */
+  runMonteCarlo(): Promise<void>;
   setOptConfig(patch: Partial<OptimizeConfig>): void;
   runOptimizer(): Promise<void>;
   /** Stop a running optimizer sweep and bring back the result shown before it started. */
@@ -247,6 +258,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   /* Per-chart singletons: each chart owns its own live stream, replay timer and request tokens. */
   let liveHandle: LiveHandle | null = null;
   /** The running optimizer sweep: its cancel handle and the result shown before it started. */
+  let mcToken = 0;
   let optRun: { cancel: () => void; previous: ChartState['optResult'] } | null = null;
   /** The replay play timer; every path that ends replay clears it. */
   let replayTimer: ReturnType<typeof setTimeout> | null = null;
@@ -402,6 +414,10 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     btStage: null,
     btResult: null,
     btError: null,
+    mcConfig: { ...DEFAULT_MONTE_CARLO },
+    mcRunning: false,
+    mcError: null,
+    mcResult: null,
     optConfig: defaultOptimizeConfig(initial.btConfig),
     optRunning: false,
     optProgress: 0,
@@ -834,6 +850,37 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
 
     clearBacktest() {
       set({ btResult: null, btError: null });
+    },
+
+    setMcConfig(patch) {
+      set({ mcConfig: { ...get().mcConfig, ...patch } });
+    },
+
+    async runMonteCarlo() {
+      const source = get().btResult;
+      if (!source) return;
+      const options = { ...get().mcConfig };
+      const token = ++mcToken;
+      set({ mcRunning: true, mcError: null });
+      try {
+        const msg = await workerCall({
+          type: 'montecarlo',
+          trades: source.trades,
+          initialCapital: source.metrics.initialCapital,
+          options,
+        });
+        if (msg.type !== 'monteCarloResult') throw new Error('Unexpected worker reply');
+        if (token !== mcToken) return;
+        // The backtest was replaced while this ran: the result belongs to a run that is gone.
+        if (get().btResult !== source) {
+          set({ mcRunning: false });
+          return;
+        }
+        set({ mcResult: { source, result: msg.result, options }, mcRunning: false });
+      } catch (err) {
+        if (token !== mcToken) return;
+        set({ mcRunning: false, mcError: err instanceof Error ? err.message : String(err) });
+      }
     },
 
     setOptConfig(patch) {

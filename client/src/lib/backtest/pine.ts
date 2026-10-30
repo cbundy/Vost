@@ -7,7 +7,7 @@ import type { Candle } from '../../types';
 import { DEFAULT_PINE_CODE } from '../pine/examples';
 import { runPine } from '../pine/runtime';
 import type { PineInputValue, PineResult, PineStrategyConfig } from '../pine/types';
-import { computeMetrics } from './metrics';
+import { buyHoldCurve, computeMetrics } from './metrics';
 import type { BacktestConfig, BacktestResult, BacktestStage, EquityPoint, Trade } from './types';
 
 export const INDICATOR_MESSAGE = 'This is an indicator script; add it to the chart instead of backtesting it.';
@@ -145,5 +145,5 @@ export function buildPineResult(candles: Candle[], config: BacktestConfig, pine:
 
   const usedConfig: BacktestConfig = { ...config, initialCapital: used.initialCapital, feeBps: used.feeBps };
   const metrics = computeMetrics(candles, equity, trades, used.initialCapital, exposureBars);
-  return { trades, equity, metrics, config: usedConfig };
+  return { trades, equity, metrics, buyHold: buyHoldCurve(candles, used.initialCapital), config: usedConfig };
 }

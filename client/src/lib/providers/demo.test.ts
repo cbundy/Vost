@@ -67,3 +67,14 @@ describe('demo provider custom intervals', () => {
     }
   });
 });
+
+describe('demo candles are stable', () => {
+  it('seed 1337 gives the same first candles as before the random helper moved to lib/random', () => {
+    const c = generateDemoCandles({ bars: 60, timeframe: '1d', seed: 1337, end: 1700000000 });
+    expect(c.slice(0, 3)).toEqual([
+      { time: 1694822400, open: 100, high: 101.00386, low: 98.57084, close: 99.242588, volume: 21143 },
+      { time: 1694908800, open: 99.242588, high: 99.360567, low: 99.176592, close: 99.306252, volume: 10882 },
+      { time: 1694995200, open: 99.306252, high: 99.388578, low: 99.141799, close: 99.2001, volume: 20976 },
+    ]);
+  });
+});
