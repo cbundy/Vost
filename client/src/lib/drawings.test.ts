@@ -511,6 +511,20 @@ describe('the cycle tools', () => {
   });
 });
 
+describe('the volume-based tools', () => {
+  it('round trips each with a style and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['anchoredVwap', 'fixedRangeVolumeProfile', 'anchoredVolumeProfile'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([1, 2, 1]);
+    const style = { source: 'hl2', showBand2: true, rowSize: 12, valueAreaVolume: 80, placement: 'right', upColor: '#112233' };
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number), style }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an((ANCHOR_COUNTS[tool] as number) + 1) }));
+    const loaded = parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources.s;
+    expect(loaded.map((d) => d.id)).toEqual(ids);
+  });
+});
+
 describe('the pitchfork tools', () => {
   it('round trips each with three anchors and a custom levels list and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');

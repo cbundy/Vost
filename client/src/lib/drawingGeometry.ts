@@ -99,7 +99,7 @@ export const TOUCH_HIT: HitOpts = { handleRadius: TOUCH_HANDLE_HIT_RADIUS, toler
 /** The weak magnet's reach, in screen pixels (vertical). */
 export const WEAK_MAGNET_PX = 10;
 
-export type OhlcBar = { time: number; open: number; high: number; low: number; close: number };
+export type OhlcBar = { time: number; open: number; high: number; low: number; close: number; /** Traded volume; absent or not finite counts as zero. */ volume?: number };
 
 /**
  * Magnet: when the anchor's fractional bar index is within half a bar of a real bar, moves it to that

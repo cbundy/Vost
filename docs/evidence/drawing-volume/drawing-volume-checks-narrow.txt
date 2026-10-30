@@ -1,0 +1,6 @@
+ok   Anchored VWAP stored - anchoredVwap:1
+ok   Fixed range volume profile stored - anchoredVwap:1,fixedRangeVolumeProfile:2
+ok   Anchored volume profile stored - anchoredVwap:1,fixedRangeVolumeProfile:2,anchoredVolumeProfile:1
+ok   three drawings after reload
+ok   unchanged by the timeframe change
+ok   zoom keeps the drawings
