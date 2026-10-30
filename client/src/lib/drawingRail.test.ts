@@ -40,11 +40,12 @@ describe('railGroups', () => {
     expect(icons.entries.map((e) => e.label)).toEqual(['Icons', 'Emojis', 'Stickers']);
   });
 
-  it('holds the chart patterns, then the cycle tools, in the Patterns family', () => {
+  it('holds the chart patterns, the Elliott waves, then the cycle tools, in the Patterns family', () => {
     const patterns = groups.find((g) => g.id === 'patterns')!;
-    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives', 'cyclicLines', 'timeCycles', 'sineLine']);
+    expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives', 'elliottImpulse', 'elliottCorrection', 'elliottTriangle', 'elliottDoubleCombo', 'elliottTripleCombo', 'cyclicLines', 'timeCycles', 'sineLine']);
     expect(patterns.entries.slice(0, 6).every((e) => e.section === 'Chart patterns')).toBe(true);
-    expect(patterns.entries.slice(6).every((e) => e.section === 'Cycles')).toBe(true);
+    expect(patterns.entries.slice(6, 11).every((e) => e.section === 'Elliott waves')).toBe(true);
+    expect(patterns.entries.slice(11).every((e) => e.section === 'Cycles')).toBe(true);
   });
 
   it('opens the Shapes family with a Brushes section, Brush first', () => {

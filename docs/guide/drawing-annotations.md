@@ -134,3 +134,21 @@ Select a picture to move it by dragging its body. Four corner handles resize it 
 ![A sticker rotated and enlarged with its handles](../evidence/drawing-icons/drawing-icons-rotated-desktop.png)
 
 Double-click a picture to open its settings: **Size** in pixels (8 to 512; 40 for icons and emojis, 80 for stickers), **Angle** in degrees, **Opacity**, and for icons **Colour**. Edits show at once and one undo reverts them all. Pictures are saved in your browser with the other drawings. If a saved picture is no longer in the bundled set it shows as a dashed box with a question mark instead of disappearing.
+
+## Image
+
+The **Image** tool (in the Annotations flyout, in its own **Content** section) puts a picture on the chart. Picking it opens a file chooser for a PNG, JPEG, GIF or WebP picture of up to 5 MB. While the tool is picked you can also paste a picture from the system clipboard (Ctrl+V; with no picture on it Ctrl+V pastes the copied drawings as always) or drop a file on the chart.
+
+- **Place**: click or tap to put the picture's top-left corner there at its natural size, scaled down to fit within half the chart. Or press, drag and release to set its box: the picture keeps its ratio and shows live while you drag; hold **Shift** to free the ratio (on a desktop). **Escape** or picking another tool drops the picture before it is placed.
+- **Move and resize**: drag the picture, or one of its four corner handles. A corner drag keeps the ratio, and **Shift** frees it; with **Keep ratio** off in the settings a corner drag is always free.
+- **Settings**: **Opacity** (100% by default), a **Border colour** and a **Border width** from 0 to 5 (no border by default) and **Keep ratio**. There is no Text tab.
+
+![An uploaded picture placed on the chart](../evidence/drawing-image/drawing-image-placed-desktop.png)
+
+![Resized with the ratio kept](../evidence/drawing-image/drawing-image-resized-desktop.png)
+
+A file that is not a PNG, JPEG, GIF or WebP picture (the type and the file's own bytes must both say so), or is over 5 MB, shows a message and adds nothing. The picture store holds up to 50 MB in all.
+
+![A 6 MB file is refused](../evidence/drawing-image/drawing-image-refused-big-desktop.png)
+
+Pictures are kept in your browser's own picture store, apart from the drawings, so a picture is stored once however many times it is used. Undo, redo, clone, copy and paste, lock, reorder and delete work as for any drawing, and a deleted picture comes back with undo. A picture nothing uses any more (no drawing, no undo step, no copy) is removed from the store a day after it was last in use. If the store lacks a picture (you cleared the site's data, or the drawings were copied to another browser) the drawing shows a dashed box labelled **Picture missing**, which you can still select, move and delete. In a browser that cannot keep pictures (some private modes) the Image tool is greyed out.
