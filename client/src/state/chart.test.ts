@@ -1005,6 +1005,49 @@ describe('chartRange fetched from the provider', () => {
     expect(s.messages.filter((m) => m.severity === 'error')).toHaveLength(1);
   });
 
+  async function liveStub(fetchHistory: (req: { from?: number; to?: number; bars: number }) => Promise<ReturnType<typeof mk>>) {
+    const stop = vi.fn();
+    const startLive = vi.fn(() => ({ stop }));
+    const { demoProvider } = await import('../lib/providers');
+    const stub = vi.spyOn(await import('../lib/providers'), 'getProvider').mockReturnValue({
+      ...demoProvider,
+      supportsLive: true,
+      startLive,
+      fetchHistory,
+    } as never);
+    return { stop, startLive, stub };
+  }
+
+  it('a fetched range on a live chart pauses live with one info toast', async () => {
+    const { useStore, base } = await setup();
+    const { stub } = await liveStub(async (req) => mk(req.from!, Math.floor((req.to! - req.from!) / DAY) + 1));
+    chartOf(useStore).setState({ live: true, liveStatus: 'live', liveWanted: true });
+    const before = useStore.getState().toasts.length;
+    expect(await chartOf(useStore).getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(true);
+    const s = snap(useStore);
+    expect(s.chartRangeFetched).toBe(true);
+    expect(s.live).toBe(false);
+    expect(chartOf(useStore).getState().liveWanted).toBe(true);
+    expect(s.toasts.slice(before).filter((x) => x.kind === 'info').map((x) => x.text)).toEqual([
+      'Live is paused while the chart is cropped. Clear the range to go live again.',
+    ]);
+    stub.mockRestore();
+  });
+
+  it('a failed range fetch leaves live on', async () => {
+    const { useStore, base } = await setup();
+    const { stop, stub } = await liveStub(async () => {
+      throw new Error('boom');
+    });
+    chartOf(useStore).setState({ live: true, liveStatus: 'live', liveWanted: true });
+    expect(await chartOf(useStore).getState().setChartRange({ from: base[0].time - 50 * DAY, to: base[0].time - 20 * DAY })).toBe(false);
+    expect(chartOf(useStore).getState().live).toBe(true);
+    expect(chartOf(useStore).getState().liveWanted).toBe(true);
+    expect(chartOf(useStore).getState().chartRange).toBeNull();
+    expect(stop).not.toHaveBeenCalled();
+    stub.mockRestore();
+  });
+
   it('fewer than 2 bars returned is refused', async () => {
     const { useStore, base, setHandler } = await setup();
     setHandler(async (req) => mk(req.from!, 1));
