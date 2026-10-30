@@ -30,7 +30,10 @@ import {
   cloneMany,
   paste,
   removeMany,
+  setCell,
+  setCells,
 } from './drawings';
+import { VALIDATORS } from '../components/chart/tools';
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, gannBox: 2, gannSquareFixed: 2, gannSquare: 2, gannFan: 2, text: 1 };
 const TEXT = new Set(['text']);
@@ -722,5 +725,62 @@ describe('tools with a range of anchors', () => {
     const unknown = { id: 'u', tool: 'future', anchors: an(7) };
     const ok = { id: 't', tool: 'trendLine', anchors: an(2) };
     expect(parse([{ id: 'bad', tool: 'trendLine', anchors: an(3) }, ok, unknown])).toEqual([ok, unknown]);
+  });
+});
+
+describe('table cells', () => {
+  const tbl = (id: string, cells?: unknown) => ({ id, tool: 'table', anchors: [{ time: 1, price: 1 }], ...(cells === undefined ? {} : { cells }) });
+  const COUNTS_T = { ...COUNTS, table: 1 };
+  const withTable = () => add(emptyState(), tbl('t', [['a', 'b'], ['c', 'd']]) as Drawing);
+
+  it('round-trips through parseStore with the validators, padding ragged rows', () => {
+    const raw = { version: 2, sources: { s: [tbl('t', [['a'], ['b', 'c']])] } };
+    expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS_T, undefined, undefined, undefined, undefined, VALIDATORS).sources.s).toEqual([tbl('t', [['a', ''], ['b', 'c']])]);
+  });
+  it('drops a table with bad cells alone, its neighbours load', () => {
+    const raw = { version: 2, sources: { s: [trend('a'), tbl('x', 'nope'), tbl('y', []), tbl('z', [[1]]), tbl('ok', [['q']]), hline('b')] } };
+    const ids = parseStore(raw, COUNTS_T, undefined, undefined, undefined, undefined, VALIDATORS).sources.s.map((d) => d.id);
+    expect(ids).toEqual(['a', 'ok', 'b']);
+  });
+  it('parseStore without validators keeps stored cells as they were', () => {
+    const raw = { version: 2, sources: { s: [tbl('x', 'nope')] } };
+    expect(parseStore(raw, COUNTS_T).sources.s).toEqual([tbl('x', 'nope')]);
+  });
+  it('a table without cells is kept', () => {
+    const raw = { version: 2, sources: { s: [tbl('x')] } };
+    expect(parseStore(raw, COUNTS_T, undefined, undefined, undefined, undefined, VALIDATORS).sources.s).toEqual([tbl('x')]);
+  });
+  it('setCell is one undo step with redo, cleans the text and is a no-op when nothing changes', () => {
+    const s0 = withTable();
+    const s1 = setCell(s0, 't', 1, 0, '  hello  ');
+    expect(s1.drawings[0].cells).toEqual([['a', 'b'], ['hello', 'd']]);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(setCell(s1, 't', 1, 0, 'hello')).toBe(s1);
+    expect(setCell(s1, 't', 9, 9, 'x')).toBe(s1);
+    expect(setCell(s1, 'nope', 0, 0, 'x')).toBe(s1);
+    const u = undo(s1);
+    expect(u.drawings[0].cells).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(redo(u).drawings[0].cells).toEqual([['a', 'b'], ['hello', 'd']]);
+  });
+  it('setCells is one undo step and a no-op when equal', () => {
+    const s0 = withTable();
+    const s1 = setCells(s0, 't', [['x']]);
+    expect(s1.drawings[0].cells).toEqual([['x']]);
+    expect(s1.past).toHaveLength(s0.past.length + 1);
+    expect(setCells(s1, 't', [['x']])).toBe(s1);
+    expect(undo(s1).drawings[0].cells).toEqual([['a', 'b'], ['c', 'd']]);
+  });
+  it('previewPatch with cells leaves history untouched', () => {
+    const s0 = withTable();
+    const s1 = previewPatch(s0, 't', { cells: [['z', 'z', 'z']] });
+    expect(s1.drawings[0].cells).toEqual([['z', 'z', 'z']]);
+    expect(s1.past).toBe(s0.past);
+    expect(s1.future).toBe(s0.future);
+  });
+  it('cloneMany copies the cells', () => {
+    const s1 = cloneMany(withTable(), ['t']);
+    expect(s1.drawings).toHaveLength(2);
+    expect(s1.drawings[1].cells).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(s1.drawings[1].cells).not.toBe(s1.drawings[0].cells);
   });
 });

@@ -30,6 +30,7 @@ function view(tool: DrawingTool, text = '', style: Record<string, unknown> = {})
     formatPrice: String,
     style: { ...resolveStyle(tool.settings ?? [], undefined, undefined).values, ...style },
     styled: false,
+    cells: [],
   };
 }
 const tabsOf = (t: DrawingTool) => new Set((t.settings ?? []).map((f) => f.tab));

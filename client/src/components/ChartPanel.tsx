@@ -585,6 +585,8 @@ export function ChartPanel({
           style={drawings.editor.style}
           onCommit={drawings.editor.onCommit}
           onCancel={drawings.editor.onCancel}
+          width={drawings.editor.width}
+          onTab={drawings.editor.onTab}
         />
       )}
       {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}

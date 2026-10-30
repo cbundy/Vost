@@ -12,19 +12,29 @@ type Props = {
   style: Readonly<Record<string, unknown>>;
   onCommit(text: string): void;
   onCancel(): void;
+  /** A fixed width in pixels (a table cell's); absent, the width follows the note's wrap setting or its text. */
+  width?: number;
+  /** Given for a table cell: Tab (dir 1) and Shift+Tab (dir -1) commit and ask for the next or previous cell. */
+  onTab?(text: string, dir: 1 | -1): void;
 };
 
 /**
  * A multi-line input over the chart where a note is typed, in the tool's font and alignment. It grows with its
  * text. Enter adds a line, Ctrl+Enter or Cmd+Enter or leaving it commits, Escape cancels.
  */
-export function DrawingTextEditor({ left, top, initialText, style, onCommit, onCancel }: Props) {
+export function DrawingTextEditor({ left, top, initialText, style, onCommit, onCancel, width: fixedWidth, onTab }: Props) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const done = useRef(false);
   const [value, setValue] = useState(initialText);
   const opts = boxOpts(style);
   // A wrapping note is as wide as its wrap width; one that does not wrap is as wide as its text (plus the caret).
-  const width = opts.wrap ? opts.wrapWidth + NOTE_PAD * 2 : Math.max(layoutOf(value, style).width, 40 + NOTE_PAD * 2) + 2;
+  // A table cell's editor is as wide as the cell, and wider while its text (not wrapped) is.
+  const width =
+    fixedWidth !== undefined
+      ? Math.max(fixedWidth, opts.wrap ? 0 : layoutOf(value, style).width + 2)
+      : opts.wrap
+        ? opts.wrapWidth + NOTE_PAD * 2
+        : Math.max(layoutOf(value, style).width, 40 + NOTE_PAD * 2) + 2;
 
   // Focus inside the gesture that opened it (the caller renders synchronously), so a phone keyboard can open.
   useLayoutEffect(() => {
@@ -53,7 +63,7 @@ export function DrawingTextEditor({ left, top, initialText, style, onCommit, onC
     <textarea
       ref={ref}
       className="drawing-text-editor"
-      aria-label="Note text"
+      aria-label={onTab ? 'Cell text' : 'Note text'}
       rows={1}
       maxLength={TEXT_MAX}
       value={value}
@@ -79,6 +89,12 @@ export function DrawingTextEditor({ left, top, initialText, style, onCommit, onC
           e.preventDefault();
           e.stopPropagation();
           finish(false);
+        } else if (e.key === 'Tab' && onTab) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (done.current) return;
+          done.current = true;
+          onTab(ref.current?.value ?? '', e.shiftKey ? -1 : 1);
         } else if (e.key === 'Enter') {
           e.stopPropagation();
         }
