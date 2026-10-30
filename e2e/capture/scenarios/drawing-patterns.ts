@@ -9,11 +9,14 @@ const STORED = `(() => {
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[]; style?: Record<string, unknown> };
 type Pt = { x: number; y: number };
 
-/** The three pattern tools: label, stored id and where (canvas fractions) each point is placed, clear of the others. */
+/** The six pattern tools: label, stored id, whether it has ratios and where (canvas fractions) each point is placed, clear of the others (two rows). */
 const TOOLS = [
-  { label: 'XABCD pattern', id: 'xabcdPattern', how: 'clicks', at: [{ x: 0.04, y: 0.45 }, { x: 0.12, y: 0.12 }, { x: 0.2, y: 0.38 }, { x: 0.28, y: 0.18 }, { x: 0.36, y: 0.42 }] },
-  { label: 'Cypher pattern', id: 'cypherPattern', how: 'drag then click', at: [{ x: 0.42, y: 0.9 }, { x: 0.5, y: 0.62 }, { x: 0.56, y: 0.82 }, { x: 0.6, y: 0.55 }, { x: 0.66, y: 0.72 }] },
-  { label: 'ABCD pattern', id: 'abcdPattern', how: 'clicks', at: [{ x: 0.7, y: 0.55 }, { x: 0.78, y: 0.32 }, { x: 0.86, y: 0.5 }, { x: 0.94, y: 0.28 }] },
+  { label: 'XABCD pattern', id: 'xabcdPattern', how: 'clicks', ratios: true, at: [{ x: 0.03, y: 0.44 }, { x: 0.09, y: 0.26 }, { x: 0.15, y: 0.4 }, { x: 0.21, y: 0.28 }, { x: 0.27, y: 0.44 }] },
+  { label: 'Cypher pattern', id: 'cypherPattern', how: 'drag then click', ratios: true, at: [{ x: 0.35, y: 0.46 }, { x: 0.42, y: 0.28 }, { x: 0.47, y: 0.4 }, { x: 0.53, y: 0.24 }, { x: 0.6, y: 0.38 }] },
+  { label: 'ABCD pattern', id: 'abcdPattern', how: 'clicks', ratios: true, at: [{ x: 0.7, y: 0.44 }, { x: 0.78, y: 0.28 }, { x: 0.86, y: 0.4 }, { x: 0.94, y: 0.24 }] },
+  { label: 'Head and shoulders', id: 'headAndShoulders', how: 'clicks', ratios: false, at: [{ x: 0.03, y: 0.8 }, { x: 0.08, y: 0.64 }, { x: 0.13, y: 0.72 }, { x: 0.19, y: 0.54 }, { x: 0.25, y: 0.72 }, { x: 0.3, y: 0.64 }, { x: 0.35, y: 0.8 }] },
+  { label: 'Triangle pattern', id: 'trianglePattern', how: 'clicks', ratios: false, at: [{ x: 0.42, y: 0.54 }, { x: 0.46, y: 0.8 }, { x: 0.52, y: 0.62 }, { x: 0.56, y: 0.74 }] },
+  { label: 'Three drives', id: 'threeDrives', how: 'clicks', ratios: true, at: [{ x: 0.68, y: 0.8 }, { x: 0.73, y: 0.7 }, { x: 0.77, y: 0.74 }, { x: 0.82, y: 0.62 }, { x: 0.86, y: 0.66 }, { x: 0.91, y: 0.54 }, { x: 0.95, y: 0.58 }] },
 ] as const;
 type ToolSpec = (typeof TOOLS)[number];
 
@@ -24,7 +27,7 @@ export const drawingPatterns: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'The chart pattern tools (XABCD, Cypher, ABCD): place each point by point with a live preview (clicks, drag then click, or taps) and Escape to cancel, select with axis labels, drag a handle and the body, restyle (fill and the ratio switch), undo and redo, reload and a timeframe change',
+    'The chart pattern tools (XABCD, Cypher, ABCD, Head and shoulders, Triangle pattern, Three drives): place each point by point with a live preview (clicks, drag then click, or taps) and Escape to cancel, select with axis labels, drag a handle and the body, restyle (width, plus the ratio switch or the fill), undo and redo, reload and a timeframe change',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -122,7 +125,7 @@ export const drawingPatterns: Scenario = {
       });
     }
 
-    await ctx.step('all three together', async () => {
+    await ctx.step('all six together', async () => {
       const shot = await page.locator('.chart-container').screenshot();
       check('chart painted', shot.length > 1000);
       await ctx.screenshot('all');
@@ -160,12 +163,18 @@ export const drawingPatterns: Scenario = {
           await dialog.waitFor({ state: 'visible' });
           check(`${t.label} settings are titled for the tool`, (await dialog.getByRole('heading').textContent()) === `${t.label} settings`);
           await dialog.getByLabel('Line width', { exact: true }).fill('3');
-          await dialog.getByRole('tab', { name: 'Text' }).click();
-          await dialog.getByLabel('Show ratios', { exact: true }).uncheck();
+          if (t.ratios) {
+            await dialog.getByRole('tab', { name: 'Text' }).click();
+            await dialog.getByLabel('Show ratios', { exact: true }).uncheck();
+          } else if (t.id === 'trianglePattern') {
+            await dialog.getByLabel('Background', { exact: true }).uncheck();
+          } else {
+            await dialog.getByLabel('Fill opacity', { exact: true }).fill('0.5');
+          }
           await dialog.getByRole('button', { name: 'OK' }).click();
           await dialog.waitFor({ state: 'hidden' });
           const styled = (await one(t.id)).style;
-          check(`${t.label} restyled`, styled?.width === 3 && styled?.showRatios === false, JSON.stringify(styled));
+          check(`${t.label} restyled`, styled?.width === 3 && (t.ratios ? styled?.showRatios === false : t.id === 'trianglePattern' ? styled?.background === false : styled?.fillOpacity === 0.5), JSON.stringify(styled));
           await ctx.screenshot(`styled-${t.id}`);
           await page.keyboard.press('Control+z');
           check(`${t.label} undo reverts the restyle`, (await one(t.id)).style?.width !== 3);
@@ -180,7 +189,7 @@ export const drawingPatterns: Scenario = {
       await page.reload();
       await ctx.waitForChart();
       await page.waitForTimeout(500);
-      check('three drawings after reload', (await stored()).length === 3);
+      check('six drawings after reload', (await stored()).length === 6);
       await ctx.screenshot('reloaded');
       await page.locator('select[title="Timeframe"]').selectOption('1h');
       await page.waitForTimeout(1500);

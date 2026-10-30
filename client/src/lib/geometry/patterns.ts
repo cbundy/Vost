@@ -1,4 +1,5 @@
 import type { Pt } from '../drawingGeometry';
+import { headAndShouldersShape, triangleShape, type PatternShape } from './patternShapes';
 
 /**
  * Chart-pattern maths (XABCD, Cypher, ABCD). Pure: no React and no canvas.
@@ -19,6 +20,13 @@ import type { Pt } from '../drawingGeometry';
  *    Source: https://www.tradingview.com/support/solutions/43000570202-abcd-pattern-drawing-tool/ (checked): it
  *    gives the legs AB, BC and CD ("Classic ABCD: CD should be either 127.2% or 161.8% of BC").
  *
+ *  - Three drives: A-retracement P0-P2 = (P1-P2)/(P0-P1), drive 2 P1-P3 = (P2-P3)/(P1-P2), C-retracement P2-P4 and
+ *    drive 3 P3-P5 likewise. Source: https://www.tradingview.com/support/solutions/43000570172-three-drives-pattern-drawing-tool/
+ *    (checked 2026-10-30): confirms 7 points, drives 1-3, retracements A and C and the guideline ratios (0.618 or
+ *    0.786 retracements, 1.272 or 1.618 extensions). It does not say which ratio lines are drawn: the four lines
+ *    follow the pattern's definition.
+ *  - Head and shoulders and Triangle pattern have no ratios; their shapes are in patternShapes.ts.
+ *
  * A ratio is the absolute price move of one leg divided by the absolute price move of the other.
  */
 
@@ -36,11 +44,17 @@ export interface RatioLine {
 }
 
 export interface PatternSpec {
-  /** One letter per point, in order. */
+  /** One label per point, in order: a letter, a word or the empty string for a point without a label. */
   labels: readonly string[];
   /** The triangles (point indexes) that are filled once all three points exist. */
   fills: readonly (readonly [number, number, number])[];
   ratios: readonly RatioLine[];
+  /** Extra lines and fill polygons computed from the points drawn so far and the pane size (see patternShapes.ts). */
+  shape?: (pts: readonly Pt[], width: number, height: number) => PatternShape;
+  /** The tool fills (adds the fill colour and opacity settings) even without triangle `fills`. */
+  fill?: boolean;
+  /** The fill can be switched off with a Background setting. */
+  background?: boolean;
 }
 
 const XABCD_LABELS = ['X', 'A', 'B', 'C', 'D'] as const;
@@ -73,6 +87,34 @@ export const ABCD: PatternSpec = {
     { from: 0, to: 2, num: [1, 2], den: [0, 1], name: 'BC/AB' },
     { from: 1, to: 3, num: [2, 3], den: [1, 2], name: 'CD/BC' },
   ],
+};
+
+export const THREE_DRIVES: PatternSpec = {
+  labels: ['', '1', 'A', '2', 'C', '3', ''],
+  fills: [],
+  ratios: [
+    { from: 0, to: 2, num: [1, 2], den: [0, 1], name: 'A/drive1' },
+    { from: 1, to: 3, num: [2, 3], den: [1, 2], name: 'drive2/A' },
+    { from: 2, to: 4, num: [3, 4], den: [2, 3], name: 'C/drive2' },
+    { from: 3, to: 5, num: [4, 5], den: [3, 4], name: 'drive3/C' },
+  ],
+};
+
+export const HEAD_AND_SHOULDERS: PatternSpec = {
+  labels: ['', 'Left Shoulder', '', 'Head', '', 'Right Shoulder', ''],
+  fills: [],
+  ratios: [],
+  shape: headAndShouldersShape,
+  fill: true,
+};
+
+export const TRIANGLE_PATTERN: PatternSpec = {
+  labels: ['A', 'B', 'C', 'D'],
+  fills: [],
+  ratios: [],
+  shape: triangleShape,
+  fill: true,
+  background: true,
 };
 
 /** The ratio of leg a to leg b (absolute price moves), or null when b has no length or a price is not finite. */
