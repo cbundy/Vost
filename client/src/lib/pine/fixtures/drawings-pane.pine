@@ -1,0 +1,11 @@
+//@version=6
+indicator("Drawings in a pane", overlay=false)
+
+// Only drawing objects, no plot: the pane takes its scale from them.
+if barstate.islast
+    line.new(bar_index - 80, 20, bar_index - 40, 80, color=color.orange, width=2, extend=extend.right)
+    line.new(bar_index - 100, 50, bar_index - 10, 50, color=color.gray, style=line.style_dashed)
+    box.new(bar_index - 60, 70, bar_index - 30, 30, border_color=color.teal, bgcolor=color.new(color.teal, 80), text="In the pane", text_color=color.teal)
+    polyline.new(array.from(chart.point.from_index(bar_index - 30, 40), chart.point.from_index(bar_index - 20, 70), chart.point.from_index(bar_index - 10, 30)), curved=true, line_color=color.purple, line_width=2)
+    // A box forced onto the candles.
+    box.new(bar_index - 25, high, bar_index - 5, low, force_overlay=true, border_color=color.red, bgcolor=color.new(color.red, 85), text="On the candles", text_color=color.red)

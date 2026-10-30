@@ -18,7 +18,11 @@ import { pineIndicatorName } from '../lib/pine/title';
 import { newPaneState, releasePanes, sizePanes, type PaneReg, type PaneState } from './usePaneLegends';
 import { buildPineChart, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
 import { PineFillPrimitive } from './pineFillPrimitive';
+import { attachPineDrawings, type PineDrawingsPrimitive } from './pineDrawingsPrimitive';
+import { drawingPriceRange, drawingsOfPane } from '../lib/pine/drawingObjects';
+import { useChartStore } from '../state/chartContext';
 import { runFitsVisible } from '../lib/replay';
+import type { PineDrawings } from '../lib/pine/types';
 import type { PineRunState } from '../state/chart';
 
 type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'> | ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'>;
@@ -28,6 +32,12 @@ interface BuiltFill {
   itemId: string;
   index: number;
   prim: PineFillPrimitive;
+}
+
+interface BuiltDrawings {
+  itemId: string;
+  pane: 'price' | 'separate';
+  prim: PineDrawingsPrimitive;
 }
 
 interface Built {
@@ -61,6 +71,15 @@ const markerPanes = (it: { model: PineChartModel }): MarkerKind[] =>
   (['price', 'separate', 'scale'] as const).filter((p) => it.model.markers.some((m) => kindOf(m) === p));
 
 /**
+ * The panes whose drawing objects need an invisible carrier series of their own: the price pane always, a
+ * script's own pane only when it has no series there to carry them.
+ */
+const drawingCarriers = (it: { model: PineChartModel; drawings: Record<'price' | 'separate', unknown> }): Array<'price' | 'separate'> => [
+  ...(it.drawings.price ? (['price'] as const) : []),
+  ...(it.drawings.separate && !it.model.series.some((d) => d.pane === 'separate') ? (['separate'] as const) : []),
+];
+
+/**
  * Draws the Pine results of visible pine indicators onto the chart: price-pane
  * series on the main pane, the rest in one extra pane per script, after the
  * built-in RSI/MACD panes. `epochRef` is bumped by the built-in rebuild, which
@@ -78,12 +97,32 @@ export function usePineSeries(
 ) {
   const ownState = useRef<PaneState>(newPaneState());
   const paneState = paneStateRef ?? ownState;
-  const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], fills: [] as BuiltFill[], descs: [] as PineSeriesDesc[] });
+  const chartStore = useChartStore();
+  const ref = useRef({ sig: '', epoch: -1, built: [] as Built[], fills: [] as BuiltFill[], objects: [] as BuiltDrawings[], descs: [] as PineSeriesDesc[] });
 
   useEffect(() => {
     if (!chart) return;
     const st = ref.current;
-    const items: Array<{ id: string; model: PineChartModel; closes: number[]; times: number[]; name: string; params: string[] }> = [];
+    const items: Array<{
+      id: string;
+      model: PineChartModel;
+      closes: number[];
+      times: number[];
+      name: string;
+      params: string[];
+      drawings: Record<'price' | 'separate', PineDrawings | null>;
+    }> = [];
+    // The chart's own bar times, so objects stay on their bars when older history loads.
+    let cachedFor: unknown = null;
+    let cachedTimes: number[] = [];
+    const chartTimes = () => {
+      const candles = chartStore.getState().candles;
+      if (candles !== cachedFor) {
+        cachedFor = candles;
+        cachedTimes = candles.map((c) => c.time);
+      }
+      return cachedTimes;
+    };
     for (const spec of indicators) {
       const run = pineRuns[spec.id];
       if (spec.kind !== 'pine' || !spec.visible || !run?.result || !run.candles) continue;
@@ -91,6 +130,7 @@ export function usePineSeries(
       items.push({
         id: spec.id,
         model: buildPineChart(run.result, run.candles, spec.color),
+        drawings: { price: drawingsOfPane(run.result.drawings, 'price'), separate: drawingsOfPane(run.result.drawings, 'separate') },
         closes: run.candles.map((c) => c.close),
         times: run.candles.map((c) => c.time),
         name: pineIndicatorName(spec.source ?? '', run.result.declaration.title),
@@ -106,6 +146,7 @@ export function usePineSeries(
         [...new Set(it.model.markers.map(kindOf))].sort(),
         it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.dashed, s.pointsOnly, s.band]),
         it.model.fills.map((f) => [f.key1, f.key2, f.pane, f.color]),
+        [it.drawings.price !== null, it.drawings.separate !== null],
       ]),
     );
 
@@ -147,6 +188,17 @@ export function usePineSeries(
       }
     };
 
+    const fillCarriers = (it: (typeof items)[number], built: Built[], from: number) => {
+      let i = from;
+      for (const pane of drawingCarriers(it)) {
+        const carrier = built[i++].series;
+        // A series with no value cannot place a price, so the pane's own carrier holds the middle of the objects' range.
+        const range = pane === 'separate' && it.drawings.separate ? drawingPriceRange(it.drawings.separate) : null;
+        const mid = range ? (range.min + range.max) / 2 : 0;
+        carrier.setData(it.times.map((t, k) => ({ time: t as UTCTimestamp, value: pane === 'price' ? it.closes[k] : mid })) as never);
+      }
+    };
+
     const fillData = (it: (typeof items)[number], index: number) => {
       const f = it.model.fills[index];
       const values = (key: string) => it.model.series.find((d) => d.key === key)!.data.map((p) => p.value ?? null);
@@ -158,6 +210,7 @@ export function usePineSeries(
         const it = items.find((x) => x.id === bf.itemId);
         if (it) bf.prim.setData(fillData(it, bf.index));
       }
+      for (const bd of st.objects) bd.prim.setData(items.find((x) => x.id === bd.itemId)?.drawings[bd.pane] ?? null);
       for (const it of items) {
         const reg = paneState.current.panes.get(it.id);
         if (reg) {
@@ -167,8 +220,10 @@ export function usePineSeries(
       }
       let offset = 0;
       for (const it of items) {
-        const n = it.model.series.length + markerPanes(it).length;
-        fill(it, st.built.slice(offset, offset + n));
+        const n = it.model.series.length + markerPanes(it).length + drawingCarriers(it).length;
+        const mine = st.built.slice(offset, offset + n);
+        fill(it, mine);
+        fillCarriers(it, mine, it.model.series.length + markerPanes(it).length);
         offset += n;
       }
       return;
@@ -185,6 +240,7 @@ export function usePineSeries(
     }
     st.built = [];
     st.fills = []; // detached with their series
+    st.objects = [];
     const base = 1 + indicators.filter((s) => s.visible && (s.kind === 'rsi' || s.kind === 'macd')).length;
     for (let i = chart.panes().length - 1; i >= base; i--) {
       try {
@@ -277,6 +333,37 @@ export function usePineSeries(
         mine.push({ series, plugin: createSeriesMarkers(series, []) });
       }
       fill(it, mine);
+      const carried = drawingCarriers(it);
+      for (const pane of carried) {
+        if (pane === 'separate' && sepPane < 0) {
+          chart.addPane();
+          sepPane = chart.panes().length - 1;
+        }
+        const series = chart.addSeries(
+          LineSeries,
+          {
+            lineVisible: false,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+            priceScaleId: 'right',
+          },
+          pane === 'price' ? 0 : sepPane,
+        );
+        mine.push({ series });
+      }
+      fillCarriers(it, mine, it.model.series.length + markerPanes(it).length);
+      for (const pane of ['price', 'separate'] as const) {
+        const data = it.drawings[pane];
+        if (!data) continue;
+        // A script's own pane without a series of its own is scaled by its objects; otherwise they ride its first series.
+        const hostIdx = pane === 'separate' ? it.model.series.findIndex((d) => d.pane === 'separate') : -1;
+        const carrierIdx = it.model.series.length + markerPanes(it).length + carried.indexOf(pane);
+        const host = hostIdx >= 0 ? mine[hostIdx].series : mine[carrierIdx].series;
+        const prim = attachPineDrawings(host, chartTimes, hostIdx < 0 && pane === 'separate');
+        prim.setData(data);
+        st.objects.push({ itemId: it.id, pane, prim });
+      }
       if (sepPane >= 0) {
         sizePanes(chart, paneState.current, [{ id: it.id, paneIndex: sepPane }]);
         const entries: PaneReg['entries'] = [];
@@ -301,5 +388,5 @@ export function usePineSeries(
     }
     st.sig = sig;
     st.epoch = epochRef.current;
-  }, [chart, indicators, pineRuns, epochRef, lastVisibleTime, paneState]);
+  }, [chart, chartStore, indicators, pineRuns, epochRef, lastVisibleTime, paneState]);
 }
