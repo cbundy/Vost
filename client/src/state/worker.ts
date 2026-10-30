@@ -3,6 +3,7 @@
  * with a main-thread fallback. Each call carries its own request id, so many charts can share one worker.
  */
 import { uid } from '../types';
+import { runMonteCarlo } from '../lib/backtest/monteCarlo';
 import { runAnyBacktest } from '../lib/backtest/runner';
 import type { BacktestStage } from '../lib/backtest/types';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
@@ -60,6 +61,12 @@ export function workerCall(req: Exclude<WorkerRequestBody, { type: 'optimize' }>
             (result) => resolve({ id, type: 'result', result }),
             (err) => reject(err instanceof Error ? err : new Error(String(err))),
           );
+        } else if (req.type === 'montecarlo') {
+          resolve({
+            id,
+            type: 'monteCarloResult',
+            result: runMonteCarlo({ trades: req.trades, initialCapital: req.initialCapital }, req.options),
+          });
         } else if (req.type === 'pine') {
           // No Worker (e.g. tests): run on this thread. Loaded lazily to keep PineTS out of the main bundle.
           void import('../lib/pine/runtime')

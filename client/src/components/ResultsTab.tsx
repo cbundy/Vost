@@ -2,6 +2,7 @@ import { downloadFile, rowsToCsv, sanitizeFileName } from '../lib/export';
 import { fmtCompact, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
 import { getStrategy } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
+import { MonteCarloPanel } from './MonteCarloPanel';
 import { EquityChart } from './EquityChart';
 import { TradesTable } from './TradesTable';
 import { BreakdownTables } from './BreakdownTables';
@@ -127,6 +128,9 @@ export function ResultsTab() {
 
       <div className="section-title">Equity curve & drawdown</div>
       <EquityChart result={btResult} />
+
+      <div className="section-title mt-3">Monte Carlo</div>
+      <MonteCarloPanel />
 
       <div className="section-title mt-3">Trade log</div>
       <TradesTable trades={btResult.trades} />
