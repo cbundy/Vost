@@ -32,6 +32,7 @@ import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
+import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useChart, useChartStore } from '../state/chartContext';
 import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
@@ -265,6 +266,12 @@ export function ChartPanel({
 
   usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff);
   const narrow = useMediaQuery('(max-width: 600px)');
+  /* The crosshair lines follow the cursor kind (the price and time labels stay in every kind). */
+  const cursorKind = useStore((s) => s.cursorKind);
+  useEffect(() => {
+    const lines = cursorKind === 'cross';
+    chartApi?.applyOptions({ crosshair: { vertLine: { visible: lines }, horzLine: { visible: lines } } });
+  }, [chartApi, cursorKind]);
   const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef, active);
 
   /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */
@@ -537,9 +544,16 @@ export function ChartPanel({
     chartApi.timeScale().fitContent();
   }
 
+  const favorites = useStore((s) => s.drawingFavorites);
+  const lastTool = useStore((s) => s.drawingLastTool);
+  const toggleFavorite = useStore((s) => s.toggleDrawingFavorite);
   const drawingControls: DrawingControls = {
     tool: drawings.tool,
-    onPick: drawings.pickTool,
+    cursorKind: drawings.cursorKind,
+    onPick: drawings.pickEntry,
+    favorites,
+    onToggleFavorite: toggleFavorite,
+    lastTool,
     disabled: !drawings.hasData,
     magnet: drawings.magnet,
     onMagnet: drawings.toggleMagnet,
@@ -565,6 +579,7 @@ export function ChartPanel({
           onCancel={drawings.editor.onCancel}
         />
       )}
+      {active && favorites.length > 0 && <FavoritesBar {...drawingControls} />}
       <ChartRangeBar chartApi={chartApi} />
       <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} />
       <div className="chart-toolbar">

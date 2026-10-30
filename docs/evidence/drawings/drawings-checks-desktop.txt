@@ -1,14 +1,14 @@
 ok   rail left of canvas - rail right=40 canvas left=40
 ok   rail about 40px wide - 40
-ok   Cursor button has title and aria-pressed
-ok   Trend line button has title and aria-pressed
-ok   Horizontal line button has title and aria-pressed
-ok   Ray button has title and aria-pressed
-ok   Rectangle button has title and aria-pressed
-ok   Fibonacci retracement button has title and aria-pressed
-ok   Text button has title and aria-pressed
-ok   Measure button has title and aria-pressed
-ok   Cursor pressed at start
+ok   Cross has title and a pressed state
+ok   Trend line has title and a pressed state
+ok   Horizontal line has title and a pressed state
+ok   Ray has title and a pressed state
+ok   Rectangle has title and a pressed state
+ok   Fibonacci retracement has title and a pressed state
+ok   Text has title and a pressed state
+ok   Measure has title and a pressed state
+ok   Cross (the cursor) pressed at start
 ok   Magnet button has title
 ok   Hide all drawings button has title
 ok   Delete all drawings button has title
@@ -18,9 +18,9 @@ ok   Delete all has no aria-pressed
 ok   Delete all disabled with no drawings
 ok   Magnet pressed
 ok   one drawing saved
-ok   anchor 1 time is a bar time - 1709596800
+ok   anchor 1 time is a bar time - 1709769600
 ok   anchor 1 price is that bar's open, high, low or close - 125.266881 in 121.831973,125.266881,115.93706,118.663051
-ok   anchor 2 time is a bar time - 1747526400
+ok   anchor 2 time is a bar time - 1747699200
 ok   anchor 2 price is that bar's open, high, low or close - 54.326344 in 53.812247,54.326344,52.976376,52.979494
 ok   Hide all pressed
 ok   Trend line disabled
@@ -55,7 +55,7 @@ ok   second anchor moved
 ok   first anchor kept
 ok   both anchors moved by the same time - -5184000,-5184000
 ok   rectangle changed
-ok   bottom-left corner unchanged - {"time":1671753600,"price":63.757515673630465} -> {"time":1671753600,"price":63.757515673630465}
+ok   bottom-left corner unchanged - {"time":1671926400,"price":63.757515673630465} -> {"time":1671926400,"price":63.757515673630465}
 ok   top-right corner moved
 ok   four drawings left
 ok   undo brings it back
@@ -68,7 +68,7 @@ ok   chart panned
 ok   Text pressed
 ok   the input is focused
 ok   tool back to Cursor
-ok   one text drawing stored with the text - [{"id":"dmvs5nrs61b15l","tool":"text","anchors":[{"time":1790168400,"price":192.92154584576326}],"text":"first note"}]
+ok   one text drawing stored with the text - [{"id":"dmvuhbwhv1xi61","tool":"text","anchors":[{"time":1790308800,"price":192.92154584576326}],"text":"first note"}]
 ok   exactly one drawing added
 ok   the input is gone
 ok   the input shows the text

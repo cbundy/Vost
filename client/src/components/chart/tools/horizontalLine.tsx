@@ -6,6 +6,8 @@ import type { DrawingTool } from './types';
 export const horizontalLine: DrawingTool = {
   id: 'horizontalLine',
   label: 'Horizontal line',
+  group: 'lines',
+  section: 'Lines',
   icon: (
     <Svg>
       <line x1="3" y1="12" x2="21" y2="12" />

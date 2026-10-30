@@ -6,6 +6,8 @@ import type { DrawingTool } from './types';
 export const trendLine: DrawingTool = {
   id: 'trendLine',
   label: 'Trend line',
+  group: 'lines',
+  section: 'Lines',
   icon: (
     <Svg>
       <line x1="5" y1="19" x2="19" y2="5" />
