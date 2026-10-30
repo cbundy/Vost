@@ -170,18 +170,32 @@ export function rename(s: DrawingsState, id: string, name: string): DrawingsStat
 
 export type ReorderTo = 'front' | 'back' | 'forward' | 'backward';
 
-/** Moves a drawing in the paint order (last paints on top) as an undoable step; the same state when it already sits there. */
-export function reorder(s: DrawingsState, id: string, to: ReorderTo): DrawingsState {
-  const i = s.drawings.findIndex((d) => d.id === id);
-  if (i < 0) return s;
-  const last = s.drawings.length - 1;
-  const j = to === 'front' ? last : to === 'back' ? 0 : to === 'forward' ? Math.min(last, i + 1) : Math.max(0, i - 1);
-  if (j === i) return s;
-  const drawings = [...s.drawings];
-  const [d] = drawings.splice(i, 1);
-  drawings.splice(j, 0, d);
-  return record(s, s.drawings, drawings);
+/**
+ * Moves drawings in the paint order (last paints on top) as one undoable step; the same state when nothing would change.
+ * Front and back keep the moved drawings' relative order; forward and backward move each one past its nearest
+ * unselected neighbour.
+ */
+export function reorderMany(s: DrawingsState, ids: readonly string[], to: ReorderTo): DrawingsState {
+  const set = new Set(ids);
+  const list = s.drawings;
+  let out: Drawing[];
+  if (to === 'front' || to === 'back') {
+    const picked = list.filter((d) => set.has(d.id));
+    const rest = list.filter((d) => !set.has(d.id));
+    out = to === 'front' ? [...rest, ...picked] : [...picked, ...rest];
+  } else {
+    out = [...list];
+    if (to === 'forward') {
+      for (let i = out.length - 2; i >= 0; i--) if (set.has(out[i].id) && !set.has(out[i + 1].id)) [out[i], out[i + 1]] = [out[i + 1], out[i]];
+    } else {
+      for (let i = 1; i < out.length; i++) if (set.has(out[i].id) && !set.has(out[i - 1].id)) [out[i], out[i - 1]] = [out[i - 1], out[i]];
+    }
+  }
+  return out.every((d, i) => d === list[i]) ? s : record(s, list, out);
 }
+
+/** Moves one drawing in the paint order as an undoable step; the same state when it already sits there. */
+export const reorder = (s: DrawingsState, id: string, to: ReorderTo): DrawingsState => reorderMany(s, [id], to);
 
 const copyOf = (d: Drawing): Drawing => ({ ...JSON.parse(JSON.stringify(d)), id: newDrawingId() });
 
@@ -213,6 +227,11 @@ export function removeMany(s: DrawingsState, ids: readonly string[]): DrawingsSt
 /** Live drag preview: changes the anchors without touching history. Pair with {@link commit}. */
 export function preview(s: DrawingsState, id: string, anchors: Anchor[]): DrawingsState {
   return { ...s, drawings: s.drawings.map((d) => (d.id === id ? { ...d, anchors } : d)) };
+}
+
+/** Live drag preview of several drawings at once: each id in `moves` gets its anchors, history untouched. */
+export function previewMany(s: DrawingsState, moves: Readonly<Record<string, Anchor[]>>): DrawingsState {
+  return { ...s, drawings: s.drawings.map((d) => (Object.prototype.hasOwnProperty.call(moves, d.id) ? { ...d, anchors: moves[d.id] } : d)) };
 }
 
 /** Ends a drag: records `before` (the drawings when the drag began) as one undo step if anything changed. */

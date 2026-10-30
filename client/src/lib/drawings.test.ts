@@ -25,6 +25,8 @@ import {
   setLocked,
   rename,
   reorder,
+  reorderMany,
+  previewMany,
   cloneMany,
   paste,
   removeMany,
@@ -483,6 +485,42 @@ describe('drawing management edits', () => {
     const moved = reorder(s, 'a', 'front');
     expect(moved.past).toHaveLength(1);
     expect([...moved.drawings].sort((x, y) => x.id.localeCompare(y.id))).toEqual(s.drawings);
+  });
+
+  it('reorderMany keeps the relative order at the front and back and steps past the nearest unselected neighbour', () => {
+    const five = { ...emptyState(['a', 'b', 'c', 'd', 'e'].map((x) => t(x))) };
+    expect(ids(reorderMany(five, ['b', 'd'], 'front'))).toEqual(['a', 'c', 'e', 'b', 'd']);
+    expect(ids(reorderMany(five, ['d', 'b'], 'back'))).toEqual(['b', 'd', 'a', 'c', 'e']);
+    expect(ids(reorderMany(five, ['b', 'c'], 'forward'))).toEqual(['a', 'd', 'b', 'c', 'e']);
+    expect(ids(reorderMany(five, ['b', 'e'], 'forward'))).toEqual(['a', 'c', 'b', 'd', 'e']);
+    expect(ids(reorderMany(five, ['c', 'd'], 'backward'))).toEqual(['a', 'c', 'd', 'b', 'e']);
+    expect(ids(reorderMany(five, ['a', 'c'], 'backward'))).toEqual(['a', 'c', 'b', 'd', 'e']);
+    expect(reorderMany(five, ['d', 'e'], 'front')).toBe(five);
+    expect(reorderMany(five, ['a', 'b'], 'back')).toBe(five);
+    expect(reorderMany(five, ['d', 'e'], 'forward')).toBe(five);
+    expect(reorderMany(five, ['a', 'b'], 'backward')).toBe(five);
+    expect(reorderMany(five, ['zz'], 'front')).toBe(five);
+    expect(reorderMany(five, ['b', 'd'], 'front').past).toHaveLength(1);
+  });
+
+  it('previewMany then commit is one undo step that one undo restores', () => {
+    const s = three();
+    const before = s.drawings;
+    const moved = (id: string) => [{ time: 500, price: 1 }, { time: 600, price: 2 }].map((a) => ({ ...a, price: a.price + id.length }));
+    const p = previewMany(s, { a: moved('a'), c: moved('c') });
+    expect(p.drawings[0].anchors).toEqual(moved('a'));
+    expect(p.drawings[1]).toBe(before[1]);
+    expect(p.past).toHaveLength(0);
+    const done = commit(p, before);
+    expect(done.past).toHaveLength(1);
+    expect(undo(done).drawings).toEqual(before);
+  });
+
+  it('removeMany, setLocked and cloneMany of a selection are one step each', () => {
+    const s = three();
+    expect(removeMany(s, ['a', 'c']).past).toHaveLength(1);
+    expect(setLocked(s, ['a', 'b'], true).past).toHaveLength(1);
+    expect(cloneMany(s, ['a', 'b']).past).toHaveLength(1);
   });
 
   it('clones just above the originals with new unique ids and independent anchors', () => {
