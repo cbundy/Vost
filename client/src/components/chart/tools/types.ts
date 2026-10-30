@@ -18,6 +18,8 @@ export interface ToolView {
   text: string;
   /** The drawing's cells (a table); empty for tools without cells. */
   cells: readonly (readonly string[])[];
+  /** The drawing's glyph id (an icon, emoji or sticker); empty for other tools. */
+  glyph: string;
   /** The drawing's picture (an image); absent for tools without one. */
   image?: { key: string; w: number; h: number };
   /** Times of the loaded bars, ascending. */
@@ -67,6 +69,11 @@ export interface DrawingTool {
   placed?: AnchorSpec;
   /** The tool stores text (a note). */
   text?: true;
+  /**
+   * The tool places a glyph from a bundled set (its id is the set): the picker opens when the tool is picked, the
+   * chosen entry id is stored as the drawing's `glyph`, and the drawing shows it while it is placed.
+   */
+  glyph?: true;
   /** The tool's content is a grid of text cells, stored as the drawing's `cells` (a table); the cell editor opens for it. */
   cells?: true;
   /**
@@ -128,4 +135,10 @@ export interface DrawingTool {
    * The new anchor pixels when handle `handle` is dragged to p. Absent: handle i moves anchor i.
    */
   dragHandle?(origPts: Pt[], handle: number, p: Pt, mods?: DragMods): Pt[];
+  /**
+   * The style values a handle drag changes (merged over the drawing's own style), or null when the drag changes none.
+   * `view` is the drawing as it was when the drag began; `p` is where the handle now is. A tool with it keeps its
+   * anchors still while a handle is dragged (unless `dragHandle` moves them).
+   */
+  dragStyle?(origPts: Pt[], handle: number, p: Pt, view: ToolView, opts: { shift: boolean }): Record<string, unknown> | null;
 }

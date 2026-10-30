@@ -826,6 +826,50 @@ describe('table cells', () => {
   });
 });
 
+describe('glyph drawings (icon, emoji, sticker)', () => {
+  const glyph = (tool: string, id: string, extra: Record<string, unknown> = {}) => ({ id, tool, anchors: [{ time: 5, price: 7 }], glyph: 'flag', style: { size: 64, angle: 30 }, ...extra });
+  const COUNTS_G = { ...COUNTS, icon: 1, emoji: 1, sticker: 1 };
+  const parse = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, COUNTS_G, undefined, undefined, undefined, undefined, VALIDATORS).sources.s ?? [];
+
+  it('each tool round-trips through save and load with its glyph, size and angle', () => {
+    for (const tool of ['icon', 'emoji', 'sticker']) {
+      const d = glyph(tool, tool, { glyph: `${tool}-id` });
+      saveDrawings({ s: [d as Drawing] });
+      const back = loadDrawings(COUNTS_G, undefined, undefined, undefined, undefined, VALIDATORS).sources.s;
+      expect(back).toEqual([d]);
+      expect(back[0].glyph).toBe(`${tool}-id`);
+      expect(back[0].style).toEqual({ size: 64, angle: 30 });
+      store.clear();
+    }
+  });
+  it('keeps a glyph id the sets do not know, and drops a drawing with no usable glyph alone', () => {
+    const unknown = glyph('icon', 'u', { glyph: 'not-in-any-set' });
+    const missing = { id: 'm', tool: 'emoji', anchors: [{ time: 1, price: 1 }] };
+    const empty = glyph('sticker', 'e', { glyph: '' });
+    const num = glyph('icon', 'n', { glyph: 5 });
+    expect(parse([trend('a'), missing, unknown, empty, num, hline('b')]).map((d) => d.id)).toEqual(['a', 'u', 'b']);
+  });
+  it('cloneMany and paste keep the glyph and style, and undo and redo restore the drawing', () => {
+    const s0 = add(emptyState(), glyph('emoji', 'g') as Drawing);
+    const s1 = cloneMany(s0, ['g']);
+    expect(s1.drawings[1]).toMatchObject({ tool: 'emoji', glyph: 'flag', style: { size: 64, angle: 30 } });
+    expect(s1.drawings[1].id).not.toBe('g');
+    expect(paste(emptyState(), [s0.drawings[0]]).drawings[0].glyph).toBe('flag');
+    expect(undo(s1).drawings).toHaveLength(1);
+    expect(redo(undo(s1)).drawings[1].glyph).toBe('flag');
+  });
+  it('a style preview with the anchors unchanged leaves history alone and the commit is one undo step', () => {
+    const s0 = add(emptyState(), glyph('sticker', 'g') as Drawing);
+    const live = previewPatch(s0, 'g', { anchors: s0.drawings[0].anchors, style: { size: 200, angle: 90 } });
+    expect(live.past).toBe(s0.past);
+    expect(live.drawings[0].style).toEqual({ size: 200, angle: 90 });
+    expect(live.drawings[0].glyph).toBe('flag');
+    const done = commit(live, s0.drawings);
+    expect(done.past).toHaveLength(s0.past.length + 1);
+    expect(undo(done).drawings[0].style).toEqual({ size: 64, angle: 30 });
+  });
+});
+
 describe('image drawings', () => {
   const KEY = 'b'.repeat(64);
   const pic = (id: string): Drawing => ({ id, tool: 'image', anchors: [{ time: 100, price: 9 }, { time: 200, price: 4 }], image: { key: KEY, w: 40, h: 30 } });

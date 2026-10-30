@@ -13,6 +13,7 @@ import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, barSlotTime, hits
 import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
 import { anchorRange, type Anchor, type Drawing } from '../../lib/drawings';
 import { inBox, type Rect } from '../../lib/drawingSelection';
+import { onGlyphLoaded } from '../../lib/iconSets';
 import { theme } from '../../lib/theme';
 import { fractionToPoint, pointToFraction } from './paneAnchor';
 import { getTool } from './tools';
@@ -27,6 +28,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private chart: IChartApiBase<Time> | null = null;
   private series: ISeriesApi<'Candlestick'> | null = null;
   private requestUpdate: (() => void) | null = null;
+  /** Unsubscribes from the glyph sets and images finishing to load (a glyph drawn as a placeholder is painted again). */
+  private stopGlyphs: (() => void) | null = null;
   private drawings: Drawing[] = [];
   private draft: Drawing | null = null;
   private measure: Drawing | null = null;
@@ -65,10 +68,13 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.chart = p.chart;
     this.series = p.series as ISeriesApi<'Candlestick'>;
     this.requestUpdate = p.requestUpdate;
+    this.stopGlyphs = onGlyphLoaded(() => this.requestUpdate?.());
     this.rebuildAxisViews();
   }
 
   detached(): void {
+    this.stopGlyphs?.();
+    this.stopGlyphs = null;
     this.chart = null;
     this.series = null;
     this.requestUpdate = null;
@@ -216,7 +222,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   }
 
   /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */
-  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style' | 'cells' | 'image'>>, size?: { width: number; height: number }): ToolView {
+  viewFor(d: Pick<Drawing, 'tool' | 'anchors'> & Partial<Pick<Drawing, 'text' | 'style' | 'cells' | 'image' | 'glyph'>>, size?: { width: number; height: number }): ToolView {
     const series = this.series;
     const { values, styled } = this.styleOf(d);
     const pane = size ?? (this.chart ? this.chart.paneSize(0) : { width: 0, height: 0 });
@@ -226,6 +232,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       anchors: d.anchors,
       text: d.text ?? '',
       cells: d.cells ?? [],
+      glyph: d.glyph ?? '',
       image: d.image,
       times: this.getTimes(),
       candles: this.getCandles(),

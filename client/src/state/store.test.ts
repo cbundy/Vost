@@ -389,6 +389,8 @@ describe('chart registry and flat prefs', () => {
     drawingDefaults: { trendLine: { width: 3 } },
     drawingFavorites: ['ray', 'eraser'],
     drawingLastTool: { lines: 'ray', cursors: 'cursor.dot' },
+    glyphArmed: { emoji: '1f600' },
+    glyphRecent: { emoji: ['1f600'] },
     cursorKind: 'dot',
     favoritesBarPos: { x: 120, y: 44 },
     buildTimeframes: true,
@@ -440,6 +442,46 @@ describe('chart registry and flat prefs', () => {
     expect([app.drawingFavorites, app.drawingLastTool, app.cursorKind, app.favoritesBarPos]).toEqual([[], {}, 'cross', { x: 56, y: 12 }]);
   });
 
+  it('reads the glyph picks with sanitising: unknown tools and bad ids dropped, recents capped at 16', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    const many = Array.from({ length: 30 }, (_, i) => `g${i}`);
+    localStorage.setItem(
+      'vost.prefs.v1',
+      JSON.stringify({ ...seed(), glyphArmed: { icon: 'star', emoji: 7, sticker: '', ray: 'x' }, glyphRecent: { icon: ['a', 'a', 5, '', 'b'], emoji: many, ray: ['x'], sticker: 'nope' } }),
+    );
+    useStore.getState().init();
+    let app = useStore.getState();
+    expect(app.glyphArmed).toEqual({ icon: 'star' });
+    expect(app.glyphRecent.icon).toEqual(['a', 'b']);
+    expect(app.glyphRecent.emoji).toEqual(many.slice(0, 16));
+    expect(Object.keys(app.glyphRecent).sort()).toEqual(['emoji', 'icon']);
+    const old: Record<string, unknown> = seed();
+    delete old.glyphArmed;
+    delete old.glyphRecent;
+    localStorage.setItem('vost.prefs.v1', JSON.stringify(old));
+    useStore.getState().init();
+    app = useStore.getState();
+    expect([app.glyphArmed, app.glyphRecent]).toEqual([{}, {}]);
+  });
+
+  it('arms a glyph tool and keeps its last 16 picks newest first, once each', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    const s = useStore.getState();
+    for (let i = 0; i < 20; i++) s.pickGlyph('emoji', `e${i}`);
+    s.pickGlyph('emoji', 'e10');
+    s.pickGlyph('ray', 'nope'); // not a glyph tool
+    const app = useStore.getState();
+    expect(app.glyphArmed).toEqual({ emoji: 'e10' });
+    expect(app.glyphRecent.emoji).toHaveLength(16);
+    expect(app.glyphRecent.emoji.slice(0, 3)).toEqual(['e10', 'e19', 'e18']);
+    expect(app.glyphRecent.ray).toBeUndefined();
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).glyphArmed).toEqual({ emoji: 'e10' });
+  });
+
   it('toggles favourites and remembers the last tool of a family', async () => {
     const { useStore } = await import('./store');
     track(useStore);
@@ -477,6 +519,7 @@ describe('chart registry and flat prefs', () => {
     expect(saved.drawingFavorites).toEqual(['ray', 'eraser']);
     expect(saved.drawingLastTool).toEqual({ lines: 'ray', cursors: 'cursor.dot' });
     expect(saved.cursorKind).toBe('dot');
+    expect(saved.glyphArmed).toEqual({ emoji: '1f600' });
     expect(saved.favoritesBarPos).toEqual({ x: 120, y: 44 });
     for (const v of Object.values(saved)) expect(v).not.toHaveProperty('candles');
   });

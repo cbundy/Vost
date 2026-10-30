@@ -1,0 +1,8 @@
+ok   the search box has focus
+ok   the search narrows the grid to arrow icons - 43
+ok   an icon is stored with its glyph id - {"id":"dmvuuyf871n4ph","tool":"icon","anchors":[{"time":1755734400,"price":192.30169771769852}],"glyph":"arrow-up"}
+ok   an emoji is stored - {"id":"dmvuuygzn2ilu2","tool":"emoji","anchors":[{"time":1770854400,"price":192.30169771769852}],"glyph":"1f435"}
+ok   a sticker is stored - {"id":"dmvuuyi9e3qt1m","tool":"sticker","anchors":[{"time":1785974400,"price":164.93167624899058}],"glyph":"1f680"}
+ok   the Recent row holds the rocket
+ok   Escape closes the picker and places nothing
+ok   storage is unchanged

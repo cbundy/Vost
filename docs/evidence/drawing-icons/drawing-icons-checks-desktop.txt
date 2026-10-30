@@ -1,0 +1,21 @@
+ok   the search box has focus
+ok   the search narrows the grid to arrow icons - 43
+ok   an icon is stored with its glyph id - {"id":"dmvuuxzgo1feaw","tool":"icon","anchors":[{"time":1653004800,"price":188.44943902445695}],"glyph":"arrow-up"}
+ok   an emoji is stored - {"id":"dmvuuy1du2swew","tool":"emoji","anchors":[{"time":1700352000,"price":188.44943902445695}],"glyph":"1f435"}
+ok   a sticker is stored - {"id":"dmvuuy2nn370x5","tool":"sticker","anchors":[{"time":1747699200,"price":157.27646516808963}],"glyph":"1f680"}
+ok   the Recent row holds the rocket
+ok   Escape closes the picker and places nothing
+ok   Down enters the grid and Right moves on - 1f609 -> 1f970
+ok   a default sticker has no size of its own yet - undefined
+ok   the size follows the corner (about 160) - 160
+ok   one undo restores the size
+ok   redo applies it again
+ok   the angle is 45 (38 snapped) - 45
+ok   titled for the tool
+ok   Angle shows 45
+ok   a sticker has no Colour
+ok   opacity stored
+ok   undo reverts the opacity alone
+ok   colour stored
+ok   storage is unchanged
+ok   the drawings are still stored after a timeframe change
