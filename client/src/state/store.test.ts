@@ -330,6 +330,45 @@ describe('historyLoading setting', () => {
   });
 });
 
+describe('historyLoading reload', () => {
+  async function setup() {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    const { getProvider } = await import('../lib/providers');
+    const history = vi.spyOn(getProvider('demo'), 'fetchHistory').mockImplementation(async () => []);
+    chartOf(useStore).setState({ providerId: 'demo', symbol: 'DEMO', timeframe: '1h', bars: 321, activeDatasetId: null, chartRange: null, replay: null });
+    return { useStore, history };
+  }
+
+  it('saves the choice and reloads a plain Demo chart once; the same value again does nothing', async () => {
+    const { useStore, history } = await setup();
+    useStore.getState().setHistoryLoading('all');
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).historyLoading).toBe('all');
+    await vi.waitFor(() => expect(history).toHaveBeenCalledTimes(1));
+    expect(history).toHaveBeenLastCalledWith(expect.objectContaining({ bars: 321 }));
+    useStore.getState().setHistoryLoading('all');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(history).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('leaves a chart with a dataset, a chart range or a replay as it is', async () => {
+    for (const patch of [{ activeDatasetId: 'ds1' }, { chartRange: { from: 1_700_000_000, to: 1_700_100_000 } }, { replay: {} }]) {
+      const { useStore, history } = await setup();
+      chartOf(useStore).setState(patch as never);
+      useStore.getState().setHistoryLoading('all');
+      await new Promise((r) => setTimeout(r, 20));
+      expect(history).not.toHaveBeenCalled();
+      vi.restoreAllMocks();
+    }
+  });
+});
+
 describe('buildTimeframes setting', () => {
   const bars = Array.from({ length: 5 }, (_, i) => ({ time: 1_700_000_000 + i * 3600, open: 1, high: 2, low: 1, close: 2, volume: 1 }));
 

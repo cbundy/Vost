@@ -11,11 +11,12 @@ import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
 import { selectDataCandles } from '../state/chart';
 import { ChartRangeControl } from './ChartRangeControl';
-import { BellIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
+import { BellIcon, GearIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { LayoutDialogs } from './LayoutDialogs';
 import { LayoutMenu } from './LayoutMenu';
 import { LayoutPicker } from './LayoutPicker';
+import { SettingsDialog } from './SettingsDialog';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
 import type { Interval } from '../types';
@@ -66,6 +67,7 @@ export function TopBar({
   const showBars = useStore((s) => s.historyLoading) === 'all';
   const customTimeframes = useStore((s) => s.customTimeframes);
   const [intervalOpen, setIntervalOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const setBuildTimeframes = useStore((s) => s.setBuildTimeframes);
   const setBars = useChart((s) => s.setBars);
   const loadData = useChart((s) => s.loadData);
@@ -317,7 +319,11 @@ export function TopBar({
             )}
           </TopBarMore>
         )}
+        <button className="ghost icon inbox-btn" onClick={() => setSettingsOpen(true)} title="Vost settings" aria-label="Settings">
+          <GearIcon />
+        </button>
       </div>
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {intervalOpen && <IntervalDialog provider={provider} entries={pickerEntries} source={source} onClose={() => setIntervalOpen(false)} />}
     </header>
   );
