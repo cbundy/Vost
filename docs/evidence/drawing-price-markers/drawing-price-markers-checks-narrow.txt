@@ -1,0 +1,7 @@
+ok   a price note with two different anchors is stored - [{"time":1750032000,"price":110.19163331157469},{"time":1758499200,"price":192.30169771769852}]
+ok   two price notes stored
+ok   stored with one anchor
+ok   stored with one anchor
+ok   stored with one anchor
+ok   storage is unchanged
+ok   all four tools are there - priceNote,priceNote,priceLabel,signpost,flagMark

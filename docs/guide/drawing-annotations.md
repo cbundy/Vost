@@ -39,7 +39,7 @@ Anchored text keeps its spot on the pane, whatever the chart does: panning, zoom
 
 ## Notes
 
-The Notes section has four tools that carry text like Text does: they are typed, edited, styled and saved the same way, and their settings have the same Text tab. They start as white 14 pixel text on a blue box, wrapped at 240 pixels. On the Style tab you set the box's background colour and opacity and its border colour.
+The Notes section has eight tools. Four of them carry text like Text does (Note, Anchored note, Callout and Comment): they are typed, edited, styled and saved the same way, and their settings have the same Text tab. They start as white 14 pixel text on a blue box, wrapped at 240 pixels. On the Style tab you set the box's background colour and opacity and its border colour.
 
 ### Note and Anchored note
 
@@ -72,4 +72,28 @@ A **Comment** is a rounded speech bubble whose tail tip is on the bar and price 
 
 ![A Comment with a long wrapping text](../evidence/drawing-notes/drawing-notes-comment-desktop.png)
 
-All the note tools are saved in your browser with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
+### Price note
+
+A **Price note** has a dot on the bar and price you press and a straight line from it to a blue box. The box shows the dot's price, in the chart's own price format, and it updates while you drag the dot. Press the dot's place and drag to the box's place, or click the two places; a live preview shows until both are placed. A label set on the **Text** tab goes under the price in the box. Drag the dot handle to change the price, the box handle to move the box, or the body to move both. Selecting it shows the dot's price and time on the axes.
+
+![A Price note whose dot was dragged](../evidence/drawing-price-markers/drawing-price-markers-price-note-dragged-desktop.png)
+
+### Price label
+
+A **Price label** is a pointed blue tag whose point is on the price you clicked, with the price in white inside it. It has no text of its own; its colour, text colour and size are on the Style tab.
+
+![A Price label](../evidence/drawing-price-markers/drawing-price-markers-price-label-desktop.png)
+
+### Signpost
+
+A **Signpost** is a pole from a bar to a rounded plate. The plate is above the point, or below it when **Position** on the Style tab is set to Below. It shows an **Emoji** chosen on the Style tab (none, flag, star, pin, fire or rocket), or the label set on the Text tab when no emoji is chosen. It always sits on a bar's time.
+
+![A Signpost below its point with a rocket](../evidence/drawing-price-markers/drawing-price-markers-signpost-desktop.png)
+
+### Flag mark
+
+A **Flag mark** is a small pole with a flag at the bar and price you clicked. Its **Colour** is on the Style tab. It always sits on a bar's time.
+
+![A recoloured Flag mark](../evidence/drawing-price-markers/drawing-price-markers-flag-mark-red-desktop.png)
+
+All the note tools and price markers are saved in your browser with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
