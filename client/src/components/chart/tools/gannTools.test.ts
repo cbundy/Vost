@@ -39,7 +39,7 @@ const NONE = { fans: [], arcs: [], levels: [] };
 describe('registry', () => {
   it('lists the four tools after the Fibonacci tools, in the Gann section of the family', () => {
     const ids = TOOLS.map((t) => t.id);
-    expect(ids.slice(ids.indexOf('fibSpeedArcs') + 1, ids.indexOf('fibSpeedArcs') + 5)).toEqual(['gannBox', 'gannSquareFixed', 'gannSquare', 'gannFan']);
+    expect(ids.slice(ids.indexOf('pitchfan') + 1, ids.indexOf('pitchfan') + 5)).toEqual(['gannBox', 'gannSquareFixed', 'gannSquare', 'gannFan']);
     for (const t of GANN) {
       expect(t.section).toBe('Gann');
       expect(t.group).toBe('fib-gann');
