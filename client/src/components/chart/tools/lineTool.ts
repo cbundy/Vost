@@ -33,7 +33,8 @@ export function span([a, b]: Pt[], view: ToolView): [Pt, Pt] {
   return extendSegment(a, b, view.width, view.height, view.style.extendLeft === true, view.style.extendRight === true);
 }
 
-function arrowHead(ctx: CanvasRenderingContext2D, tip: Pt, from: Pt, size: number): void {
+/** Fills an arrow head with its tip at `tip`, pointing away from `from`. */
+export function arrowHead(ctx: CanvasRenderingContext2D, tip: Pt, from: Pt, size: number): void {
   const ang = Math.atan2(tip.y - from.y, tip.x - from.x);
   ctx.beginPath();
   ctx.moveTo(tip.x, tip.y);

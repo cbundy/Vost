@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MARK, arrowMarkLabelRect, arrowMarkOutline, arrowMarkerLabelRect, arrowMarkerOutline, circleHit, circleRadius, inRect, pointInPolygon } from './shapes';
+import { MARK, arrowMarkLabelRect, arrowMarkOutline, arrowMarkerLabelRect, arrowMarkerOutline, circleHit, circleRadius, inRect, pointInPolygon, polylineHit } from './shapes';
 
 describe('circle', () => {
   const c = { x: 100, y: 100 };
@@ -90,5 +90,26 @@ describe('arrow mark', () => {
     expect(inRect(r, { x: 12, y: 5 })).toBe(false);
     expect(inRect(r, { x: 12, y: 5 }, 3)).toBe(true);
     expect(inRect(null, { x: 0, y: 0 })).toBe(false);
+  });
+});
+
+describe('polyline hit', () => {
+  const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
+  it('hits on each segment and misses a little away', () => {
+    expect(polylineHit(pts, { x: 50, y: 2 }, false, 4)).toBe(true);
+    expect(polylineHit(pts, { x: 98, y: 50 }, false, 4)).toBe(true);
+    expect(polylineHit(pts, { x: 50, y: 10 }, false, 4)).toBe(false);
+    expect(polylineHit(pts, { x: 106, y: 50 }, false, 4)).toBe(false);
+  });
+  it('hits the closing segment only when closed', () => {
+    expect(polylineHit(pts, { x: 50, y: 52 }, false, 4)).toBe(false);
+    expect(polylineHit(pts, { x: 50, y: 52 }, true, 4)).toBe(true);
+  });
+  it('is safe for no points, one point and repeated points', () => {
+    expect(polylineHit([], { x: 0, y: 0 }, true, 4)).toBe(false);
+    expect(polylineHit([{ x: 3, y: 3 }], { x: 4, y: 3 }, true, 4)).toBe(true);
+    const same = [{ x: 5, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 5 }];
+    expect(polylineHit(same, { x: 5, y: 6 }, true, 4)).toBe(true);
+    expect(polylineHit(same, { x: 50, y: 6 }, true, 4)).toBe(false);
   });
 });

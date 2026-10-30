@@ -423,7 +423,7 @@ describe('the line tools', () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
     const ids = ['infoLine', 'extendedLine', 'trendAngle', 'horizontalRay', 'verticalLine', 'crossLine'];
-    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] === 1 ? 2 : 1) }));
     expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([2, 2, 2, 1, 1, 1]);
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
@@ -436,7 +436,7 @@ describe('the channel tools', () => {
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
     const ids = ['parallelChannel', 'regressionTrend', 'flatTopBottom', 'disjointChannel'];
     expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 2, 3, 3]);
-    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] === 3 ? 2 : 3) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
   });
@@ -629,5 +629,25 @@ describe('caption tools', () => {
     const s = emptyState([{ id: 'a', tool: 'arrowMarkUp', anchors: an(1), text: 'hi' }]);
     expect(previewPatch(s, 'a', { text: '' }).drawings[0]).toEqual({ id: 'a', tool: 'arrowMarkUp', anchors: an(1) });
     expect(previewPatch(s, 'a', { text: 'yo' }).drawings[0].text).toBe('yo');
+  });
+});
+
+describe('tools with a range of anchors', () => {
+  const counts = { ...COUNTS, path: { min: 2, max: 5 }, polyline: { min: 3, max: 5 } };
+  const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+  const parse = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, counts, TEXT, TRANSIENT).sources.s;
+  it('keeps a path and a polyline within their range and drops the others alone', () => {
+    const ok = [2, 3, 5].map((n) => ({ id: `p${n}`, tool: 'path', anchors: an(n) })).concat([3, 4, 5].map((n) => ({ id: `g${n}`, tool: 'polyline', anchors: an(n) })));
+    const bad = [{ id: 'p1', tool: 'path', anchors: an(1) }, { id: 'p6', tool: 'path', anchors: an(6) }, { id: 'g2', tool: 'polyline', anchors: an(2) }, { id: 'g6', tool: 'polyline', anchors: an(6) }];
+    expect(parse([...bad, ...ok])).toEqual(ok);
+  });
+  it('drops a drawing with a bad point alone', () => {
+    const ok = { id: 'ok', tool: 'path', anchors: an(3) };
+    expect(parse([{ id: 'x', tool: 'path', anchors: [...an(2), { time: NaN, price: 1 }] }, ok])).toEqual([ok]);
+  });
+  it('still drops a fixed-count tool with a wrong count and keeps an unknown tool as stored', () => {
+    const unknown = { id: 'u', tool: 'future', anchors: an(7) };
+    const ok = { id: 't', tool: 'trendLine', anchors: an(2) };
+    expect(parse([{ id: 'bad', tool: 'trendLine', anchors: an(3) }, ok, unknown])).toEqual([ok, unknown]);
   });
 });

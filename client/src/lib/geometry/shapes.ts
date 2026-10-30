@@ -98,3 +98,12 @@ export function arrowMarkerLabelRect(tail: Pt, tip: Pt, w: number, h: number): R
 export function inRect(r: Rect | null, at: Pt, tolerance = 0): boolean {
   return !!r && at.x >= r.x - tolerance && at.x <= r.x + r.w + tolerance && at.y >= r.y - tolerance && at.y <= r.y + r.h + tolerance;
 }
+
+/** Whether p is within `tolerance` of any segment of the polyline through `pts`, and of the closing segment too when `closed`. Safe for no points, one point and repeated points. */
+export function polylineHit(pts: readonly Pt[], p: Pt, closed: boolean, tolerance: number): boolean {
+  if (pts.length === 0) return false;
+  if (pts.length === 1) return Math.hypot(p.x - pts[0].x, p.y - pts[0].y) <= tolerance;
+  const n = closed && pts.length > 2 ? pts.length : pts.length - 1;
+  for (let i = 0; i < n; i++) if (distToSegment(p, pts[i], pts[(i + 1) % pts.length]) <= tolerance) return true;
+  return false;
+}

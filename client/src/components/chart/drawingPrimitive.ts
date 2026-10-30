@@ -11,7 +11,7 @@ import type {
 } from 'lightweight-charts';
 import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, barSlotTime, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
 import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
-import type { Anchor, Drawing } from '../../lib/drawings';
+import { anchorRange, type Anchor, type Drawing } from '../../lib/drawings';
 import { inBox, type Rect } from '../../lib/drawingSelection';
 import { theme } from '../../lib/theme';
 import { fractionToPoint, pointToFraction } from './paneAnchor';
@@ -261,7 +261,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
           // A draft with more than two anchors shows the ones placed so far as handles (the last still follows the
           // pointer). A two-anchor draft shows its first anchor only while the second is still on it (first tap placed).
           const [first, second] = d.anchors;
-          const placed = tool.anchors > 2 ? d.anchors.length - 1 : first.time === second.time && first.price === second.price ? 1 : 0;
+          const placed = anchorRange(tool.anchors).max > 2 ? d.anchors.length - 1 : first.time === second.time && first.price === second.price ? 1 : 0;
           for (const p0 of pts.slice(0, placed)) {
             ctx.beginPath();
             ctx.arc(p0.x, p0.y, HANDLE_RADIUS, 0, Math.PI * 2);
