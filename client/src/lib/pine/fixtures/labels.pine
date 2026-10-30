@@ -1,0 +1,27 @@
+//@version=6
+indicator("Labels and tables", overlay=true)
+
+// Labels in several styles and all three y locations, eight bars apart.
+if barstate.islast
+    label.new(bar_index - 76, high, "Down", style=label.style_label_down, color=color.green, textcolor=color.white)
+    label.new(bar_index - 68, low, "Up", style=label.style_label_up, color=color.red, textcolor=color.white, size=size.large)
+    label.new(bar_index - 60, close, "Above", yloc=yloc.abovebar, style=label.style_triangledown, color=color.orange, size=size.small)
+    label.new(bar_index - 52, close, "Below", yloc=yloc.belowbar, style=label.style_arrowup, color=color.teal)
+    label.new(bar_index - 44, close * 0.97, "Price", yloc=yloc.price, style=label.style_circle, color=color.purple)
+    label.new(bar_index - 36, close, "Two\nlines", yloc=yloc.abovebar, style=label.style_label_down, color=color.blue, textcolor=color.white, textalign=text.align_left)
+    label.new(time[28], high, "At time", xloc=xloc.bar_time, style=label.style_label_left, color=color.fuchsia, textcolor=color.white)
+    // A label with a tooltip, and one that is edited and one that is deleted.
+    label.new(bar_index - 20, high, "Hover me", style=label.style_label_down, color=color.olive, textcolor=color.white, tooltip="The tooltip text")
+    l = label.new(bar_index - 12, low, "old", yloc=yloc.belowbar, style=label.style_label_up, color=color.maroon, textcolor=color.white)
+    label.set_text(l, "edited")
+    gone = label.new(bar_index - 6, high, "gone")
+    label.delete(gone)
+
+    var t = table.new(position.top_right, 3, 3, bgcolor=color.new(color.gray, 20), border_color=color.white, border_width=1, frame_color=color.black, frame_width=2)
+    table.cell(t, 0, 0, "Header", bgcolor=color.navy, text_color=color.white, text_size=size.normal)
+    table.merge_cells(t, 0, 0, 2, 0)
+    table.cell(t, 0, 1, "Open", text_color=color.white, text_halign=text.align_left)
+    table.cell(t, 1, 1, str.tostring(open, "#.##"), text_color=color.yellow, text_size=size.small)
+    table.cell(t, 2, 1, "Hover", text_color=color.white, tooltip="A cell tooltip")
+    table.cell(t, 0, 2, "Close", text_color=color.white, text_halign=text.align_left)
+    table.cell(t, 1, 2, str.tostring(close, "#.##"), text_color=color.lime, bgcolor=color.new(color.green, 60))
