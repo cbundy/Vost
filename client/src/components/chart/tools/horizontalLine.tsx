@@ -25,6 +25,7 @@ export const horizontalLine: DrawingTool = {
     boolField('showLabel', 'Price label on the axis', true),
     colorField('labelColor', 'Label colour', 'amber'),
   ],
+  axisLabels: (anchors, style) => (style.showLabel === true ? { price: [anchors[0].price] } : {}),
   draw(ctx, [a], view, { selected }) {
     ctx.beginPath();
     ctx.moveTo(0, a.y);

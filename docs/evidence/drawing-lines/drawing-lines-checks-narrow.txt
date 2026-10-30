@@ -1,0 +1,10 @@
+ok   Info line stored - infoLine
+ok   Extended line stored - infoLine,extendedLine
+ok   Trend angle stored - infoLine,extendedLine,trendAngle
+ok   Horizontal ray stored - infoLine,extendedLine,trendAngle,horizontalRay
+ok   Vertical line stored - infoLine,extendedLine,trendAngle,horizontalRay,verticalLine
+ok   Cross line stored - infoLine,extendedLine,trendAngle,horizontalRay,verticalLine,crossLine
+ok   chart painted
+ok   the chart shows text
+ok   six drawings after reload
+ok   unchanged by the timeframe change
