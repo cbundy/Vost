@@ -114,7 +114,7 @@ export function ValidationSettings({ value, onChange }: { value: ValidationConfi
               type="number"
               min={MC_MIN_RUNS}
               max={MC_MAX_RUNS}
-              step={100}
+              step={1}
               value={Number.isNaN(mc.iterations) ? '' : mc.iterations}
               onChange={(e) => onChange({ ...mc, iterations: wholeOrNaN(e.target.value) })}
             />

@@ -6,15 +6,16 @@ import { MC_MIN_TRADES } from '../lib/backtest/monteCarlo';
 import { fmtNum, fmtPct, pnlClass } from '../lib/format';
 
 type Dir = 'asc' | 'desc';
+const plain = (v: number | null, d: number): string => (v == null || !Number.isFinite(v) ? fmtNum(v) : `${fmtNum(v, d)}%`);
 
 const FIGURES: Array<{ id: McColumn; label: string; format: (v: number | null) => string; pnl?: boolean }> = [
   { id: 'returnP5', label: 'Final return 5th', format: (v) => fmtPct(v), pnl: true },
   { id: 'returnP50', label: 'Final return median', format: (v) => fmtPct(v), pnl: true },
   { id: 'returnP95', label: 'Final return 95th', format: (v) => fmtPct(v), pnl: true },
-  { id: 'drawdownP5', label: 'Max drawdown 5th', format: (v) => fmtPct(v) },
-  { id: 'drawdownP50', label: 'Max drawdown median', format: (v) => fmtPct(v) },
-  { id: 'drawdownP95', label: 'Max drawdown 95th', format: (v) => fmtPct(v) },
-  { id: 'probLoss', label: 'Chance of a loss', format: (v) => fmtPct(v, 1) },
+  { id: 'drawdownP5', label: 'Max drawdown 5th', format: (v) => plain(v, 2) },
+  { id: 'drawdownP50', label: 'Max drawdown median', format: (v) => plain(v, 2) },
+  { id: 'drawdownP95', label: 'Max drawdown 95th', format: (v) => plain(v, 2) },
+  { id: 'probLoss', label: 'Chance of a loss', format: (v) => plain(v, 1) },
 ];
 
 /** The Monte Carlo check: one sortable row per checked result with the spread of its simulated outcomes. */
