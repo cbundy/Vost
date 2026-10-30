@@ -16,6 +16,10 @@ Open the **Backtest** tab in the bottom dock. Pick a **Strategy** and set its pa
 - Buy & hold
 - Custom (JS) and Pine strategies: see [Custom strategies](../STRATEGIES.md) and [Pine Script](pine.md)
 
+A Pine strategy shows all of its inputs under **Script inputs**, with the same controls as the Pine pane (color picker, source and timeframe selects, UTC date-time, text fields), in the script's groups and rows with its tooltips ([Pine Script](pine.md#inputs)). What you pick here is what the backtest runs with, it is kept with the backtest settings, and the optimizer uses it in every combination (and in walk-forward, held-out and Monte Carlo reruns). The optimizer still sweeps only whole-number and decimal inputs, and its CSV export lists the other inputs on its `fixed params:` line.
+
+![Script inputs in the Pine pane, the same controls as in the Backtest pane](../evidence/pine-pane/pine-pane-inputs-desktop.png)
+
 Risk controls: initial capital, position size (% of equity), fees and slippage in bps per side, stop loss %, take profit % and long and short. Then press **Run backtest**.
 
 While it runs, a progress bar under the button (and in the Results tab) shows the stage and a percent: computing signals, simulating trades, running the Pine script, then computing metrics. It goes away when the run ends.

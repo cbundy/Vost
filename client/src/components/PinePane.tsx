@@ -4,11 +4,12 @@ import { detectPineVersion } from '../lib/pine/version';
 import { pineIndicatorName } from '../lib/pine/title';
 import { resolvePineSelection } from '../lib/pineSelection';
 import { fmtTime } from '../lib/format';
-import type { PineInput, PineInputValue, PineMessages } from '../lib/pine/types';
+import type { PineInputValue, PineMessages } from '../lib/pine/types';
 import { useStore } from '../state/store';
 import { type PineRunState } from '../state/chart';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
+import { PineInputList } from './PineInputControl';
 import { PineLibraries } from './PineLibraries';
 import { useChart } from '../state/chartContext';
 
@@ -128,14 +129,11 @@ function PineEntry({
         </div>
       )}
       {inputs.length > 0 && (
-        <div className="indicator-params">
-          {inputs.map((inp) => (
-            <label className="param-field" key={inp.name}>
-              {inp.name}
-              <PineInputField input={inp} value={overrides[inp.name] ?? inp.defval} onChange={(v) => onInput(inp.name, v)} />
-            </label>
-          ))}
-        </div>
+        <PineInputList
+          inputs={inputs}
+          valueOf={(inp) => overrides[inp.name] ?? inp.defval}
+          onChange={(inp, v) => onInput(inp.name, v)}
+        />
       )}
       {!error && run?.result?.messages && <PineMessagesView messages={run.result.messages} />}
       <div className="pine-status">
@@ -202,45 +200,4 @@ function PineMessagesView({ messages }: { messages: PineMessages }) {
       )}
     </div>
   );
-}
-
-function PineInputField({
-  input,
-  value,
-  onChange,
-}: {
-  input: PineInput;
-  value: PineInputValue | null;
-  onChange: (v: PineInputValue) => void;
-}) {
-  if (input.options && input.options.length > 0) {
-    return (
-      <select value={String(value ?? '')} onChange={(ev) => onChange(input.options!.find((o) => String(o) === ev.target.value) ?? ev.target.value)}>
-        {input.options.map((o) => (
-          <option key={String(o)} value={String(o)}>
-            {String(o)}
-          </option>
-        ))}
-      </select>
-    );
-  }
-  if (input.type === 'bool') {
-    return <input type="checkbox" checked={Boolean(value)} onChange={(ev) => onChange(ev.target.checked)} />;
-  }
-  if (input.type === 'int' || input.type === 'float') {
-    return (
-      <input
-        type="number"
-        value={typeof value === 'number' ? value : ''}
-        min={input.minval}
-        max={input.maxval}
-        step={input.step ?? (input.type === 'int' ? 1 : 0.1)}
-        onChange={(ev) => {
-          const v = Number(ev.target.value);
-          if (ev.target.value !== '' && Number.isFinite(v)) onChange(v);
-        }}
-      />
-    );
-  }
-  return <input type="text" value={String(value ?? '')} onChange={(ev) => onChange(ev.target.value)} />;
 }
