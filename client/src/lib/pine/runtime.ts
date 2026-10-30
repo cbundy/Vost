@@ -3,11 +3,13 @@
  * docs/PINE.md) and maps its context into plain typed data. Never throws:
  * compile and runtime failures resolve to `{ ok: false, error }`.
  */
-import { Indicator, PineTS, type IImportResolver, type ImportResolverFn } from 'pinets';
+import { Indicator, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
 import { mapDrawings } from './drawingObjects';
+import { CurrencyRates, runWithRates } from './currencyRate';
 import { createMarketProvider } from './market';
-import type { MarketFeed } from './marketFeed';
+import { defaultMarketFeed, type MarketFeed } from './marketFeed';
+import { RoutedPineTS, assertHooked } from './requestRouting';
 import { createServerResolver, libraryMessage, missingLibraryPath } from './libraries';
 import { mapMessages, takeLogs } from './messages';
 import { detectPineVersion, legacyMessage } from './version';
@@ -198,7 +200,7 @@ async function coerceInputs(
 }
 
 /** Page-by-page run for progress reporting. Each yielded page holds only its own slice, so the result is read from `fullContext`. */
-async function runPaged(pine: PineTS, indicator: Indicator, n: number, onProgress: (pct: number) => void): Promise<any> {
+async function runPaged(pine: RoutedPineTS, indicator: Indicator, n: number, onProgress: (pct: number) => void): Promise<any> {
   const pageSize = Math.max(1, Math.floor(n / 100));
   let last: any = null;
   let done = 0;
@@ -249,12 +251,18 @@ export async function runPine(
     const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();
     const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market, opts.feed);
-    // An end date marks the data as fixed: without it a paged run waits for live updates from the provider.
-    const pine = new PineTS(provider, ticker, timeframe, undefined, undefined, endTime);
-    // By default PineTS records alerts only on the last bar; the pane lists every bar's.
-    pine.setAlertMode('all');
-    pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
-    const ctx: any = opts.onProgress ? await runPaged(pine, indicator, candles.length, opts.onProgress) : await pine.run(indicator);
+    const rates = new CurrencyRates(candles, opts.market, opts.feed ?? defaultMarketFeed());
+    const ctx: any = await runWithRates(rates, async () => {
+      // An end date marks the data as fixed: without it a paged run waits for live updates from the provider.
+      const pine = new RoutedPineTS(provider, ticker, timeframe, undefined, undefined, endTime);
+      pine.routing = { market: opts.market, rates };
+      // By default PineTS records alerts only on the last bar; the pane lists every bar's.
+      pine.setAlertMode('all');
+      pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
+      const out = opts.onProgress ? await runPaged(pine, indicator, candles.length, opts.onProgress) : await pine.run(indicator);
+      assertHooked(pine);
+      return out;
+    });
 
     const isStrategy = indicator.getDeclarationType() === 'strategy';
     const decl = (isStrategy ? ctx.strategy?.config : ctx.indicator) ?? {};

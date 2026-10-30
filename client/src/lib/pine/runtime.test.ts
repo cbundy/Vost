@@ -360,7 +360,8 @@ describe('runPine market context', () => {
     if (!tf.ok) expect(tf.error.message).toMatch(/BTCUSDT.*D.*HTTP 503/);
     const sym = await runPine('//@version=6\nindicator("a")\nplot(request.security("ETHUSDT", timeframe.period, close))', hourly, {}, { market: binance('1h'), feed });
     expect(sym.ok).toBe(false);
-    if (!sym.ok) expect(sym.error.message).toContain('request.security(ETHUSDT');
+    // ETHUSDT is read from the chart's provider now, so the failed fetch names it with its prefix.
+    if (!sym.ok) expect(sym.error.message).toContain('request.security(BINANCE:ETHUSDT, 60): could not load 60 bars of BINANCE:ETHUSDT: HTTP 503');
   });
 
   it('a same-symbol, same-timeframe request equals the chart series', async () => {

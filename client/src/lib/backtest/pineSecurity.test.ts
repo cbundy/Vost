@@ -72,3 +72,38 @@ describe('a strategy on a daily value of the same symbol', () => {
     expect(server.calls[1].from).toBe(START + 30 * 86400);
   });
 });
+
+describe('a strategy trading the spread to another symbol', () => {
+  const spread = `//@version=6
+strategy("Spread", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1)
+len = input.int(5, "Len")
+other = request.security("BYBIT:BTCUSDT", "", close)
+d = close - other
+if ta.crossover(d, ta.sma(d, len))
+    strategy.entry("L", strategy.long)
+if ta.crossunder(d, ta.sma(d, len))
+    strategy.close("L")`;
+  const bybit = candles15(96 * 60, 7, 100);
+  const markets = { 'binance|BTCUSDT': base, 'bybit|BTCUSDT': bybit };
+  const scfg = (patch: Partial<BacktestConfig> = {}): BacktestConfig => ({ ...cfg(patch), pineCode: spread, params: { Len: 5 } });
+
+  it('makes the same trades in a backtest, an optimizer combination and the any-strategy runner, from Bybit data', async () => {
+    const server = fakeServer(base, { markets });
+    setDefaultMarketFeed(server.feed);
+    const full = await runPineBacktest(chart, scfg());
+    expect(full.trades.length).toBeGreaterThan(3);
+    const out = await runOptimizeAsync(chart, scfg(), { ...defaultOptimizeConfig(scfg()), sweeps: [{ key: 'Len', from: 3, to: 8, step: 1 }], metric: 'totalReturnPct' });
+    expect(out.errored).toBe(0);
+    expect(out.rows).toHaveLength(6);
+    expect(out.rows.find((r) => r.params.Len === 5)!.metrics).toEqual(full.metrics);
+    expect(shape(await runAnyBacktest(chart, scfg()))).toEqual(shape(full));
+    // Only Bybit was asked for, once for the whole grid.
+    expect(new Set(server.calls.map((c) => c.providerId))).toEqual(new Set(['bybit']));
+    expect(server.calls).toHaveLength(1);
+
+    // The same script on the chart's own close gives other trades: the other symbol really is the one traded against.
+    const ownServer = fakeServer(base, { markets: { 'binance|BTCUSDT': base, 'bybit|BTCUSDT': base } });
+    setDefaultMarketFeed(ownServer.feed);
+    expect(shape(await runPineBacktest(chart, scfg()))).not.toEqual(shape(full));
+  });
+});
