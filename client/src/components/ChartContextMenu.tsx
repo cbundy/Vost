@@ -136,6 +136,7 @@ export function ChartContextMenu({
         {item('Clone', () => actions.current.clone(d.ids))}
         {item('Copy', () => actions.current.copy(d.ids))}
         {item(d.locked ? 'Unlock' : 'Lock', () => actions.current.toggleLock(d.ids))}
+        {item('Hide', () => actions.current.setHidden(d.ids, true))}
         {item('Bring to front', () => actions.current.reorder(d.ids, 'front'))}
         {item('Bring forward', () => actions.current.reorder(d.ids, 'forward'))}
         {item('Send backward', () => actions.current.reorder(d.ids, 'backward'))}

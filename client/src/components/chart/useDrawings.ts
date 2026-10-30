@@ -34,6 +34,7 @@ import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { NotePopups } from './notePopups';
 import { editorStyle, type EditorTarget } from './textPlacement';
+import { usePublishDrawings } from './activeDrawings';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
 import { ANCHOR_COUNTS, CAPTION_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
@@ -157,6 +158,8 @@ export function useDrawings(
   keyRef.current = key;
   hasDataRef.current = hasData;
 
+  const publishRef = useRef<() => void>(() => {});
+
   const getState = useCallback((): DrawingsState => {
     const k = keyRef.current;
     let st = statesRef.current.get(k);
@@ -168,6 +171,11 @@ export function useDrawings(
   }, []);
 
   const sync = useCallback(() => {
+    // A hidden drawing cannot be selected.
+    if (selectedRef.current.length > 0) {
+      const hid = new Set(getState().drawings.filter((d) => d.hidden === true).map((d) => d.id));
+      if (selectedRef.current.some((id) => hid.has(id))) selectedRef.current = selectedRef.current.filter((id) => !hid.has(id));
+    }
     popupsRef.current.prune(getState().drawings);
     primRef.current?.setPopups(popupsRef.current.hovered, popupsRef.current.pinned);
     if (hiddenRef.current) primRef.current?.set([], [], null);
@@ -180,6 +188,7 @@ export function useDrawings(
         editTargetRef.current?.id ?? null,
       );
     }
+    publishRef.current();
   }, [getState]);
 
   const setState = useCallback(
@@ -331,6 +340,7 @@ export function useDrawings(
   const actions = useDrawingActions({ getState, setState, selectedRef, primRef, containerRef, hiddenRef, sync, edit, deleteAll });
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
+  publishRef.current = usePublishDrawings({ active, sourceKey: key, getState, selectedRef, primRef, hiddenRef, actions });
 
   /* The input follows its anchor when the chart pans, zooms or resizes. */
   useEffect(() => {

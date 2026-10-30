@@ -210,9 +210,9 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return resolveStyle(tool?.settings ?? [], d.style, own);
   }
 
-  /** Whether the drawing shows on the chart's current timeframe; a drawing of an unknown tool never does. */
-  shown(d: Pick<Drawing, 'tool' | 'style'>): boolean {
-    return !!getTool(d.tool) && visibleOn(this.styleOf(d).values, timeframeKind(this.getTimeframe()));
+  /** Whether the drawing shows on the chart's current timeframe; a drawing of an unknown tool or a hidden one never does. */
+  shown(d: Pick<Drawing, 'tool' | 'style'> & Partial<Pick<Drawing, 'hidden'>>): boolean {
+    return d.hidden !== true && !!getTool(d.tool) && visibleOn(this.styleOf(d).values, timeframeKind(this.getTimeframe()));
   }
 
   /** The view context a tool sees for a drawing's anchors; the pane size comes from the chart unless given. */

@@ -23,6 +23,8 @@ import {
   update,
   type Drawing,
   setLocked,
+  setHidden,
+  moveTo,
   rename,
   reorder,
   reorderMany,
@@ -544,6 +546,42 @@ describe('drawing management edits', () => {
     expect('locked' in open.drawings[0]).toBe(false);
     expect(undo(locked).drawings).toBe(s.drawings);
     expect(setLocked(s, ['a'], false)).toBe(s);
+  });
+
+  it('hides and shows over several ids as one undo step, and is a no-op when unchanged', () => {
+    const s = three();
+    const hid = setHidden(s, ['a', 'c', 'zz'], true);
+    expect(hid.drawings.map((d) => d.hidden)).toEqual([true, undefined, true]);
+    expect(hid.past).toHaveLength(1);
+    expect(setHidden(hid, ['a', 'c'], true)).toBe(hid);
+    const shown = setHidden(hid, ['a'], false);
+    expect('hidden' in shown.drawings[0]).toBe(false);
+    expect(undo(hid).drawings).toBe(s.drawings);
+    expect(setHidden(s, ['a'], false)).toBe(s);
+  });
+
+  it('moveTo puts a drawing at a paint-order index as one undo step', () => {
+    const s = emptyState([t('a'), t('b'), t('c'), t('d')]);
+    expect(ids(moveTo(s, 'a', 3))).toEqual(['b', 'c', 'd', 'a']);
+    expect(ids(moveTo(s, 'd', 0))).toEqual(['d', 'a', 'b', 'c']);
+    expect(ids(moveTo(s, 'a', 2))).toEqual(['b', 'c', 'a', 'd']);
+    expect(ids(moveTo(s, 'c', 1))).toEqual(['a', 'c', 'b', 'd']);
+    expect(moveTo(s, 'a', 3).past).toHaveLength(1);
+    expect(undo(moveTo(s, 'a', 3)).drawings).toBe(s.drawings);
+    expect(moveTo(s, 'b', 1)).toBe(s);
+    expect(moveTo(s, 'zz', 1)).toBe(s);
+  });
+
+  it('parseStore keeps hidden: true and drops any other hidden value', () => {
+    const got = parseStore(
+      { version: 2, sources: { s: [{ ...t('a'), hidden: true }, { ...t('b'), hidden: 'yes' }, { ...t('c'), hidden: false }] } },
+      COUNTS,
+      TEXT,
+      TRANSIENT,
+    ).sources.s;
+    expect(got[0].hidden).toBe(true);
+    expect('hidden' in got[1]).toBe(false);
+    expect('hidden' in got[2]).toBe(false);
   });
 
   it('renames, trims, cuts to 60 and clears; the same state when unchanged', () => {
