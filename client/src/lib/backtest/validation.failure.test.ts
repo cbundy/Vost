@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Candle } from '../../types';
 import { defaultBacktestConfig } from './types';
+import type { SplitOutput } from './validation';
 
 // A held-out run that throws: the fake runs the real backtest except on the 90-bar held-out slice,
 // where it throws for the second param value only.
@@ -28,7 +29,7 @@ describe('a held-out run that throws', () => {
       metric: 'totalReturnPct',
       validation: { method: 'split', inSamplePct: 70, topN: 10 },
     });
-    const v = out.validation!;
+    const v = out.validation as SplitOutput;
     expect(v.checks).toHaveLength(4);
     expect(v.failed).toBe(1);
     const bad = v.checks.find((c) => c.params.fast === 6)!;

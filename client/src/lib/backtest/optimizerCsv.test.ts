@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { optimizeContextLines, optimizeResultToCsv, optimizerCsvFileName, METRIC_KEYS, type OptimizeRunContext } from './optimizerCsv';
 import type { OptimizeRow } from './optimizer';
 import type { Metrics } from './types';
+import type { SplitSettings } from './validation';
 
 const sample: Metrics = {
   initialCapital: 10000, finalEquity: 11234.5678, totalReturnPct: 12.345678, cagrPct: null, sharpe: 1.23456789, sortino: Number.NaN,
@@ -124,7 +125,7 @@ describe('optimizeResultToCsv with a split validation', () => {
   const withV = {
     ...result,
     validation: {
-      ...splitCtx.validation!,
+      ...(splitCtx.validation as SplitSettings),
       failed: 0,
       checks: [{ rank: 1, params: { fast: 5, slow: 20 }, inSample: sample, heldOut: held, heldOutValue: 1.5, heldOutRank: 1 }],
     },
@@ -160,6 +161,42 @@ describe('optimizeResultToCsv with a split validation', () => {
   it('without validation the file has no validation lines or heldout columns', () => {
     const plain = optimizeResultToCsv(result, ctx);
     expect(plain).not.toMatch(/validation|heldout/);
+  });
+});
+
+describe('optimizeResultToCsv with a robustness validation', () => {
+  const robCtx: OptimizeRunContext = { ...ctx, validation: { method: 'robustness', radius: 2, rankByScore: true } };
+  const scores = [
+    { neighbourMean: 0.5, neighbourMin: -1, neighbourCount: 3, robustness: 0.625, capped: false },
+    { neighbourMean: null, neighbourMin: null, neighbourCount: 0, robustness: null, capped: false },
+  ];
+  const withV = { ...result, validation: { method: 'robustness' as const, radius: 2, rankByScore: true, scores } };
+  const csv = optimizeResultToCsv(withV, robCtx);
+  const lines = csv.split('\n');
+  const contextLines = lines.filter((l) => l.startsWith('# '));
+  const records = parseCsv(lines.slice(contextLines.length).join('\n'));
+
+  it('adds the robustness context lines', () => {
+    expect(contextLines).toContain('# validation: robustness');
+    expect(contextLines).toContain('# neighbourhood: 2');
+    expect(contextLines).toContain('# rank by robustness: yes');
+    expect(optimizeContextLines({ ...robCtx, validation: { method: 'robustness', radius: 1, rankByScore: false } }, result)).toContain('# rank by robustness: no');
+  });
+
+  it('adds the four columns with raw numbers and empty nulls, rows in metric order', () => {
+    const header = records[0];
+    expect(header.slice(0, 3 + METRIC_KEYS.length)).toEqual(['rank', 'fast', 'slow', ...METRIC_KEYS]);
+    expect(header.slice(3 + METRIC_KEYS.length)).toEqual(['neighbour_mean', 'neighbour_min', 'neighbour_count', 'robustness']);
+    const col = (k: string) => header.indexOf(k);
+    expect(records[1][col('rank')]).toBe('1');
+    expect(records[1][col('neighbour_mean')]).toBe('0.5');
+    expect(records[1][col('neighbour_min')]).toBe('-1');
+    expect(records[1][col('neighbour_count')]).toBe('3');
+    expect(records[1][col('robustness')]).toBe('0.625');
+    for (const k of ['neighbour_mean', 'neighbour_min', 'robustness']) expect(records[2][col(k)]).toBe('');
+    expect(records[2][col('neighbour_count')]).toBe('0');
+    expect(records.every((r) => r.length === header.length)).toBe(true);
+    expect(csv).not.toMatch(/heldout/);
   });
 });
 
