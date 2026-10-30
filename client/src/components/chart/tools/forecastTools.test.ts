@@ -58,7 +58,6 @@ describe('forecast', () => {
     expect(forecast.validate!({ ...d, anchors: [anchors[0], { time: 3, price: NaN }] })).toBeNull();
   });
   it('draws Success, Failure or nothing by the bars, and never throws on partial points or few bars', () => {
-    const times = [10, 20, 30];
     const bars = [bar(10, 99, 101), bar(20, 98, 150), bar(30, 97, 120)];
     const run = (a: typeof anchors, candles: OhlcBar[], p = pts) => {
       const r = recorder();
@@ -73,7 +72,14 @@ describe('forecast', () => {
     expect(() => run(anchors, [])).not.toThrow();
     expect(() => run([], [], [pts[0]])).not.toThrow();
     expect(() => run([anchors[0]], bars)).not.toThrow();
-    expect(times).toHaveLength(3);
+  });
+  it('labels the source price and the target change, percent, time and bar count', () => {
+    const r = recorder();
+    forecast.draw(r.ctx, pts, view(forecast, [{ time: 86400, price: 100 }, { time: 86400 * 4, price: 125 }], { times: [86400, 86400 * 2, 86400 * 3, 86400 * 4] }), opts);
+    expect(r.texts).toEqual(['100.00', '+25.00 (+25.00%)', '05 Jan 1970, 00:00', '3 bars']);
+    const d = recorder();
+    forecast.draw(d.ctx, pts, view(forecast, [{ time: 86400, price: 100 }, { time: 86400 * 2, price: 80 }], { times: [86400, 86400 * 2] }), opts);
+    expect(d.texts.slice(0, 4)).toEqual(['100.00', '-20.00 (-20.00%)', '03 Jan 1970, 00:00', '1 bar']);
   });
   it('shows the failure in the failure colour and success in the success colour', () => {
     const bars = [bar(10, 99, 101), bar(20, 98, 150), bar(30, 97, 120)];
