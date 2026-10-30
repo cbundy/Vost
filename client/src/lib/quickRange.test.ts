@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Candle } from '../types';
-import { quickRangeState, quickRangeWindow } from './quickRange';
+import { quickRangeState, quickRangeWindow, resetLogicalRange, resetRangeKey } from './quickRange';
 
 const utc = (y: number, m: number, d: number, h = 0, mi = 0) => Date.UTC(y, m - 1, d, h, mi) / 1000;
 const bars = (times: number[]): Candle[] => times.map((time) => ({ time, open: 1, high: 1, low: 1, close: 1, volume: 1 }));
@@ -58,5 +58,31 @@ describe('quickRangeState', () => {
     const c = bars(Array.from({ length: 48 }, (_, i) => utc(2024, 5, 14) + i * 3600));
     expect(quickRangeState('1D', c, 'UTC').enabled).toBe(true);
     expect(quickRangeState('All', bars([1, 2]), 'UTC').enabled).toBe(false);
+  });
+});
+
+describe('resetRangeKey', () => {
+  it('maps the canonical unit to a window', () => {
+    for (const t of ['1m', '5m', '30m', '90m']) expect(resetRangeKey(t)).toBe('1D');
+    for (const t of ['1h', '4h', '60m', '2h']) expect(resetRangeKey(t)).toBe('5D');
+    for (const t of ['1d', '3d', '24h', '1440m']) expect(resetRangeKey(t)).toBe('1M');
+    for (const t of ['1w', '1M', '3M', 'nope', '']) expect(resetRangeKey(t)).toBe('All');
+  });
+});
+
+describe('resetLogicalRange', () => {
+  const day = 86400;
+  const daily = (n: number) => bars(Array.from({ length: n }, (_, i) => utc(2024, 1, 1) + i * day));
+  it('shows the last month plus the right offset on a long daily series', () => {
+    const c = daily(100); // last bar 2024-04-09, month back 2024-03-09 = index 68
+    expect(resetLogicalRange('1d', c, 'UTC', 3)).toEqual({ from: 68, to: 99 + 3 });
+  });
+  it('falls back to all data when the bars do not reach back, the window is thin, or the timeframe is weekly', () => {
+    expect(resetLogicalRange('1d', daily(20), 'UTC', 3)).toBeNull();
+    expect(resetLogicalRange('1w', daily(100), 'UTC', 3)).toBeNull();
+    expect(resetLogicalRange('1d', [], 'UTC', 3)).toBeNull();
+    const sparse = bars([utc(2023, 1, 1), utc(2024, 4, 1), utc(2024, 4, 9)]);
+    expect(quickRangeState('1M', sparse, 'UTC').enabled).toBe(false);
+    expect(resetLogicalRange('1d', sparse, 'UTC', 3)).toBeNull();
   });
 });
