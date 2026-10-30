@@ -43,3 +43,17 @@ export function labelPlacer(ctx: CanvasRenderingContext2D, width: number, height
     drawLevelLabel(ctx, text, x, y, align, baseline);
   };
 }
+
+/** The dashed muted path through the anchors (A-B-C) that the three-point Fibonacci tools draw. */
+export function drawPath(ctx: CanvasRenderingContext2D, pts: readonly { x: number; y: number }[]): void {
+  if (pts.length < 2) return;
+  ctx.save();
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = theme.muted2;
+  ctx.stroke();
+  ctx.restore();
+}

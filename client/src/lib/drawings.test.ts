@@ -442,12 +442,37 @@ describe('the channel tools', () => {
   });
 });
 
+describe('the pattern tools', () => {
+  it('round trips each with its own anchor count and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4]);
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] - 1) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('the pitchfork tools', () => {
   it('round trips each with three anchors and a custom levels list and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
     const ids = ['pitchfork', 'schiffPitchfork', 'modifiedSchiffPitchfork', 'insidePitchfork'];
     expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3, 3, 3]);
+    const style = { levels: [{ value: 0.5, color: '#112233', on: true }, { value: 3, color: 'accent', on: false }] };
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(3), style }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(2) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
+describe('the three-point Fibonacci tools', () => {
+  it('round trips each with three anchors and a custom levels list and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'pitchfan'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3, 3, 3, 3]);
     const style = { levels: [{ value: 0.5, color: '#112233', on: true }, { value: 3, color: 'accent', on: false }] };
     const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(3), style }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(2) }));

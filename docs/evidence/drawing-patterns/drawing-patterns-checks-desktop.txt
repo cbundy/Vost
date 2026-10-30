@@ -1,0 +1,25 @@
+ok   nothing stored after Escape
+ok   XABCD pattern stored - xabcdPattern:5
+ok   Cypher pattern stored - xabcdPattern:5,cypherPattern:5
+ok   ABCD pattern stored - xabcdPattern:5,cypherPattern:5,abcdPattern:4
+ok   chart painted
+ok   XABCD pattern moved by its body
+ok   XABCD pattern point moved alone by its handle - [[{"time":1616976000,"price":141.6899642772274},{"time":1627603200,"price":244.5608040669063},{"time":1638144000,"price":163.51106180105356},{"time":1648771200,"price":225.8570188222406},{"time":1659398400,"price":151.04186853512567}],[{"time":1616976000,"price":130.70926701801218},{"time":1627603200,"price":244.5608040669063},{"time":1638144000,"price":163.51106180105356},{"time":1648771200,"price":225.8570188222406},{"time":1659398400,"price":151.04186853512567}]]
+ok   XABCD pattern settings are titled for the tool
+ok   XABCD pattern restyled - {"width":3,"showRatios":false}
+ok   XABCD pattern undo reverts the restyle
+ok   XABCD pattern redo restores the restyle
+ok   Cypher pattern moved by its body
+ok   Cypher pattern point moved alone by its handle - [[{"time":1667347200,"price":1.4115679608958267},{"time":1677974400,"price":88.69590220548623},{"time":1685923200,"price":26.3499544927516},{"time":1691193600,"price":110.51699972931245},{"time":1699142400,"price":57.52291904066652}],[{"time":1667347200,"price":-9.5691479152242},{"time":1677974400,"price":88.69590220548623},{"time":1685923200,"price":26.3499544927516},{"time":1691193600,"price":110.51699972931245},{"time":1699142400,"price":57.52291904066652}]]
+ok   Cypher pattern settings are titled for the tool
+ok   Cypher pattern restyled - {"width":3,"showRatios":false}
+ok   Cypher pattern undo reverts the restyle
+ok   Cypher pattern redo restores the restyle
+ok   ABCD pattern moved by its body
+ok   ABCD pattern point moved alone by its handle - [[{"time":1704499200,"price":110.51699972931245},{"time":1715040000,"price":182.214842391493},{"time":1725667200,"price":126.10348200326989},{"time":1736294400,"price":194.68403565742088}],[{"time":1704499200,"price":99.53630247009723},{"time":1715040000,"price":182.214842391493},{"time":1725667200,"price":126.10348200326989},{"time":1736294400,"price":194.68403565742088}]]
+ok   ABCD pattern settings are titled for the tool
+ok   ABCD pattern restyled - {"width":3,"showRatios":false}
+ok   ABCD pattern undo reverts the restyle
+ok   ABCD pattern redo restores the restyle
+ok   three drawings after reload
+ok   unchanged by the timeframe change
