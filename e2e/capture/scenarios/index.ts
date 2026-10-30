@@ -6,6 +6,7 @@ import { chart } from './chart.ts';
 import { chartPan } from './chart-pan.ts';
 import { btProgress } from './bt-progress.ts';
 import { btRange } from './bt-range.ts';
+import { btResults } from './bt-results.ts';
 import { chartRange } from './chart-range.ts';
 import { chartReset } from './chart-reset.ts';
 import { drawingRail } from './drawing-rail.ts';
@@ -29,7 +30,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, btProgress, btRange, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingRail, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, btProgress, btRange, btResults, builtTimeframe, chart, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingRail, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();

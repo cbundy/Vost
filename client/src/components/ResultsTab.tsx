@@ -5,6 +5,7 @@ import { BacktestProgress } from './BacktestProgress';
 import { MonteCarloPanel } from './MonteCarloPanel';
 import { EquityChart } from './EquityChart';
 import { TradesTable } from './TradesTable';
+import { BreakdownTables } from './BreakdownTables';
 import { useChart } from '../state/chartContext';
 
 export function ResultsTab() {
@@ -121,6 +122,8 @@ export function ResultsTab() {
         <Metric label="Total fees" value={fmtMoney(m.totalFees)} />
         <Metric label="Bars" value={fmtCompact(btResult.equity.length)} />
       </div>
+
+      <BreakdownTables trades={btResult.trades} />
 
       <div className="section-title">Equity curve & drawdown</div>
       <EquityChart result={btResult} />

@@ -2,7 +2,7 @@ import type { Trade } from '../lib/backtest/types';
 import { useStore } from '../state/store';
 import { fmtMoney, fmtNum, fmtPct, fmtPrice, fmtTime, pnlClass } from '../lib/format';
 
-const REASONS: Record<Trade['exitReason'], string> = {
+export const REASONS: Record<Trade['exitReason'], string> = {
   signal: 'signal',
   stop_loss: 'stop loss',
   take_profit: 'take profit',
