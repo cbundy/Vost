@@ -448,8 +448,8 @@ describe('the pattern tools', () => {
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
     const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern'];
     expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4]);
-    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
-    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] - 1) }));
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number) }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an((ANCHOR_COUNTS[tool] as number) - 1) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
   });
 });
