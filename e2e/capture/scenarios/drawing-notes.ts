@@ -126,7 +126,7 @@ export const drawingNotes: Scenario = {
     });
 
     const ANCHORED = { x: 0.5, y: 0.2 };
-    await ctx.step('Anchored note: placed, and it keeps its spot after a pan', async () => {
+    await ctx.step('Anchored note: placed, and it keeps its spot after a pan, a zoom and a timeframe change', async () => {
       await pickTool('Anchored note');
       await click(await at(ANCHORED));
       await type('pinned to the pane');
@@ -143,6 +143,16 @@ export const drawingNotes: Scenario = {
         await page.waitForTimeout(300);
         check('its pin still answers at its anchor after a pan', (await cursorAt(spot)) === 'pointer');
         check('its stored anchor never changed', JSON.stringify((await last('anchoredNote')).anchors) === JSON.stringify(d.anchors));
+        await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.8);
+        await page.mouse.wheel(0, -600);
+        await page.waitForTimeout(400);
+        check('and after a zoom', (await cursorAt(spot)) === 'pointer');
+        check('its stored anchor is unchanged after the zoom', JSON.stringify((await last('anchoredNote')).anchors) === JSON.stringify(d.anchors));
+        await page.locator('select[title="Timeframe"]').selectOption('1h');
+        await page.waitForTimeout(1500);
+        check('and after a timeframe change', (await cursorAt(spot)) === 'pointer');
+        check('its stored anchor is unchanged after the timeframe change', JSON.stringify((await last('anchoredNote')).anchors) === JSON.stringify(d.anchors));
+        await ctx.screenshot('timeframe');
       }
       await ctx.screenshot('anchored');
     });

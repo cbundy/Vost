@@ -1,4 +1,4 @@
-ok   a note is stored with its two lines - {"id":"dmvupyk5g1h98m","tool":"note","anchors":[{"time":1747872000,"price":192.30169771769852}],"text":"Earnings gap to fill\nwatch the open"}
+ok   a note is stored with its two lines - {"id":"dmvuqfj5c1y7zq","tool":"note","anchors":[{"time":1747872000,"price":192.30169771769852}],"text":"Earnings gap to fill\nwatch the open"}
 ok   a click pins the popup open after deselecting
 ok   another click unpins it
 ok   pinning stores nothing: the note is unchanged
