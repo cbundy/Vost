@@ -11,8 +11,16 @@ import { debounce, loadJson, saveJson } from './storage';
  */
 export type Anchor = { time: number; price: number };
 
+/** How many anchors a tool takes: a fixed count, or a range for a tool placed point by point (path, polyline). */
+export type AnchorSpec = number | { min: number; max: number };
+
+/** The least and most anchors of a tool, whether it declares a count or a range (a count is the range of that count to itself). */
+export function anchorRange(spec: AnchorSpec): { min: number; max: number } {
+  return typeof spec === 'number' ? { min: spec, max: spec } : spec;
+}
+
 /** Anchors each known tool id needs; the registry (components/chart/tools) is the one source of it. */
-export type AnchorCounts = Readonly<Record<string, number>>;
+export type AnchorCounts = Readonly<Record<string, AnchorSpec>>;
 
 /**
  * `text` is only set by tools that store text (a note). `style` holds the drawing's own style values (colour, width
@@ -285,8 +293,8 @@ function sanitizeDrawing(
   if (typeof raw.id !== 'string' || !raw.id || typeof raw.tool !== 'string') return null;
   if (transient.has(raw.tool)) return null;
   if (!Object.prototype.hasOwnProperty.call(counts, raw.tool)) return raw as Drawing;
-  const need = counts[raw.tool];
-  if (!need || !Array.isArray(raw.anchors) || raw.anchors.length !== need) return null;
+  const { min, max } = anchorRange(counts[raw.tool]);
+  if (!min || !Array.isArray(raw.anchors) || raw.anchors.length < min || raw.anchors.length > max) return null;
   const anchors: Anchor[] = [];
   for (const a of raw.anchors) {
     if (!isPlain(a)) return null;

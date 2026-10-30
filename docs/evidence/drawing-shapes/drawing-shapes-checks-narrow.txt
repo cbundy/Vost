@@ -5,5 +5,13 @@ ok   Arrow mark up stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1
 ok   Arrow mark down stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1
 ok   arrowMarkUp is on a bar time - 1747872000
 ok   arrowMarkDown is on a bar time - 1764806400
-ok   five drawings after reload
+ok   path stored with five points, no duplicate - 5
+ok   the double-click did not open the settings
+ok   polyline stored with four points, none added by the closing click - 4
+ok   no drawing yet while placing
+ok   Enter ends it with the three points left after Backspace and a new click - 3
+ok   Escape cancels the draft, no drawing saved
+ok   undo removes the Enter-ended path
+ok   redo restores it
+ok   eight drawings after reload
 ok   unchanged by the timeframe change
