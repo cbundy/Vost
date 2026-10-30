@@ -711,6 +711,48 @@ button.icon {
   font-weight: 600;
 }
 
+/* Legend at the top-left of each indicator sub pane; the hook sets top, left and right from the pane's box. */
+.pane-legends {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pane-legend {
+  position: absolute;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  pointer-events: none;
+  font-size: 11px;
+}
+
+.pane-legend .pane-legend-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.pane-legend .pane-legend-params {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+
+.pane-legend .pane-legend-entry {
+  font-family: var(--mono);
+}
+
+.pane-legend .pane-legend-plot {
+  opacity: 0.8;
+}
+
+.pane-legend .pane-legend-entry b {
+  font-weight: 600;
+}
+
 .chart-range-bar {
   flex: none;
   height: 28px;

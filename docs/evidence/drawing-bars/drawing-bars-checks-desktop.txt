@@ -1,0 +1,27 @@
+ok   one bars pattern with three anchors - [{"id":"dmvv1476y1c3ks","tool":"barsPattern","anchors":[{"time":1770163200,"price":84.11557355255324},{"time":1775174400,"price":84.11557355255324},{"time":1775260800,"price":100.682062}]}]
+ok   the copy starts after the later source anchor - 1770163200 1775174400 1775260800
+ok   two bars patterns are stored
+ok   dragging the copy handle moved the copy only: anchors 0 and 1 stayed, anchor 2 moved - {"before":[{"time":1770163200,"price":84.11557355255324},{"time":1775174400,"price":84.11557355255324},{"time":1775260800,"price":100.682062}],"after":[{"time":1770163200,"price":84.11557355255324},{"time":1775174400,"price":84.11557355255324},{"time":1780185600,"price":95.38163539757207}]}
+ok   titled for the tool
+ok   bars pattern offers Colour
+ok   bars pattern offers Opacity
+ok   bars pattern offers Display mode
+ok   bars pattern offers Mirrored
+ok   bars pattern offers Flipped
+ok   Mirrored is stored
+ok   Flipped and the display mode are stored - {"mirrored":true,"flipped":true,"mode":"oc"}
+ok   one ghost feed with at least three anchors - [{"id":"dmvv14cxs3d7gj","tool":"ghostFeed","anchors":[{"time":1782518400,"price":70.51180080966435},{"time":1785888000,"price":97.71934343033429},{"time":1789171200,"price":88.65016255677764},{"time":1792540800,"price":111.32311330811532}]}]
+ok   one anchor moved, the others stayed
+ok   titled for the tool
+ok   ghost feed offers Up colour
+ok   ghost feed offers Down colour
+ok   ghost feed offers Border colour
+ok   ghost feed offers Opacity
+ok   ghost feed offers Average height (ticks)
+ok   ghost feed offers Variance (%)
+ok   the variance is stored
+ok   storage is unchanged after a reload
+ok   the ghost feed bars worked out from the stored anchors are identical after the reload
+ok   the chart drawn after the reload is pixel for pixel the one drawn before - 61410 vs 61410 bytes
+ok   and after a timeframe change
+ok   no console error

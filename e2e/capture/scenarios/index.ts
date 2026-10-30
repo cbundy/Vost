@@ -5,6 +5,7 @@ import { builtTimeframe } from './built-timeframe.ts';
 import { chart } from './chart.ts';
 import { chartHistory } from './chart-history.ts';
 import { chartPan } from './chart-pan.ts';
+import { chartPanes } from './chart-panes.ts';
 import { btProgress } from './bt-progress.ts';
 import { btRange } from './bt-range.ts';
 import { btResults } from './bt-results.ts';
@@ -25,6 +26,7 @@ import { drawingShapes } from './drawing-shapes.ts';
 import { drawingImage } from './drawing-image.ts';
 import { drawingNotes } from './drawing-notes.ts';
 import { drawingForecast } from './drawing-forecast.ts';
+import { drawingBars } from './drawing-bars.ts';
 import { drawingRanges } from './drawing-ranges.ts';
 import { drawingPositions } from './drawing-positions.ts';
 import { drawingPriceMarkers } from './drawing-price-markers.ts';
@@ -55,7 +57,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, btProgress, btRange, btResults, builtTimeframe, chart, chartHistory, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingForecast, drawingGann, drawingIcons, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPositions, drawingPriceMarkers, drawingRail, drawingRanges, drawingShapes, drawingTable, drawingText, drawingToolbar, drawingVolume, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, pineRender, pineSecurity, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, drawingBars, btProgress, btRange, btResults, builtTimeframe, chart, chartHistory, chartPan, chartPanes, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingForecast, drawingGann, drawingIcons, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPositions, drawingPriceMarkers, drawingRail, drawingRanges, drawingShapes, drawingTable, drawingText, drawingToolbar, drawingVolume, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, pineRender, pineSecurity, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();
