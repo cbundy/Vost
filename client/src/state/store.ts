@@ -788,8 +788,17 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     setHistoryLoading(v) {
-      set({ historyLoading: v === 'all' ? 'all' : 'scroll' });
+      const was = get().historyLoading;
+      const next = v === 'all' ? 'all' : 'scroll';
+      set({ historyLoading: next });
       persistPrefs();
+      if (was === next) return;
+      // The mode changes how many bars a load asks for; a dataset, a chart range and a replay never follow it.
+      for (const chart of Object.values(get().charts)) {
+        const { activeDatasetId, chartRange, replay } = chart.getState();
+        if (activeDatasetId != null || chartRange != null || replay != null) continue;
+        void chart.getState().loadData();
+      }
     },
 
     setBuildTimeframes(v) {

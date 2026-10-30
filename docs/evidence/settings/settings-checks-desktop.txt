@@ -1,0 +1,5 @@
+gear visible at desktop: true
+dialog heading: Settings
+Escape closes the popup: true
+vost.prefs.v1 historyLoading: all
+new /api/history requests after the switch: 1

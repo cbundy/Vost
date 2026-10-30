@@ -4056,3 +4056,43 @@ table.data-table th.sortable .sort-btn:focus-visible {
   color: var(--muted);
   font-size: 13px;
 }
+
+/* ----------------------------- settings ----------------------------- */
+.settings-section h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-2);
+}
+
+.settings-row {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-row legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.settings-radio input {
+  margin: 3px 0 0;
+}
+
+.settings-radio-label,
+.settings-radio-hint {
+  display: block;
+}
