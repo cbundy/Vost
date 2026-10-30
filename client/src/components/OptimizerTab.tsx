@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { gridSize, MAX_GRID_COMBOS, METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from '../lib/backtest/optimizer';
+import { gridSize, MAX_GRID_COMBOS, METRIC_LABELS, type MetricKey, type SweepParam } from '../lib/backtest/optimizer';
 import { getStrategy } from '../lib/backtest/strategies';
-import { fmtNum, fmtPct, fmtTime } from '../lib/format';
+import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
 import { useStore } from '../state/store';
 import { selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
+import { OptimizerResults } from './OptimizerResults';
 
 const METRICS: MetricKey[] = ['sharpe', 'totalReturnPct', 'cagrPct', 'sortino', 'profitFactor', 'winRatePct', 'calmar', 'maxDrawdownPct'];
 
@@ -157,22 +158,7 @@ export function OptimizerTab() {
         </div>
       )}
 
-      {optResult && (
-        <div className="mt-3">
-          <div className="row mb-2 wrap">
-            <span className="section-title" style={{ margin: 0 }}>
-              Top results · {METRIC_LABELS[optResult.metric]}
-            </span>
-            <span className="badge">{optResult.combos} combos</span>
-            {optResult.errored > 0 && <span className="badge red">{optResult.errored} failed</span>}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 16, alignItems: 'start' }}>
-            <TopResultsTable rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
-            <Heatmap key={optResult.keys.join('|')} rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
-          </div>
-        </div>
-      )}
+      {optResult && <OptimizerResults result={optResult} onApply={(row) => void applyOptimizeRow(row)} />}
     </div>
   );
 }
@@ -206,216 +192,5 @@ function SweepRange({
       </label>
       {children}
     </div>
-  );
-}
-
-export function formatMetric(metric: MetricKey, value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return value === Number.POSITIVE_INFINITY ? '∞' : '—';
-  if (metric.endsWith('Pct')) return fmtPct(value, 1);
-  return fmtNum(value, 2);
-}
-
-function TopResultsTable({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
-  const top = rows.slice(0, 12);
-  const paramKeys = keys;
-  return (
-    <div className="table-wrap" style={{ maxHeight: 220 }}>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            {paramKeys.map((k) => (
-              <th key={k}>{k}</th>
-            ))}
-            <th>{METRIC_LABELS[metric]}</th>
-            <th>Return</th>
-            <th>Max DD</th>
-            <th>Trades</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {top.map((row, i) => (
-            <tr key={i}>
-              <td>{i + 1}</td>
-              {paramKeys.map((k) => (
-                <td key={k}>{row.params[k] ?? '—'}</td>
-              ))}
-              <td style={{ color: 'var(--accent-2)', fontWeight: 600 }}>{formatMetric(metric, row.value)}</td>
-              <td className={row.metrics.totalReturnPct >= 0 ? 'pos' : 'neg'}>{fmtPct(row.metrics.totalReturnPct, 1)}</td>
-              <td className="neg">{fmtPct(row.metrics.maxDrawdownPct, 1)}</td>
-              <td>{row.metrics.trades}</td>
-              <td>
-                <button className="ghost" onClick={() => onApply(row)} title="Apply these parameters and run the backtest">
-                  Apply
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
-  const [rowKey, setRowKey] = useState(keys[0]);
-  const [colKey, setColKey] = useState(keys[1] ?? '');
-  if (!rowKey) return null;
-
-  const best = rows[0];
-  const axes = [rowKey, colKey].filter(Boolean);
-  const pinnedKeys = keys.filter((k) => !axes.includes(k));
-  const shown = best ? rows.filter((r) => pinnedKeys.every((k) => r.params[k] === best.params[k])) : rows;
-
-  const values = shown.map((r) => r.value).filter((v): v is number => v != null && Number.isFinite(v));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const aVals = Array.from(new Set(shown.map((r) => r.params[rowKey]))).sort((x, y) => x - y);
-  const bVals: Array<number | null> = colKey ? Array.from(new Set(shown.map((r) => r.params[colKey]))).sort((x, y) => x - y) : [null];
-
-  const pickers = (
-    <div className="row mb-2 wrap">
-      <label className="row" style={{ gap: 4 }}>
-        <span className="hint">Rows</span>
-        <select
-          aria-label="Rows"
-          value={rowKey}
-          onChange={(e) => {
-            setRowKey(e.target.value);
-            if (e.target.value === colKey) setColKey('');
-          }}
-        >
-          {keys.map((k) => (
-            <option key={k} value={k}>
-              {k}
-            </option>
-          ))}
-        </select>
-      </label>
-      {keys.length > 1 && (
-        <label className="row" style={{ gap: 4 }}>
-          <span className="hint">Columns</span>
-          <select aria-label="Columns" value={colKey} onChange={(e) => setColKey(e.target.value)}>
-            <option value="">none</option>
-            {keys
-              .filter((k) => k !== rowKey)
-              .map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-          </select>
-        </label>
-      )}
-    </div>
-  );
-
-  if (aVals.length * bVals.length > 900) {
-    return (
-      <div>
-        {pickers}
-        <div className="hint">Heatmap hidden (grid too large). See the table instead.</div>
-      </div>
-    );
-  }
-
-  const color = (v: number | null): string => {
-    if (v == null || !Number.isFinite(v)) return 'rgba(139,148,167,0.1)';
-    const t = max === min ? 0.5 : (v - min) / (max - min);
-    const r = Math.round(239 - t * (239 - 34));
-    const g = Math.round(68 + t * (197 - 68));
-    const b = Math.round(68 + t * (94 - 68));
-    return `rgba(${r},${g},${b},${0.18 + 0.45 * t})`;
-  };
-
-  const lookup = new Map<string, OptimizeRow>();
-  for (const r of shown) lookup.set(`${r.params[rowKey]}|${colKey ? r.params[colKey] : ''}`, r);
-
-  return (
-    <div>
-      {pickers}
-      <div className="hint mb-2">
-        Rows: <b>{rowKey}</b>
-        {colKey ? (
-          <>
-            {' '}
-            · Columns: <b>{colKey}</b>
-          </>
-        ) : null}{' '}
-        · colour = {METRIC_LABELS[metric]}
-        {colKey ? '' : ' (1D)'}
-      </div>
-      {pinnedKeys.length > 0 && best && (
-        <div className="hint mb-2">Other parameters fixed at the best result: {pinnedKeys.map((k) => `${k}=${best.params[k]}`).join(', ')}</div>
-      )}
-      <div className="heatmap" style={{ gridTemplateColumns: `52px repeat(${bVals.length}, minmax(52px, 1fr))` }}>
-        <div className="hm-head" />
-        {bVals.map((bv) => (
-          <div className="hm-head" key={String(bv)}>
-            {bv ?? '—'}
-          </div>
-        ))}
-        {aVals.map((av) => (
-          <RowCells
-            key={av}
-            av={av}
-            aKey={rowKey}
-            bVals={bVals}
-            bKey={colKey || undefined}
-            lookup={lookup}
-            color={color}
-            metric={metric}
-            bestKey={best ? `${best.params[rowKey]}|${colKey ? best.params[colKey] : ''}` : ''}
-            onApply={onApply}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-function RowCells({
-  av,
-  aKey,
-  bVals,
-  bKey,
-  lookup,
-  color,
-  metric,
-  bestKey,
-  onApply,
-}: {
-  av: number;
-  aKey: string;
-  bVals: Array<number | null>;
-  bKey: string | undefined;
-  lookup: Map<string, OptimizeRow>;
-  color: (v: number | null) => string;
-  metric: MetricKey;
-  bestKey: string;
-  onApply: (row: OptimizeRow) => void;
-}) {
-  return (
-    <>
-      <div className="hm-head">{av}</div>
-      {bVals.map((bv) => {
-        const row = lookup.get(`${av}|${bv ?? ''}`);
-        const key = `${av}|${bv ?? ''}`;
-        return (
-          <div
-            key={String(bv)}
-            className="hm-cell"
-            title={row ? `${aKey}=${av}${bKey ? `, ${bKey}=${bv}` : ''} → ${formatMetric(metric, row.value)}` : 'no result'}
-            style={{
-              background: color(row?.value ?? null),
-              outline: key === bestKey ? '1px solid var(--accent-2)' : undefined,
-            }}
-            onClick={() => row && onApply(row)}
-          >
-            {row ? formatMetric(metric, row.value) : '—'}
-          </div>
-        );
-      })}
-    </>
   );
 }

@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const optimizer: Scenario = {
   name: 'optimizer',
-  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a fractional step on a whole-number parameter, a grid over the limit, then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -16,10 +16,19 @@ export const optimizer: Scenario = {
     await ctx.step('sweep slow alone', async () => {
       await page.getByRole('button', { name: 'Remove parameter 1' }).click();
       await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
-      await page.getByText(/Top results/).waitFor();
+      await page.getByText(/Results ·/).waitFor();
       await page.getByText('Rows:').scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('slow-sweep');
+    await ctx.step('sort the results by Trades, then reverse', async () => {
+      const header = page.getByRole('columnheader', { name: /Trades/ });
+      await header.getByRole('button').click();
+      await page.locator('th[aria-sort="descending"]').waitFor();
+      await header.getByRole('button').click();
+      await page.locator('th[aria-sort="ascending"]', { hasText: 'Trades' }).waitFor();
+      await page.getByText(/Results ·/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('results-sorted');
     const num = page.locator('.form-grid input[type=number]');
     const step = num.nth(2);
     await ctx.step('fractional step on a whole-number parameter', async () => {
@@ -61,10 +70,15 @@ export const optimizer: Scenario = {
         await n.nth(i * 3 + 2).fill(String(r[2]));
       }
       await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
-      await page.getByText(/Top results/).waitFor();
+      await page.getByText(/Results ·/).waitFor();
       await page.getByText(/Other parameters fixed at the best result/).scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('three-parameters');
+    await ctx.step('show the paging count', async () => {
+      await page.getByText(/Results ·/).scrollIntoViewIfNeeded();
+      await page.getByText(/^Rows 1-\d+ of \d+$/).waitFor();
+    });
+    await ctx.screenshot('paging');
     await ctx.step('cancel a long run and keep the previous result', async () => {
       const n = page.locator('.form-grid input[type=number]');
       await n.nth(0).fill('1');
@@ -80,7 +94,7 @@ export const optimizer: Scenario = {
     await ctx.step('press Cancel', async () => {
       await page.getByRole('button', { name: 'Cancel', exact: true }).click();
       await page.getByText(/Optimizer cancelled/).waitFor();
-      await page.getByText(/Top results/).waitFor();
+      await page.getByText(/Results ·/).waitFor();
     });
     await ctx.screenshot('cancelled-restored');
   },
