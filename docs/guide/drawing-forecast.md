@@ -1,6 +1,6 @@
 # Forecasting and measuring tools
 
-The **Forecasting and measurers** family of the [drawing rail](drawings.md) holds the **Long position**, **Short position**, **Forecast** and **Projection** tools (the Forecasting section) and the **Measure** tool (the Measurers section; see [Drawings](drawings.md)).
+The **Forecasting and measurers** family of the [drawing rail](drawings.md) holds the **Long position**, **Short position**, **Forecast** and **Projection** tools (the Forecasting section) and the **Price range**, **Date range**, **Date and price range** and **Measure** tools (the Measurers section; the temporary Measure is described in [Drawings](drawings.md), the saved range tools [below](#measurers)).
 
 ## Positions
 
@@ -89,3 +89,21 @@ Pick **Projection** and click three points: point 1, point 2, then point 3 (the 
 Settings: **Line colour**, **Line width**, **Fill colour**, **Fill opacity**, **Text colour** and **Font size**, plus Coordinates and Visibility.
 
 Forecasts and projections are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
+
+## Measurers
+
+Three saved tools measure between two points. Pick one and drag, or click then click (on a narrow screen, tap twice); a preview follows the pointer. Select it to see a handle at each point and its prices or times on the axes.
+
+- **Price range**: a box across the two points' time span with an arrow from the first price to the second. The label gives the change, the percent and the change in ticks (left out when the symbol has no tick size). It sits below the box when the move is down and above it when up.
+- **Date range**: a box across the two points' price span with an arrow from the first time to the second. The label gives the bar count (negative when the second point is earlier), the elapsed time and **Vol**, the volume of the loaded bars from the earlier time to the later one, both included.
+- **Date and price range**: the box with both arrows and one label: change, percent and ticks, then bars and elapsed time, then volume.
+
+![The three range tools placed](../evidence/drawing-ranges/drawing-ranges-placed-desktop.png)
+
+![A selected Date and price range](../evidence/drawing-ranges/drawing-ranges-date-price-range-selected-desktop.png)
+
+Settings: **Line colour**, **Line width**, **Line style**, **Background** (on or off), **Background colour** and **Background opacity**, **Text colour**, **Font size** and **Label background** with its colour. The Price range adds **Extend left** and **Extend right** and the Date range **Extend top** and **Extend bottom**, which stretch the box's edges to the pane edge. The colours do not change with the direction of the move.
+
+![The Date range settings](../evidence/drawing-ranges/drawing-ranges-date-range-settings-desktop.png)
+
+Range tools are saved in your browser, survive a reload, a zoom, a pan and a timeframe change, and take part in undo and redo.
