@@ -96,7 +96,7 @@ describe('buildPineChart', () => {
   });
 
   it('separatePosition uses a finite value for absolute only', () => {
-    expect(separatePosition('Absolute', 42)).toEqual({ panePosition: 'atPriceMiddle', price: 42 });
+    expect(separatePosition('Absolute', 42)).toEqual({ panePosition: 'atPriceMiddle', price: 42, onScale: true });
     expect(separatePosition('Absolute', null)).toEqual({ panePosition: 'atPriceMiddle', price: 0.5 });
     expect(separatePosition('AboveBar', 42)).toEqual({ panePosition: 'atPriceTop', price: 1 });
   });

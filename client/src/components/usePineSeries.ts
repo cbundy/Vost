@@ -33,8 +33,12 @@ const toData = (d: PineSeriesDesc) =>
   );
 
 /** The marker panes a script uses, price first: one invisible carrier series each. */
-const markerPanes = (it: { model: PineChartModel }): Array<'price' | 'separate'> =>
-  (['price', 'separate'] as const).filter((p) => it.model.markers.some((m) => m.pane === p));
+type MarkerKind = 'price' | 'separate' | 'scale';
+const kindOf = (m: PineChartModel['markers'][number]): MarkerKind =>
+  m.pane === 'price' ? 'price' : m.onScale ? 'scale' : 'separate';
+/** 'scale' carries absolute marks at their value on the pane's own right scale. */
+const markerPanes = (it: { model: PineChartModel }): MarkerKind[] =>
+  (['price', 'separate', 'scale'] as const).filter((p) => it.model.markers.some((m) => kindOf(m) === p));
 
 /**
  * Draws the Pine results of visible pine indicators onto the chart: price-pane
@@ -70,7 +74,7 @@ export function usePineSeries(
     const sig = JSON.stringify(
       items.map((it) => [
         it.id,
-        [...new Set(it.model.markers.map((m) => m.pane))].sort(),
+        [...new Set(it.model.markers.map(kindOf))].sort(),
         it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.dashed, s.pointsOnly, s.band]),
       ]),
     );
@@ -88,10 +92,17 @@ export function usePineSeries(
               .map(({ pane: _p, panePosition: _pp, price: _pr, ...m }) => ({ ...m, time: m.time as UTCTimestamp })),
           );
         } else {
-          anchor.series.setData(it.times.map((t) => ({ time: t as UTCTimestamp, value: 0.5 })) as never);
+          const mk = it.model.markers.filter((m) => kindOf(m) === pane);
+          if (pane === 'scale') {
+            const at = new Map(mk.map((m) => [m.time, m.price]));
+            anchor.series.setData(
+              it.times.map((t) => (at.has(t) ? { time: t as UTCTimestamp, value: at.get(t)! } : { time: t as UTCTimestamp })) as never,
+            );
+          } else {
+            anchor.series.setData(it.times.map((t) => ({ time: t as UTCTimestamp, value: 0.5 })) as never);
+          }
           anchor.plugin?.setMarkers(
-            it.model.markers
-              .filter((m) => m.pane === 'separate')
+            mk
               .map((m) => ({
                 time: m.time as UTCTimestamp,
                 position: m.panePosition,
@@ -187,11 +198,11 @@ export function usePineSeries(
       for (const pane of markerPanes(it)) {
         // Invisible carrier: markers attach to a series.
         const separate = pane === 'separate';
-        if (separate && sepPane < 0) {
+        if (pane !== 'price' && sepPane < 0) {
           chart.addPane();
           sepPane = chart.panes().length - 1;
         }
-        const paneIndex = separate ? sepPane : 0;
+        const paneIndex = pane === 'price' ? 0 : sepPane;
         const scaleId = separate ? `pine_mark_${it.id}` : 'right';
         const series = chart.addSeries(
           LineSeries,

@@ -38,6 +38,8 @@ export interface PineMarkerDesc {
   panePosition: 'atPriceTop' | 'atPriceBottom' | 'atPriceMiddle';
   /** Separate pane: the carrier price the mark is anchored to (1 top, 0 bottom, 0.5 middle). */
   price: number;
+  /** Separate pane: `price` is a series value on the pane's own `right` scale, not the carrier's 0..1 scale. */
+  onScale?: boolean;
   shape: 'arrowUp' | 'arrowDown' | 'circle' | 'square';
   color: string;
   text?: string;
@@ -92,9 +94,9 @@ function location(loc: string | undefined): PineMarkerDesc['position'] {
  * Where a mark sits in a script's own pane. An absolute location sits at the
  * plotted value on the pane's right scale; with no finite value it sits mid-pane.
  */
-export function separatePosition(loc: string | undefined, value?: number | null): Pick<PineMarkerDesc, 'panePosition' | 'price'> {
+export function separatePosition(loc: string | undefined, value?: number | null): Pick<PineMarkerDesc, 'panePosition' | 'price' | 'onScale'> {
   const l = (loc ?? '').toLowerCase();
-  if (l === 'absolute' && typeof value === 'number' && Number.isFinite(value)) return { panePosition: 'atPriceMiddle', price: value };
+  if (l === 'absolute' && typeof value === 'number' && Number.isFinite(value)) return { panePosition: 'atPriceMiddle', price: value, onScale: true };
   if (l === 'belowbar' || l === 'bottom') return { panePosition: 'atPriceBottom', price: 0 };
   if (l === 'absolute') return { panePosition: 'atPriceMiddle', price: 0.5 };
   return { panePosition: 'atPriceTop', price: 1 };
