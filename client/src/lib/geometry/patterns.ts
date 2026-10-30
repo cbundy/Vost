@@ -7,13 +7,15 @@ import type { Pt } from '../drawingGeometry';
  * dashed lines and label each with the ratio of two legs:
  *  - XABCD: X-B = AB/XA, A-C = BC/AB, B-D = CD/BC, X-D = AD/XA (the harmonic pattern definitions, for example the
  *    Gartley: B retraces 0.618 of XA, D retraces 0.786 of XA).
- *    Source: https://www.tradingview.com/support/solutions/43000589109-xabcd-pattern/ (tool help) and the harmonic
- *    pattern definitions it follows.
+ *    Source: https://www.tradingview.com/support/solutions/43000569909-xabcd-pattern-drawing-tool/ (checked): it
+ *    gives AB as a retracement of XA, BC as a retracement of AB "shown along the line AC" and CD as an extension of
+ *    BC "shown along the line BD". The X-D line (AD/XA) is not on that page; it is the harmonic definition (D
+ *    retraces XA).
  *  - Cypher: X-B = AB/XA, X-C = XC/XA (C extends beyond A, 1.272 to 1.414 of XA), X-D = CD/XC (D retraces 0.786 of
- *    XC). Source: TradingView's Cypher pattern tool help and the Cypher harmonic definition (Darren Oglesbee).
- *  - ABCD: A-C = BC/AB, B-D = CD/BC.
- * (These could not be re-fetched when written: the help pages were unreachable from the build environment, so the
- * pairs are from the harmonic definitions TradingView implements.)
+ *    XC). Source: the Cypher harmonic definition (Darren Oglesbee). TradingView's Cypher and ABCD tool help pages
+ *    could not be found (no URL is known and its support search returns 403 to curl), so these two sets are NOT
+ *    confirmed against TradingView's own documentation.
+ *  - ABCD: A-C = BC/AB, B-D = CD/BC (the same BC/AB and CD/BC legs the XABCD page describes).
  *
  * A ratio is the absolute price move of one leg divided by the absolute price move of the other.
  */
