@@ -64,6 +64,14 @@ export function logicalToTime(times: readonly number[], logical: number): number
   return times[i] + (logical - i) * (times[i + 1] - times[i]);
 }
 
+/**
+ * The time of the whole bar slot nearest a fractional logical index: a bar's own time inside the data, a whole
+ * step past either end; 0 with no bars.
+ */
+export function barSlotTime(times: readonly number[], logical: number): number {
+  return logicalToTime(times, Math.round(logical));
+}
+
 /** Distance from point p to the segment a-b. */
 export function distToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;

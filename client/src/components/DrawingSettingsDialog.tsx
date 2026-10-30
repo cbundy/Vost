@@ -154,7 +154,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
   // Remounts the numeric inputs after Reset so they show the defaults again.
   const [epoch, setEpoch] = useState(0);
 
-  const tabs: Tab[] = ['style', ...(tool.text || fields.some((f) => f.tab === 'text') ? (['text'] as const) : []), 'coordinates', 'visibility'];
+  const tabs: Tab[] = ['style', ...(tool.text || tool.caption || fields.some((f) => f.tab === 'text') ? (['text'] as const) : []), 'coordinates', 'visibility'];
   const values = resolveStyle(fields, style, userDefault).values;
   const textBad = tool.text === true && cleanText(text) === '';
 
@@ -162,6 +162,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
     const st = next.style ?? style;
     const patch: DrawingPatch = { anchors: next.anchors ?? anchors, style: st };
     if (tool.text) patch.text = cleanText(next.text ?? text) || drawing.text;
+    else if (tool.caption) patch.text = cleanText(next.text ?? text);
     model.onPreview(patch);
   };
   const setField = (key: string, v: unknown) => {
@@ -215,7 +216,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
         ))}
       </div>
       <div className="ds-panel" role="tabpanel" aria-label={TAB_LABEL[tab]} key={`${tab}-${epoch}`}>
-        {tab === 'text' && tool.text && (
+        {tab === 'text' && (tool.text || tool.caption) && (
           <div className="ds-row ds-wide">
             <textarea value={text} maxLength={TEXT_MAX} rows={4} aria-label="Text" aria-invalid={textBad} onChange={(e) => { setTextState(e.target.value); preview({ text: e.target.value }); }} />
             {textBad && (

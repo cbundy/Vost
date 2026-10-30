@@ -6,7 +6,7 @@ import { applyDash, boolField, colorField, lineStyleField, numberField, opacityF
 import type { DrawingTool, ToolView } from './types';
 
 /** What a line tool shows or extends before the user changes it; the trend line has none of it, the ray extends right. */
-export type LineDefaults = Partial<Record<'extendLeft' | 'extendRight' | 'showPriceChange' | 'showAngle' | 'showBars' | 'showDistance', boolean>>;
+export type LineDefaults = Partial<Record<'extendLeft' | 'extendRight' | 'arrowStart' | 'arrowEnd' | 'showPriceChange' | 'showAngle' | 'showBars' | 'showDistance', boolean>>;
 
 /** The settings of the line tools; `defaults` overrides what a tool turns on, `text` adds the Text tab for tools with a label. */
 export function lineSettings(defaults: LineDefaults = {}, text = false): SettingField[] {
@@ -17,8 +17,8 @@ export function lineSettings(defaults: LineDefaults = {}, text = false): Setting
     lineStyleField('lineStyle', 'Line style'),
     boolField('extendLeft', 'Extend left', defaults.extendLeft ?? false),
     boolField('extendRight', 'Extend right', defaults.extendRight ?? false),
-    boolField('arrowStart', 'Arrow at start', false),
-    boolField('arrowEnd', 'Arrow at end', false),
+    boolField('arrowStart', 'Arrow at start', defaults.arrowStart ?? false),
+    boolField('arrowEnd', 'Arrow at end', defaults.arrowEnd ?? false),
     boolField('showPriceChange', 'Show price change', defaults.showPriceChange ?? false),
     boolField('showAngle', 'Show angle', defaults.showAngle ?? false),
     boolField('showBars', 'Show bars', defaults.showBars ?? false),

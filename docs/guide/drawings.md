@@ -32,6 +32,12 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
   - Flat top/bottom takes three points: a sloped edge from the first two and a flat edge at the third point's price, filled between.
   - Disjoint channel takes three points: a first edge from the first two, and a second edge that starts at the third and mirrors the first edge's rise, so the two edges are not parallel. They are filled between.
   - Three-point drawings are placed with three clicks or taps, or press, drag and release for the first two and then a click or tap. Each placed point stays, a preview follows the pointer for the next one, and Escape cancels the drawing.
+- **Circle**, **Arrow**, **Arrow marker**, **Arrow mark up** and **Arrow mark down** (the Shapes list, after Rectangle):
+  - Circle takes two points: the centre, then a point on its edge. It stays round at any zoom. Drag the centre handle to move it and the edge handle to change its radius. Its fill is clickable while the fill opacity is above 0.
+  - Arrow is a line with an arrow head at its second point (Arrow at end in Settings; the other line settings work too).
+  - Arrow marker takes two points, tail then tip, and draws a filled arrow between them.
+  - Arrow mark up and Arrow mark down take one click. The small arrow always sits on a bar's time, however you place or drag it, and its price is free (the magnet still snaps it to a bar's high, low, open or close).
+  - The arrow marker and the arrow marks carry an optional label: open Settings, Text tab, and type it there (it can be left empty). The label sits at the marker's tail and beyond a mark's tail.
 - A selected line shows its price on the price axis and its time on the time axis.
 - **Text** and **Anchored text**: click the chart and type a note in place. Enter adds a line, Ctrl+Enter (Cmd+Enter) saves, Escape cancels. Double-click a note to edit it. Anchored text keeps its spot on the pane when the chart moves. See [Text and Anchored text](drawing-annotations.md).
 - **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick.
@@ -43,6 +49,10 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 ![A regression trend restyled with the hlc3 source and 3 deviations](../evidence/drawing-channels/drawing-channels-styled-regressionTrend-desktop.png)
 
 ![A parallel channel being placed: two points down, the third follows the pointer](../evidence/drawing-channels/drawing-channels-preview-parallelChannel-desktop.png)
+
+![The shape tools](../evidence/drawing-shapes/drawing-shapes-all-desktop.png)
+
+![An arrow marker with a label, selected](../evidence/drawing-shapes/drawing-shapes-styled-arrowMarker-desktop.png)
 
 ![Fibonacci retracement](../evidence/drawings/drawings-fib-desktop.png)
 

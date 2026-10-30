@@ -9,7 +9,7 @@ import type {
   SeriesAttachedParameter,
   Time,
 } from 'lightweight-charts';
-import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
+import { MOUSE_HIT, HANDLE_RADIUS, type HitOpts, type OhlcBar, barSlotTime, hitsHandle, logicalToTime, timeToLogical, type Pt } from '../../lib/drawingGeometry';
 import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/drawingStyle';
 import type { Anchor, Drawing } from '../../lib/drawings';
 import { theme } from '../../lib/theme';
@@ -141,7 +141,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     const logical = this.chart.timeScale().coordinateToLogical(p.x);
     const price = this.series.coordinateToPrice(p.y);
     if (logical === null || price === null) return null;
-    return { time: logicalToTime(times, logical), price };
+    return { time: tool?.barTime ? barSlotTime(times, logical) : logicalToTime(times, logical), price };
   }
 
   private points(d: Drawing): Pt[] | null {

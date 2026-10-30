@@ -32,7 +32,7 @@ import { DrawingPrimitive } from './drawingPrimitive';
 import { editorStyle, type EditorTarget } from './textPlacement';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
-import { ANCHOR_COUNTS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
+import { ANCHOR_COUNTS, CAPTION_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export { CURSOR, ERASER };
@@ -51,7 +51,7 @@ function baseCursor(tool: string, kind: CursorKind): string {
 /** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
 let storage: DrawingsStorage | null = null;
 function drawingsStorage(): DrawingsStorage {
-  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS).sources, saveDrawings);
+  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS, CAPTION_TOOLS).sources, saveDrawings);
   return storage;
 }
 
