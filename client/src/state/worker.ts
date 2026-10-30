@@ -70,7 +70,7 @@ export function workerCall(req: Exclude<WorkerRequestBody, { type: 'optimize' }>
         } else if (req.type === 'pine') {
           // No Worker (e.g. tests): run on this thread. Loaded lazily to keep PineTS out of the main bundle.
           void import('../lib/pine/runtime')
-            .then((m) => m.runPine(req.source, req.candles, req.inputs))
+            .then((m) => m.runPine(req.source, req.candles, req.inputs, { market: req.market }))
             .then((outcome) => resolve({ id, type: 'pineResult', outcome }), reject);
         }
       } catch (err) {

@@ -5,11 +5,13 @@
  */
 import { Indicator, PineTS, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
+import { createMarketProvider } from './market';
 import { createServerResolver, libraryMessage, missingLibraryPath } from './libraries';
 import { detectPineVersion, legacyMessage } from './version';
 import type {
   PineInput,
   PineInputValue,
+  PineMarket,
   PinePlot,
   PinePlotKind,
   PineRunOutcome,
@@ -30,24 +32,8 @@ export function parseError(err: unknown): { message: string; line?: number; colu
   return m ? { message, line: Number(m[1]), column: Number(m[2]) } : { message };
 }
 
-function toPineData(candles: Candle[]) {
-  const n = candles.length;
-  const step = n > 1 ? Math.max(1, candles[n - 1].time - candles[n - 2].time) : 86400;
-  return candles.map((c, i) => {
-    const next = i + 1 < n ? candles[i + 1].time : c.time + step;
-    return {
-      openTime: c.time * 1000,
-      closeTime: next * 1000 - 1,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-      volume: c.volume,
-    };
-  });
-}
-
 function plotKind(style: unknown): PinePlotKind {
+  if (style === 'fill') return 'fill';
   if (style === 'hline') return 'hline';
   if (style === 'background') return 'bgcolor';
   if (style === 'shape' || style === 'char') return 'plotshape';
@@ -56,10 +42,17 @@ function plotKind(style: unknown): PinePlotKind {
 
 function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolean): PinePlot[] {
   const out: PinePlot[] = [];
+  /** PineTS plot key of each entry in `out`, and for a fill the keys it joins. */
+  const keys: string[] = [];
+  const joins: ([string, string] | null)[] = [];
   for (const [key, plot] of Object.entries(plots)) {
     if (key.startsWith('__') || !plot || !Array.isArray(plot.data)) continue;
     const opts = plot.options ?? {};
     const kind = plotKind(opts.style);
+    // The gradient form of fill is not drawn.
+    if (kind === 'fill' && opts.gradient) continue;
+    keys.push(key);
+    joins.push(kind === 'fill' ? [String(opts.plot1), String(opts.plot2)] : null);
     const byTime = new Map<number, { value: number | null; color: string | null }>();
     for (const p of plot.data) {
       const absolute = String(p.options?.location ?? opts.location ?? '').toLowerCase() === 'absolute';
@@ -70,8 +63,8 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
       byTime.set(p.time, { value, color: typeof p.options?.color === 'string' ? p.options.color : null });
     }
     const pineOverlay = typeof opts.overlay === 'boolean' ? opts.overlay : overlay;
-    const color = typeof opts.color === 'string' ? opts.color : COLOR_NA;
     const colors = candles.map((c) => byTime.get(c.time * 1000)?.color ?? null);
+    const color = typeof opts.color === 'string' ? opts.color : kind === 'fill' ? colors.find((c) => c !== null) ?? COLOR_NA : COLOR_NA;
     const hasVaryingColor = colors.some((c) => c !== null && c !== color);
     out.push({
       name: plot.title ?? key,
@@ -87,7 +80,32 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
       pane: pineOverlay ? 'price' : 'separate',
     });
   }
-  return out;
+  // A fill follows the plots it joins; one whose plots are missing or in different panes is dropped.
+  const drop = new Set<number>();
+  out.forEach((plot, i) => {
+    const join = joins[i];
+    if (!join) return;
+    const a = keys.indexOf(join[0]);
+    const b = keys.indexOf(join[1]);
+    if (a < 0 || b < 0 || joins[a] || joins[b] || out[a].pane !== out[b].pane) {
+      drop.add(i);
+      return;
+    }
+    plot.plot1 = a;
+    plot.plot2 = b;
+    plot.pane = out[a].pane;
+  });
+  if (drop.size === 0) return out;
+  const remap = new Map<number, number>();
+  const kept = out.filter((_, i) => !drop.has(i));
+  out.forEach((_, i) => { if (!drop.has(i)) remap.set(i, remap.size); });
+  for (const plot of kept) {
+    if (plot.kind === 'fill') {
+      plot.plot1 = remap.get(plot.plot1!);
+      plot.plot2 = remap.get(plot.plot2!);
+    }
+  }
+  return kept;
 }
 
 function mapTrade(t: any, candles: Candle[], closed: boolean): PineTrade {
@@ -169,6 +187,11 @@ export interface PineRunOptions {
    * `run` is used, exactly as before.
    */
   onProgress?: (pct: number) => void;
+  /**
+   * The chart's symbol, timeframe and market details, which the script sees in `syminfo` and `timeframe`. Without it
+   * the ticker is `VOST` and the timeframe is derived from the candle spacing. A request for other data fails the run.
+   */
+  market?: PineMarket;
 }
 
 /** Run a Pine script over candles (time in seconds). `inputs` override defaults by input title. */
@@ -187,7 +210,9 @@ export async function runPine(
     if (candles.length === 0) return { ok: false, error: { message: 'No candles to run the script on' } };
     const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();
-    const pine = new PineTS(toPineData(candles), 'VOST', 'D');
+    const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market);
+    // An end date marks the data as fixed: without it a paged run waits for live updates from the provider.
+    const pine = new PineTS(provider, ticker, timeframe, undefined, undefined, endTime);
     pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
     const ctx: any = opts.onProgress ? await runPaged(pine, indicator, candles.length, opts.onProgress) : await pine.run(indicator);
 

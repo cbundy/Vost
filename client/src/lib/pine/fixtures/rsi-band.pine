@@ -1,0 +1,7 @@
+//@version=6
+indicator("RSI band", overlay=false)
+r = ta.rsi(close, 14)
+plot(r, "RSI", color.purple)
+h1 = hline(70, "Upper", color.gray)
+h2 = hline(30, "Lower", color.gray)
+fill(h1, h2, color.new(color.purple, 90))

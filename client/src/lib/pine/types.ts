@@ -1,4 +1,17 @@
 /** Result types of the Pine runtime (PineTS). Pure data, safe to post from a worker. */
+/** The market a script runs in: what `syminfo` and `timeframe` report. Added to a request by the chart, never saved. */
+export interface PineMarket {
+  /** Provider id (`binance`, `yahoo`...) or an imported dataset's source. Upper-cased it is `syminfo.prefix`. */
+  providerId: string;
+  symbol: string;
+  /** The chart's interval (`1h`, `2h`, `3d`...). */
+  interval?: string;
+  /** Bar length in seconds, for a dataset with no named interval. */
+  barSeconds?: number;
+  /** An imported dataset is shown: `syminfo.type` is empty. */
+  dataset?: boolean;
+}
+
 export type PineKind = 'indicator' | 'strategy';
 
 export interface PineDeclaration {
@@ -20,8 +33,8 @@ export interface PineInput {
 
 export type PinePlotPane = 'price' | 'separate';
 
-/** What produced the plot: plot(), hline(), bgcolor() or plotshape()/plotchar(). */
-export type PinePlotKind = 'plot' | 'hline' | 'bgcolor' | 'plotshape';
+/** What produced the plot: plot(), hline(), bgcolor(), plotshape()/plotchar() or fill(). */
+export type PinePlotKind = 'plot' | 'hline' | 'bgcolor' | 'plotshape' | 'fill';
 
 export interface PinePlot {
   name: string;
@@ -31,6 +44,9 @@ export interface PinePlot {
   /** plotshape only: PineTS shape name (e.g. "triangle_up") and location (e.g. "BelowBar"). */
   shape?: string;
   location?: string;
+  /** fill only: indices into `plots` of the two plots it joins; `values` are all null, `colors` hold the area colour. */
+  plot1?: number;
+  plot2?: number;
   /** One value per candle (1:1); `null` where the script produced na. For bgcolor and plotshape: 1 where drawn, else null. */
   values: (number | null)[];
   color: string | null;

@@ -10,11 +10,25 @@ Press **Pine Editor** in the top bar (or **Edit** on a Pine indicator in the Ind
 
 Pine strategies run from the Backtest tab and the Optimizer too ([Backtesting](backtesting.md)).
 
+## What a script sees of the chart
+
+A script runs with the chart's symbol, timeframe and market details, the same on the chart, in the backtester and in the optimizer. `syminfo.ticker` is the symbol, `syminfo.tickerid` reads like `BINANCE:BTCUSDT`, `syminfo.type` is `crypto` (or `stock` for Yahoo), and `timeframe.period`, `timeframe.in_seconds()` and `timeframe.isintraday` match the chart, also on a custom timeframe such as `2h`. `math.round_to_mintick` works. A chart that shows an imported dataset uses the dataset's name, source and bar length instead.
+
+A script that asks for another timeframe or symbol with `request.security` stops with a message such as `request.security(ETHUSDT, D) needs data Vost does not load yet`, rather than showing the chart's own numbers as if they were the other market's. Asking for the chart's own symbol and timeframe works.
+
+Two limits: the time zone is always UTC (right for crypto, not for Yahoo stocks), and the tick size is estimated from the prices on the chart, not taken from the exchange.
+
 ## Shapes in a script's own pane
 
 A script that draws in its own pane (`overlay=false`) shows its `plotshape` and `plotchar` marks in that pane, not on the candles: `abovebar` and `top` at the top of the pane, `belowbar` and `bottom` at the bottom. Overlay scripts keep their marks on the candles.
 
 ![Shapes in the script's own pane, none on the candles](../evidence/pine-render/pine-render-pane-desktop.png)
+
+## Fills
+
+`fill()` shades the area between two plots, or between two `hline`s, in the pane of those lines: the RSI 30/70 band, or a moving-average cloud that changes colour with `color = a > b ? color.green : color.red`. The area takes the fill's own colour, transparency included, sits beneath the lines and leaves a gap where either side has no value. The gradient form of `fill` is not shown yet.
+
+![A shaded cloud between two moving averages that turns green or red](../evidence/pine-render/pine-render-fill-cloud-desktop.png)
 
 ## Converting old scripts
 
