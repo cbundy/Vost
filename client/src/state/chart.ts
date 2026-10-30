@@ -319,6 +319,12 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   const sourceOpt = (provider: { offline?: boolean }): { source?: Source } =>
     env.buildTimeframes() && !provider.offline ? { source: 'built' } : {};
 
+  /** The chart's market for a Pine run, with the Build setting so other timeframes are asked for the same way as the chart's. */
+  const pineMarket = (): PineMarket => {
+    const m = marketOf(get(), env.datasets());
+    return m.dataset || !sourceOpt(getProvider(m.providerId)).source ? m : { ...m, source: 'built' };
+  };
+
   /* ---- Pine runs: one at a time per indicator, results from superseded runs dropped ---- */
   const pineInflight = new Set<string>();
   const pineDirty = new Set<string>();
@@ -347,7 +353,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     setPineRun(id, { ...prev, running: true });
     let outcome: PineRunOutcome;
     try {
-      const res = await workerCall({ type: 'pine', source, candles, inputs, market: marketOf(get(), env.datasets()) });
+      const res = await workerCall({ type: 'pine', source, candles, inputs, market: pineMarket() });
       outcome =
         res.type === 'pineResult' ? res.outcome : { ok: false, error: { message: 'Unexpected worker reply' } };
     } catch (err) {
@@ -1055,7 +1061,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       set({ btRunning: true, btProgress: 0, btStage: null, btError: null });
       try {
         const t0 = performance.now();
-        const msg = await workerCall({ type: 'run', candles, config: { ...btConfig, market: marketOf(get(), env.datasets()) } }, (pct, stage) =>
+        const msg = await workerCall({ type: 'run', candles, config: { ...btConfig, market: pineMarket() } }, (pct, stage) =>
           set({ btProgress: pct, btStage: stage ?? null }),
         );
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
@@ -1085,7 +1091,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           type: 'pine',
           source: btConfig.pineCode ?? DEFAULT_PINE_CODE,
           candles: candles.slice(0, 60),
-          market: marketOf(get(), env.datasets()),
+          market: pineMarket(),
         });
         if (msg.type !== 'pineResult') throw new Error('Unexpected worker reply');
         set({ pineInputs: msg.outcome.ok ? msg.outcome.inputs : [] });
@@ -1190,7 +1196,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
-      const call = optimizerCall({ type: 'optimize', candles, config: { ...btConfig, market: marketOf(get(), env.datasets()) }, optimize: optConfig }, (pct) => {
+      const call = optimizerCall({ type: 'optimize', candles, config: { ...btConfig, market: pineMarket() }, optimize: optConfig }, (pct) => {
         if (optRun === run) set({ optProgress: pct });
       });
       const run = { cancel: call.cancel, previous };

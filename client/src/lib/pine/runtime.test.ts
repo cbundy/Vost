@@ -352,11 +352,12 @@ describe('runPine market context', () => {
     expect(last(await runPine(info, hourly, {}, { market: binance('1d') }), 'intraday')).toBe(0);
   });
 
-  it('fails a request for another timeframe or symbol with a message naming it', async () => {
-    const tf = await runPine('//@version=6\nindicator("a")\nplot(request.security(syminfo.tickerid, "D", close))', hourly, {}, { market: binance('1h') });
+  it('fails a request for another symbol with a message naming it, and for another timeframe the feed cannot serve', async () => {
+    const feed = { bars: async () => { throw new Error('HTTP 503'); } };
+    const tf = await runPine('//@version=6\nindicator("a")\nplot(request.security(syminfo.tickerid, "D", close))', hourly, {}, { market: binance('1h'), feed });
     expect(tf.ok).toBe(false);
-    if (!tf.ok) expect(tf.error.message).toContain('needs data Vost does not load yet');
-    const sym = await runPine('//@version=6\nindicator("a")\nplot(request.security("ETHUSDT", timeframe.period, close))', hourly, {}, { market: binance('1h') });
+    if (!tf.ok) expect(tf.error.message).toMatch(/BTCUSDT.*D.*HTTP 503/);
+    const sym = await runPine('//@version=6\nindicator("a")\nplot(request.security("ETHUSDT", timeframe.period, close))', hourly, {}, { market: binance('1h'), feed });
     expect(sym.ok).toBe(false);
     if (!sym.ok) expect(sym.error.message).toContain('request.security(ETHUSDT');
   });

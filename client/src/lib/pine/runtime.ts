@@ -6,6 +6,7 @@
 import { Indicator, PineTS, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
 import { createMarketProvider } from './market';
+import type { MarketFeed } from './marketFeed';
 import { createServerResolver, libraryMessage, missingLibraryPath } from './libraries';
 import { mapMessages, takeLogs } from './messages';
 import { detectPineVersion, legacyMessage } from './version';
@@ -223,6 +224,8 @@ export interface PineRunOptions {
    * the ticker is `VOST` and the timeframe is derived from the candle spacing. A request for other data fails the run.
    */
   market?: PineMarket;
+  /** Where the chart's symbol at another timeframe comes from. The default is the realm's shared feed (provider registry plus cache). */
+  feed?: MarketFeed;
 }
 
 /** Run a Pine script over candles (time in seconds). `inputs` override defaults by input title. */
@@ -241,7 +244,7 @@ export async function runPine(
     if (candles.length === 0) return { ok: false, error: { message: 'No candles to run the script on' } };
     const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();
-    const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market);
+    const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market, opts.feed);
     // An end date marks the data as fixed: without it a paged run waits for live updates from the provider.
     const pine = new PineTS(provider, ticker, timeframe, undefined, undefined, endTime);
     // By default PineTS records alerts only on the last bar; the pane lists every bar's.
