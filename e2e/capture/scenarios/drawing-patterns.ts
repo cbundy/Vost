@@ -14,7 +14,7 @@ const TOOLS = [
   { label: 'XABCD pattern', id: 'xabcdPattern', how: 'clicks', ratios: true, at: [{ x: 0.03, y: 0.44 }, { x: 0.09, y: 0.26 }, { x: 0.15, y: 0.4 }, { x: 0.21, y: 0.28 }, { x: 0.27, y: 0.44 }] },
   { label: 'Cypher pattern', id: 'cypherPattern', how: 'drag then click', ratios: true, at: [{ x: 0.35, y: 0.46 }, { x: 0.42, y: 0.28 }, { x: 0.47, y: 0.4 }, { x: 0.53, y: 0.24 }, { x: 0.6, y: 0.38 }] },
   { label: 'ABCD pattern', id: 'abcdPattern', how: 'clicks', ratios: true, at: [{ x: 0.7, y: 0.44 }, { x: 0.78, y: 0.28 }, { x: 0.86, y: 0.4 }, { x: 0.94, y: 0.24 }] },
-  { label: 'Head and shoulders', id: 'headAndShoulders', how: 'clicks', ratios: false, at: [{ x: 0.03, y: 0.8 }, { x: 0.08, y: 0.64 }, { x: 0.13, y: 0.72 }, { x: 0.19, y: 0.54 }, { x: 0.25, y: 0.72 }, { x: 0.3, y: 0.64 }, { x: 0.35, y: 0.8 }] },
+  { label: 'Head and shoulders', id: 'headAndShoulders', how: 'clicks', ratios: false, at: [{ x: 0.08, y: 0.8 }, { x: 0.13, y: 0.64 }, { x: 0.18, y: 0.72 }, { x: 0.24, y: 0.54 }, { x: 0.3, y: 0.72 }, { x: 0.35, y: 0.64 }, { x: 0.4, y: 0.8 }] },
   { label: 'Triangle pattern', id: 'trianglePattern', how: 'clicks', ratios: false, at: [{ x: 0.42, y: 0.54 }, { x: 0.46, y: 0.8 }, { x: 0.52, y: 0.62 }, { x: 0.56, y: 0.74 }] },
   { label: 'Three drives', id: 'threeDrives', how: 'clicks', ratios: true, at: [{ x: 0.68, y: 0.8 }, { x: 0.73, y: 0.7 }, { x: 0.77, y: 0.74 }, { x: 0.82, y: 0.62 }, { x: 0.86, y: 0.66 }, { x: 0.91, y: 0.54 }, { x: 0.95, y: 0.58 }] },
 ] as const;

@@ -13,9 +13,13 @@ describe('necklineEnds', () => {
   });
   it('follows a sloped neckline', () => {
     const e = necklineEnds(P(0, 250), P(80, 100), P(140, 180), P(260, 160), P(320, 100), P(400, 250));
-    expect(e.left.y).toBeGreaterThan(e.right.y - 1e-9 - 100);
-    expect(e.left.x).toBeGreaterThan(0);
-    expect(e.right.x).toBeLessThan(400);
+    // neckline y = 180 - (x - 140) / 6 meets the left leg at t = 140/410 and the right leg at t = 150/490
+    const tl = 140 / 410;
+    const tr = 150 / 490;
+    expect(e.left.x).toBeCloseTo(80 * tl);
+    expect(e.left.y).toBeCloseTo(250 - 150 * tl);
+    expect(e.right.x).toBeCloseTo(320 + 80 * tr);
+    expect(e.right.y).toBeCloseTo(100 + 150 * tr);
   });
   it('falls back to the outer points x when a leg does not cross it', () => {
     const e = necklineEnds(P(0, 100), P(80, 50), P(140, 180), P(260, 180), P(320, 50), P(400, 100));

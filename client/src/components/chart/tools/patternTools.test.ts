@@ -193,6 +193,11 @@ describe('Head and shoulders, Triangle pattern and Three drives', () => {
     expect(on.calls.filter((c) => c.startsWith('fill(')).length).toBe(1);
     expect(off.calls.filter((c) => c.startsWith('fill(')).length).toBe(0);
   });
+  it('the Triangle pattern only hits inside its fill while Background is on', () => {
+    const inside = { x: 100, y: 120 };
+    expect(trianglePattern.hit(TRI, inside, view(trianglePattern, TRI_ANCHORS))).toBe(true);
+    expect(trianglePattern.hit(TRI, inside, view(trianglePattern, TRI_ANCHORS, { background: false }))).toBe(false);
+  });
   it('Head and shoulders fills the two shoulders and the head once their points exist', () => {
     const fills = (k: number) => {
       const s = stubCtx();

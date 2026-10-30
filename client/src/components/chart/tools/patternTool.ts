@@ -80,7 +80,7 @@ export function patternTool(o: { id: string; label: string; spec: PatternSpec; i
       const segs = [...p.slice(1).map((q, i) => [p[i], q] as const), ...(shape?.lines ?? [])];
       if (segs.length === 0) return hitsShape(pt, [], [[p[0], p[0]]], tolerance);
       const fills = spec.fills.filter(([, , c]) => c < p.length);
-      return segs.some(([a, b]) => hitsShape(pt, [], [[a, b]], tolerance)) || fills.some(([a, b, c]) => hitsShape(pt, [p[a], p[b], p[c]], [], tolerance)) || (shape?.fills ?? []).some((poly) => hitsShape(pt, poly, [], tolerance));
+      return segs.some(([a, b]) => hitsShape(pt, [], [[a, b]], tolerance)) || fills.some(([a, b, c]) => hitsShape(pt, [p[a], p[b], p[c]], [], tolerance)) || (view.style.background !== false && (shape?.fills ?? []).some((poly) => hitsShape(pt, poly, [], tolerance)));
     },
     handles: (pts) => pts,
   };
