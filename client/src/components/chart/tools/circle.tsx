@@ -41,6 +41,7 @@ export const circle: DrawingTool = {
     return circleHit(c, e, p, (view.style.fillOpacity as number) > 0, tolerance);
   },
   handles: ([c, e]) => [c, e],
+  axisLabels: (anchors, _style, selected) => (selected ? { price: anchors.map((a) => a.price), time: anchors.map((a) => a.time) } : {}),
   dragHandle(orig: Pt[], handle: number, p: Pt) {
     if (handle === 0) return [p, { x: orig[1].x + (p.x - orig[0].x), y: orig[1].y + (p.y - orig[0].y) }];
     return [orig[0], p];
