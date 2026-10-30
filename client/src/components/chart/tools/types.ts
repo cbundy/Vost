@@ -49,6 +49,11 @@ export interface DrawingTool {
    */
   anchors: AnchorSpec;
   /**
+   * The tool is drawn freehand: press, drag and release records a stroke (thinned on release) and never enters
+   * click-by-click placement, whatever its anchor range says.
+   */
+  freehand?: true;
+  /**
    * How many points the user places before the drawing is finished, when that is fewer than it stores (a curve is
    * placed by its start and end and `settle` adds its control points). Absent: the same as `anchors`.
    */

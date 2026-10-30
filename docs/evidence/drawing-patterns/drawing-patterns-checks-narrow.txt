@@ -1,6 +1,9 @@
 ok   XABCD pattern stored - xabcdPattern:5
 ok   Cypher pattern stored - xabcdPattern:5,cypherPattern:5
 ok   ABCD pattern stored - xabcdPattern:5,cypherPattern:5,abcdPattern:4
+ok   Head and shoulders stored - xabcdPattern:5,cypherPattern:5,abcdPattern:4,headAndShoulders:7
+ok   Triangle pattern stored - xabcdPattern:5,cypherPattern:5,abcdPattern:4,headAndShoulders:7,trianglePattern:4
+ok   Three drives stored - xabcdPattern:5,cypherPattern:5,abcdPattern:4,headAndShoulders:7,trianglePattern:4,threeDrives:7
 ok   chart painted
-ok   three drawings after reload
+ok   six drawings after reload
 ok   unchanged by the timeframe change

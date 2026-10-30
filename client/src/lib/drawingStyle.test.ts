@@ -102,9 +102,9 @@ describe('default styles equal the look drawings had before styles', () => {
   it('anchored text', () => {
     expect(defaults('anchoredText')).toMatchObject({ size: 14, bold: false, italic: false, align: 'left', wrap: false, wrapWidth: 240 });
   });
-  it('every default colour names a theme token, not a fixed hex (the pitchforks and the pitchfan keep TradingView\'s fixed palette)', () => {
+  it('every default colour names a theme token, not a fixed hex (the pitchforks, the pitchfan and the highlighter keep TradingView\'s fixed palette)', () => {
     for (const t of TOOLS) {
-      const fixed = t.id.toLowerCase().endsWith('pitchfork') || t.id === 'pitchfan' || NOTE_TOOLS.includes(t.id);
+      const fixed = t.id.toLowerCase().endsWith('pitchfork') || t.id === 'pitchfan' || t.id === 'highlighter' || NOTE_TOOLS.includes(t.id);
       for (const f of t.settings ?? []) {
         if (f.kind !== 'color') continue;
         if (fixed) expect(f.default).toMatch(/^#[0-9a-fA-F]{6}$/);
@@ -138,7 +138,7 @@ describe('every registered tool declares settings', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
   it('only the text tools store text, and they, the line tools and the labelled Fibonacci tools declare Text settings', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'note', 'anchoredNote', 'callout', 'comment', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'gannBox', 'gannFan', 'gannSquare', 'gannSquareFixed', 'fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'xabcdPattern', 'cypherPattern', 'abcdPattern'].includes(t.id));
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle', 'text', 'anchoredText', 'note', 'anchoredNote', 'callout', 'comment', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'fibTimeZone', 'fibSpeedFan', 'fibCircles', 'fibSpeedArcs', 'gannBox', 'gannFan', 'gannSquare', 'gannSquareFixed', 'fibExtension', 'fibChannel', 'fibTrendTime', 'fibWedge', 'xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives'].includes(t.id));
     expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text', 'anchoredText', 'note', 'anchoredNote', 'callout', 'comment']);
     expect(TOOLS.filter((t) => t.caption).map((t) => t.id)).toEqual(['arrowMarker', 'arrowMarkUp', 'arrowMarkDown']);
   });

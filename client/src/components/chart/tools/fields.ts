@@ -6,7 +6,7 @@ import type { ToolView } from './types';
 /** Builders for the settings a tool declares. */
 export const colorField = (key: string, label: string, def: string, tab: SettingTab = 'style'): SettingField => ({ key, label, kind: 'color', tab, default: def });
 export const opacityField = (key: string, label: string, def: number, tab: SettingTab = 'style'): SettingField => ({ key, label, kind: 'opacity', tab, default: def, min: 0, max: 1, step: 0.05 });
-export const widthField = (key: string, label: string, def: number): SettingField => ({ key, label, kind: 'width', tab: 'style', default: def, min: 0.5, max: 10, step: 0.5 });
+export const widthField = (key: string, label: string, def: number, min = 0.5, max = 10): SettingField => ({ key, label, kind: 'width', tab: 'style', default: def, min, max, step: 0.5 });
 export const lineStyleField = (key: string, label: string): SettingField => ({ key, label, kind: 'lineStyle', tab: 'style', default: 'solid' });
 export const boolField = (key: string, label: string, def: boolean, tab: SettingTab = 'style'): SettingField => ({ key, label, kind: 'boolean', tab, default: def });
 export const numberField = (key: string, label: string, def: number, min: number, max: number, step: number, tab: SettingTab = 'style'): SettingField => ({ key, label, kind: 'number', tab, default: def, min, max, step });

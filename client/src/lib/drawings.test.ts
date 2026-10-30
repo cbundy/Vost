@@ -467,8 +467,8 @@ describe('the pattern tools', () => {
   it('round trips each with its own anchor count and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
-    const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern'];
-    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4]);
+    const ids = ['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([5, 5, 4, 7, 4, 7]);
     const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool] as number) }));
     const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an((ANCHOR_COUNTS[tool] as number) - 1) }));
     expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
@@ -690,6 +690,13 @@ describe('tools with a range of anchors', () => {
     const ok = [2, 3, 5].map((n) => ({ id: `p${n}`, tool: 'path', anchors: an(n) })).concat([3, 4, 5].map((n) => ({ id: `g${n}`, tool: 'polyline', anchors: an(n) })));
     const bad = [{ id: 'p1', tool: 'path', anchors: an(1) }, { id: 'p6', tool: 'path', anchors: an(6) }, { id: 'g2', tool: 'polyline', anchors: an(2) }, { id: 'g6', tool: 'polyline', anchors: an(6) }];
     expect(parse([...bad, ...ok])).toEqual(ok);
+  });
+  it('keeps a brush and a highlighter at 2 to 200 anchors and drops 1 and 201 alone', () => {
+    const big = { ...counts, brush: { min: 2, max: 200 }, highlighter: { min: 2, max: 200 } };
+    const run = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, big, TEXT, TRANSIENT).sources.s;
+    const ok = ['brush', 'highlighter'].flatMap((tool) => [2, 200].map((n) => ({ id: `${tool}${n}`, tool, anchors: an(n) })));
+    const bad = ['brush', 'highlighter'].flatMap((tool) => [1, 201].map((n) => ({ id: `${tool}b${n}`, tool, anchors: an(n) })));
+    expect(run([...bad, ...ok])).toEqual(ok);
   });
   it('drops a drawing with a bad point alone', () => {
     const ok = { id: 'ok', tool: 'path', anchors: an(3) };
