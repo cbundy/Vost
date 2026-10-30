@@ -44,8 +44,8 @@ describe('railGroups', () => {
 
   it('keeps registry order within a family and groups it under section headings', () => {
     const lines = groups.find((g) => g.id === 'lines')!;
-    expect(lines.entries.map((e) => e.key)).toEqual(['trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle', 'horizontalLine', 'horizontalRay', 'verticalLine', 'crossLine']);
-    expect(lines.sections.map((s) => s.title)).toEqual(['Lines']);
+    expect(lines.entries.map((e) => e.key)).toEqual(['trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle', 'horizontalLine', 'horizontalRay', 'verticalLine', 'crossLine', 'parallelChannel', 'regressionTrend', 'flatTopBottom', 'disjointChannel']);
+    expect(lines.sections.map((s) => s.title)).toEqual(['Lines', 'Channels']);
   });
 
   it('shows a family by its last tool, else its first', () => {

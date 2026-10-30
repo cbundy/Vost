@@ -1,0 +1,32 @@
+ok   nothing stored after Escape
+ok   Parallel channel stored - parallelChannel:3
+ok   Regression trend stored - parallelChannel:3,regressionTrend:2
+ok   Flat top/bottom stored - parallelChannel:3,regressionTrend:2,flatTopBottom:3
+ok   Disjoint channel stored - parallelChannel:3,regressionTrend:2,flatTopBottom:3,disjointChannel:3
+ok   chart painted
+ok   Parallel channel moved by its body - [[{"time":1625702400,"price":38.81914775867949},{"time":1654905600,"price":88.69590220548623},{"time":1641600000,"price":1.4115679608958267}],[{"time":1618790400,"price":38.81914775867949},{"time":1647993600,"price":88.69590220548623},{"time":1634688000,"price":1.4115679608958267}]]
+ok   Parallel channel resized by a handle - [[{"time":1618790400,"price":38.81914775867949},{"time":1647993600,"price":88.69590220548623},{"time":1634688000,"price":1.4115679608958267}],[{"time":1618790400,"price":27.838450499464273},{"time":1647993600,"price":88.69590220548623},{"time":1634688000,"price":-3.591471618746599}]]
+ok   parallel channel keeps its third point at the same time
+ok   Parallel channel settings are titled for the tool
+ok   Parallel channel restyled - {"width":3}
+ok   Parallel channel undo reverts the restyle
+ok   Parallel channel redo restores the restyle
+ok   Regression trend moved by its body - [[{"time":1665532800,"price":63.757515673630465},{"time":1697328000,"price":126.10348200326989}],[{"time":1658620800,"price":63.757515673630465},{"time":1690416000,"price":126.10348200326989}]]
+ok   Regression trend settings are titled for the tool
+ok   Regression trend restyled - {"width":3,"source":"hlc3","deviation":3}
+ok   Regression trend undo reverts the restyle
+ok   Regression trend redo restores the restyle
+ok   Flat top/bottom moved by its body - [[{"time":1705276800,"price":188.44943902445695},{"time":1737072000,"price":225.8570188222406},{"time":1721174400,"price":126.10348200326989}],[{"time":1698364800,"price":188.44943902445695},{"time":1730160000,"price":225.8570188222406},{"time":1714262400,"price":126.10348200326989}]]
+ok   Flat top/bottom resized by a handle - [[{"time":1698364800,"price":188.44943902445695},{"time":1730160000,"price":225.8570188222406},{"time":1714262400,"price":126.10348200326989}],[{"time":1698364800,"price":177.46874176524173},{"time":1730160000,"price":225.8570188222406},{"time":1714262400,"price":126.10348200326989}]]
+ok   Flat top/bottom settings are titled for the tool
+ok   Flat top/bottom restyled - {"width":3}
+ok   Flat top/bottom undo reverts the restyle
+ok   Flat top/bottom redo restores the restyle
+ok   Disjoint channel moved by its body - [[{"time":1623110400,"price":244.56080406690626},{"time":1654905600,"price":257.02999733283417},{"time":1631059200,"price":172.86294744204707}],[{"time":1616198400,"price":244.5608040669063},{"time":1647993600,"price":257.02999733283417},{"time":1624147200,"price":172.86294744204707}]]
+ok   Disjoint channel resized by a handle - [[{"time":1616198400,"price":244.5608040669063},{"time":1647993600,"price":257.02999733283417},{"time":1624147200,"price":172.86294744204707}],[{"time":1616198400,"price":233.58010680769107},{"time":1647993600,"price":257.02999733283417},{"time":1624147200,"price":172.86294744204707}]]
+ok   Disjoint channel settings are titled for the tool
+ok   Disjoint channel restyled - {"width":3}
+ok   Disjoint channel undo reverts the restyle
+ok   Disjoint channel redo restores the restyle
+ok   four drawings after reload
+ok   unchanged by the timeframe change

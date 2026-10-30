@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Pt } from '../../../lib/drawingGeometry';
+import type { OhlcBar, Pt } from '../../../lib/drawingGeometry';
 import type { SettingField } from '../../../lib/drawingStyle';
 import type { Anchor } from '../../../lib/drawings';
 
@@ -18,6 +18,8 @@ export interface ToolView {
   text: string;
   /** Times of the loaded bars, ascending. */
   times: readonly number[];
+  /** The loaded bars (open, high, low, close), ascending by time. */
+  candles: readonly OhlcBar[];
   /** Pixel y of a price, or null when it is off the scale. */
   priceToY(price: number): number | null;
   /** A price as the series formats it. */
@@ -64,6 +66,10 @@ export interface DrawingTool {
    * Called for every drawing, so a tool that labels only while selected returns nothing otherwise.
    */
   axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean): AxisLabels;
+  /**
+   * While a drawing with more than two anchors is placed, `pts` holds fewer points than `anchors` (the placed ones
+   * and the moving one): draw what can be drawn, never throw.
+   */
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;
   /** Whether a press at p grabs the drawing's body. */
   hit(pts: Pt[], p: Pt, view: ToolView, tolerance?: number): boolean;
