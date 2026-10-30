@@ -61,7 +61,7 @@ Double-click a drawing (a note opens its text editor instead) to open its settin
   - Rectangle: border colour, width and style, fill colour and opacity, extend left and right.
   - Fibonacci retracement: edit, add (up to 24), remove, colour and switch off each level, show prices and levels, reverse, extend lines and a background between levels.
   - Text: colour, size, bold, italic, background and border.
-- **Text**: the text of a note. The trend line, ray, info line, extended line and trend angle have the text colour and size of their label here.
+- **Text**: the text of a note. The info line, extended line and trend angle have the text colour and size of their label here; the trend line and ray have no Text tab.
 - **Coordinates**: the price and time (unix seconds) of each point. A value that is not a number is refused.
 - **Visibility**: the timeframe kinds (seconds, minutes, hours, days, weeks, months) that show the drawing. A drawing hidden on the current timeframe is neither drawn nor clickable.
 
