@@ -486,7 +486,17 @@ export function useDrawings(
       if (settle && prim) {
         const def = getTool(id);
         const pts = placed.map((a) => prim.toPoint(a, def));
-        if (pts.every((q) => q)) anchors = settle(pts as Pt[]).map((q, i) => prim.toAnchor(q, def) ?? placed[i]);
+        if (pts.every((q) => q)) {
+          const mapped = settle(pts as Pt[]).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
+          if (mapped.some((a) => !a)) {
+            // A point the tool added cannot be put on the chart: the drawing is not stored.
+            draftRef.current = null;
+            setTool(CURSOR);
+            sync();
+            return;
+          }
+          anchors = mapped as Anchor[];
+        }
       }
       if (getTool(id)?.transient) {
         // A measure is shown, never stored: it stays until the next press, Escape or a rail pick.
@@ -583,7 +593,7 @@ export function useDrawings(
               return; // the pointerup releases
             }
           }
-          const step = pressDraft(draft, anchor, def.anchors);
+          const step = pressDraft(draft, anchor, def.placed ?? def.anchors);
           if (step.done) finish(step.done, toolId);
           else {
             draftRef.current = step.draft;
@@ -597,7 +607,7 @@ export function useDrawings(
           openEditor(null, toolId, [anchor], '');
           return; // the pointerup releases
         }
-        if (anchorRange(def.anchors).max === 1) {
+        if (anchorRange(def.placed ?? def.anchors).max === 1) {
           finish([anchor], toolId);
           return; // the pointerup releases
         }
@@ -756,7 +766,7 @@ export function useDrawings(
         return;
       }
       if (draft && draft.phase === 'pressing') {
-        const step = releaseDraft(draft, point(e), getTool(draft.tool)?.anchors ?? 2);
+        const step = releaseDraft(draft, point(e), getTool(draft.tool)?.placed ?? getTool(draft.tool)?.anchors ?? 2);
         if (step.done) finish(step.done, draft.tool);
         else {
           draftRef.current = step.draft;

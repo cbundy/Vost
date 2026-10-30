@@ -3,6 +3,12 @@ ok   Arrow stored - circle:2,arrow:2
 ok   Arrow marker stored - circle:2,arrow:2,arrowMarker:2
 ok   Arrow mark up stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1
 ok   Arrow mark down stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1
+ok   Rotated rectangle stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1,rotatedRectangle:3
+ok   Ellipse stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1,rotatedRectangle:3,ellipse:3
+ok   Triangle stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1,rotatedRectangle:3,ellipse:3,triangle:3
+ok   Arc stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1,rotatedRectangle:3,ellipse:3,triangle:3,arc:3
+ok   Curve stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1,rotatedRectangle:3,ellipse:3,triangle:3,arc:3,curve:3
+ok   Double curve stored - circle:2,arrow:2,arrowMarker:2,arrowMarkUp:1,arrowMarkDown:1,rotatedRectangle:3,ellipse:3,triangle:3,arc:3,curve:3,doubleCurve:4
 ok   arrowMarkUp is on a bar time - 1747872000
 ok   arrowMarkDown is on a bar time - 1764806400
 ok   path stored with five points, no duplicate - 5
@@ -15,6 +21,7 @@ ok   undo removes the Enter-ended path
 ok   redo restores it
 ok   Brush stored with 2 to 200 anchors - 17
 ok   Highlighter stored with 2 to 200 anchors - 14
-ok   ten drawings after reload
+ok   sixteen drawings after reload
 ok   both strokes keep 2 to 200 points - 17,14
+ok   both strokes keep their exact anchors after reload - 17,14
 ok   unchanged by the timeframe change
