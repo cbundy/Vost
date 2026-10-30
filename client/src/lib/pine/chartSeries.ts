@@ -89,11 +89,12 @@ function location(loc: string | undefined): PineMarkerDesc['position'] {
 }
 
 /**
- * Where a mark sits in a script's own pane. Absolute locations would need the
- * plotted value, which the runtime does not keep for shapes, so they sit in the middle.
+ * Where a mark sits in a script's own pane. An absolute location sits at the
+ * plotted value on the pane's right scale; with no finite value it sits mid-pane.
  */
-export function separatePosition(loc: string | undefined): Pick<PineMarkerDesc, 'panePosition' | 'price'> {
+export function separatePosition(loc: string | undefined, value?: number | null): Pick<PineMarkerDesc, 'panePosition' | 'price'> {
   const l = (loc ?? '').toLowerCase();
+  if (l === 'absolute' && typeof value === 'number' && Number.isFinite(value)) return { panePosition: 'atPriceMiddle', price: value };
   if (l === 'belowbar' || l === 'bottom') return { panePosition: 'atPriceBottom', price: 0 };
   if (l === 'absolute') return { panePosition: 'atPriceMiddle', price: 0.5 };
   return { panePosition: 'atPriceTop', price: 1 };
@@ -127,12 +128,14 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     }
     if (plot.kind === 'plotshape') {
       candles.forEach((c, i) => {
-        if (!plot.values[i]) return;
+        const abs = (plot.location ?? '').toLowerCase() === 'absolute';
+        const v = plot.values[i];
+        if (abs ? v === null || v === undefined || !Number.isFinite(v) : !v) return;
         markers.push({
           time: c.time,
           pane,
           position: location(plot.location),
-          ...separatePosition(plot.location),
+          ...separatePosition(plot.location, plot.values[i]),
           shape: shapeMarker(plot.shape),
           color: cssColor(plot.colors?.[i], color),
           size: 1,

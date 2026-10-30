@@ -82,10 +82,23 @@ describe('buildPineChart', () => {
     expect(separatePosition(undefined)).toEqual({ panePosition: 'atPriceTop', price: 1 });
   });
 
-  it('the runtime keeps no number for an absolute shape, so it sits mid-pane', async () => {
+  it('an absolute shape in a separate pane sits at its series value', async () => {
     const r = await runPine('//@version=6\nindicator("x", overlay=false)\nplotshape(close, title="A", location=location.absolute)\n', candles);
     if (!r.ok) throw new Error(r.error.message);
-    expect(r.plots[0].values.every((v) => v === null)).toBe(true);
+    const vals = r.plots[0].values;
+    expect(vals.some((v) => v !== null && Number.isFinite(v))).toBe(true);
+    const m = buildPineChart(r, candles, '#fff');
+    expect(m.markers.length).toBeGreaterThan(0);
+    m.markers.forEach((k) => {
+      expect(k.panePosition).toBe('atPriceMiddle');
+      expect(k.price).toBe(vals[candles.findIndex((c) => c.time === k.time)]);
+    });
+  });
+
+  it('separatePosition uses a finite value for absolute only', () => {
+    expect(separatePosition('Absolute', 42)).toEqual({ panePosition: 'atPriceMiddle', price: 42 });
+    expect(separatePosition('Absolute', null)).toEqual({ panePosition: 'atPriceMiddle', price: 0.5 });
+    expect(separatePosition('AboveBar', 42)).toEqual({ panePosition: 'atPriceTop', price: 1 });
   });
 
   it('strategy: plots plus entry and exit markers from trades', async () => {
