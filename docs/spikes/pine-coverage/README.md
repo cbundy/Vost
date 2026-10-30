@@ -74,8 +74,8 @@ Columns: **PineTS** computes it (yes / partial / no); **runPine** passes it thro
 | `polyline` | yes | dropped | no | `polyline / polyline-basic`: `__polylines__`, skipped |
 | `linefill` | yes | dropped | no | `linefill / linefill-basic`: `__linefills__` (and the two lines), skipped |
 | `chart.*` | partial | yes (as computed) | n/a | `chart / chart-vars`: `chart.is_standard`, `chart.left_visible_bar_time` compute; `chart.point` works (polyline case). Values describe PineTS's context, not the Vost chart |
-| `alert`, `alertcondition` | yes | dropped | no | `alert / alertcondition, alert-fn`: PineTS records them in `ctx.alerts`, but only for the last bar (`bar 119` of 120); `runtime.ts` never reads `ctx.alerts`. Vost has its own alerts feature (price and indicator alerts) that Pine does not feed |
-| `log.info`, `warning`, `error` | yes | dropped | no | `log / log-info-warning-error`: PineTS prints to the browser or worker console (360 lines for 120 bars); nothing reaches the user as a Pine log pane |
+| `alert`, `alertcondition` | yes | yes | yes | `alert / alertcondition, alert-fn`: PineTS records them in `ctx.alerts`, but by default only for the last bar (`bar 119` of 120); `runPine` calls `setAlertMode('all')` so every bar's are kept, and the Pine pane lists them (a condition never true is absent). Not sent to Vost's own alerts (price and indicator alerts) |
+| `log.info`, `warning`, `error` | yes | yes | yes | `log / log-info-warning-error`: PineTS prints to the console only (360 lines for 120 bars); `messages.ts` wraps the Log methods during a run and the Pine pane lists the lines by level |
 | `runtime.error` | yes | yes | yes | `runtime / runtime-error`: surfaces as `{ ok: false, error: { message: "boom" } }`, shown in the Pine pane |
 | `indicator()`: `overlay` | yes | yes | yes | `declaration / indicator-overlay-false`: `pane: separate` |
 | `indicator()`: `max_bars_back` | yes | yes (ignored) | n/a | `runtime / max-bars-back` runs; the value is not read |
@@ -106,7 +106,7 @@ Candidates for upstream reports; none filed.
 3. `request.financial`, `economic`, `seed`, `dividends`, `splits`, `earnings` return na (warning only in `ctx.warnings`). Cases `request / request-*`.
 4. `syminfo.*` is empty or na with array data, and `math.round_to_mintick` is NaN as a result. Cases `syminfo / ...`, `math / fn math.round_to_mintick(close)`. Expected: a way to give symbol info with the data.
 5. `barstate.isrealtime`, `isconfirmed` and `isnew` are true on the last bar of a purely historical run. Case `barstate / barstate-fields`.
-6. `alert` and `alertcondition` record only on the last bar (`bar 119`), so history is never scanned for alert events. Cases `alert / ...`. This may be intended for a realtime engine; check upstream.
+6. `alert` and `alertcondition` record only on the last bar (`bar 119`) by default (fixed in Vost by `setAlertMode('all')`). Cases `alert / ...`.
 7. `varip` behaves like `var` (no intrabar state). Case `language / varip`. Expected, since there are no ticks, but worth noting.
 
 No `ta.*`, `math.*`, array, matrix, map, str or strategy function in the probe failed to compile.
@@ -119,7 +119,7 @@ The owner picks which to build; this decides nothing. Ordered by value, then ris
 2. **Make `request.security` honest.** Either feed real higher-timeframe and other-symbol candles through PineTS's data source, or fail with a clear message instead of returning the chart's data. Closes the `request.*` rows. Large to build, small for the error-only version; medium risk (data fetch in the worker).
 3. **Draw `fill`, `plotcandle`, `plotbar`, `barcolor`, `plotarrow`.** Extend `PinePlot` and `mapPlots` (carry OHLC arrays, fill links and bar colours), then `buildPineChart`. Closes five output rows, the most common gap in public scripts. Medium; medium risk (new series types in the chart hook).
 4. **Draw `line`, `label`, `box`, `table`, `polyline`, `linefill`.** Read the `__*__` collections instead of skipping them, then render on the chart (tables as an overlay). Closes six rows. Large; medium risk (new chart primitives; bar-index to time mapping).
-5. **Surface alerts, logs and warnings.** Read `ctx.alerts`, `ctx.warnings` and the log output, show them in the Pine pane. Optionally route `alertcondition` into Vost's alerts. Closes `alert`, `log`, the "empty plot, no reason" part of `request.*`. Small to medium; low risk.
+5. **Surface alerts, logs and warnings (done: shown in the Pine pane, not routed to Vost's alerts).** Read `ctx.alerts`, `ctx.warnings` and the log output, show them in the Pine pane. Optionally route `alertcondition` into Vost's alerts. Closes `alert`, `log`, the "empty plot, no reason" part of `request.*`. Small to medium; low risk.
 6. **Richer input controls and plot options.** Color picker, source select, time/symbol/session controls, `group`/`tooltip`/`inline`, plot `linewidth`, `offset`, step/area styles, `plotshape` text and size. Closes the `input.*` and partial plot rows. Medium; low risk.
 7. **Import resolver for libraries.** Done: `runPine` sets a resolver backed by the Vost server (open-source libraries fetched from TradingView and kept, closed-source ones pasted). Closed the imports row.
 8. **Report the engine gaps upstream** (the list above) and re-probe on each PineTS upgrade: rerun `probe.ts` and diff `output.txt`. Small; no risk.
