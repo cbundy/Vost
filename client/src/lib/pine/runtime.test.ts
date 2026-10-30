@@ -306,3 +306,69 @@ describe('runPine fill', () => {
     expect(r.plots.some((p) => p.kind === 'fill')).toBe(false);
   });
 });
+
+describe('runPine market context', () => {
+  const hourly = Array.from({ length: 40 }, (_, i) => ({
+    time: 1_700_000_000 + i * 3600, open: 100.25 + i, high: 102.5 + i, low: 99.1 + i, close: 101.05 + i, volume: 10,
+  }));
+  const twoHour = hourly.filter((_, i) => i % 2 === 0).map((c, i) => ({ ...c, time: 1_700_000_000 + i * 7200 }));
+  const binance = (interval: string) => ({ providerId: 'binance', symbol: 'BTCUSDT', interval });
+  const last = (r: Awaited<ReturnType<typeof runPine>>, name: string) => {
+    if (!r.ok) throw new Error(r.error.message);
+    return r.plots.find((p) => p.name === name)!.values.at(-1);
+  };
+  const info = [
+    '//@version=6',
+    'indicator("info")',
+    'plot(timeframe.in_seconds(), "secs")',
+    'plot(timeframe.isintraday ? 1 : 0, "intraday")',
+    'plot(syminfo.mintick, "tick")',
+    'plot(syminfo.tickerid == "BINANCE:BTCUSDT" ? 1 : 0, "id")',
+    'plot(math.round_to_mintick(close), "rounded")',
+  ].join('\n');
+
+  it('shows the chart timeframe and symbol on 1h and 2h candles', async () => {
+    const a = await runPine(info, hourly, {}, { market: binance('1h') });
+    expect(last(a, 'secs')).toBe(3600);
+    expect(last(a, 'intraday')).toBe(1);
+    expect(last(a, 'tick')).toBe(0.01);
+    expect(last(a, 'id')).toBe(1);
+    expect(last(a, 'rounded')).toBeCloseTo(hourly.at(-1)!.close, 6);
+    const b = await runPine(info, twoHour, {}, { market: binance('2h') });
+    expect(last(b, 'secs')).toBe(7200);
+  });
+
+  it('takes the timeframe from the candle spacing without a market', async () => {
+    expect(last(await runPine(info, hourly), 'secs')).toBe(3600);
+    expect(last(await runPine(info, hourly), 'id')).toBe(0);
+  });
+
+  it('a daily market is not intraday', async () => {
+    expect(last(await runPine(info, hourly, {}, { market: binance('1d') }), 'intraday')).toBe(0);
+  });
+
+  it('fails a request for another timeframe or symbol with a message naming it', async () => {
+    const tf = await runPine('//@version=6\nindicator("a")\nplot(request.security(syminfo.tickerid, "D", close))', hourly, {}, { market: binance('1h') });
+    expect(tf.ok).toBe(false);
+    if (!tf.ok) expect(tf.error.message).toContain('needs data Vost does not load yet');
+    const sym = await runPine('//@version=6\nindicator("a")\nplot(request.security("ETHUSDT", timeframe.period, close))', hourly, {}, { market: binance('1h') });
+    expect(sym.ok).toBe(false);
+    if (!sym.ok) expect(sym.error.message).toContain('request.security(ETHUSDT');
+  });
+
+  it('a same-symbol, same-timeframe request equals the chart series', async () => {
+    const r = await runPine(
+      '//@version=6\nindicator("a")\nplot(request.security(syminfo.tickerid, timeframe.period, close), "sec")',
+      hourly, {}, { market: binance('1h') },
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.plots[0].values).toEqual(hourly.map((c) => c.close));
+  });
+
+  it('time_close of a bar before a gap is open plus the interval', async () => {
+    const gapped = [...hourly.slice(0, 5), ...hourly.slice(10, 15)];
+    const r = await runPine('//@version=6\nindicator("a")\nplot(time_close - time, "len")', gapped, {}, { market: binance('1h') });
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.plots[0].values[4]).toBe(3600 * 1000 - 1);
+  });
+});
