@@ -3,7 +3,7 @@
  *
  * Anchors are P1, P2, P3 and M is the midpoint of P2 and P3. The median runs from an origin O through M; each level
  * k draws two lines parallel to the median through M + k(P3 - M) and M - k(P3 - M), so level 1 passes through P2 and P3.
- * The origin is P1 (Pitchfork), (P1.x, midY of P1 and P2) (Schiff) or the midpoint of P1 and P2 (Modified Schiff).
+ * The origin is P1 (Pitchfork), (P1.x, midY of P1 and P2) (Schiff) or the midpoint of P1 and P2 (Modified Schiff and Inside, which share this origin).
  *
  * Inside: per TradingView's help article https://www.tradingview.com/support/solutions/43000518146-inside-pitchfork/
  * "The inside pitchfork's origin is located at 1/2 the vertical distance and 1/2 the horizontal distance between the
