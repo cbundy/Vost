@@ -6,6 +6,8 @@ import { MonteCarloPanel } from './MonteCarloPanel';
 import { EquityChart } from './EquityChart';
 import { TradesTable } from './TradesTable';
 import { BreakdownTables } from './BreakdownTables';
+import { MetricTip } from './MetricTip';
+import type { HelpKey } from '../lib/backtest/metricHelp';
 import { useChart } from '../state/chartContext';
 
 export function ResultsTab() {
@@ -37,6 +39,30 @@ export function ResultsTab() {
     .filter(([k]) => !k.startsWith('__'))
     .map(([k, v]) => `${k}=${v}`)
     .join(', ');
+
+  const profit = m.finalEquity - m.initialCapital;
+  const cards: MetricProps[] = [
+    { help: 'finalEquity', label: 'Final equity', value: fmtMoney(m.finalEquity) },
+    { help: 'netPnl', label: 'Net P/L', value: fmtMoney(profit), className: pnlClass(profit) },
+    { help: 'totalReturn', label: 'Total return', value: fmtPct(m.totalReturnPct), className: pnlClass(m.totalReturnPct) },
+    { help: 'buyHold', label: 'Buy & hold', value: fmtPct(m.buyHoldPct), className: pnlClass(m.buyHoldPct) },
+    { help: 'cagr', label: 'CAGR', value: fmtPct(m.cagrPct), className: pnlClass(m.cagrPct) },
+    { help: 'sharpe', label: 'Sharpe', value: fmtNum(m.sharpe, 2) },
+    { help: 'sortino', label: 'Sortino', value: fmtNum(m.sortino, 2) },
+    { help: 'calmar', label: 'Calmar', value: fmtNum(m.calmar, 2) },
+    { help: 'maxDrawdown', label: 'Max drawdown', value: fmtPct(m.maxDrawdownPct), className: 'neg' },
+    { help: 'maxDdDuration', label: 'Max DD duration', value: `${fmtNum(m.maxDrawdownBars, 0)} bars` },
+    { help: 'exposure', label: 'Exposure', value: fmtPct(m.exposurePct, 1) },
+    { help: 'trades', label: 'Trades', value: fmtNum(m.trades, 0) },
+    { help: 'winRate', label: 'Win rate', value: fmtPct(m.winRatePct, 1) },
+    { help: 'profitFactor', label: 'Profit factor', value: m.profitFactor === Number.POSITIVE_INFINITY ? '∞' : fmtNum(m.profitFactor, 2) },
+    { help: 'expectancy', label: 'Expectancy / trade', value: fmtMoney(m.expectancy), className: pnlClass(m.expectancy) },
+    { help: 'avgTrade', label: 'Avg trade', value: fmtPct(m.avgTradePct), className: pnlClass(m.avgTradePct) },
+    { help: 'bestWorst', label: 'Best / worst trade', value: `${fmtPct(m.bestTradePct)} / ${fmtPct(m.worstTradePct)}` },
+    { help: 'avgBars', label: 'Avg bars in trade', value: fmtNum(m.avgBarsInTrade, 1) },
+    { help: 'totalFees', label: 'Total fees', value: fmtMoney(m.totalFees) },
+    { help: 'bars', label: 'Bars', value: fmtCompact(btResult.equity.length) },
+  ];
 
   const exportTrades = () => {
     const rows = btResult.trades.map((t) => [
@@ -98,30 +124,9 @@ export function ResultsTab() {
       </div>
 
       <div className="metrics-grid mb-3">
-        <Metric label="Final equity" value={fmtMoney(m.finalEquity)} />
-        <Metric label="Net P/L" value={fmtMoney(m.finalEquity - m.initialCapital)} className={pnlClass(m.finalEquity - m.initialCapital)} />
-        <Metric label="Total return" value={fmtPct(m.totalReturnPct)} className={pnlClass(m.totalReturnPct)} />
-        <Metric label="Buy & hold" value={fmtPct(m.buyHoldPct)} className={pnlClass(m.buyHoldPct)} title="Return of simply holding the asset over the same period (ignores fees and slippage)" />
-        <Metric label="CAGR" value={fmtPct(m.cagrPct)} className={pnlClass(m.cagrPct)} />
-        <Metric label="Sharpe" value={fmtNum(m.sharpe, 2)} title="Annualised Sharpe ratio of bar returns" />
-        <Metric label="Sortino" value={fmtNum(m.sortino, 2)} title="Annualised Sortino ratio (downside deviation)" />
-        <Metric label="Calmar" value={fmtNum(m.calmar, 2)} title="CAGR divided by max drawdown" />
-        <Metric label="Max drawdown" value={fmtPct(m.maxDrawdownPct)} className="neg" />
-        <Metric label="Max DD duration" value={`${fmtNum(m.maxDrawdownBars, 0)} bars`} />
-        <Metric label="Exposure" value={fmtPct(m.exposurePct, 1)} title="Share of bars with an open position" />
-        <Metric label="Trades" value={fmtNum(m.trades, 0)} />
-        <Metric label="Win rate" value={fmtPct(m.winRatePct, 1)} />
-        <Metric
-          label="Profit factor"
-          value={m.profitFactor === Number.POSITIVE_INFINITY ? '∞' : fmtNum(m.profitFactor, 2)}
-          title="Gross profit / gross loss"
-        />
-        <Metric label="Expectancy / trade" value={fmtMoney(m.expectancy)} className={pnlClass(m.expectancy)} />
-        <Metric label="Avg trade" value={fmtPct(m.avgTradePct)} className={pnlClass(m.avgTradePct)} />
-        <Metric label="Best / worst trade" value={`${fmtPct(m.bestTradePct)} / ${fmtPct(m.worstTradePct)}`} />
-        <Metric label="Avg bars in trade" value={fmtNum(m.avgBarsInTrade, 1)} />
-        <Metric label="Total fees" value={fmtMoney(m.totalFees)} />
-        <Metric label="Bars" value={fmtCompact(btResult.equity.length)} />
+        {cards.map((c) => (
+          <Metric key={c.help} {...c} />
+        ))}
       </div>
 
       <BreakdownTables trades={btResult.trades} />
@@ -138,11 +143,18 @@ export function ResultsTab() {
   );
 }
 
-function Metric({ label, value, className, title }: { label: string; value: string; className?: string; title?: string }) {
+interface MetricProps {
+  help: HelpKey;
+  label: string;
+  value: string;
+  className?: string;
+}
+
+function Metric({ help, label, value, className }: MetricProps) {
   return (
-    <div className="metric-card" title={title}>
+    <MetricTip help={help} as="div" className="metric-card">
       <div className="m-label">{label}</div>
       <div className={`m-value ${className ?? ''}`}>{value}</div>
-    </div>
+    </MetricTip>
   );
 }

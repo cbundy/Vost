@@ -1,4 +1,5 @@
 import { DOWN_COLOR, UP_COLOR, chartTheme } from '../lib/theme';
+import { MetricTip } from './MetricTip';
 import {
   AreaSeries,
   ColorType,
@@ -117,14 +118,14 @@ export function EquityChart({ result }: { result: BacktestResult }) {
   return (
     <div>
       <div className="equity-legend">
-        <span className="equity-legend-item">
+        <MetricTip help="legendStrategy" className="equity-legend-item">
           <span className="equity-swatch" style={{ background: positive ? UP_COLOR : DOWN_COLOR }} />
           Strategy <b className="mono">{fmtMoney(result.metrics.finalEquity)}</b>
-        </span>
-        <span className="equity-legend-item">
+        </MetricTip>
+        <MetricTip help="legendBuyHold" className="equity-legend-item">
           <span className="equity-swatch dashed" style={{ borderTopColor: chartTheme.benchmark }} />
           Buy &amp; hold <b className="mono">{fmtMoney(holdFinal)}</b>
-        </span>
+        </MetricTip>
       </div>
       <div ref={ref} style={{ height: 240, width: '100%' }} />
     </div>

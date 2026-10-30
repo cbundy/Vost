@@ -33,6 +33,38 @@ export const btResults: Scenario = {
       await page.getByText('Equity curve & drawdown', { exact: false }).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
     });
     await ctx.screenshot('equity');
+    await ctx.step('hover a card in the right-most column and see its tooltip inside the viewport', async () => {
+      await page.locator('.metrics-grid').first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      const cards = page.locator('.metrics-grid').first().locator('.metric-card');
+      const n = await cards.count();
+      let best = 0;
+      let bestLeft = -1;
+      for (let i = 0; i < n; i++) {
+        const left = await cards.nth(i).evaluate((el) => el.getBoundingClientRect().left);
+        if (left > bestLeft) {
+          bestLeft = left;
+          best = i;
+        }
+      }
+      await cards.nth(best).hover();
+      const tip = page.getByRole('tooltip');
+      await tip.waitFor();
+      await page.waitForFunction(() => (document.querySelector('[role="tooltip"]') as HTMLElement | null)?.style.visibility !== 'hidden');
+      const box = await tip.boundingBox();
+      const vp = await page.evaluate(() => ({ w: document.documentElement.clientWidth, h: window.innerHeight }));
+      if (!box || box.x < 8 - 0.5 || box.y < 0 || box.x + box.width > vp.w - 8 + 0.5 || box.y + box.height > vp.h) {
+        throw new Error(`tooltip leaves the viewport: ${JSON.stringify(box)} in ${vp.w}x${vp.h}`);
+      }
+    });
+    await ctx.screenshot('tip-card');
+    await ctx.step('keyboard-focus a Long vs short row label and see its tooltip', async () => {
+      await page.keyboard.press('Escape');
+      await page.getByText('Long vs short', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await page.locator('.data-table .metric-tip-anchor', { hasText: 'Profit factor' }).first().focus();
+      await page.getByRole('tooltip').waitFor();
+      await page.waitForFunction(() => (document.querySelector('[role="tooltip"]') as HTMLElement | null)?.style.visibility !== 'hidden');
+    });
+    await ctx.screenshot('tip-row');
     await ctx.step('scroll to the breakdown', async () => {
       await page.getByText('Long vs short', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     });
