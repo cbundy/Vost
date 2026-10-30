@@ -32,6 +32,10 @@ const toData = (d: PineSeriesDesc) =>
         : { time: p.time as UTCTimestamp, value: p.value, ...(p.color && { color: p.color }) },
   );
 
+/** The marker panes a script uses, price first: one invisible carrier series each. */
+const markerPanes = (it: { model: PineChartModel }): Array<'price' | 'separate'> =>
+  (['price', 'separate'] as const).filter((p) => it.model.markers.some((m) => m.pane === p));
+
 /**
  * Draws the Pine results of visible pine indicators onto the chart: price-pane
  * series on the main pane, the rest in one extra pane per script, after the
@@ -66,7 +70,7 @@ export function usePineSeries(
     const sig = JSON.stringify(
       items.map((it) => [
         it.id,
-        it.model.markers.length > 0,
+        [...new Set(it.model.markers.map((m) => m.pane))].sort(),
         it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.dashed, s.pointsOnly, s.band]),
       ]),
     );
@@ -74,19 +78,38 @@ export function usePineSeries(
     const fill = (it: (typeof items)[number], built: Built[]) => {
       let i = 0;
       for (const d of it.model.series) (built[i++].series as ISeriesApi<'Line'>).setData(toData(d) as never);
-      if (it.model.markers.length > 0) {
-        const anchor = built[i];
-        anchor.series.setData(it.times.map((t, k) => ({ time: t as UTCTimestamp, value: it.closes[k] })) as never);
-        anchor.plugin?.setMarkers(
-          it.model.markers.map((m) => ({ ...m, time: m.time as UTCTimestamp })),
-        );
+      for (const pane of markerPanes(it)) {
+        const anchor = built[i++];
+        if (pane === 'price') {
+          anchor.series.setData(it.times.map((t, k) => ({ time: t as UTCTimestamp, value: it.closes[k] })) as never);
+          anchor.plugin?.setMarkers(
+            it.model.markers
+              .filter((m) => m.pane === 'price')
+              .map(({ pane: _p, panePosition: _pp, price: _pr, ...m }) => ({ ...m, time: m.time as UTCTimestamp })),
+          );
+        } else {
+          anchor.series.setData(it.times.map((t) => ({ time: t as UTCTimestamp, value: 0.5 })) as never);
+          anchor.plugin?.setMarkers(
+            it.model.markers
+              .filter((m) => m.pane === 'separate')
+              .map((m) => ({
+                time: m.time as UTCTimestamp,
+                position: m.panePosition,
+                price: m.price,
+                shape: m.shape,
+                color: m.color,
+                size: m.size,
+                ...(m.text && { text: m.text }),
+              })),
+          );
+        }
       }
     };
 
     if (sig === st.sig && st.epoch === epochRef.current) {
       let offset = 0;
       for (const it of items) {
-        const n = it.model.series.length + (it.model.markers.length > 0 ? 1 : 0);
+        const n = it.model.series.length + markerPanes(it).length;
         fill(it, st.built.slice(offset, offset + n));
         offset += n;
       }
@@ -161,8 +184,15 @@ export function usePineSeries(
         }
         mine.push({ series });
       }
-      if (it.model.markers.length > 0) {
-        // Invisible carrier on the price pane: markers attach to a series.
+      for (const pane of markerPanes(it)) {
+        // Invisible carrier: markers attach to a series.
+        const separate = pane === 'separate';
+        if (separate && sepPane < 0) {
+          chart.addPane();
+          sepPane = chart.panes().length - 1;
+        }
+        const paneIndex = separate ? sepPane : 0;
+        const scaleId = separate ? `pine_mark_${it.id}` : 'right';
         const series = chart.addSeries(
           LineSeries,
           {
@@ -170,10 +200,14 @@ export function usePineSeries(
             priceLineVisible: false,
             lastValueVisible: false,
             crosshairMarkerVisible: false,
-            priceScaleId: 'right',
+            priceScaleId: scaleId,
+            ...(separate && { autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 1 } }) }),
           },
-          0,
+          paneIndex,
         );
+        if (separate) {
+          chart.priceScale(scaleId, paneIndex).applyOptions({ visible: false, scaleMargins: { top: 0.12, bottom: 0.12 } });
+        }
         mine.push({ series, plugin: createSeriesMarkers(series, []) });
       }
       fill(it, mine);

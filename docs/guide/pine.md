@@ -10,6 +10,12 @@ Press **Pine Editor** in the top bar (or **Edit** on a Pine indicator in the Ind
 
 Pine strategies run from the Backtest tab and the Optimizer too ([Backtesting](backtesting.md)).
 
+## Shapes in a script's own pane
+
+A script that draws in its own pane (`overlay=false`) shows its `plotshape` and `plotchar` marks in that pane, not on the candles: `abovebar` and `top` at the top of the pane, `belowbar` and `bottom` at the bottom. Overlay scripts keep their marks on the candles.
+
+![Shapes in the script's own pane, none on the candles](../evidence/pine-render/pine-render-pane-desktop.png)
+
 ## Converting old scripts
 
 A script with no `//@version` line, or a version below 5, will not run. The pane says so and shows **Convert to v6**. It rewrites the source in one edit (Ctrl+Z restores the original) and reports "Converted from Pine v<N> to v6". Whatever it cannot convert safely stays with a `// TODO(convert)` comment above it; search for that.
