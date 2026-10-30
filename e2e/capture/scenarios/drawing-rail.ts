@@ -22,7 +22,7 @@ const FAMILIES: { id: string; label: string; first: string; sections: string[] }
   { id: 'patterns', label: 'Patterns', first: 'XABCD pattern', sections: ['Chart patterns', 'Cycles'] },
   { id: 'forecast-measure', label: 'Forecasting and measurers', first: 'Measure', sections: ['Measurers'] },
   { id: 'shapes', label: 'Shapes', first: 'Brush', sections: ['Brushes', 'Shapes'] },
-  { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text'] },
+  { id: 'annotations', label: 'Annotations', first: 'Text', sections: ['Text', 'Notes'] },
 ];
 
 export const drawingRail: Scenario = {
