@@ -509,6 +509,22 @@ describe('the pattern tools', () => {
   });
 });
 
+describe('the position tools', () => {
+  it('round trips both with three anchors, drops a wrong count and a wrong side', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const ids = ['longPosition', 'shortPosition'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([3, 3]);
+    const an = (e: number, t: number, s: number) => [{ time: 1, price: e }, { time: 2, price: t }, { time: 2, price: s }];
+    const ok = [{ id: 'l', tool: 'longPosition', anchors: an(10, 12, 9) }, { id: 's', tool: 'shortPosition', anchors: an(10, 8, 11) }];
+    const bad = [
+      { id: 'l2', tool: 'longPosition', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] },
+      { id: 'l3', tool: 'longPosition', anchors: an(10, 8, 11) },
+      { id: 's2', tool: 'shortPosition', anchors: an(10, 12, 9) },
+    ];
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS, undefined, undefined, undefined, undefined, VALIDATORS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('the cycle tools', () => {
   it('round trips each with two anchors and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');

@@ -30,6 +30,8 @@ export interface ToolView {
   priceToY(price: number): number | null;
   /** A price as the series formats it. */
   formatPrice(price: number): string;
+  /** The series' smallest price step (its minMove); absent when unknown. */
+  tickSize?: number;
   /** The drawing's effective style: every setting of the tool with its validated value. */
   style: Readonly<Record<string, unknown>>;
   /** The drawing (or the user's default for its tool) sets a style value of its own; false keeps today's selection colour. */
@@ -37,7 +39,7 @@ export interface ToolView {
 }
 
 /** What a handle drag may know besides the pointer: the Shift key (desktop) and the drawing's effective style. */
-export type DragMods = { shift: boolean; style?: Readonly<Record<string, unknown>> };
+export type DragMods = { shift: boolean; style?: Readonly<Record<string, unknown>>; view?: ToolView };
 
 /** The rail's tool families, in rail order (see lib/drawingRail.ts for labels). */
 export type DrawingGroup = 'cursors' | 'lines' | 'fib-gann' | 'patterns' | 'forecast-measure' | 'shapes' | 'annotations' | 'icons';
@@ -93,6 +95,8 @@ export interface DrawingTool {
    * `time` and `price`, so it ignores the time range, zoom, pan and timeframe. No magnet and no axis labels.
    */
   paneAnchored?: true;
+  /** Before the first click the tool's shape follows the pointer (drawn from the one point under it), as the table does. */
+  hoverPreview?: true;
   /** The tool is shown while and after it is drawn but never stored, hit or undone (the measure). */
   transient?: true;
   /**
@@ -130,7 +134,12 @@ export interface DrawingTool {
   /** Where the selection handles go. */
   handles(pts: Pt[], view: ToolView): Pt[];
   /** Adjusts the pixels of a drawing once, when its last anchor is placed (the fixed Gann square makes itself square). It may return more points than were placed (a curve adds its control points). */
-  settle?(pts: Pt[]): Pt[];
+  settle?(pts: Pt[], view?: ToolView): Pt[];
+  /**
+   * The anchors a drawing keeps after the settings dialog's Coordinates tab edits anchor `index` (`next` holds the edit,
+   * `prev` what it was): a tool whose anchors depend on each other brings the others along, or returns `prev` to refuse.
+   */
+  editAnchor?(prev: Anchor[], next: Anchor[], index: number): Anchor[];
   /**
    * The new anchor pixels when handle `handle` is dragged to p. Absent: handle i moves anchor i.
    */

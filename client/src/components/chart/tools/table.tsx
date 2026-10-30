@@ -49,6 +49,7 @@ export const table: DrawingTool = {
   ),
   anchors: 1,
   cells: true,
+  hoverPreview: true,
   settings: SETTINGS,
   validate(d) {
     if (d.cells === undefined) return d;

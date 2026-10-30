@@ -10,7 +10,7 @@ import { theme } from './theme';
 export type SettingKind = 'color' | 'opacity' | 'width' | 'lineStyle' | 'boolean' | 'number' | 'levels' | 'choice';
 
 /** The dialog tab a setting belongs to (Coordinates is built from the anchors, not from settings). */
-export type SettingTab = 'style' | 'text' | 'visibility';
+export type SettingTab = 'style' | 'inputs' | 'text' | 'visibility';
 
 export type SettingField = {
   /** Key in the drawing's `style` record. */

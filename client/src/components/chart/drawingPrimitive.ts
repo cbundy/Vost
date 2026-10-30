@@ -65,6 +65,13 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return this.series;
   }
 
+  /** The series' smallest price step (its price format's minMove), or undefined when it has none. */
+  private tickSize(): number | undefined {
+    const fmt = this.series?.options().priceFormat;
+    const step = fmt && 'minMove' in fmt ? fmt.minMove : undefined;
+    return typeof step === 'number' && step > 0 ? step : undefined;
+  }
+
   attached(p: SeriesAttachedParameter<Time>): void {
     this.chart = p.chart;
     this.series = p.series as ISeriesApi<'Candlestick'>;
@@ -257,6 +264,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       candles: this.getCandles(),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,
       formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
+      tickSize: this.tickSize(),
       style: values,
       styled,
     };

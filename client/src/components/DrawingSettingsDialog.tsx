@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MAX_LEVELS, VISIBILITY_FIELDS, addLevel, colorHex, cleanLevels, pickValid, removeLevel, resolveStyle, setLevelValue, validateValue, type FibLevel, type SettingField } from '../lib/drawingStyle';
 import { LINE_STYLES } from '../lib/drawingStyle';
 import { TABLE_MAX, resizeCells, tableSize } from '../lib/geometry/table';
@@ -7,11 +7,11 @@ import { TEXT_MAX, cleanText, type Anchor, type DrawingPatch } from '../lib/draw
 import type { DrawingSettingsModel } from './chart/useDrawingSettings';
 import { Modal } from './Modal';
 
-type Tab = 'style' | 'text' | 'coordinates' | 'visibility';
-const TAB_LABEL: Record<Tab, string> = { style: 'Style', text: 'Text', coordinates: 'Coordinates', visibility: 'Visibility' };
+type Tab = 'style' | 'inputs' | 'text' | 'coordinates' | 'visibility';
+const TAB_LABEL: Record<Tab, string> = { style: 'Style', inputs: 'Inputs', text: 'Text', coordinates: 'Coordinates', visibility: 'Visibility' };
 
 /** A number input that keeps what is typed and only passes on a finite value in range; anything else is refused in place. */
-function NumField({ label, value, min, max, step, onCommit }: { label: string; value: number; min?: number; max?: number; step?: number; onCommit(n: number): void }) {
+function NumField({ label, value, min, max, step, onCommit }: { label: string; value: number; min?: number; max?: number; step?: number; onCommit(n: number): boolean | void }) {
   const [text, setText] = useState(String(value));
   const [error, setError] = useState<string | null>(null);
   const change = (raw: string) => {
@@ -19,9 +19,13 @@ function NumField({ label, value, min, max, step, onCommit }: { label: string; v
     const n = raw.trim() === '' ? NaN : Number(raw);
     if (!Number.isFinite(n)) return setError('Enter a finite number.');
     if ((min !== undefined && n < min) || (max !== undefined && n > max)) return setError(`Enter a number from ${min ?? '-∞'} to ${max ?? '∞'}.`);
-    setError(null);
-    onCommit(n);
+    // A commit that returns false is refused by the drawing (a target moved across its entry): the text stays, flagged.
+    setError(onCommit(n) === false ? 'That would put a point on the wrong side of the entry.' : null);
   };
+  // Another field's edit may move this value (a position's target and stop share one time): show it.
+  useEffect(() => {
+    setText((t) => (Number(t) === value ? t : String(value)));
+  }, [value]);
   return (
     <span className="ds-num">
       <input type="number" value={text} min={min} max={max} step={step ?? 'any'} aria-label={label} aria-invalid={error != null} onChange={(e) => change(e.target.value)} />
@@ -157,7 +161,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
   // Remounts the numeric inputs after Reset so they show the defaults again.
   const [epoch, setEpoch] = useState(0);
 
-  const tabs: Tab[] = ['style', ...(tool.text || tool.caption || fields.some((f) => f.tab === 'text') ? (['text'] as const) : []), 'coordinates', 'visibility'];
+  const tabs: Tab[] = ['style', ...(fields.some((f) => f.tab === 'inputs') ? (['inputs'] as const) : []), ...(tool.text || tool.caption || fields.some((f) => f.tab === 'text') ? (['text'] as const) : []), 'coordinates', 'visibility'];
   const values = resolveStyle(fields, style, userDefault).values;
   const textBad = tool.text === true && cleanText(text) === '';
 
@@ -173,6 +177,11 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
     const next = resizeCells(cells, rows, cols);
     setCellsState(next);
     preview({ cells: next });
+  };
+  /** The anchors after anchor `i` is replaced; a tool whose anchors depend on each other adjusts the rest. */
+  const editAnchors = (i: number, a: Anchor): Anchor[] => {
+    const next = anchors.map((x, j) => (j === i ? a : x));
+    return tool.editAnchor ? tool.editAnchor(anchors, next, i) : next;
   };
   const setField = (key: string, v: unknown) => {
     const next = { ...style, [key]: v };
@@ -254,11 +263,11 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
                 <div className="ds-label">{anchors.length > 1 ? `Point ${i + 1}` : 'Point'}</div>
                 <label>
                   Price
-                  <NumField label={`Point ${i + 1} price`} value={a.price} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, price: n } : x)); setAnchors(next); preview({ anchors: next }); }} />
+                  <NumField label={`Point ${i + 1} price`} value={a.price} onCommit={(n) => { const next = editAnchors(i, { ...a, price: n }); if (next === anchors) return false; setAnchors(next); preview({ anchors: next }); }} />
                 </label>
                 <label>
                   Time (unix seconds)
-                  <NumField label={`Point ${i + 1} time`} value={a.time} onCommit={(n) => { const next = anchors.map((x, j) => (j === i ? { ...x, time: n } : x)); setAnchors(next); preview({ anchors: next }); }} />
+                  <NumField label={`Point ${i + 1} time`} value={a.time} onCommit={(n) => { const next = editAnchors(i, { ...a, time: n }); if (next === anchors) return false; setAnchors(next); preview({ anchors: next }); }} />
                   <span className="ds-readout">{utc(a.time)}</span>
                 </label>
               </div>

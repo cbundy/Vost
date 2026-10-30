@@ -49,6 +49,7 @@ import { useDrawingToolbar } from './useDrawingToolbar';
 import { armedGlyph, hoverGlyph, previewStyleDrag } from './glyphPlacement';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
+import type { DragMods } from './tools/types';
 import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, GLYPH_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
@@ -107,6 +108,12 @@ export type DrawingEditor = {
 function handleTarget(def: DrawingTool, drag: Drag, item: DragItem, prim: DrawingPrimitive, dx: number, dy: number): Pt {
   const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, cells: item.origCells, style: item.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
+}
+
+/** What a handle drag may know besides the pointer: the Shift key and the drawing's view (its effective style, the tick size). */
+function dragMods(prim: DrawingPrimitive, item: DragItem, shift: boolean): DragMods {
+  const view = prim.viewFor({ tool: item.tool, anchors: item.origAnchors, style: item.origStyle });
+  return { shift, style: view.style, view };
 }
 
 /** One drawing a drag moves, as it was when the press began. */
@@ -697,7 +704,7 @@ export function useDrawings(
         const def = getTool(id);
         const pts = placed.map((a) => prim.toPoint(a, def));
         if (pts.every((q) => q)) {
-          const mapped = settle(pts as Pt[]).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
+          const mapped = settle(pts as Pt[], prim.viewFor({ tool: id, anchors: placed })).map((q, i) => prim.toAnchor(q, def) ?? placed[i] ?? null);
           if (mapped.some((a) => !a)) {
             // A point the tool added cannot be put on the chart: the drawing is not stored.
             draftRef.current = null;
@@ -985,10 +992,7 @@ export function useDrawings(
           if (!def) continue;
           const dragged =
             drag.handle !== null && def.dragHandle
-              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy), {
-                  shift: e.shiftKey && !touch,
-                  style: prim.viewFor({ tool: item.tool, anchors: item.origAnchors, style: item.origStyle }).style,
-                })
+              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy), dragMods(prim, item, e.shiftKey && !touch))
               : null;
           moves[item.id] = item.origAnchors.map((orig, i) => {
             if (dragged) {
@@ -1009,8 +1013,8 @@ export function useDrawings(
       }
       if (e.buttons === 0) {
         const placing = getTool(toolRef.current);
-        if ((placing?.cells || placing?.glyph) && !hiddenRef.current && hasDataRef.current) {
-          // A table, icon, emoji or sticker follows the pointer until it is placed.
+        if ((placing?.hoverPreview || placing?.glyph) && !hiddenRef.current && hasDataRef.current) {
+          // A table, icon, emoji, sticker or position follows the pointer until it is placed.
           const raw = inPlot(p) ? prim.toAnchor(p, placing) : null;
           if (raw) {
             const anchor = snap(raw, placing);

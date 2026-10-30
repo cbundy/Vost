@@ -16,6 +16,7 @@ function attach(prim: DrawingPrimitive, timeFormatter?: (t: number) => string) {
     priceToCoordinate: (p: number) => (p < 0 || p > 100 ? null : HEIGHT - p * 2),
     coordinateToPrice: (y: number) => 100 - y / 2,
     priceFormatter: () => ({ format: (p: number) => `$${p}` }),
+    options: () => ({ priceFormat: { type: 'price', precision: 2, minMove: 0.01 } }),
   };
   prim.attached({ chart, series, requestUpdate: () => {} } as never);
 }
