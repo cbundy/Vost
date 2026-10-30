@@ -35,6 +35,11 @@ describe('railGroups', () => {
     expect(groups.map((g) => g.id)).not.toContain('icons');
   });
 
+  it('holds the positions in Forecasting before the measure in the forecasting family', () => {
+    const family = groups.find((g) => g.id === 'forecast-measure')!;
+    expect(family.entries.map((e) => [e.key, e.section])).toEqual([['longPosition', 'Forecasting'], ['shortPosition', 'Forecasting'], ['measure', 'Measurers']]);
+  });
+
   it('holds the chart patterns, the Elliott waves, then the cycle tools, in the Patterns family', () => {
     const patterns = groups.find((g) => g.id === 'patterns')!;
     expect(patterns.entries.map((e) => e.key)).toEqual(['xabcdPattern', 'cypherPattern', 'abcdPattern', 'headAndShoulders', 'trianglePattern', 'threeDrives', 'elliottImpulse', 'elliottCorrection', 'elliottTriangle', 'elliottDoubleCombo', 'elliottTripleCombo', 'cyclicLines', 'timeCycles', 'sineLine']);
