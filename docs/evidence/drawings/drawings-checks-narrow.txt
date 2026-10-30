@@ -3,7 +3,7 @@ ok   chart starts at the left edge - x=0
 ok   menu button has title and aria-haspopup
 ok   collapsed at start
 ok   expanded
-ok   menu has Cursor
+ok   menu has Cross
 ok   menu has Trend line
 ok   menu has Horizontal line
 ok   menu has Text

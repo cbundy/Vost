@@ -1,12 +1,43 @@
 import { flushSync } from 'react-dom';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CURSOR } from './chart/useDrawings';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { TOOLS } from './chart/tools';
-import { CursorIcon, EyeIcon, EyeOffIcon, MagnetIcon, PencilIcon, TrashIcon } from './DrawingIcons';
+import {
+  CURSOR,
+  ERASER,
+  entryPressed,
+  groupEntry,
+  groupPressed,
+  railGroups,
+  type CursorKind,
+  type RailEntry,
+  type RailGroup,
+} from '../lib/drawingRail';
+import { DrawingFlyout } from './DrawingFlyout';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CrossIcon,
+  CursorIcon,
+  DotIcon,
+  EraserIcon,
+  EyeIcon,
+  EyeOffIcon,
+  MagnetIcon,
+  PencilIcon,
+  StarIcon,
+  TrashIcon,
+} from './DrawingIcons';
 
 export type DrawingControls = {
   tool: string;
-  onPick: (id: string) => void;
+  /** How the cursor mode looks. */
+  cursorKind: CursorKind;
+  onPick: (entry: RailEntry) => void;
+  /** Starred entry keys, in favourites-bar order. */
+  favorites: readonly string[];
+  onToggleFavorite: (key: string) => void;
+  /** The last entry key used from each family. */
+  lastTool: Readonly<Record<string, string>>;
   /** No data to draw on. */
   disabled: boolean;
   magnet: boolean;
@@ -17,44 +48,38 @@ export type DrawingControls = {
   onDeleteAll: () => void;
 };
 
-type Item =
-  | { kind: 'tool'; id: string; label: string; icon: ReactNode; pressed: boolean; disabled: boolean }
-  | { kind: 'toggle'; id: string; label: string; icon: ReactNode; pressed: boolean; disabled: boolean; onClick: () => void }
-  | { kind: 'action'; id: string; label: string; icon: ReactNode; disabled: boolean; onClick: () => void }
-  | { kind: 'divider'; id: string };
+const LONG_PRESS_MS = 500;
 
-/** The one list of entries both the rail and the phone menu render: tools, a divider, then the switches. */
-function buildItems(c: DrawingControls): Item[] {
-  const tools: Item[] = [
-    { id: CURSOR, label: 'Cursor', icon: <CursorIcon /> },
-    ...TOOLS.map((t) => ({ id: t.id, label: t.label, icon: t.icon })),
-  ].map((t) => ({
-    kind: 'tool' as const,
-    ...t,
-    pressed: c.tool === t.id,
-    disabled: t.id !== CURSOR && (c.disabled || c.hidden),
-  }));
+/** The icon of a rail entry: a tool's own, or the cursor kinds and the eraser. */
+export function entryIcon(e: RailEntry): ReactNode {
+  if (e.key === ERASER) return <EraserIcon />;
+  if (e.cursorKind === 'cross') return <CrossIcon />;
+  if (e.cursorKind === 'dot') return <DotIcon />;
+  if (e.cursorKind === 'arrow') return <CursorIcon />;
+  return TOOLS.find((t) => t.id === e.toolId)?.icon ?? null;
+}
+
+/** Whether an entry cannot be picked now: every mode but the cursor kinds needs data and visible drawings. */
+export function entryDisabled(e: RailEntry, c: Pick<DrawingControls, 'disabled' | 'hidden'>): boolean {
+  return e.toolId !== CURSOR && (c.disabled || c.hidden);
+}
+
+type SwitchItem =
+  | { kind: 'toggle'; id: string; label: string; icon: ReactNode; pressed: boolean; onClick: () => void }
+  | { kind: 'action'; id: string; label: string; icon: ReactNode; disabled: boolean; onClick: () => void };
+
+/** The switches under the groups, on the rail and in the phone menu. */
+function switches(c: DrawingControls): SwitchItem[] {
   return [
-    ...tools,
-    { kind: 'divider', id: 'divider' },
-    { kind: 'toggle', id: 'magnet', label: 'Magnet', icon: <MagnetIcon />, pressed: c.magnet, disabled: false, onClick: c.onMagnet },
-    {
-      kind: 'toggle',
-      id: 'hide',
-      label: 'Hide all drawings',
-      icon: c.hidden ? <EyeOffIcon /> : <EyeIcon />,
-      pressed: c.hidden,
-      disabled: false,
-      onClick: c.onHidden,
-    },
+    { kind: 'toggle', id: 'magnet', label: 'Magnet', icon: <MagnetIcon />, pressed: c.magnet, onClick: c.onMagnet },
+    { kind: 'toggle', id: 'hide', label: 'Hide all drawings', icon: c.hidden ? <EyeOffIcon /> : <EyeIcon />, pressed: c.hidden, onClick: c.onHidden },
     { kind: 'action', id: 'delete', label: 'Delete all drawings', icon: <TrashIcon />, disabled: !c.canDeleteAll, onClick: c.onDeleteAll },
   ];
 }
 
-function renderItems(items: Item[], c: DrawingControls, after?: (item: Item) => void): ReactNode {
-  return items.map((it) => {
-    if (it.kind === 'divider') return <div key={it.id} className="rail-divider" role="separator" />;
-    const pressed = it.kind === 'action' ? undefined : it.pressed;
+function renderSwitches(c: DrawingControls, after?: (it: SwitchItem) => void): ReactNode {
+  return switches(c).map((it) => {
+    const pressed = it.kind === 'toggle' ? it.pressed : undefined;
     return (
       <button
         key={it.id}
@@ -63,11 +88,10 @@ function renderItems(items: Item[], c: DrawingControls, after?: (item: Item) => 
         title={it.label}
         aria-label={it.label}
         aria-pressed={pressed}
-        disabled={it.disabled}
+        disabled={it.kind === 'action' ? it.disabled : false}
         onClick={() => {
           if (after) flushSync(() => after(it)); // the popover leaves the DOM before a confirm() opens
-          if (it.kind === 'tool') c.onPick(it.id);
-          else it.onClick();
+          it.onClick();
         }}
       >
         {it.icon}
@@ -76,20 +100,129 @@ function renderItems(items: Item[], c: DrawingControls, after?: (item: Item) => 
   });
 }
 
-/** The vertical tool rail at the chart's left edge: Cursor, one button per drawing tool, then the switches. */
-export function DrawingRail(c: DrawingControls) {
+/** One family on the rail: the button of its last tool, a chevron and, when open, the flyout. */
+function GroupButton({ group, c, open, onOpen, onClose }: { group: RailGroup; c: DrawingControls; open: boolean; onOpen: () => void; onClose: () => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const timer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const entry = groupEntry(group, c.lastTool);
+  const pressed = groupPressed(group, c.tool);
+
+  const openFlyout = () => {
+    setAnchor(wrapRef.current?.getBoundingClientRect() ?? null);
+    onOpen();
+  };
+  const clearTimer = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => clearTimer, []);
+
+  const close = useCallback(
+    (restoreFocus: boolean) => {
+      onClose();
+      if (restoreFocus) btnRef.current?.focus();
+    },
+    [onClose],
+  );
+
   return (
-    <div className="drawing-rail" role="toolbar" aria-label="Drawing tools" aria-orientation="vertical">
-      {renderItems(buildItems(c), c)}
+    <div className="rail-group" ref={wrapRef} data-rail-group={group.id}>
+      <button
+        ref={btnRef}
+        type="button"
+        className={`ghost icon rail-btn${pressed ? ' active' : ''}`}
+        title={entry.label}
+        aria-label={entry.label}
+        aria-pressed={pressed}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={entryDisabled(entry, c)}
+        onClick={() => {
+          if (longPressed.current) {
+            longPressed.current = false;
+            return;
+          }
+          c.onPick(entry);
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          longPressed.current = false;
+          clearTimer();
+          timer.current = window.setTimeout(() => {
+            timer.current = null;
+            longPressed.current = true;
+            openFlyout();
+          }, LONG_PRESS_MS);
+        }}
+        onPointerUp={clearTimer}
+        onPointerLeave={clearTimer}
+        onPointerCancel={clearTimer}
+        onContextMenu={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            openFlyout();
+          }
+        }}
+      >
+        {entryIcon(entry)}
+      </button>
+      <button
+        type="button"
+        className="rail-chevron"
+        aria-label={`Open ${group.label} tools`}
+        title={`${group.label} tools`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => (open ? close(false) : openFlyout())}
+      >
+        <ChevronRightIcon />
+      </button>
+      {open && anchor && (
+        <DrawingFlyout
+          group={group}
+          anchor={anchor}
+          icon={entryIcon}
+          isPressed={(e) => entryPressed(e, c.tool, c.cursorKind)}
+          isDisabled={(e) => entryDisabled(e, c)}
+          favorites={c.favorites}
+          onPick={(e) => {
+            c.onPick(e);
+            close(true);
+          }}
+          onToggleFavorite={c.onToggleFavorite}
+          onClose={close}
+        />
+      )}
     </div>
   );
 }
 
-/** Below 600px the rail is hidden; this button opens the same entries in a popover. */
+/** The vertical rail at the chart's left edge: one button per tool family with a flyout, then the switches. */
+export function DrawingRail(c: DrawingControls) {
+  const groups = railGroups();
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <div className="drawing-rail" role="toolbar" aria-label="Drawing tools" aria-orientation="vertical">
+      {groups.map((g) => (
+        <GroupButton key={g.id} group={g} c={c} open={openId === g.id} onOpen={() => setOpenId(g.id)} onClose={() => setOpenId((cur) => (cur === g.id ? null : cur))} />
+      ))}
+      <div className="rail-divider" role="separator" />
+      {renderSwitches(c)}
+    </div>
+  );
+}
+
+/** Below 600px the rail is hidden; this button opens the same families, as collapsible sections, in a popover. */
 export function DrawingMenu(c: DrawingControls) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const wrapRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const groups = railGroups();
 
   useEffect(() => {
     if (!open) return;
@@ -105,6 +238,17 @@ export function DrawingMenu(c: DrawingControls) {
       window.removeEventListener('resize', onResize);
     };
   }, [open]);
+
+  /** The popover's offset from its wrapper: its left edge sits 8px from the screen's (the toolbar clips nothing but is not at the edge). */
+  const [shift, setShift] = useState({ left: 0, maxHeight: 0 });
+  const toggleMenu = () => {
+    if (!open) {
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (r) setShift({ left: 8 - r.left, maxHeight: window.innerHeight - r.bottom - 14 });
+    }
+    if (!open) setExpanded(new Set(groups.filter((g) => groupPressed(g, c.tool)).map((g) => g.id)));
+    setOpen((v) => !v);
+  };
 
   return (
     <div
@@ -127,15 +271,84 @@ export function DrawingMenu(c: DrawingControls) {
         aria-expanded={open}
         aria-label="Drawing tools"
         title="Drawing tools"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleMenu}
       >
         <PencilIcon />
       </button>
       {open && (
-        <div className="drawing-menu-pop" role="group" aria-label="Drawing tools menu">
-          {renderItems(buildItems(c), c, (it) => {
-            if (it.kind === 'tool' || (it.kind === 'action' && it.id === 'delete')) setOpen(false);
+        <div className="drawing-menu-pop" role="group" aria-label="Drawing tools menu" style={{ left: shift.left, maxHeight: shift.maxHeight }}>
+          {groups.map((g) => {
+            const isOpen = expanded.has(g.id);
+            return (
+              <div key={g.id} className="menu-group">
+                <button
+                  type="button"
+                  className={`menu-group-head${groupPressed(g, c.tool) ? ' active' : ''}`}
+                  aria-expanded={isOpen}
+                  aria-controls={`menu-group-${g.id}`}
+                  onClick={() =>
+                    setExpanded((cur) => {
+                      const next = new Set(cur);
+                      if (next.has(g.id)) next.delete(g.id);
+                      else next.add(g.id);
+                      return next;
+                    })
+                  }
+                >
+                  <span>{g.label}</span>
+                  <ChevronDownIcon />
+                </button>
+                {isOpen && (
+                  <div id={`menu-group-${g.id}`} className="menu-group-body">
+                    {g.sections.map((s) => (
+                      <div key={s.title} className="menu-section" role="group" aria-label={s.title}>
+                        {g.sections.length > 1 || s.title !== g.label ? <div className="fly-heading">{s.title}</div> : null}
+                        {s.entries.map((e) => {
+                          const fav = c.favorites.includes(e.key);
+                          const on = entryPressed(e, c.tool, c.cursorKind);
+                          return (
+                            <div key={e.key} className="fly-row">
+                              <button
+                                type="button"
+                                className={`fly-item${on ? ' active' : ''}`}
+                                title={e.label}
+                                aria-label={e.label}
+                                aria-pressed={on}
+                                disabled={entryDisabled(e, c)}
+                                onClick={() => {
+                                  setOpen(false);
+                                  c.onPick(e);
+                                }}
+                              >
+                                <span className="fly-icon">{entryIcon(e)}</span>
+                                <span className="fly-label">{e.label}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`fly-star${fav ? ' on' : ''}`}
+                                aria-label={`Favorite ${e.label}`}
+                                aria-pressed={fav}
+                                title={fav ? 'Remove from favorites' : 'Add to favorites'}
+                                onClick={() => c.onToggleFavorite(e.key)}
+                              >
+                                <StarIcon filled={fav} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
           })}
+          <div className="rail-divider" role="separator" />
+          <div className="menu-switches">
+            {renderSwitches(c, (it) => {
+              if (it.kind === 'action' && it.id === 'delete') setOpen(false);
+            })}
+          </div>
         </div>
       )}
     </div>

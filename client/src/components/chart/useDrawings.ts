@@ -24,12 +24,24 @@ import {
   type DrawingsStorage,
 } from '../../lib/drawings';
 import { drawingKeyAction } from '../../lib/drawingKeys';
+import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { ANCHOR_COUNTS, TEXT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
-export const CURSOR = 'cursor';
+export { CURSOR, ERASER };
+
+/** Cursors the hover state sets: a small dot, and the eraser over a drawing it would delete. */
+const DOT_CURSOR = `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="3" fill="#e5e7eb" stroke="#111827" stroke-width="1"/></svg>')}") 8 8, default`;
+const ERASE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8" fill="none" stroke="#ef4444" stroke-width="2"/><path d="M5 15L15 5" stroke="#ef4444" stroke-width="2"/></svg>')}") 10 10, not-allowed`;
+
+/** The container's cursor over empty chart for a mode and cursor kind ('' is the chart's own). */
+function baseCursor(tool: string, kind: CursorKind): string {
+  if (tool === ERASER) return 'default';
+  if (tool !== CURSOR) return 'crosshair';
+  return kind === 'dot' ? DOT_CURSOR : '';
+}
 
 /** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
 let storage: DrawingsStorage | null = null;
@@ -89,6 +101,7 @@ export function useDrawings(
   const hasData = useChart((s) => s.candles.length > 0);
   const magnet = useStore((s) => s.drawingMagnet);
   const hidden = useStore((s) => s.drawingsHidden);
+  const cursorKind = useStore((s) => s.cursorKind);
   const key = sourceKey({ providerId, symbol, activeDatasetId });
 
   const [tool, setToolState] = useState(CURSOR);
@@ -107,6 +120,8 @@ export function useDrawings(
   const [editor, setEditor] = useState<DrawingEditor | null>(null);
   const magnetRef = useRef(magnet);
   const hiddenRef = useRef(hidden);
+  const cursorKindRef = useRef(cursorKind);
+  cursorKindRef.current = cursorKind;
   magnetRef.current = magnet;
   hiddenRef.current = hidden;
   keyRef.current = key;
@@ -166,6 +181,18 @@ export function useDrawings(
       setTool(id);
     },
     [setTool],
+  );
+
+  /** The rail's pick of one entry: sets its mode (and cursor kind) and remembers it as its family's last tool. */
+  const pickEntry = useCallback(
+    (e: RailEntry) => {
+      if (e.toolId !== CURSOR && (hiddenRef.current || !hasDataRef.current)) return;
+      pickTool(e.toolId);
+      const app = useStore.getState();
+      if (e.cursorKind) app.setCursorKind(e.cursorKind);
+      app.setDrawingLastTool(e.group, e.key);
+    },
+    [pickTool],
   );
 
   /** Pixel position of the editor's note: the container's offset in the chart area plus the anchor's pixel. */
@@ -404,6 +431,16 @@ export function useDrawings(
       const prim = primRef.current;
       if (!prim) return;
       const toolId = toolRef.current;
+      if (toolId === ERASER) {
+        // A press on a drawing deletes it (one undo step); a press on empty chart is the chart's own.
+        const hit = hiddenRef.current || !hasDataRef.current ? null : prim.hit(p, touch ? TOUCH_HIT : MOUSE_HIT);
+        if (!hit) return;
+        claim(e);
+        setState(remove(getState(), hit.id), true);
+        if (selectedRef.current === hit.id) selectedRef.current = null;
+        sync();
+        return; // the pointerup releases
+      }
       if (toolId !== CURSOR) {
         const def = getTool(toolId);
         const raw = prim.toAnchor(p);
@@ -494,7 +531,8 @@ export function useDrawings(
         return;
       }
       if (e.buttons === 0) {
-        el.style.cursor = toolRef.current !== CURSOR ? 'crosshair' : inPlot(p) && prim.hit(p) ? 'pointer' : '';
+        const over = inPlot(p) && prim.hit(p);
+        el.style.cursor = toolRef.current === ERASER && over ? ERASE_CURSOR : toolRef.current === CURSOR && over ? 'pointer' : baseCursor(toolRef.current, cursorKindRef.current);
       }
     };
 
@@ -578,6 +616,12 @@ export function useDrawings(
     };
   }, [chart, containerRef, getState, setState, setTool, sync, openEditor]);
 
+  /* A new mode or cursor kind shows at once, without waiting for the pointer to move. */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el) el.style.cursor = baseCursor(tool, cursorKind);
+  }, [tool, cursorKind, containerRef, chart]);
+
   /* Another chart changed a source this chart has open: show it, keeping this chart's own undo history. */
   useEffect(
     () =>
@@ -643,6 +687,8 @@ export function useDrawings(
     tool,
     setTool,
     pickTool,
+    pickEntry,
+    cursorKind,
     editor,
     hasData,
     magnet,
