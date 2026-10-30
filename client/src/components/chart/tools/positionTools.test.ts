@@ -14,7 +14,7 @@ const fmt = (p: number) => p.toFixed(2);
 const y = (p: number) => H - p;
 const anchors = (e: number, t: number, s: number) => [{ time: 10, price: e }, { time: 20, price: t }, { time: 20, price: s }];
 function view(tool: DrawingTool, a = anchors(200, 250, 180), style?: Record<string, unknown>, extra: Partial<ToolView> = {}): ToolView {
-  return { width: W, height: H, anchors: a, candles: [], text: '', times: [], priceToY: y, formatPrice: fmt, style: resolveStyle(tool.settings ?? [], style).values, styled: false, cells: [], ...extra };
+  return { width: W, height: H, anchors: a, candles: [], text: '', times: [], priceToY: y, formatPrice: fmt, style: resolveStyle(tool.settings ?? [], style).values, styled: false, cells: [], glyph: '', ...extra };
 }
 function recorder() {
   const texts: string[] = [];
