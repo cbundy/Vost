@@ -62,6 +62,7 @@ import { pitchfan } from './pitchfan';
 import { horizontalLine } from './horizontalLine';
 import { ray } from './ray';
 import { measure } from './measure';
+import { glyphTools } from './glyph';
 import { rectangle } from './rectangle';
 import { text } from './text';
 import { trendLine } from './trendLine';
@@ -70,7 +71,7 @@ import type { AnchorSpec, Validators } from '../../../lib/drawings';
 import type { DrawingTool } from './types';
 
 /** Every drawing tool, in rail order. A new tool adds its module (id, group, section, anchors, icon) and a line here. */
-export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, brush, highlighter, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, rotatedRectangle, ellipse, triangle, arc, curve, doubleCurve, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, headAndShoulders, trianglePattern, threeDrives, elliottImpulse, elliottCorrection, elliottTriangle, elliottDoubleCombo, elliottTripleCombo, cyclicLines, timeCycles, sineLine, text, anchoredText, table, note, anchoredNote, priceNote, callout, comment, priceLabel, signpost, flagMark, image, measure];
+export const TOOLS: readonly DrawingTool[] = [trendLine, ray, infoLine, extendedLine, trendAngle, horizontalLine, horizontalRay, verticalLine, crossLine, parallelChannel, regressionTrend, flatTopBottom, disjointChannel, pitchfork, schiffPitchfork, modifiedSchiffPitchfork, insidePitchfork, brush, highlighter, rectangle, circle, arrow, arrowMarker, arrowMarkUp, arrowMarkDown, path, polyline, rotatedRectangle, ellipse, triangle, arc, curve, doubleCurve, fibRetracement, fibExtension, fibChannel, fibTimeZone, fibSpeedFan, fibTrendTime, fibCircles, fibSpiral, fibSpeedArcs, fibWedge, pitchfan, gannBox, gannSquareFixed, gannSquare, gannFan, xabcdPattern, cypherPattern, abcdPattern, headAndShoulders, trianglePattern, threeDrives, elliottImpulse, elliottCorrection, elliottTriangle, elliottDoubleCombo, elliottTripleCombo, cyclicLines, timeCycles, sineLine, text, anchoredText, table, note, anchoredNote, priceNote, callout, comment, priceLabel, signpost, flagMark, image, measure, ...glyphTools];
 
 export function getTool(id: string): DrawingTool | undefined {
   return TOOLS.find((t) => t.id === id);
@@ -86,6 +87,9 @@ export const ANCHOR_COUNTS: Readonly<Record<string, AnchorSpec>> = Object.fromEn
 
 /** Ids of the tools that store text. */
 export const TEXT_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.text).map((t) => t.id));
+
+/** Ids of the tools that place a glyph from a bundled set (they open the picker). */
+export const GLYPH_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.glyph).map((t) => t.id));
 
 /** Ids of the tools whose content is a grid of cells. */
 export const CELL_TOOLS: ReadonlySet<string> = new Set(TOOLS.filter((t) => t.cells).map((t) => t.id));

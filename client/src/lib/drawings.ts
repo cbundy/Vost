@@ -41,6 +41,8 @@ export type Drawing = {
   name?: string;
   /** The content of a table (rows of equal length, 1..20 by 1..20); only the Table tool has it. */
   cells?: string[][];
+  /** The id of the icon, emoji or sticker (the set is the tool); only the Icons, Emojis and Stickers tools have it. */
+  glyph?: string;
   /** The picture of an Image drawing: its key in the picture store (SHA-256 hex of the bytes) and its natural size. */
   image?: { key: string; w: number; h: number };
 };

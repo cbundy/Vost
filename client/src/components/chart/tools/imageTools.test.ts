@@ -10,7 +10,7 @@ const KEY = 'a'.repeat(64);
 const W = 400;
 const H = 300;
 function view(style?: Record<string, unknown>, withImage = true): ToolView {
-  return { width: W, height: H, anchors: [], candles: [], text: '', cells: [], image: withImage ? { key: KEY, w: 40, h: 30 } : undefined, times: [], priceToY: () => null, formatPrice: String, style: resolveStyle(image.settings ?? [], style).values, styled: false };
+  return { width: W, height: H, anchors: [], candles: [], text: '', cells: [], glyph: '', image: withImage ? { key: KEY, w: 40, h: 30 } : undefined, times: [], priceToY: () => null, formatPrice: String, style: resolveStyle(image.settings ?? [], style).values, styled: false };
 }
 type Call = [string, unknown[]];
 function recorder() {

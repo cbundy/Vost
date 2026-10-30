@@ -7,7 +7,7 @@ import type { DrawingTool, ToolView } from './types';
 const W = 400;
 const H = 300;
 function view(tool: DrawingTool, t: string, style?: Record<string, unknown>): ToolView {
-  return { width: W, height: H, anchors: [], candles: [], text: t, times: [], priceToY: () => null, formatPrice: String, style: resolveStyle(tool.settings ?? [], style).values, styled: false, cells: [] };
+  return { width: W, height: H, anchors: [], candles: [], text: t, times: [], priceToY: () => null, formatPrice: String, style: resolveStyle(tool.settings ?? [], style).values, styled: false, cells: [], glyph: '' };
 }
 
 /** A recording context: the fillText calls and the rect. */

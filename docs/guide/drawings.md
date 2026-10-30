@@ -6,7 +6,7 @@ A rail beside the chart holds the drawing tools, one button per family of tools.
 
 ## Families and pop-out lists
 
-Each button shows the tool you used last from its family (the first one at first). Click it to pick that tool. The button is pressed while the current tool is in its family. The families are Cursors, Lines, Fibonacci and Gann (with Fibonacci and Gann headings), Forecasting and measurers, Shapes (with Brushes and Shapes headings) and Annotations; more appear as more tools arrive.
+Each button shows the tool you used last from its family (the first one at first). Click it to pick that tool. The button is pressed while the current tool is in its family. The families are Cursors, Lines, Fibonacci and Gann (with Fibonacci and Gann headings), Forecasting and measurers, Shapes (with Brushes and Shapes headings) Annotations and Icons (Icons, Emojis and Stickers; see [Text and notes](drawing-annotations.md#icons-emojis-and-stickers)); more appear as more tools arrive.
 
 Open a family's list with the small chevron on its button, a long press (half a second) or **ArrowRight** while the button has focus. The list groups tools under headings. Click a tool to pick it, which also makes it the family's button. Only one list is open at a time. An outside click or resizing the window closes it.
 
