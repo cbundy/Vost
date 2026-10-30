@@ -372,6 +372,9 @@ describe('chart registry and flat prefs', () => {
     sidePanel: 'data',
     sidePanelCollapsed: true,
     drawingMagnet: true,
+    drawingMagnetStrength: 'strong',
+    drawingsLocked: true,
+    drawingStayMode: true,
     drawingsHidden: true,
     drawingDefaults: { trendLine: { width: 3 } },
     drawingFavorites: ['ray', 'eraser'],
@@ -402,6 +405,7 @@ describe('chart registry and flat prefs', () => {
     expect(c.btRange).toEqual({ from: 100, to: 200 });
     expect(app.timeZone).toBe('Asia/Tehran');
     expect([app.sidebarWidth, app.pineWidth, app.dockHeight]).toEqual([333, 444, 255]);
+    expect([app.drawingMagnetStrength, app.drawingsLocked, app.drawingStayMode]).toEqual(['strong', true, true]);
     expect([app.sidePanel, app.sidePanelCollapsed, app.drawingMagnet, app.drawingsHidden, app.buildTimeframes]).toEqual(['data', true, true, true, true]);
   });
 

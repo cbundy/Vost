@@ -56,6 +56,11 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.view = { zOrder: () => 'top', renderer: () => renderer };
   }
 
+  /** The series the drawings sit on (for price to pixel conversion), or null when detached. */
+  priceSeries(): ISeriesApi<'Candlestick'> | null {
+    return this.series;
+  }
+
   attached(p: SeriesAttachedParameter<Time>): void {
     this.chart = p.chart;
     this.series = p.series as ISeriesApi<'Candlestick'>;
@@ -83,6 +88,14 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.measure = measure;
     this.skipId = skipId;
     this.rebuildAxisViews();
+    this.requestUpdate?.();
+  }
+
+  /** Lock all drawings: none shows or hits a handle (each drawing's own lock flag is untouched). */
+  private lockAll = false;
+  setLockAll(on: boolean): void {
+    if (this.lockAll === on) return;
+    this.lockAll = on;
     this.requestUpdate?.();
   }
 
@@ -225,7 +238,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   hit(p: Pt, opts: HitOpts = MOUSE_HIT): DrawingHit | null {
     // Handles are only for a single selection.
     const sel = this.selected.size === 1 ? this.drawings.find((d) => this.selected.has(d.id) && this.shown(d)) : undefined;
-    if (sel && !sel.locked) {
+    if (sel && !sel.locked && !this.lockAll) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
       if (tool && pts) {
@@ -268,7 +281,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         ctx.save();
         const view = this.viewFor(d, mediaSize);
         tool.draw(ctx, pts, view, { selected });
-        if (selected && this.selected.size === 1 && !d.locked) {
+        if (selected && this.selected.size === 1 && !d.locked && !this.lockAll) {
           for (const h of tool.handles(pts, view)) {
             ctx.beginPath();
             ctx.arc(h.x, h.y, HANDLE_RADIUS, 0, Math.PI * 2);

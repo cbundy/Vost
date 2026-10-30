@@ -24,10 +24,30 @@ export const CursorIcon = () => (
   </Svg>
 );
 
-export const MagnetIcon = () => (
+export const MagnetIcon = ({ mark }: { mark?: 'weak' | 'strong' }) => (
   <Svg>
     <path d="M6 3v8a6 6 0 0 0 12 0V3h-4v8a2 2 0 0 1-4 0V3z" />
     <path d="M6 7h4M14 7h4" />
+    {mark && (
+      <text x="23" y="23" textAnchor="end" fontSize="10" fontWeight="700" fill="currentColor" stroke="none" data-testid="magnet-mark">
+        {mark === 'weak' ? 'W' : 'S'}
+      </text>
+    )}
+  </Svg>
+);
+
+export const LockIcon = () => (
+  <Svg>
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+  </Svg>
+);
+
+/** A pencil with a pin: the tool stays picked. */
+export const StayIcon = () => (
+  <Svg>
+    <path d="M4 20l1-4L15 6l3 3L8 19z" />
+    <circle cx="19" cy="5" r="2" />
   </Svg>
 );
 

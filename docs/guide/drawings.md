@@ -85,11 +85,17 @@ Click a drawing to select it, drag to move it and drag a handle to resize it. De
 
 The rail also has:
 
-- **Magnet**: snaps points to the nearest bar's time and its open, high, low or close (a horizontal line snaps price only and a vertical line snaps time only).
+- **Magnet**: snaps points to a bar's time and its open, high, low or close (a horizontal line snaps price only and a vertical line snaps time only). The button switches it off or on again with the strength you chose last (weak at first), and shows a W or an S on its icon. The small chevron beside it (or a long press, or the right arrow key) opens a menu of **Off**, **Weak magnet** and **Strong magnet**. The strong magnet snaps to the nearest open, high, low or close of the bar under the pointer, however far away. The weak magnet snaps only when the pointer is within about 10 pixels of one of those values and otherwise leaves the point where you put it. On a phone the same three modes sit in the drawing menu.
+- **Stay in drawing mode**: after each drawing the tool stays picked, so the next press starts another one. Escape or picking another tool returns to the cursor, and the Measure still goes back to the cursor after one use.
+- **Lock all drawings**: no drawing can be moved or resized, and none shows handles. You can still select, right-click and delete them. Turning it off restores each drawing's own lock (see the right-click menu).
 - **Hide all drawings**: hides every drawing without deleting it.
 - **Delete all drawings**: after a confirm, deletes all drawings for the current source. One undo step brings them back.
 
 The rail scrolls when the window is short.
+
+![The magnet modes menu on the rail](../evidence/drawing-manage/drawing-manage-magnet-menu-desktop.png)
+
+![Magnet, Stay in drawing mode and Lock all drawings switched on](../evidence/drawing-manage/drawing-manage-switches-on-desktop.png)
 
 ## Selecting several drawings
 

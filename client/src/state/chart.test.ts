@@ -1477,6 +1477,36 @@ describe('replay', () => {
     expect(bad.getState().drawingsHidden).toBe(false);
   });
 
+  it('drawing magnet strength, lock all and stay mode: defaults, persisted, old and bad values', async () => {
+    const load = async (prefs: Record<string, unknown>) => {
+      vi.resetModules();
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const st = track((await import('./store')).useStore);
+      st.getState().init();
+      return st;
+    };
+    const fresh = await load({});
+    expect([fresh.getState().drawingMagnetStrength, fresh.getState().drawingsLocked, fresh.getState().drawingStayMode]).toEqual(['weak', false, false]);
+
+    fresh.getState().setDrawingMagnetStrength('strong');
+    fresh.getState().setDrawingsLocked(true);
+    fresh.getState().setDrawingStayMode(true);
+    fresh.getState().flushPersist();
+    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    expect([saved.drawingMagnetStrength, saved.drawingsLocked, saved.drawingStayMode]).toEqual(['strong', true, true]);
+    const back = await load(saved);
+    expect([back.getState().drawingMagnetStrength, back.getState().drawingsLocked, back.getState().drawingStayMode]).toEqual(['strong', true, true]);
+
+    const old = await load({ drawingMagnet: true });
+    expect([old.getState().drawingMagnet, old.getState().drawingMagnetStrength]).toEqual([true, 'weak']);
+    const strong = await load({ drawingMagnet: true, drawingMagnetStrength: 'strong' });
+    expect([strong.getState().drawingMagnet, strong.getState().drawingMagnetStrength]).toEqual([true, 'strong']);
+
+    const bad = await load({ drawingMagnetStrength: 'medium', drawingsLocked: 'yes', drawingStayMode: 1 });
+    expect([bad.getState().drawingMagnetStrength, bad.getState().drawingsLocked, bad.getState().drawingStayMode]).toEqual(['weak', false, false]);
+  });
+
   it('drawing defaults: persisted per tool, bad or unknown entries load as nothing', async () => {
     const load = async (prefs: Record<string, unknown>) => {
       vi.resetModules();
