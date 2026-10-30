@@ -8,7 +8,7 @@ import { DEFAULT_PINE_CODE } from '../pine/examples';
 import { runPine } from '../pine/runtime';
 import type { PineInputValue, PineResult, PineStrategyConfig } from '../pine/types';
 import { computeMetrics } from './metrics';
-import type { BacktestConfig, BacktestResult, EquityPoint, Trade } from './types';
+import type { BacktestConfig, BacktestResult, BacktestStage, EquityPoint, Trade } from './types';
 
 export const INDICATOR_MESSAGE = 'This is an indicator script; add it to the chart instead of backtesting it.';
 
@@ -46,19 +46,28 @@ function feeModel(cfg: PineStrategyConfig | undefined, panelBps: number, scriptC
   return { side: (p, q) => (p * q * panelBps) / 10000, bps: panelBps };
 }
 
-export async function runPineBacktest(candles: Candle[], config: BacktestConfig): Promise<BacktestResult> {
+export async function runPineBacktest(
+  candles: Candle[],
+  config: BacktestConfig,
+  onProgress?: (pct: number, stage: BacktestStage) => void,
+): Promise<BacktestResult> {
   if (candles.length < 3) throw new Error('Not enough data to run a backtest (need at least 3 bars).');
+  onProgress?.(0, 'pine');
   const outcome = await runPine(
     config.pineCode ?? DEFAULT_PINE_CODE,
     candles,
     (config.params ?? {}) as Record<string, PineInputValue>,
+    onProgress ? { onProgress: (p) => onProgress(p * 0.9, 'pine') } : {},
   );
   if (!outcome.ok) {
     const { message, line } = outcome.error;
     throw new Error(line != null && !message.includes(`${line}:`) ? `${message} (line ${line})` : message);
   }
   if (outcome.kind !== 'strategy') throw new Error(INDICATOR_MESSAGE);
-  return buildPineResult(candles, config, outcome);
+  onProgress?.(0.9, 'metrics');
+  const result = buildPineResult(candles, config, outcome);
+  onProgress?.(1, 'metrics');
+  return result;
 }
 
 export function buildPineResult(candles: Candle[], config: BacktestConfig, pine: PineResult): BacktestResult {

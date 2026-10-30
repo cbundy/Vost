@@ -1474,3 +1474,89 @@ describe('two chart stores stay apart', () => {
     expect(b.getState().loadState).toBe('ready');
   });
 });
+
+describe('runBacktest progress', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  async function boot() {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const text = readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8');
+    const candles = candlesFromCsvText(text).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    chartOf(useStore).setState({ candles });
+    return { useStore, candles };
+  }
+
+  it('btProgress and btStage follow the worker messages and reset when the run ends', async () => {
+    const { useStore } = await boot();
+    const seen: [number, string | null, boolean][] = [];
+    class FakeWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string }) {
+        const send = (data: unknown) => this.onmessage?.({ data: { id: req.id, ...(data as object) } });
+        const snap = () => {
+          const s = chartOf(useStore).getState();
+          seen.push([s.btProgress, s.btStage, s.btRunning]);
+        };
+        queueMicrotask(async () => {
+          const { runFullBacktest } = await import('../lib/backtest/runner');
+          send({ type: 'progress', pct: 0.3, stage: 'simulating' });
+          snap();
+          send({ type: 'progress', pct: 0.95, stage: 'metrics' });
+          snap();
+          send({ type: 'result', result: runFullBacktest(chartOf(useStore).getState().candles, chartOf(useStore).getState().btConfig) });
+        });
+      }
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    await chartOf(useStore).getState().runBacktest();
+    expect(seen).toEqual([
+      [0.3, 'simulating', true],
+      [0.95, 'metrics', true],
+    ]);
+    const s = chartOf(useStore).getState();
+    expect(s.btRunning).toBe(false);
+    expect(s.btStage).toBeNull();
+    expect(s.btProgress).toBe(0);
+    expect(s.btResult).not.toBeNull();
+  });
+
+  it('an error reply clears progress and stage', async () => {
+    const { useStore } = await boot();
+    class FakeWorker {
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string }) {
+        queueMicrotask(() => {
+          this.onmessage?.({ data: { id: req.id, type: 'progress', pct: 0.5, stage: 'simulating' } });
+          this.onmessage?.({ data: { id: req.id, type: 'error', message: 'boom' } });
+        });
+      }
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    await chartOf(useStore).getState().runBacktest();
+    const s = chartOf(useStore).getState();
+    expect(s.btRunning).toBe(false);
+    expect(s.btError).toBe('boom');
+    expect(s.btStage).toBeNull();
+    expect(s.btProgress).toBe(0);
+  });
+
+  it('the main-thread fallback reports progress too', async () => {
+    const { useStore } = await boot();
+    vi.stubGlobal('Worker', class { constructor() { throw new Error('no workers'); } });
+    const stages = new Set<string>();
+    const unsub = chartOf(useStore).subscribe((s) => { if (s.btStage) stages.add(s.btStage); });
+    await chartOf(useStore).getState().runBacktest();
+    unsub();
+    expect([...stages]).toEqual(expect.arrayContaining(['signals', 'simulating', 'metrics']));
+    expect(chartOf(useStore).getState().btRunning).toBe(false);
+  });
+});

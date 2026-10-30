@@ -180,3 +180,33 @@ describe('demo data generator', () => {
     for (let i = 1; i < a.length; i++) expect(a[i].time).toBeGreaterThan(a[i - 1].time);
   });
 });
+
+describe('backtest progress', () => {
+  const candles = generateDemoCandles({ bars: 1000 });
+  const config = cfg({ strategyId: 'sma_cross', params: { fast: 10, slow: 30 } });
+
+  it('reports non-decreasing progress through the stages, ends at 1, and leaves the result unchanged', () => {
+    const calls: [number, string][] = [];
+    const withCb = runFullBacktest(candles, config, (p, s) => calls.push([p, s]));
+    const without = runFullBacktest(candles, config);
+    expect(withCb).toEqual(without);
+    expect(calls.length).toBeLessThanOrEqual(110);
+    expect(calls.length).toBeGreaterThan(50);
+    for (let i = 1; i < calls.length; i++) expect(calls[i][0]).toBeGreaterThanOrEqual(calls[i - 1][0]);
+    expect(calls[0]).toEqual([0, 'signals']);
+    expect(calls[calls.length - 1]).toEqual([1, 'metrics']);
+    const order = ['signals', 'simulating', 'metrics'];
+    const idx = calls.map(([, s]) => order.indexOf(s));
+    expect(idx.every((v) => v >= 0)).toBe(true);
+    for (let i = 1; i < idx.length; i++) expect(idx[i]).toBeGreaterThanOrEqual(idx[i - 1]);
+    expect(new Set(idx).size).toBe(3);
+  });
+
+  it('the engine alone reports in 0..1 and ends at 1', () => {
+    const signals = buildSignals(candles, 'sma_cross', { fast: 10, slow: 30 });
+    const seen: number[] = [];
+    runBacktest(candles, signals, config, (p) => seen.push(p));
+    expect(seen[seen.length - 1]).toBe(1);
+    expect(seen.every((p) => p >= 0 && p <= 1)).toBe(true);
+  });
+});
