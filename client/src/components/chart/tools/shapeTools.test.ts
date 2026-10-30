@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { smoothPath } from '../../../lib/geometry/freehand';
 import { resolveStyle } from '../../../lib/drawingStyle';
 import { arrow } from './arrow';
 import { arrowMarkDown, arrowMarkUp } from './arrowMark';
 import { arrowMarker } from './arrowMarker';
 import { circle } from './circle';
+import { brush, highlighter } from './brush';
 import { arc } from './arc';
 import { curve, doubleCurve } from './curve';
 import { ellipse } from './ellipse';
@@ -35,7 +37,7 @@ const tabsOf = (t: DrawingTool) => new Set((t.settings ?? []).map((f) => f.tab))
 describe('registry', () => {
   it('lists the new tools after Rectangle in the Shapes family', () => {
     const shapes = TOOLS.filter((t) => t.group === 'shapes').map((t) => t.id);
-    expect(shapes).toEqual(['rectangle', 'circle', 'arrow', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'path', 'polyline', 'rotatedRectangle', 'ellipse', 'triangle', 'arc', 'curve', 'doubleCurve']);
+    expect(shapes).toEqual(['brush', 'highlighter', 'rectangle', 'circle', 'arrow', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'path', 'polyline', 'rotatedRectangle', 'ellipse', 'triangle', 'arc', 'curve', 'doubleCurve']);
     expect([...CAPTION_TOOLS].sort()).toEqual(['arrowMarkDown', 'arrowMarkUp', 'arrowMarker']);
     expect(TOOLS.filter((t) => t.barTime).map((t) => t.id)).toEqual(['arrowMarkUp', 'arrowMarkDown']);
   });
@@ -169,6 +171,60 @@ describe('path and polyline', () => {
     const a = [1, 2, 3].map((n) => ({ time: n, price: n * 10 }));
     expect(path.axisLabels!(a, {}, true)).toEqual({ price: [10, 20, 30], time: [1, 3] });
     expect(polyline.axisLabels!(a, {}, false)).toEqual({});
+  });
+});
+
+describe('brush and highlighter', () => {
+  const ctx = new Proxy({}, { get: () => () => undefined, set: () => true }) as unknown as CanvasRenderingContext2D;
+  const line = [{ x: 100, y: 100 }, { x: 200, y: 100 }];
+  const ring = [{ x: 100, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 200 }, { x: 100, y: 200 }, { x: 102, y: 102 }];
+  const wave = (n: number) => Array.from({ length: n }, (_, i) => ({ x: i * 2, y: 100 + Math.sin(i / 4) * 30 }));
+  it('are freehand tools in a Brushes section with no handles', () => {
+    for (const t of [brush, highlighter]) {
+      expect(t.freehand).toBe(true);
+      expect(t.section).toBe('Brushes');
+      expect(t.anchors).toEqual({ min: 2, max: 200 });
+      expect(t.handles(line, view(t))).toEqual([]);
+    }
+  });
+  it('hit on the stroke and across its half width, not past it', () => {
+    expect(brush.hit(line, { x: 150, y: 100 }, view(brush))).toBe(true);
+    expect(brush.hit(line, { x: 150, y: 100 + 1 + 6 }, view(brush))).toBe(true);
+    expect(brush.hit(line, { x: 150, y: 110 }, view(brush))).toBe(false);
+    expect(highlighter.hit(line, { x: 150, y: 114 }, view(highlighter))).toBe(true);
+    expect(highlighter.hit(line, { x: 150, y: 130 }, view(highlighter))).toBe(false);
+  });
+  it('hit inside a closed brush only with the fill on', () => {
+    expect(brush.hit(ring, { x: 150, y: 150 }, view(brush))).toBe(false);
+    expect(brush.hit(ring, { x: 150, y: 150 }, view(brush, '', { fill: true }))).toBe(true);
+    const open = [{ x: 100, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 200 }];
+    expect(brush.hit(open, { x: 150, y: 150 }, view(brush, '', { fill: true }))).toBe(false);
+  });
+  it('hits the smoothed curve it draws, not the raw corner', () => {
+    const peak = [{ x: 100, y: 100 }, { x: 160, y: 220 }, { x: 220, y: 100 }];
+    for (const smoothing of [5, 20]) {
+      const curve = smoothPath(peak, smoothing);
+      for (let i = 0; i < curve.length - 1; i++) {
+        const m = { x: (curve[i].x + curve[i + 1].x) / 2, y: (curve[i].y + curve[i + 1].y) / 2 };
+        expect(brush.hit(peak, m, view(brush, '', { smoothing }))).toBe(true);
+      }
+    }
+    const tip = { x: 160, y: 218 };
+    expect(brush.hit(peak, tip, view(brush, '', { smoothing: 20 }))).toBe(false);
+  });
+  it('draw without throwing for any point count and smoothing', () => {
+    for (const t of [brush, highlighter]) {
+      for (const pts of [[], [line[0]], line, wave(200)]) {
+        for (const smoothing of [0, 5, 20]) {
+          expect(() => t.draw(ctx, pts, view(t, '', { smoothing, fill: true }), { selected: false })).not.toThrow();
+          expect(() => t.draw(ctx, pts, view(t, '', { smoothing }), { selected: true })).not.toThrow();
+        }
+      }
+    }
+  });
+  it('have the declared defaults', () => {
+    expect(view(brush).style).toMatchObject({ width: 2, smoothing: 5, fill: false, fillOpacity: 0.2, opacity: 1 });
+    expect(view(highlighter).style).toMatchObject({ color: '#ffeb3b', opacity: 0.35, width: 20 });
   });
 });
 

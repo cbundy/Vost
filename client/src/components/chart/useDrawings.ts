@@ -28,7 +28,7 @@ import {
 } from '../../lib/drawings';
 import { addAll, normalizeRect, only, prune, toggle } from '../../lib/drawingSelection';
 import { drawingKeyAction } from '../../lib/drawingKeys';
-import { DRAG_PX, closesOnFirst, endDraft, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, undoPoint, type Draft } from '../../lib/drawingDraft';
+import { DRAG_PX, closesOnFirst, endDraft, endFreehand, extendFreehand, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, startFreehand, undoPoint, type Draft } from '../../lib/drawingDraft';
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
@@ -450,6 +450,11 @@ export function useDrawings(
       const s = chart.paneSize(0);
       return p.x >= 0 && p.y >= 0 && p.x < s.width && p.y < s.height;
     };
+    /** A pane pixel clamped onto the pane (a freehand stroke runs on when the pointer leaves it). */
+    const clampToPane = (p: Pt): Pt => {
+      const s = chart.paneSize(0);
+      return { x: Math.min(Math.max(p.x, 0), Math.max(s.width - 1, 0)), y: Math.min(Math.max(p.y, 0), Math.max(s.height - 1, 0)) };
+    };
     const scroll = (on: boolean) => chart.applyOptions({ handleScroll: on, handleScale: on });
     const claim = (e: PointerEvent) => {
       e.stopPropagation();
@@ -569,6 +574,11 @@ export function useDrawings(
         if (!def || !raw || !hasDataRef.current) return;
         const anchor = snap(raw, def);
         claim(e);
+        if (def.freehand) {
+          draftRef.current = startFreehand(toolId, p, raw);
+          sync();
+          return; // the stroke follows the pointer until the pointerup
+        }
         const draft = draftRef.current;
         if (draft) {
           if (isOpenEnded(def.anchors) && draft.phase === 'waiting') {
@@ -681,6 +691,15 @@ export function useDrawings(
       const draft = draftRef.current;
       if (draft) {
         const draftTool = getTool(draft.tool);
+        if (draftTool?.freehand) {
+          const q = clampToPane(p);
+          const raw = prim.toAnchor(q, draftTool);
+          if (raw) {
+            draftRef.current = extendFreehand(draft, q, raw);
+            sync();
+          }
+          return;
+        }
         const raw = prim.toAnchor(p, draftTool);
         if (raw) {
           draftRef.current = moveDraft(draft, snap(raw, draftTool));
@@ -734,6 +753,18 @@ export function useDrawings(
     const onUp = (e: PointerEvent) => {
       if (!e.isPrimary) return;
       const draft = draftRef.current;
+      if (draft && draft.phase === 'pressing' && getTool(draft.tool)?.freehand) {
+        const prim = primRef.current;
+        const def = getTool(draft.tool);
+        const done = prim ? endFreehand(draft, (q) => prim.toAnchor(q, def), anchorRange(def!.anchors).max) : null;
+        if (done) finish(done, draft.tool);
+        else {
+          draftRef.current = null;
+          sync();
+        }
+        release(e);
+        return;
+      }
       if (draft && draft.phase === 'pressing') {
         const step = releaseDraft(draft, point(e), getTool(draft.tool)?.placed ?? getTool(draft.tool)?.anchors ?? 2);
         if (step.done) finish(step.done, draft.tool);
@@ -806,7 +837,7 @@ export function useDrawings(
     const onDblClick = (e: MouseEvent) => {
       const prim = primRef.current;
       const draft = draftRef.current;
-      if (draft && isOpenEnded(getTool(draft.tool)?.anchors ?? 2)) {
+      if (draft && !getTool(draft.tool)?.freehand && isOpenEnded(getTool(draft.tool)?.anchors ?? 2)) {
         // A double-click ends an open-ended draft; its second press added a point on the first, which the end drops.
         e.stopPropagation();
         e.preventDefault();
@@ -856,7 +887,10 @@ export function useDrawings(
   /* A new mode or cursor kind shows at once, without waiting for the pointer to move. */
   useEffect(() => {
     const el = containerRef.current;
-    if (el) el.style.cursor = baseCursor(tool, cursorKind);
+    if (!el) return;
+    el.style.cursor = baseCursor(tool, cursorKind);
+    // A freehand tool takes the finger: the browser must not start a pan (and cancel the stroke) when it moves.
+    el.style.touchAction = getTool(tool)?.freehand ? 'none' : '';
   }, [tool, cursorKind, containerRef, chart]);
 
   /* Another chart changed a source this chart has open: show it, keeping this chart's own undo history. */
@@ -884,7 +918,7 @@ export function useDrawings(
         editable: isEditable(e.target),
         dragging: dragRef.current != null,
         hasSelection: selectedRef.current.length > 0,
-        drafting: draftRef.current != null && isOpenEnded(getTool(draftRef.current.tool)?.anchors ?? 2),
+        drafting: draftRef.current != null && !getTool(draftRef.current.tool)?.freehand && isOpenEnded(getTool(draftRef.current.tool)?.anchors ?? 2),
       });
       if (!action) return;
       if (action === 'escape') {

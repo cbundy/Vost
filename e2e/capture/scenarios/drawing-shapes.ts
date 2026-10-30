@@ -37,7 +37,7 @@ export const drawingShapes: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'The shape tools (Circle, Arrow, Arrow marker, Arrow mark up, Arrow mark down, Rotated rectangle, Ellipse, Triangle, Arc, Curve, Double curve, Path, Polyline): draw each (clicks, press-drag-release or taps) with a live preview, check an arrow mark lands on a bar time and stays on one when dragged sideways, select with handles, resize the circle, restyle in settings including a label on the marker and a mark, place a Path and a Polyline point by point (ended by double-click or double tap, a click on the first point or Enter; Backspace removes a point, Escape cancels), drag one point or the body, undo and redo, reload and a timeframe change',
+    'The shape tools (Circle, Arrow, Arrow marker, Arrow mark up, Arrow mark down, Path, Polyline, Rotated rectangle, Ellipse, Triangle, Arc, Curve, Double curve, Brush, Highlighter): draw each (clicks, press-drag-release or taps) with a live preview, check an arrow mark lands on a bar time and stays on one when dragged sideways, select with handles, resize the circle, restyle in settings including a label on the marker and a mark, place a Path and a Polyline point by point (ended by double-click or double tap, a click on the first point or Enter; Backspace removes a point, Escape cancels), drag one point or the body, undo and redo, reload and a timeframe change',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -78,7 +78,7 @@ export const drawingShapes: Scenario = {
     const pickTool = async (label: string) => {
       if (narrow) {
         await menuBtn.tap();
-        const section = menu.getByRole('group', { name: GROUP, exact: true });
+        const section = menu.getByRole('group', { name: label === 'Brush' || label === 'Highlighter' ? 'Brushes' : GROUP, exact: true });
         if ((await section.count()) === 0) await menu.getByRole('button', { name: GROUP, exact: true }).tap();
         await section.getByRole('button', { name: label, exact: true }).tap();
         return;
@@ -418,12 +418,105 @@ export const drawingShapes: Scenario = {
       });
     }
 
+    const wave = (x0: number, x1: number, y: number, amp: number, n: number): { x: number; y: number }[] =>
+      Array.from({ length: n }, (_, i) => ({ x: x0 + ((x1 - x0) * i) / (n - 1), y: y + Math.sin((i / (n - 1)) * Math.PI * 4) * amp }));
+    /** A freehand stroke: press, a sequence of moves, release; with a mouse, or with one finger on the narrow screen. */
+    const stroke = async (fs: { x: number; y: number }[], mid?: string) => {
+      const ps = await Promise.all(fs.map(at));
+      if (narrow) {
+        const cdp = await page.context().newCDPSession(page);
+        const touch = (type: string, p?: Pt) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y }] : [] });
+        await touch('touchStart', ps[0]);
+        for (const [i, p] of ps.slice(1).entries()) {
+          await touch('touchMove', p);
+          await page.waitForTimeout(20);
+          if (mid && i === Math.floor(ps.length / 2)) await ctx.screenshot(mid);
+        }
+        await touch('touchEnd');
+        await cdp.detach();
+        return;
+      }
+      await page.mouse.move(ps[0].x, ps[0].y);
+      await page.mouse.down();
+      for (const [i, p] of ps.slice(1).entries()) {
+        await page.mouse.move(p.x, p.y, { steps: 2 });
+        if (mid && i === Math.floor(ps.length / 2)) await ctx.screenshot(mid);
+      }
+      await page.mouse.up();
+    };
+
+    await ctx.step('Brush and Highlighter: draw freehand, thinned and stored', async () => {
+      await page.keyboard.press('Escape');
+      await pickTool('Brush');
+      await stroke(wave(0.05, 0.3, 0.64, 0.05, 60), 'preview-brush');
+      const b = (await stored()).find((x) => x.tool === 'brush');
+      check('Brush stored with 2 to 200 anchors', !!b && b.anchors.length >= 2 && b.anchors.length <= 200, String(b?.anchors.length));
+      await pickTool('Highlighter');
+      await stroke(wave(0.12, 0.45, 0.12, 0.03, 50), 'preview-highlighter');
+      const h = (await stored()).find((x) => x.tool === 'highlighter');
+      check('Highlighter stored with 2 to 200 anchors', !!h && h.anchors.length >= 2 && h.anchors.length <= 200, String(h?.anchors.length));
+      await ctx.screenshot('drawn-brushes');
+    });
+
+    if (!narrow) {
+      await ctx.step('Brush and Highlighter: select, move by the body, undo and redo, restyle', async () => {
+        const dragTo = async (from: Pt, to: Pt) => {
+          await page.mouse.move(from.x, from.y);
+          await page.waitForTimeout(150);
+          await page.mouse.down();
+          await page.mouse.move(to.x, to.y, { steps: 12 });
+          await page.mouse.up();
+        };
+        const onStroke = async (f: { x: number; y: number }[], i: number) => at(f[i]);
+        const bw = wave(0.05, 0.3, 0.64, 0.05, 60);
+        const bp = await onStroke(bw, 0);
+        const before = (await stored()).find((x) => x.tool === 'brush')!;
+        await dragTo(bp, { x: bp.x + 30, y: bp.y - 20 });
+        const moved = (await stored()).find((x) => x.tool === 'brush')!;
+        check('a body drag moves every brush point', moved.anchors.every((a, i) => a.time !== before.anchors[i].time || a.price !== before.anchors[i].price));
+        await ctx.screenshot('selected-brush');
+        await page.keyboard.press('Control+z');
+        check('undo puts the brush back', JSON.stringify((await stored()).find((x) => x.tool === 'brush')!.anchors) === JSON.stringify(before.anchors));
+        await page.keyboard.press('Control+Shift+z');
+        check('redo moves it again', JSON.stringify((await stored()).find((x) => x.tool === 'brush')!.anchors) === JSON.stringify(moved.anchors));
+        const mp = await at({ x: bw[0].x + 30 / ((await box()).width * 0.7), y: bw[0].y - 20 / (await box()).height });
+        await page.mouse.dblclick(mp.x, mp.y);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Smoothing', { exact: true }).fill('0');
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('Brush smoothing 0 stored', (await stored()).find((x) => x.tool === 'brush')?.style?.smoothing === 0);
+        await page.mouse.dblclick(mp.x, mp.y);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Smoothing', { exact: true }).fill('20');
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('Brush smoothing stored', (await stored()).find((x) => x.tool === 'brush')?.style?.smoothing === 20);
+        check('smoothing restyles without changing the stored points', (await stored()).find((x) => x.tool === 'brush')!.anchors.length === before.anchors.length);
+        const hw = wave(0.12, 0.45, 0.12, 0.03, 50);
+        const hp = await at(hw[0]);
+        await page.mouse.dblclick(hp.x, hp.y);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Width', { exact: true }).fill('30');
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('Highlighter width stored', (await stored()).find((x) => x.tool === 'highlighter')?.style?.width === 30);
+        await page.keyboard.press('Escape');
+        await ctx.screenshot('styled-brushes');
+      });
+    }
+
     await ctx.step('reload and a timeframe change keep every shape', async () => {
       const before = await stored();
       await page.reload();
       await ctx.waitForChart();
       await page.waitForTimeout(500);
-      check('fourteen drawings after reload', (await stored()).length === 14);
+      check('sixteen drawings after reload', (await stored()).length === 16);
+      const strokes = (await stored()).filter((x) => x.tool === 'brush' || x.tool === 'highlighter');
+      check('both strokes keep 2 to 200 points', strokes.length === 2 && strokes.every((x) => x.anchors.length >= 2 && x.anchors.length <= 200), strokes.map((x) => x.anchors.length).join());
+      const box = (x: Stored) => JSON.stringify(x.anchors);
+      check('both strokes keep their exact anchors after reload', strokes.every((x) => box(x) === box(before.find((b) => b.id === x.id)!)), strokes.map((x) => x.anchors.length).join());
+      if (!narrow) check('the brush keeps smoothing 20 after reload', strokes.find((x) => x.tool === 'brush')?.style?.smoothing === 20);
       await ctx.screenshot('reloaded');
       await page.locator('select[title="Timeframe"]').selectOption('1h');
       await page.waitForTimeout(1500);
