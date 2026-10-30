@@ -262,6 +262,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       image: d.image,
       times: this.getTimes(),
       candles: this.getCandles(),
+      indexToX: (i) => (this.chart ? (this.chart.timeScale().logicalToCoordinate(i as never) as number | null) : null),
       priceToY: (price) => series?.priceToCoordinate(price) ?? null,
       formatPrice: (price) => series?.priceFormatter().format(price) ?? String(price),
       tickSize: this.tickSize(),
@@ -384,7 +385,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
       const tool = getTool(d.tool);
       if (!tool?.axisLabels) continue;
       const { values } = this.styleOf(d);
-      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id), this.getTimes());
+      const labels = tool.axisLabels(d.anchors, values, this.selected.size === 1 && this.selected.has(d.id), this.getTimes(), this.getCandles());
       const back = () => cssColor(values.labelColor ?? theme.accent2);
       for (const p of labels.price ?? []) {
         price.push({

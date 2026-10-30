@@ -26,6 +26,8 @@ export interface ToolView {
   times: readonly number[];
   /** The loaded bars (open, high, low, close), ascending by time. */
   candles: readonly OhlcBar[];
+  /** Pixel x of the loaded bar at an index of `candles` (a fractional index lies between bars), or null with no scale. Absent in a bare view. */
+  indexToX?(index: number): number | null;
   /** Pixel y of a price, or null when it is off the scale. */
   priceToY(price: number): number | null;
   /** A price as the series formats it. */
@@ -113,10 +115,10 @@ export interface DrawingTool {
   fullHeight?: boolean;
   /**
    * The labels the drawing shows on the axes: prices on the price axis, times on the time axis. Absent: none.
-   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise. `times` are the
-   * loaded bars' times, for a tool whose labels are not at its anchors.
+   * Called for every drawing, so a tool that labels only while selected returns nothing otherwise. `times` and `candles` are the
+   * loaded bars, for a tool whose labels are not at its anchors.
    */
-  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean, times?: readonly number[]): AxisLabels;
+  axisLabels?(anchors: readonly Anchor[], style: Readonly<Record<string, unknown>>, selected: boolean, times?: readonly number[], candles?: readonly OhlcBar[]): AxisLabels;
   /**
    * While a drawing with more than two anchors is placed, `pts` holds fewer points than `anchors` (the placed ones
    * and the moving one; a ranged tool holds anywhere from two up to its max): draw what can be drawn, never throw.
