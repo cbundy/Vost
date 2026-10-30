@@ -3,6 +3,7 @@ import { CUSTOM_STRATEGY_EXAMPLES, DEFAULT_CUSTOM_CODE } from '../lib/backtest/c
 import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import { getStrategy, strategies } from '../lib/backtest/strategies';
+import { BacktestProgress } from './BacktestProgress';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
 import { messageToError } from '../lib/pine/language';
@@ -226,6 +227,12 @@ export function BacktestTab() {
           {hint}
         </span>
       </div>
+
+      {btRunning && (
+        <div className="mt-2">
+          <BacktestProgress />
+        </div>
+      )}
 
       {btError && (
         <div className="mt-2" style={{ color: 'var(--red)', fontSize: 12.5 }}>

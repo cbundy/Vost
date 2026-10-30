@@ -4,13 +4,17 @@
  */
 import { uid } from '../types';
 import { runAnyBacktest } from '../lib/backtest/runner';
+import type { BacktestStage } from '../lib/backtest/types';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
+
+/** Progress of a call; `stage` is set by backtest runs only. */
+export type WorkerProgress = (pct: number, stage?: BacktestStage) => void;
 
 let worker: Worker | null = null;
 let workerBroken = false;
 const pending = new Map<
   string,
-  { resolve: (msg: WorkerResponse) => void; reject: (err: Error) => void; onProgress?: (pct: number) => void }
+  { resolve: (msg: WorkerResponse) => void; reject: (err: Error) => void; onProgress?: WorkerProgress }
 >();
 
 function getWorker(): Worker | null {
@@ -23,7 +27,7 @@ function getWorker(): Worker | null {
       const p = pending.get(msg.id);
       if (!p) return;
       if (msg.type === 'progress') {
-        p.onProgress?.(msg.pct);
+        p.onProgress?.(msg.pct, msg.stage);
         return;
       }
       pending.delete(msg.id);
@@ -44,7 +48,7 @@ function getWorker(): Worker | null {
   }
 }
 
-export function workerCall(req: Exclude<WorkerRequestBody, { type: 'optimize' }>, onProgress?: (pct: number) => void): Promise<WorkerResponse> {
+export function workerCall(req: Exclude<WorkerRequestBody, { type: 'optimize' }>, onProgress?: WorkerProgress): Promise<WorkerResponse> {
   const w = getWorker();
   const id = uid('req_');
   if (!w) {
@@ -52,7 +56,7 @@ export function workerCall(req: Exclude<WorkerRequestBody, { type: 'optimize' }>
     return new Promise((resolve, reject) => {
       try {
         if (req.type === 'run') {
-          runAnyBacktest(req.candles, req.config).then(
+          runAnyBacktest(req.candles, req.config, onProgress).then(
             (result) => resolve({ id, type: 'result', result }),
             (err) => reject(err instanceof Error ? err : new Error(String(err))),
           );

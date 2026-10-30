@@ -40,7 +40,13 @@ function coerceSignal(v: unknown): Signal {
   return 0;
 }
 
-export function runBacktest(candles: Candle[], rawSignals: unknown[], config: BacktestConfig): EngineOutput {
+export function runBacktest(
+  candles: Candle[],
+  rawSignals: unknown[],
+  config: BacktestConfig,
+  /** Fraction of bars simulated (0..1), about 100 calls per run, the last one at 1. */
+  onProgress?: (pct: number) => void,
+): EngineOutput {
   const n = candles.length;
   const trades: Trade[] = [];
   const equity: EquityPoint[] = [];
@@ -118,6 +124,7 @@ export function runBacktest(candles: Candle[], rawSignals: unknown[], config: Ba
     position: 0,
   });
 
+  const reportEvery = Math.max(1, Math.floor(n / 100));
   for (let i = 1; i < n; i++) {
     const bar = candles[i];
 
@@ -191,6 +198,7 @@ export function runBacktest(candles: Candle[], rawSignals: unknown[], config: Ba
       drawdownPct: dd,
       position: position ? position.side : 0,
     });
+    if (onProgress && (i % reportEvery === 0 || i === n - 1)) onProgress(i / (n - 1));
   }
 
   // ---- 4. Force-close anything still open at the last close --------------

@@ -18,6 +18,10 @@ Open the **Backtest** tab in the bottom dock. Pick a **Strategy** and set its pa
 
 Risk controls: initial capital, position size (% of equity), fees and slippage in bps per side, stop loss %, take profit % and long and short. Then press **Run backtest**.
 
+While it runs, a progress bar under the button (and in the Results tab) shows the stage and a percent: computing signals, simulating trades, running the Pine script, then computing metrics. It goes away when the run ends.
+
+![The progress bar mid-run](../evidence/bt-progress/bt-progress-backtest-tab-desktop.png)
+
 ## The backtest range
 
 The pane has a **From** and **To** range. The backtester and the optimizer run only on that window of the loaded data; empty means all of it. The pane says how many of the loaded bars are in the range, and warns when the range starts before or ends after the data or holds fewer than 3 bars. The range is remembered between sessions.

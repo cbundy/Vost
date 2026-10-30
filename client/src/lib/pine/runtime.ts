@@ -141,9 +141,30 @@ async function coerceInputs(
   return out;
 }
 
+/** Page-by-page run for progress reporting. Each yielded page holds only its own slice, so the result is read from `fullContext`. */
+async function runPaged(pine: PineTS, indicator: Indicator, n: number, onProgress: (pct: number) => void): Promise<any> {
+  const pageSize = Math.max(1, Math.floor(n / 100));
+  let last: any = null;
+  let done = 0;
+  for await (const page of pine.run(indicator, undefined, pageSize)) {
+    last = page;
+    done = Math.min(n, done + pageSize);
+    if (done < n) onProgress(done / n);
+  }
+  if (!last) throw new Error('Pine run produced no result');
+  onProgress(1);
+  return last.fullContext ?? last;
+}
+
 export interface PineRunOptions {
   /** Finds the source of an imported library. The default asks the Vost server (`/api/pine/libraries`). */
   resolver?: ImportResolverFn | IImportResolver;
+  /**
+   * Called with the fraction of bars processed (0..1, never decreasing, last call 1). When given, the script runs
+   * page by page (about 100 pages) and the outcome is read from the full context; without it the single unpaged
+   * `run` is used, exactly as before.
+   */
+  onProgress?: (pct: number) => void;
 }
 
 /** Run a Pine script over candles (time in seconds). `inputs` override defaults by input title. */
@@ -164,7 +185,7 @@ export async function runPine(
     const metas = indicator.getInputsMeta();
     const pine = new PineTS(toPineData(candles), 'VOST', 'D');
     pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
-    const ctx: any = await pine.run(indicator);
+    const ctx: any = opts.onProgress ? await runPaged(pine, indicator, candles.length, opts.onProgress) : await pine.run(indicator);
 
     const isStrategy = indicator.getDeclarationType() === 'strategy';
     const decl = (isStrategy ? ctx.strategy?.config : ctx.indicator) ?? {};
