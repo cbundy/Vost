@@ -1,0 +1,8 @@
+ok   Trend-based fib extension stored - fibExtension:3
+ok   Fib channel stored - fibExtension:3,fibChannel:3
+ok   Fib wedge stored - fibExtension:3,fibChannel:3,fibWedge:3
+ok   Pitchfan stored - fibExtension:3,fibChannel:3,fibWedge:3,pitchfan:3
+ok   Trend-based fib time stored - fibExtension:3,fibChannel:3,fibWedge:3,pitchfan:3,fibTrendTime:3
+ok   chart painted
+ok   five drawings after reload
+ok   unchanged by the timeframe change

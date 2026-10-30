@@ -131,3 +131,58 @@ describe('spiral', () => {
     expect(distToSpiral(c, c, c, false)).toBe(Infinity);
   });
 });
+
+describe('three-point Fibonacci maths', () => {
+  const close = (got: number[], want: number[]) => {
+    expect(got).toHaveLength(want.length);
+    got.forEach((g, i) => expect(g).toBeCloseTo(want[i], 2));
+  };
+  it('extension prices are C + (B - A) * r, reversed C + (A - B) * r', async () => {
+    const m = await import('./fib');
+    close(m.extensionPrices(100, 110, 105, m.FIB_EXTENSION_LEVELS), [105, 107.36, 108.82, 110, 111.18, 112.86, 115, 121.18, 131.18, 141.18, 147.36]);
+    close(m.extensionPrices(100, 110, 105, [0, 0.5, 1], true), [105, 100, 95]);
+  });
+  it('channel offsets are the ratio times the offset of C', async () => {
+    const m = await import('./fib');
+    close(m.fibChannelOffsets(20, m.FIB_EXTENSION_LEVELS), [0, 4.72, 7.64, 10, 12.36, 15.72, 20, 32.36, 52.36, 72.36, 84.72]);
+  });
+  it('trend time x and logical index are C + (B - A) * r', async () => {
+    const m = await import('./fib');
+    expect(m.trendTimeX(0, 10, 30, 1.618)).toBeCloseTo(46.18, 2);
+    expect(m.trendTimeX(0, 10, 30, 0)).toBe(30);
+    expect(m.trendTimeLogical(2, 5, 9, 2)).toBe(15);
+  });
+  it('the wedge sweeps the smaller angle, also across the -pi/pi wrap', async () => {
+    const m = await import('./fib');
+    const a = { x: 0, y: 0 };
+    const g = m.wedgeGeometry(a, { x: 10, y: 0 }, { x: 0, y: 5 })!;
+    expect(g.radius).toBe(10);
+    expect(g.sweep).toBeCloseTo(Math.PI / 2);
+    const wrap = m.wedgeGeometry(a, { x: -10, y: 1 }, { x: -10, y: -1 })!;
+    expect(Math.abs(wrap.sweep)).toBeLessThan(0.3);
+    expect(m.inWedgeSweep({ x: -10, y: 0 }, a, wrap)).toBe(true);
+    expect(m.inWedgeSweep({ x: 10, y: 0 }, a, wrap)).toBe(false);
+    expect(m.distToWedgeArc({ x: 7, y: 7 }, a, g, 10)).toBeLessThan(0.2);
+    expect(m.distToWedgeArc({ x: 7, y: -7 }, a, g, 10)).toBeGreaterThan(5);
+    expect(m.wedgeGeometry(a, a, { x: 1, y: 1 })).toBeNull();
+    expect(m.wedgeGeometry(a, { x: 1, y: 1 }, a)).toBeNull();
+  });
+  it('pitchfan level 1 is B and C, level 0 the midpoint', async () => {
+    const m = await import('./fib');
+    const b = { x: 10, y: 0 };
+    const c = { x: 10, y: 10 };
+    expect(m.pitchfanPoints(b, c, 1)).toEqual([c, b]);
+    expect(m.pitchfanPoints(b, c, 0)).toEqual([{ x: 10, y: 5 }, { x: 10, y: 5 }]);
+  });
+  it('the pitchfan shape has two lines per level, a median, and stays finite for coincident points', async () => {
+    const m = await import('./fib');
+    const levels = [{ value: 0.5, color: 'accent', on: true }, { value: 1, color: 'accent', on: true }];
+    const s = m.pitchfanShape({ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, levels, 300, 300, false);
+    expect(s.lines).toHaveLength(4);
+    expect(s.median).toEqual([{ x: 0, y: 0 }, { x: 100, y: 50 }]);
+    expect(s.fills).toHaveLength(4);
+    const same = { x: 5, y: 5 };
+    const d = m.pitchfanShape(same, same, same, levels, 300, 300, true);
+    expect(JSON.stringify(d)).not.toContain('NaN');
+  });
+});

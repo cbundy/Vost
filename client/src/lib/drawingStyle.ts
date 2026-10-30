@@ -3,7 +3,7 @@
  * drawing's effective style (its own stored value, else the user's saved default for the tool, else the tool's
  * default). No chart or React imports.
  */
-import { FIB_ARC_LEVELS, FIB_CIRCLE_LEVELS, FIB_LEVELS, FIB_SPEED_LEVELS, FIB_TIME_ZONE_LEVELS } from './geometry/fib';
+import { FIB_ARC_LEVELS, FIB_CIRCLE_LEVELS, FIB_EXTENSION_LEVELS, FIB_LEVELS, FIB_SPEED_LEVELS, FIB_TIME_ZONE_LEVELS, FIB_TREND_TIME_LEVELS, FIB_WEDGE_LEVELS } from './geometry/fib';
 import { theme } from './theme';
 
 export type SettingKind = 'color' | 'opacity' | 'width' | 'lineStyle' | 'boolean' | 'number' | 'levels' | 'choice';
@@ -77,6 +77,9 @@ export const FIB_TIME_ZONE_TABLE: readonly FibLevel[] = levelList(FIB_TIME_ZONE_
 export const FIB_SPEED_TABLE: readonly FibLevel[] = levelList(FIB_SPEED_LEVELS);
 export const FIB_CIRCLE_TABLE: readonly FibLevel[] = levelList(FIB_CIRCLE_LEVELS);
 export const FIB_ARC_TABLE: readonly FibLevel[] = levelList(FIB_ARC_LEVELS);
+export const FIB_EXTENSION_TABLE: readonly FibLevel[] = levelList(FIB_EXTENSION_LEVELS);
+export const FIB_TREND_TIME_TABLE: readonly FibLevel[] = levelList(FIB_TREND_TIME_LEVELS);
+export const FIB_WEDGE_TABLE: readonly FibLevel[] = levelList(FIB_WEDGE_LEVELS);
 
 /** A level list as stored: invalid entries are dropped, values deduplicated, the list cut to {@link MAX_LEVELS}. */
 export function cleanLevels(raw: unknown): FibLevel[] | undefined {
