@@ -1,0 +1,39 @@
+ok   nothing stored after Escape
+ok   Elliott impulse wave stored - elliottImpulse:6
+ok   Elliott correction wave stored - elliottImpulse:6,elliottCorrection:4
+ok   Elliott triangle wave stored - elliottImpulse:6,elliottCorrection:4,elliottTriangle:6
+ok   Elliott double combo wave stored - elliottImpulse:6,elliottCorrection:4,elliottTriangle:6,elliottDoubleCombo:4
+ok   Elliott triple combo wave stored - elliottImpulse:6,elliottCorrection:4,elliottTriangle:6,elliottDoubleCombo:4,elliottTripleCombo:6
+ok   chart painted
+ok   Elliott impulse wave moved by its body
+ok   Elliott impulse wave point moved alone by its handle - [[{"time":1615680000,"price":138.57267526919782},{"time":1622246400,"price":188.44943902445695},{"time":1627603200,"price":163.51106180105356},{"time":1636848000,"price":225.8570188222406},{"time":1642118400,"price":194.68403565742088},{"time":1651449600,"price":244.5608040669063}],[{"time":1615680000,"price":127.59197800998261},{"time":1622246400,"price":188.44943902445695},{"time":1627603200,"price":163.51106180105356},{"time":1636848000,"price":225.8570188222406},{"time":1642118400,"price":194.68403565742088},{"time":1651449600,"price":244.5608040669063}]]
+ok   Elliott impulse wave settings are titled for the tool
+ok   Elliott impulse wave restyled - {"width":3,"degree":"minor"}
+ok   Elliott impulse wave undo reverts the degree
+ok   Elliott impulse wave redo restores the restyle
+ok   Elliott correction wave moved by its body
+ok   Elliott correction wave point moved alone by its handle - [[{"time":1664668800,"price":238.3262074339423},{"time":1672617600,"price":157.27646516808963},{"time":1680566400,"price":200.91863229038483},{"time":1691193600,"price":138.57267526919782}],[{"time":1664668800,"price":227.3455148289533},{"time":1672617600,"price":157.27646516808963},{"time":1680566400,"price":200.91863229038483},{"time":1691193600,"price":138.57267526919782}]]
+ok   Elliott correction wave settings are titled for the tool
+ok   Elliott correction wave restyled - {"width":3,"degree":"minor"}
+ok   Elliott correction wave undo reverts the degree
+ok   Elliott correction wave redo restores the restyle
+ok   Elliott triangle wave moved by its body
+ok   Elliott triangle wave point moved alone by its handle - [[{"time":1701820800,"price":188.44943902445695},{"time":1707091200,"price":238.3262074339423},{"time":1713744000,"price":144.80727190216174},{"time":1720396800,"price":219.62242218927668},{"time":1726963200,"price":163.51106180105356},{"time":1733616000,"price":200.91863229038483}],[{"time":1701820800,"price":177.46874176524173},{"time":1707091200,"price":238.3262074339423},{"time":1713744000,"price":144.80727190216174},{"time":1720396800,"price":219.62242218927668},{"time":1726963200,"price":163.51106180105356},{"time":1733616000,"price":200.91863229038483}]]
+ok   Elliott triangle wave settings are titled for the tool
+ok   Elliott triangle wave restyled - {"width":3,"degree":"minor"}
+ok   Elliott triangle wave undo reverts the degree
+ok   Elliott triangle wave redo restores the restyle
+ok   Elliott double combo wave moved by its body
+ok   Elliott double combo wave point moved alone by its handle - [[{"time":1615680000,"price":88.69590220548623},{"time":1624924800,"price":13.880761226823711},{"time":1634169600,"price":63.757515673630465},{"time":1646092800,"price":1.4115679608958267}],[{"time":1615680000,"price":77.71520494627102},{"time":1624924800,"price":13.880761226823711},{"time":1634169600,"price":63.757515673630465},{"time":1646092800,"price":1.4115679608958267}]]
+ok   Elliott double combo wave settings are titled for the tool
+ok   Elliott double combo wave restyled - {"width":3,"degree":"minor"}
+ok   Elliott double combo wave undo reverts the degree
+ok   Elliott double combo wave redo restores the restyle
+ok   Elliott triple combo wave moved by its body
+ok   Elliott triple combo wave point moved alone by its handle - [[{"time":1664668800,"price":88.69590220548623},{"time":1671321600,"price":20.115357859787657},{"time":1677974400,"price":57.52291904066652},{"time":1687219200,"price":1.4115679608958267},{"time":1693872000,"price":45.053744391643434},{"time":1704499200,"price":-4.823028672068119}],[{"time":1664668800,"price":77.71520494627102},{"time":1671321600,"price":20.115357859787657},{"time":1677974400,"price":57.52291904066652},{"time":1687219200,"price":1.4115679608958267},{"time":1693872000,"price":45.053744391643434},{"time":1704499200,"price":-4.823028672068119}]]
+ok   Elliott triple combo wave settings are titled for the tool
+ok   Elliott triple combo wave restyled - {"width":3,"degree":"minor"}
+ok   Elliott triple combo wave undo reverts the degree
+ok   Elliott triple combo wave redo restores the restyle
+ok   five drawings after reload
+ok   unchanged by the timeframe change

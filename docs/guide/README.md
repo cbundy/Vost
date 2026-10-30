@@ -12,7 +12,7 @@ New here? Start with [Getting started](getting-started.md).
 | [Layouts](layouts.md) | 1 to 16 charts, the active chart, dividers, the narrow-screen switcher, Sync in layout and named layouts |
 | [Drawings](drawings.md) | Tool families with pop-out lists, favourites, trend lines, rays, rectangles, Fibonacci, text notes, measure, cursor kinds, the eraser, magnet and the touch tools |
 | [Fibonacci and Gann tools](drawing-fib-gann.md) | The time zone, speed resistance fan, circles, spiral, speed resistance arcs, trend-based extension, channel, trend-based time, wedge and pitchfan: placing them, and the Gann box, squares and fan: their levels and their settings |
-| [Chart patterns](drawing-patterns.md) | The XABCD, Cypher, ABCD, Head and shoulders, Triangle pattern and Three drives pattern tools and the cycle tools (Cyclic lines, Time cycles, Sine line): placing the points, the labels and ratios, and the settings |
+| [Chart patterns](drawing-patterns.md) | The XABCD, Cypher, ABCD, Head and shoulders, Triangle pattern and Three drives pattern tools, the five Elliott wave tools and the cycle tools (Cyclic lines, Time cycles, Sine line): placing the points, the labels and ratios, and the settings |
 | [Text and notes](drawing-annotations.md) | Typing a multi-line note, the Text tab, wrapping and alignment, Anchored text that stays on the pane, and the Note, Anchored note, Price note, Callout, Comment, Price label, Signpost and Flag mark tools, and the Image tool for pictures |
 | [Alerts](alerts.md) | Price alerts that fire around the clock, the popup, the inbox and Telegram messages |
 | [Watchlist](watchlist.md) | Lists, sections, tags, quotes, the symbol card, symbol search and import and export |

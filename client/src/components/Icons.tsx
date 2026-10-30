@@ -136,3 +136,12 @@ export const BellIcon = () => (
     <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
   </Svg>
 );
+
+/** Stacked layers: the object tree. */
+export const LayersIcon = () => (
+  <Svg size={16}>
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 12 12 17 22 12" />
+    <polyline points="2 17 12 22 22 17" />
+  </Svg>
+);

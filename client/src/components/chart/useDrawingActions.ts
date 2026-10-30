@@ -2,7 +2,7 @@ import { useMemo, type MutableRefObject, type RefObject } from 'react';
 import { prune } from '../../lib/drawingSelection';
 import { MOUSE_HIT } from '../../lib/drawingGeometry';
 import { copyDrawings, isClipboardEmpty, readDrawings } from '../../lib/drawingClipboard';
-import { cloneMany, paste, removeAll, removeMany, rename, reorderMany, setCells, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
+import { cloneMany, paste, removeAll, removeMany, moveTo, rename, reorderMany, setCells, setHidden, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
 import type { DrawingPrimitive } from './drawingPrimitive';
 import { TABLE_MAX, deleteColumn, deleteRow, insertColumn, insertRow, tableSize } from '../../lib/geometry/table';
 import { cellUnder } from './tableEditing';
@@ -20,6 +20,8 @@ export type DrawingInfo = {
   name: string;
   /** Every selected drawing is locked. */
   locked: boolean;
+  /** Every selected drawing is hidden (a hidden drawing cannot be right-clicked, so this is false in practice). */
+  hidden: boolean;
   /** Settings and Rename are for a single drawing. */
   hasSettings: boolean;
   /** For a single table: the cell under the pointer and what rows and columns may still be added or removed. */
@@ -75,10 +77,10 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
         else sync();
         const list = selected();
         if (list.length > 1) {
-          return { ids: list.map((x) => x.id), count: list.length, title: `${list.length} drawings`, name: '', locked: list.every((x) => x.locked === true), hasSettings: false };
+          return { ids: list.map((x) => x.id), count: list.length, title: `${list.length} drawings`, name: '', locked: list.every((x) => x.locked === true), hidden: list.every((x) => x.hidden === true), hasSettings: false };
         }
         const tool = getTool(d.tool);
-        const info: DrawingInfo = { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
+        const info: DrawingInfo = { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hidden: d.hidden === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
         const cell = CELL_TOOLS.has(d.tool) ? cellUnder(prim, d, { x: clientX - r.left, y: clientY - r.top }, true) : null;
         if (cell) {
           const { rows, cols } = tableSize(cellsOf(d.cells ?? []));
@@ -100,6 +102,19 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
       toggleLock(ids: readonly string[]) {
         const list = getState().drawings.filter((d) => ids.includes(d.id));
         if (list.length > 0) apply(setLocked(getState(), ids, !list.every((d) => d.locked === true)));
+      },
+      /** Hides or shows drawings as one undo step; hidden drawings leave the selection. */
+      setHidden: (ids: readonly string[], hidden: boolean) => apply(setHidden(getState(), ids, hidden)),
+      toggleHidden(id: string) {
+        const d = find(id);
+        if (d) apply(setHidden(getState(), [id], d.hidden !== true));
+      },
+      /** Moves a drawing to a paint-order index (0 is the bottom) as one undo step. */
+      moveTo: (id: string, index: number) => apply(moveTo(getState(), id, index)),
+      /** Selects exactly these drawings (the object tree's click). */
+      selectIds(ids: readonly string[]) {
+        const live = new Set(getState().drawings.filter((d) => d.hidden !== true).map((d) => d.id));
+        select(ids.filter((id) => live.has(id)));
       },
       reorder: (ids: readonly string[], to: ReorderTo) => apply(reorderMany(getState(), ids, to)),
       /** Copies drawings just above themselves and selects the copies. */

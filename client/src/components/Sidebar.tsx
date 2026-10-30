@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { INDICATOR_META, type IndicatorKind } from '../lib/indicatorCompute';
 import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
+import { ObjectTree } from './ObjectTree';
 import { SymbolCard } from './SymbolCard';
 import { Watchlist } from './Watchlist';
 import { useStore } from '../state/store';
@@ -178,6 +179,8 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
           <SymbolCard />
         </section>
       )}
+
+      {section === 'objects' && <ObjectTree />}
 
       {section === 'indicators' && (
       <section className="sidebar-section" style={{ borderBottom: 'none' }}>

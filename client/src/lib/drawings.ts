@@ -35,6 +35,8 @@ export type Drawing = {
   style?: Record<string, unknown>;
   /** A locked drawing can be selected but not moved or reshaped. */
   locked?: true;
+  /** A hidden drawing is neither painted nor hit; it stays in the list and is shown again from the object tree. */
+  hidden?: true;
   /** The drawing's own name, shown in the right-click menu. */
   name?: string;
   /** The content of a table (rows of equal length, 1..20 by 1..20); only the Table tool has it. */
@@ -188,6 +190,15 @@ export function setLocked(s: DrawingsState, ids: readonly string[], locked: bool
   });
 }
 
+/** Hides or shows drawings as one undoable step; the same state when none changes. */
+export function setHidden(s: DrawingsState, ids: readonly string[], hidden: boolean): DrawingsState {
+  return mapIds(s, ids, (d) => {
+    if ((d.hidden === true) === hidden) return d;
+    const { hidden: _old, ...rest } = d;
+    return hidden ? { ...rest, hidden: true } : rest;
+  });
+}
+
 /** Names a drawing as an undoable step (an empty name clears it); the same state when unchanged. */
 export function rename(s: DrawingsState, id: string, name: string): DrawingsState {
   const clean = cleanName(name);
@@ -222,6 +233,18 @@ export function reorderMany(s: DrawingsState, ids: readonly string[], to: Reorde
     }
   }
   return out.every((d, i) => d === list[i]) ? s : record(s, list, out);
+}
+
+/** Moves one drawing to a paint-order index (0 is the bottom) as one undoable step; the same state when it already sits there or the id is unknown. */
+export function moveTo(s: DrawingsState, id: string, index: number): DrawingsState {
+  const from = s.drawings.findIndex((d) => d.id === id);
+  if (from < 0) return s;
+  const to = Math.max(0, Math.min(s.drawings.length - 1, Math.trunc(index)));
+  if (!Number.isFinite(to) || to === from) return s;
+  const out = [...s.drawings];
+  const [d] = out.splice(from, 1);
+  out.splice(to, 0, d);
+  return record(s, s.drawings, out);
 }
 
 /** Moves one drawing in the paint order as an undoable step; the same state when it already sits there. */
@@ -344,10 +367,11 @@ function sanitizeKnown(
     const pane = paneTools.has(raw.tool);
     anchors.push({ ...a, time: pane ? Math.min(1, Math.max(0, time)) : time, price: pane ? Math.min(1, Math.max(0, price)) : price });
   }
-  const { text: rawText, style: rawStyle, locked: rawLocked, name: rawName, ...rest } = raw;
+  const { text: rawText, style: rawStyle, locked: rawLocked, hidden: rawHidden, name: rawName, ...rest } = raw;
   const out: Drawing = { ...(rest as Drawing), anchors };
   if (isPlain(rawStyle)) out.style = rawStyle;
   if (rawLocked === true) out.locked = true;
+  if (rawHidden === true) out.hidden = true;
   const name = typeof rawName === 'string' ? cleanName(rawName) : '';
   if (name) out.name = name;
   if (captionTools.has(raw.tool)) {

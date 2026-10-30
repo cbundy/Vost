@@ -3707,3 +3707,94 @@ table.data-table th.sortable .sort-btn:focus-visible {
   background: none;
   border-radius: 0;
 }
+
+/* Object tree: the active chart's drawings, top-most first. */
+.object-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.object-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.object-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.object-row.selected {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+.object-row.dim .object-icon,
+.object-row.dim .object-name {
+  opacity: 0.45;
+}
+.object-row.dragging {
+  opacity: 0.6;
+}
+.object-row.drop-before::before,
+.object-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent, #3b82f6);
+  pointer-events: none;
+}
+.object-row.drop-before::before {
+  top: -2px;
+}
+.object-row.drop-after::after {
+  bottom: -2px;
+}
+.object-icon {
+  display: inline-flex;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.object-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.object-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.object-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  padding: 2px 4px;
+}
+.object-actions {
+  display: inline-flex;
+  flex: none;
+}
+.object-actions button.icon {
+  padding: 3px 4px;
+}
+.object-actions button.icon svg {
+  width: 14px;
+  height: 14px;
+}
+.object-actions button[aria-pressed='true'] {
+  color: var(--text);
+}
+.object-tree-note {
+  margin-bottom: 8px;
+}
