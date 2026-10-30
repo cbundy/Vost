@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { CUSTOM_STRATEGY_EXAMPLES, DEFAULT_CUSTOM_CODE } from '../lib/backtest/custom';
 import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples';
-import type { PineInput } from '../lib/pine/types';
+import type { PineInput, PineInputValue } from '../lib/pine/types';
+import { isTextInput } from '../lib/pine/inputs';
+import type { BacktestConfig } from '../lib/backtest/types';
+import { PineInputList } from './PineInputControl';
 import { getStrategy, strategies } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
 import { PineConvert } from './PineConvert';
@@ -68,6 +71,11 @@ export function BacktestTab() {
   const setParam = (key: string, value: number) => {
     setBtConfig({ params: { ...btConfig.params, [key]: value } });
   };
+  /** Text values go to `pineInputs`, numbers (and bools as 0/1) to `params`. */
+  const setPineInput = (input: PineInput, v: PineInputValue) => {
+    if (isTextInput(input)) setBtConfig({ pineInputs: { ...btConfig.pineInputs, [input.name]: String(v) } });
+    else setParam(input.name, typeof v === 'boolean' ? (v ? 1 : 0) : Number(v));
+  };
 
   return (
     <div>
@@ -79,7 +87,7 @@ export function BacktestTab() {
             onChange={(e) => {
               const next = getStrategy(e.target.value);
               const params = Object.fromEntries(next.params.map((p) => [p.key, p.default]));
-              setBtConfig({ strategyId: next.id, params, ...(next.pine && btConfig.pineCode === undefined && { pineCode: DEFAULT_PINE_CODE }) });
+              setBtConfig({ strategyId: next.id, params, ...(btConfig.pineInputs && { pineInputs: undefined }), ...(next.pine && btConfig.pineCode === undefined && { pineCode: DEFAULT_PINE_CODE }) });
             }}
           >
             {strategies.map((s) => (
@@ -89,8 +97,6 @@ export function BacktestTab() {
             ))}
           </select>
         </label>
-
-        {isPine && pineInputs.filter(isTunable).map((i) => <PineInputField key={i.name} input={i} value={btConfig.params[i.name]} onChange={(v) => setParam(i.name, v)} />)}
 
         {strategy.params.map((p) =>
           p.type === 'select' ? (
@@ -195,6 +201,18 @@ export function BacktestTab() {
             onChange={(code) => setBtConfig({ customCode: code })}
           />
           <CustomParamsEditor params={btConfig.params} onChange={(params) => setBtConfig({ params })} />
+        </div>
+      )}
+
+      {isPine && pineInputs.length > 0 && (
+        <div className="mt-3">
+          <div className="section-title">Script inputs</div>
+          <PineInputList
+            className="bt-pine-inputs"
+            inputs={pineInputs}
+            valueOf={(i) => inputValue(i, btConfig)}
+            onChange={(i, v) => setPineInput(i, v)}
+          />
         </div>
       )}
 
@@ -334,40 +352,12 @@ function CustomParamsEditor({ params, onChange }: { params: Record<string, numbe
   );
 }
 
-function isTunable(i: PineInput): boolean {
-  return i.type === 'int' || i.type === 'float' || i.type === 'bool';
-}
-
-function PineInputField({ input, value, onChange }: { input: PineInput; value: number | undefined; onChange: (v: number) => void }) {
-  const def = typeof input.defval === 'number' ? input.defval : input.defval === true ? 1 : 0;
-  const current = value ?? def;
-  if (input.type === 'bool') {
-    return (
-      <label className="form-field">
-        <span>{input.name}</span>
-        <select value={current ? 'yes' : 'no'} onChange={(e) => onChange(e.target.value === 'yes' ? 1 : 0)}>
-          <option value="yes">On</option>
-          <option value="no">Off</option>
-        </select>
-      </label>
-    );
-  }
-  return (
-    <label className="form-field">
-      <span>{input.name}</span>
-      <input
-        type="number"
-        value={current}
-        min={input.minval}
-        max={input.maxval}
-        step={input.step ?? (input.type === 'int' ? 1 : 0.1)}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(v);
-        }}
-      />
-    </label>
-  );
+/** The value a Pine input shows in the Backtest pane: the saved one, else the script's default. */
+function inputValue(input: PineInput, config: BacktestConfig): PineInputValue | null {
+  if (isTextInput(input)) return config.pineInputs?.[input.name] ?? input.defval;
+  const n = config.params[input.name];
+  if (n === undefined) return input.defval;
+  return input.type === 'bool' ? n !== 0 : n;
 }
 
 function PineCodeEditor({

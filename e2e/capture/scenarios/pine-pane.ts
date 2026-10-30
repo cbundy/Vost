@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+
+const inputsScript = readFileSync(new URL('../../../client/src/lib/pine/fixtures/inputs.pine', import.meta.url), 'utf8');
 
 export const pinePane: Scenario = {
   name: 'pine-pane',
@@ -105,6 +108,35 @@ export const pinePane: Scenario = {
       await page.locator('.pine-messages').getByText('Logs (').waitFor();
     });
     await ctx.screenshot('messages');
+    await ctx.step('a script with every input type shows a control for each, in its groups and rows', async () => {
+      await page.locator('.pine-editor .cm-content').click();
+      await page.keyboard.press('Control+A');
+      await page.keyboard.insertText(inputsScript);
+      const inputs = pane.locator('.pine-inputs');
+      await inputs.waitFor();
+      for (const heading of ['Bands', 'Style', 'Higher timeframe', 'Filters']) await inputs.getByRole('heading', { name: heading }).waitFor();
+      await inputs.locator('input[type=color]').first().waitFor();
+      await inputs.locator('input[type=range]').first().waitFor();
+      await inputs.locator('input[type=datetime-local]').waitFor();
+      await inputs.locator('textarea').waitFor();
+      await inputs.getByRole('img', { name: /^Length: Bars in the average$/ }).waitFor();
+      await inputs.getByLabel('Timeframe', { exact: true }).selectOption({ label: '1h' });
+      await inputs.getByLabel('Source', { exact: true }).selectOption('hl2');
+      const inline = await inputs.locator('.pine-input-row').filter({ hasText: 'Multiplier' }).locator('.pine-input').count();
+      if (inline !== 2) throw new Error(`the inline row holds ${inline} inputs, not 2`);
+      const chartSymbol = () => page.getByPlaceholder('Symbol…').first().inputValue();
+      const before = await chartSymbol();
+      await inputs.getByLabel('Symbol', { exact: true }).fill('ETHUSDT');
+      if ((await chartSymbol()) !== before) throw new Error('the symbol input changed the chart symbol');
+      await pane.getByText('Running…').waitFor({ state: 'detached' });
+      await inputs.evaluate((el) => { el.scrollTop = 0; });
+    });
+    await ctx.screenshot('inputs');
+    await ctx.step('scroll to the last inputs', async () => {
+      await pane.locator('.pine-inputs').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+      await pane.locator('.pine-inputs').locator('textarea').scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('inputs-more');
     await ctx.step('remove the indicator', async () => {
       if (narrow) await page.keyboard.press('Escape');
       await openSidebar();

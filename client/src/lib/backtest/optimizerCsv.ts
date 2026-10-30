@@ -11,6 +11,8 @@ export interface OptimizeRunContext {
   strategyName: string;
   /** The run's params minus the swept ones. */
   params: Record<string, number>;
+  /** The Pine strategy's text inputs (color, source, symbol, session, timeframe, text), which no sweep changes. */
+  pineInputs?: Record<string, string>;
   symbol: string;
   timeframe: string;
   dataLabel: string;
@@ -77,6 +79,7 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
   const fixed = Object.entries(c.params)
     .filter(([k]) => !k.startsWith('__') && !c.sweeps.some((s) => s.key === k))
     .map(([k, v]) => `${k}=${v}`)
+    .concat(Object.entries(c.pineInputs ?? {}).map(([k, v]) => `${k}=${oneLine(v)}`))
     .join('; ');
   const sweeps = c.sweeps.map((s) => `${s.key} ${s.from}..${s.to} step ${s.step}`).join('; ');
   const lines = [

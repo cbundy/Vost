@@ -21,6 +21,8 @@ export type Signal = -1 | 0 | 1 | null;
 export interface BacktestConfig {
   strategyId: string;
   params: Record<string, number>;
+  /** Only for the `pine` strategy: the text inputs (color, source, symbol, session, timeframe, string, text_area, string enums) by name. Numbers, times and bools live in `params`. */
+  pineInputs?: Record<string, string>;
   /** Only for the `custom` strategy. */
   customCode?: string;
   /** Only for the `pine` strategy: Pine Script v6 strategy source. */

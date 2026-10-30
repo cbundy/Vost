@@ -467,6 +467,25 @@ describe('chart registry and flat prefs', () => {
     expect([app.sidePanel, app.sidePanelCollapsed, app.drawingMagnet, app.drawingsHidden, app.buildTimeframes]).toEqual(['data', true, true, true, true]);
   });
 
+  it('keeps the Pine text inputs of the backtest settings, and old settings without them load as before', async () => {
+    const seeded = { ...seed().btConfig, pineInputs: { Src: 'open', 'Line color': '#00FF0080' } };
+    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...seed(), btConfig: seeded }));
+    const { useStore, getActiveChart } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    expect(getActiveChart().getState().btConfig).toMatchObject(seeded);
+    getActiveChart().getState().setBtConfig({ pineInputs: { Src: 'hl2' } });
+    expect(getActiveChart().getState().btConfig.pineInputs).toEqual({ Src: 'hl2' });
+  });
+
+  it('old backtest settings load with no pineInputs', async () => {
+    localStorage.setItem('vost.prefs.v1', JSON.stringify(seed()));
+    const { useStore, getActiveChart } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    expect(getActiveChart().getState().btConfig.pineInputs).toBeUndefined();
+  });
+
   it('reads the drawing rail prefs with sanitising, and old prefs without them load the defaults', async () => {
     const { useStore } = await import('./store');
     track(useStore);
