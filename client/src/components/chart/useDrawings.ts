@@ -45,10 +45,11 @@ import { dragCorner, fitToHalfPane, naturalEnd } from '../../lib/geometry/image'
 import { subscribeBitmaps } from './imageCache';
 import { IMAGE_TOOL, adoptFile, dragHasFiles, droppedFile, getPending, openChooser, pictureFrom, setPending } from './imagePlacement';
 import { TABLE_DEFAULT_COLS, TABLE_DEFAULT_ROWS, emptyCells, stepCell } from '../../lib/geometry/table';
+import { armedGlyph, hoverGlyph, previewStyleDrag } from './glyphPlacement';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
 import type { DragMods } from './tools/types';
-import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
+import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, GLYPH_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export { CURSOR, ERASER };
@@ -161,6 +162,8 @@ export function useDrawings(
 
   const [tool, setToolState] = useState(CURSOR);
   const [drawingCount, setDrawingCount] = useState(0);
+  /** The glyph tool whose picker is open (Icons, Emojis or Stickers), or null. */
+  const [picker, setPicker] = useState<string | null>(null);
   const [imagesAvailable, setImagesAvailable] = useState(true);
   const imagesAvailableRef = useRef(true);
   imagesAvailableRef.current = imagesAvailable;
@@ -301,7 +304,9 @@ export function useDrawings(
     (e: RailEntry) => {
       if (e.toolId !== CURSOR && (hiddenRef.current || !hasDataRef.current)) return;
       if (e.toolId === IMAGE_TOOL && !imagesAvailableRef.current) return;
-      pickTool(e.toolId);
+      // A glyph tool is armed by choosing an item in its picker; the picker opens first.
+      if (GLYPH_TOOLS.has(e.toolId)) setPicker(e.toolId);
+      else pickTool(e.toolId);
       if (e.toolId === IMAGE_TOOL) openChooser((file) => void adoptPicture(file));
       const app = useStore.getState();
       if (e.cursorKind) app.setCursorKind(e.cursorKind);
@@ -309,6 +314,19 @@ export function useDrawings(
     },
     [pickTool, adoptPicture],
   );
+
+  /** The picker's choice: the tool is armed with the entry and the item follows the pointer until it is placed. */
+  const choosePick = useCallback(
+    (id: string) => {
+      const toolId = picker;
+      setPicker(null);
+      if (!toolId || hiddenRef.current || !hasDataRef.current) return;
+      useStore.getState().pickGlyph(toolId, id);
+      pickTool(toolId);
+    },
+    [picker, pickTool],
+  );
+  const closePicker = useCallback(() => setPicker(null), []);
 
   /** Pixel position of the editor's note: the container's offset in the chart area plus the anchor's pixel. */
   const editorPos = useCallback(
@@ -721,7 +739,8 @@ export function useDrawings(
         openEditor(null, id, anchors, '');
         return;
       }
-      setState(add(getState(), { id: newDrawingId(), tool: id, anchors }), true);
+      const glyph = getTool(id)?.glyph ? armedGlyph(id) : '';
+      setState(add(getState(), { id: newDrawingId(), tool: id, anchors, ...(glyph ? { glyph } : {}) }), true);
       const created = getState().drawings.at(-1)!;
       draftRef.current = null;
       afterDrawing();
@@ -780,6 +799,11 @@ export function useDrawings(
         const def = getTool(toolId);
         const raw = prim.toAnchor(p, def);
         if (!def || !raw || !hasDataRef.current) return;
+        if (def.glyph && !armedGlyph(toolId)) {
+          // Nothing is picked yet (the tool was set without the picker): choose first.
+          setPicker(toolId);
+          return;
+        }
         // The Image tool places nothing until a picture is chosen; its box follows the pointer pixel for pixel (no magnet).
         if (toolId === IMAGE_TOOL && !getPending()) return;
         const anchor = toolId === IMAGE_TOOL ? raw : snap(raw, def);
@@ -935,6 +959,14 @@ export function useDrawings(
         const dx = p.x - drag.start.x;
         const dy = p.y - drag.start.y;
         const moves: Record<string, Anchor[]> = {};
+        const first = drag.items[0];
+        const firstTool = first && drag.handle !== null ? getTool(first.tool) : undefined;
+        if (first && firstTool?.dragStyle && drag.handle !== null) {
+          // A handle that changes the style (the glyph's size and angle) leaves its anchor where it was.
+          const next = previewStyleDrag(getState(), firstTool, first, drag.handle, prim, { x: dx, y: dy }, e.shiftKey);
+          if (next) setState(next, false);
+          return;
+        }
         for (const item of drag.items) {
           const def = getTool(item.tool);
           if (!def) continue;
@@ -961,11 +993,12 @@ export function useDrawings(
       }
       if (e.buttons === 0) {
         const placing = getTool(toolRef.current);
-        if (placing?.hoverPreview && !hiddenRef.current && hasDataRef.current) {
-          // A table follows the pointer until it is placed.
+        if ((placing?.hoverPreview || placing?.glyph) && !hiddenRef.current && hasDataRef.current) {
+          // A table, icon, emoji, sticker or position follows the pointer until it is placed.
           const raw = inPlot(p) ? prim.toAnchor(p, placing) : null;
           if (raw) {
-            measureRef.current = { id: 'hover', tool: placing.id, anchors: [snap(raw, placing)] };
+            const anchor = snap(raw, placing);
+            measureRef.current = placing.glyph ? hoverGlyph(placing, anchor) : { id: 'hover', tool: placing.id, anchors: [anchor] };
             sync();
           } else clearHover();
         }
@@ -1283,6 +1316,10 @@ export function useDrawings(
     drawingCount,
     /** The open settings dialog's model, or null. */
     settings,
+    /** The glyph tool whose picker is open, or null; the chosen item arms the tool. */
+    picker,
+    choosePick,
+    closePicker,
     /** Opens the settings dialog of a drawing (a no-op for one without settings). */
     openSettings,
   };

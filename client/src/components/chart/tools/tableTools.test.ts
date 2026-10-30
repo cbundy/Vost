@@ -7,7 +7,7 @@ import type { ToolView } from './types';
 const W = 400;
 const H = 300;
 function view(cells: string[][], style?: Record<string, unknown>): ToolView {
-  return { width: W, height: H, anchors: [], candles: [], text: '', cells, times: [], priceToY: () => null, formatPrice: String, style: resolveStyle(table.settings ?? [], style).values, styled: false };
+  return { width: W, height: H, anchors: [], candles: [], text: '', cells, times: [], priceToY: () => null, formatPrice: String, style: resolveStyle(table.settings ?? [], style).values, styled: false, glyph: '' };
 }
 const ctx = () => new Proxy({}, { get: () => () => {}, set: () => true }) as unknown as CanvasRenderingContext2D;
 const a = { x: 50, y: 60 };
