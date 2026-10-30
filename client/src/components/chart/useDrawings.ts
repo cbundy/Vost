@@ -24,6 +24,7 @@ import {
   type DrawingsStorage,
 } from '../../lib/drawings';
 import { drawingKeyAction } from '../../lib/drawingKeys';
+import { DRAG_PX, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, type Draft } from '../../lib/drawingDraft';
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
@@ -51,9 +52,6 @@ function drawingsStorage(): DrawingsStorage {
   return storage;
 }
 
-/** Pixels a press must travel to count as a drag (a trend line press-drag-release rather than click, click). */
-const DRAG_PX = 4;
-
 /** Two taps on the same note within this many ms open its editor. */
 const DOUBLE_TAP_MS = 350;
 
@@ -79,7 +77,8 @@ const spansX = (t?: DrawingTool) => t?.priceOnly === true || t?.fullWidth === tr
 const spansY = (t?: DrawingTool) => t?.timeOnly === true || t?.fullHeight === true;
 
 type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[]; before: Drawing[] };
-type Draft = { drawing: Drawing; start: Pt; /** pressing: the button is down; waiting: the first anchor is placed, the next click ends it. */ phase: 'pressing' | 'waiting' };
+/** The draft as a drawing the primitive paints (it has fewer anchors than the tool needs until it is placed). */
+const draftDrawing = (d: Draft | null): Drawing | null => (d ? { id: 'draft', tool: d.tool, anchors: d.anchors } : null);
 
 function isEditable(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
@@ -150,7 +149,7 @@ export function useDrawings(
       primRef.current?.set(
         getState().drawings,
         selectedRef.current,
-        draftRef.current?.drawing ?? null,
+        draftDrawing(draftRef.current),
         measureRef.current,
         editTargetRef.current?.id ?? null,
       );
@@ -318,7 +317,7 @@ export function useDrawings(
         cachedTimes = candles.map((c) => c.time);
       }
       return cachedTimes;
-    }, () => chartStore.getState().timeframe, () => useStore.getState().drawingDefaults);
+    }, () => chartStore.getState().timeframe, () => useStore.getState().drawingDefaults, () => chartStore.getState().candles);
     series.attachPrimitive(prim);
     primRef.current = prim;
     sync();
@@ -439,8 +438,9 @@ export function useDrawings(
       if (e.button !== 0) return;
       if (!e.isPrimary) {
         // A second finger belongs to the chart (pinch): a draft still being pressed is cancelled.
-        if (draftRef.current?.phase === 'pressing') {
-          draftRef.current = null;
+        const draft = draftRef.current;
+        if (draft?.phase === 'pressing') {
+          draftRef.current = secondFinger(draft);
           release();
           sync();
         }
@@ -474,7 +474,12 @@ export function useDrawings(
         claim(e);
         const draft = draftRef.current;
         if (draft) {
-          finish([draft.drawing.anchors[0], anchor], toolId);
+          const step = pressDraft(draft, anchor, def.anchors);
+          if (step.done) finish(step.done, toolId);
+          else {
+            draftRef.current = step.draft;
+            sync();
+          }
           return; // the pointerup releases
         }
         if (def.text) {
@@ -487,7 +492,7 @@ export function useDrawings(
           finish([anchor], toolId);
           return; // the pointerup releases
         }
-        draftRef.current = { drawing: { id: 'draft', tool: toolId, anchors: [anchor, anchor] }, start: p, phase: 'pressing' };
+        draftRef.current = startDraft(toolId, anchor, p);
         sync();
         return;
       }
@@ -525,8 +530,7 @@ export function useDrawings(
       if (draft) {
         const raw = prim.toAnchor(p);
         if (raw) {
-          const a = snap(raw, getTool(draft.drawing.tool));
-          draftRef.current = { ...draft, drawing: { ...draft.drawing, anchors: [draft.drawing.anchors[0], a] } };
+          draftRef.current = moveDraft(draft, snap(raw, getTool(draft.tool)));
           sync();
         }
         return;
@@ -567,13 +571,11 @@ export function useDrawings(
       if (!e.isPrimary) return;
       const draft = draftRef.current;
       if (draft && draft.phase === 'pressing') {
-        const p = point(e);
-        const moved = Math.hypot(p.x - draft.start.x, p.y - draft.start.y) >= DRAG_PX;
-        const [a, b] = draft.drawing.anchors;
-        if (moved) {
-          finish([a, b], draft.drawing.tool);
-        } else {
-          draftRef.current = { ...draft, phase: 'waiting' };
+        const step = releaseDraft(draft, point(e), getTool(draft.tool)?.anchors ?? 2);
+        if (step.done) finish(step.done, draft.tool);
+        else {
+          draftRef.current = step.draft;
+          sync();
         }
         release(e);
         return;

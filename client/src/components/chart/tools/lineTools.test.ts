@@ -19,6 +19,7 @@ function view(tool: DrawingTool, anchors: ToolView['anchors'] = []): ToolView {
     anchors,
     text: '',
     times: [],
+    candles: [],
     priceToY: () => null,
     formatPrice: String,
     style: resolveStyle(tool.settings ?? [], undefined, undefined).values,
@@ -31,7 +32,7 @@ const B = { time: 200, price: 20 };
 describe('registry', () => {
   it('lists the lines in TradingView order', () => {
     expect(TOOLS.filter((t) => t.group === 'lines').map((t) => t.id)).toEqual([
-      'trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle', 'horizontalLine', 'horizontalRay', 'verticalLine', 'crossLine',
+      'trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle', 'horizontalLine', 'horizontalRay', 'verticalLine', 'crossLine', 'parallelChannel', 'regressionTrend', 'flatTopBottom', 'disjointChannel',
     ]);
   });
 });

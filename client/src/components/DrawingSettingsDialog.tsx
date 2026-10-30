@@ -102,6 +102,17 @@ function FieldRow({ field, value, onChange }: { field: SettingField; value: unkn
         </select>
       );
       break;
+    case 'choice':
+      control = (
+        <select value={value as string} aria-label={field.label} onChange={(e) => onChange(e.target.value)}>
+          {(field.options ?? []).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      );
+      break;
     case 'boolean':
       control = <input type="checkbox" checked={value === true} aria-label={field.label} onChange={(e) => onChange(e.target.checked)} />;
       break;
