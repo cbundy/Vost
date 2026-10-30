@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { MAX_LEVELS, VISIBILITY_FIELDS, addLevel, colorHex, cleanLevels, pickValid, removeLevel, resolveStyle, setLevelValue, validateValue, type FibLevel, type SettingField } from '../lib/drawingStyle';
 import { LINE_STYLES } from '../lib/drawingStyle';
+import { TABLE_MAX, resizeCells, tableSize } from '../lib/geometry/table';
+import { cellsOf } from './chart/tools/table';
 import { TEXT_MAX, cleanText, type Anchor, type DrawingPatch } from '../lib/drawings';
 import type { DrawingSettingsModel } from './chart/useDrawingSettings';
 import { Modal } from './Modal';
@@ -151,6 +153,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
   const [style, setStyleState] = useState<Record<string, unknown>>(drawing.style ?? {});
   const [text, setTextState] = useState(drawing.text ?? '');
   const [anchors, setAnchors] = useState<Anchor[]>(drawing.anchors);
+  const [cells, setCellsState] = useState<string[][]>(() => (tool.cells ? cellsOf(drawing.cells ?? []) : []));
   // Remounts the numeric inputs after Reset so they show the defaults again.
   const [epoch, setEpoch] = useState(0);
 
@@ -158,12 +161,18 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
   const values = resolveStyle(fields, style, userDefault).values;
   const textBad = tool.text === true && cleanText(text) === '';
 
-  const preview = (next: { style?: Record<string, unknown>; text?: string; anchors?: Anchor[] }) => {
+  const preview = (next: { style?: Record<string, unknown>; text?: string; anchors?: Anchor[]; cells?: string[][] }) => {
     const st = next.style ?? style;
     const patch: DrawingPatch = { anchors: next.anchors ?? anchors, style: st };
     if (tool.text) patch.text = cleanText(next.text ?? text) || drawing.text;
     else if (tool.caption) patch.text = cleanText(next.text ?? text);
+    if (tool.cells) patch.cells = next.cells ?? cells;
     model.onPreview(patch);
+  };
+  const resize = (rows: number, cols: number) => {
+    const next = resizeCells(cells, rows, cols);
+    setCellsState(next);
+    preview({ cells: next });
   };
   const setField = (key: string, v: unknown) => {
     const next = { ...style, [key]: v };
@@ -257,6 +266,22 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
           )}
         {tab !== 'coordinates' && (
           <>
+            {tab === 'style' && tool.cells && (
+              <>
+                <div className="ds-row">
+                  <span className="ds-label">Rows</span>
+                  <span className="ds-control">
+                    <NumField label="Rows" value={tableSize(cells).rows} min={1} max={TABLE_MAX} step={1} onCommit={(n) => resize(n, tableSize(cells).cols)} />
+                  </span>
+                </div>
+                <div className="ds-row">
+                  <span className="ds-label">Columns</span>
+                  <span className="ds-control">
+                    <NumField label="Columns" value={tableSize(cells).cols} min={1} max={TABLE_MAX} step={1} onCommit={(n) => resize(tableSize(cells).rows, n)} />
+                  </span>
+                </div>
+              </>
+            )}
             {tab === 'visibility' && <p className="muted-2 ds-hint">Show this drawing on these timeframes.</p>}
             {shown.map((f) => (
               <FieldRow key={f.key} field={f} value={f.kind === 'levels' ? (validateValue(f, values[f.key]) ?? cleanLevels(f.default)) : values[f.key]} onChange={(v) => setField(f.key, v)} />

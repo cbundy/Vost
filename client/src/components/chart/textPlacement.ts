@@ -13,6 +13,8 @@ export type EditorTarget = {
   /** The tool's resolved style values (font, size, alignment, wrap) the text is typed in. */
   style: Readonly<Record<string, unknown>>;
   key: number;
+  /** Set when a cell of the existing table `id` is being typed in. */
+  cell?: { row: number; col: number };
 };
 
 /** The style a note is typed in: its own values, else the user's default for the tool, else the tool's. */

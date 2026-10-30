@@ -24,6 +24,7 @@ function view(tool: DrawingTool, over: Record<string, unknown> = {}, anchors: To
     formatPrice: (p) => `$${p}`,
     style: resolveStyle(tool.settings ?? [], over, undefined).values,
     styled: false,
+    cells: [],
   };
 }
 

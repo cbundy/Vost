@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { OhlcBar, Pt } from '../../../lib/drawingGeometry';
 import type { SettingField } from '../../../lib/drawingStyle';
-import type { Anchor, AnchorSpec } from '../../../lib/drawings';
+import type { Anchor, AnchorSpec, Drawing } from '../../../lib/drawings';
 
 export type ToolRenderOpts = { selected: boolean };
 
@@ -16,6 +16,8 @@ export interface ToolView {
   anchors: readonly Anchor[];
   /** The drawing's text; empty for tools without text. */
   text: string;
+  /** The drawing's cells (a table); empty for tools without cells. */
+  cells: readonly (readonly string[])[];
   /** Times of the loaded bars, ascending. */
   times: readonly number[];
   /** The loaded bars (open, high, low, close), ascending by time. */
@@ -60,6 +62,13 @@ export interface DrawingTool {
   placed?: AnchorSpec;
   /** The tool stores text (a note). */
   text?: true;
+  /** The tool's content is a grid of text cells, stored as the drawing's `cells` (a table); the cell editor opens for it. */
+  cells?: true;
+  /**
+   * A check run on a stored drawing of this tool when it is loaded, after the generic ones: the drawing as it should
+   * be kept (a fixed copy), or null to drop it alone.
+   */
+  validate?(d: Drawing): Drawing | null;
   /**
    * The tool carries an optional label: it is set on the settings dialog's Text tab (never by the note editor),
    * may be empty and is stored as the drawing's `text`.

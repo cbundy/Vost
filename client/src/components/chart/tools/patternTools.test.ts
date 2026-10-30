@@ -24,6 +24,7 @@ function view(tool: DrawingTool, anchors: ToolView['anchors'] = [], style?: Reco
     formatPrice: String,
     style: resolveStyle(tool.settings ?? [], style, undefined).values,
     styled: false,
+    cells: [],
   };
 }
 

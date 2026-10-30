@@ -2,9 +2,12 @@ import { useMemo, type MutableRefObject, type RefObject } from 'react';
 import { prune } from '../../lib/drawingSelection';
 import { MOUSE_HIT } from '../../lib/drawingGeometry';
 import { copyDrawings, isClipboardEmpty, readDrawings } from '../../lib/drawingClipboard';
-import { cloneMany, paste, removeAll, removeMany, rename, reorderMany, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
+import { cloneMany, paste, removeAll, removeMany, rename, reorderMany, setCells, setLocked, type DrawingsState, type ReorderTo } from '../../lib/drawings';
 import type { DrawingPrimitive } from './drawingPrimitive';
-import { getTool } from './tools';
+import { TABLE_MAX, deleteColumn, deleteRow, insertColumn, insertRow, tableSize } from '../../lib/geometry/table';
+import { cellUnder } from './tableEditing';
+import { cellsOf } from './tools/table';
+import { CELL_TOOLS, getTool } from './tools';
 
 /** What the right-click menu shows about the selection the pointer is over (one drawing, or several). */
 export type DrawingInfo = {
@@ -19,7 +22,12 @@ export type DrawingInfo = {
   locked: boolean;
   /** Settings and Rename are for a single drawing. */
   hasSettings: boolean;
+  /** For a single table: the cell under the pointer and what rows and columns may still be added or removed. */
+  table?: { row: number; col: number; canAddRow: boolean; canAddColumn: boolean; canDeleteRow: boolean; canDeleteColumn: boolean };
 };
+
+/** The ways the right-click menu changes a table's rows and columns. */
+export type TableEdit = 'addRow' | 'addColumn' | 'deleteRow' | 'deleteColumn';
 
 type Deps = {
   getState(): DrawingsState;
@@ -70,7 +78,21 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
           return { ids: list.map((x) => x.id), count: list.length, title: `${list.length} drawings`, name: '', locked: list.every((x) => x.locked === true), hasSettings: false };
         }
         const tool = getTool(d.tool);
-        return { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
+        const info: DrawingInfo = { ids: [d.id], count: 1, title: d.name ?? tool?.label ?? d.tool, name: d.name ?? '', locked: d.locked === true, hasSettings: !!tool && (!!tool.settings || !!tool.text) };
+        const cell = CELL_TOOLS.has(d.tool) ? cellUnder(prim, d, { x: clientX - r.left, y: clientY - r.top }, true) : null;
+        if (cell) {
+          const { rows, cols } = tableSize(cellsOf(d.cells ?? []));
+          info.table = { ...cell, canAddRow: rows < TABLE_MAX, canAddColumn: cols < TABLE_MAX, canDeleteRow: rows > 1, canDeleteColumn: cols > 1 };
+        }
+        return info;
+      },
+      /** Adds a row below or a column right of a table's cell, or deletes that cell's row or column, as one undo step. */
+      editTable(id: string, edit: TableEdit, row: number, col: number) {
+        const d = find(id);
+        if (!d || !CELL_TOOLS.has(d.tool)) return;
+        const cells = cellsOf(d.cells ?? []);
+        const next = edit === 'addRow' ? insertRow(cells, row + 1) : edit === 'addColumn' ? insertColumn(cells, col + 1) : edit === 'deleteRow' ? deleteRow(cells, row) : deleteColumn(cells, col);
+        apply(setCells(getState(), id, next));
       },
       edit,
       rename: (id: string, name: string) => apply(rename(getState(), id, name)),
