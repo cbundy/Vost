@@ -30,6 +30,8 @@ import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../l
 import { type Source } from '../../../shared/timeframes.ts';
 import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, type SymbolSuggestion } from '../lib/providers';
+import { HISTORY_PAGE_BARS, belowHistoryCap, isHistoryStart, nextPageRequest, type HistoryLoading } from '../lib/historyPaging';
+import { ApiHttpError } from '../lib/providers/api';
 import { servable } from '../lib/customTimeframes';
 import { fmtTime } from '../lib/format';
 import { CHART_MIN_BARS, chartRangeErrorText, cropToChartRange, describeTimeRange, sanitizeTimeRange, sliceByTimeRange, timeRangeErrorText, type TimeRange } from '../lib/timeRange';
@@ -55,6 +57,9 @@ export interface PineRunState {
   candles?: Candle[];
   error?: PineError;
 }
+
+/** What a `loadOlder` call came to: a page merged, the history start reached, nothing asked or a stale reply, or a failure. */
+export type OlderResult = 'loaded' | 'start' | 'skipped' | 'error';
 
 export type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
@@ -114,6 +119,8 @@ export interface ChartEnv {
   timeZone(): string;
   /** Whether higher timeframes are built from lower ones. */
   buildTimeframes(): boolean;
+  /** How history loads: the latest page plus older pages on scroll, or everything at once. */
+  historyLoading(): HistoryLoading;
   /** The saved local datasets. */
   datasets(): Dataset[];
   addDataset(dataset: Dataset): void;
@@ -149,6 +156,10 @@ export interface ChartState {
   /** True while `fullCandles` is a span fetched from the provider for the chart range. */
   chartRangeFetched: boolean;
   dataLabel: string;
+  /** True once the provider has no bars older than the first loaded one, so paging stops (reset by every new series). */
+  historyStart: boolean;
+  /** True while an older page is being fetched. */
+  olderLoading: boolean;
   activeDatasetId: string | null;
   loadState: LoadState;
   /**
@@ -210,6 +221,13 @@ export interface ChartState {
   setTimeframe(tf: Interval, opts?: { load?: boolean } & BroadcastOpt): void;
   setBars(bars: number): void;
   loadData(): Promise<void>;
+  /**
+   * Loads the page of bars before the first loaded one and merges it in (same series, same `dataKey`). One page in
+   * flight at a time: a call meanwhile returns that page's result. Never pages a dataset, a chart range or a replay.
+   */
+  loadOlder(): Promise<OlderResult>;
+  /** Pages older bars in until the first loaded bar is at or before `time`, or the history start, a failure or the cap stops it. */
+  loadHistoryTo(time: number): Promise<void>;
   clearData(): void;
   addDataset(input: { name: string; candles: Candle[]; source: string; description: string; barSeconds: number; barLabel: string }): string;
   saveCurrentDataset(name?: string): void;
@@ -274,6 +292,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   let requestToken = 0;
   /** Bumped whenever a live stream starts or stops, so a late backfill can tell it is stale. */
   let liveSession = 0;
+  /** Bumped whenever the series is replaced or cropped, so an older page in flight can tell it is stale. */
+  let olderSeq = 0;
+  let olderInflight: Promise<OlderResult> | null = null;
 
   /** `source: 'built'` when the setting is on and the provider is a remote one (the demo provider ignores it). */
   const sourceOpt = (provider: { offline?: boolean }): { source?: Source } =>
@@ -369,12 +390,19 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       btResult: null,
       btError: null,
       optResult: null,
+      historyStart: false,
+      olderLoading: false,
     });
+    olderSeq++;
+    olderInflight = null;
     schedulePineAll();
   };
 
   const applyRange = (slice: Candle[], full: Candle[], range: TimeRange, fetched: boolean) => {
     dropReplay();
+    olderSeq++;
+    olderInflight = null;
+    set({ olderLoading: false });
     set({
       replay: null,
       candles: slice,
@@ -518,6 +546,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     fullCandles: null,
     chartRangeFetched: false,
     dataLabel: '',
+    historyStart: false,
+    olderLoading: false,
     activeDatasetId: null,
     loadState: 'idle',
     replay: null,
@@ -587,7 +617,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     },
 
     async loadData() {
-      const { providerId, symbol, timeframe, bars } = get();
+      const { providerId, symbol, timeframe, bars: savedBars } = get();
+      const bars = env.historyLoading() === 'scroll' ? HISTORY_PAGE_BARS : savedBars;
       const provider = getProvider(providerId);
       const tf = servable(provider, timeframe) ? timeframe : provider.defaultTimeframe;
       const token = ++requestToken;
@@ -608,6 +639,82 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
     },
 
+    loadOlder() {
+      if (olderInflight) return olderInflight;
+      const s = get();
+      if (
+        env.historyLoading() !== 'scroll' ||
+        s.historyStart ||
+        s.activeDatasetId != null ||
+        s.chartRange != null ||
+        s.replay != null ||
+        s.candles.length === 0 ||
+        !belowHistoryCap(s.candles.length)
+      ) {
+        return Promise.resolve('skipped');
+      }
+      const { providerId, symbol, timeframe, dataKey } = s;
+      const provider = getProvider(providerId);
+      const token = requestToken;
+      const seq = ++olderSeq;
+      const stale = () => {
+        const now = get();
+        return (
+          seq !== olderSeq ||
+          token !== requestToken ||
+          now.dataKey !== dataKey ||
+          now.providerId !== providerId ||
+          now.symbol !== symbol ||
+          now.timeframe !== timeframe ||
+          now.activeDatasetId != null ||
+          now.chartRange != null ||
+          now.replay != null
+        );
+      };
+      set({ olderLoading: true });
+      const run = async (): Promise<OlderResult> => {
+        try {
+          const older = await provider.fetchHistory({ symbol, timeframe, ...nextPageRequest(s.candles[0].time), ...sourceOpt(provider) });
+          if (stale()) return 'skipped';
+          const current = get().candles;
+          if (isHistoryStart(older, current[0].time)) {
+            set({ historyStart: true });
+            return 'start';
+          }
+          set({ candles: mergeCandles(current, older) }); // merged at reply time: live ticks and backfill kept
+          schedulePineAll();
+          return 'loaded';
+        } catch (err) {
+          if (stale()) return 'skipped';
+          if (err instanceof ApiHttpError && err.status === 404) {
+            set({ historyStart: true });
+            return 'start';
+          }
+          env.pushMessage(
+            provider.name,
+            'warning',
+            `Older bars for ${symbol} ${timeframe} could not be loaded (${err instanceof Error ? err.message : String(err)}). Scroll back again to retry.`,
+          );
+          return 'error';
+        } finally {
+          if (seq === olderSeq) {
+            olderInflight = null;
+            set({ olderLoading: false });
+          }
+        }
+      };
+      olderInflight = run();
+      return olderInflight;
+    },
+
+    async loadHistoryTo(time) {
+      for (;;) {
+        const { candles } = get();
+        if (candles.length === 0 || candles[0].time <= time) return;
+        if ((await get().loadOlder()) !== 'loaded') return;
+      }
+    },
+
     clearData() {
       stopLive();
       dropReplay();
@@ -619,6 +726,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         chartRangeFetched: false,
         dataKey: uid('data_'),
         dataLabel: '',
+        historyStart: false,
+        olderLoading: false,
         activeDatasetId: null,
         loadState: 'idle',
         btResult: null,
@@ -762,7 +871,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
 
       // outside the provider's loaded bars: fetch that span
-      const { providerId, symbol, timeframe, bars } = state;
+      const { providerId, symbol, timeframe } = state;
+      const bars = env.historyLoading() === 'scroll' ? MAX_BARS : state.bars;
       const provider = getProvider(providerId);
       const token = ++requestToken;
       const req: HistoryRequest = { symbol, timeframe, bars, ...sourceOpt(provider) };
@@ -1130,4 +1240,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     },
   };
   });
+}
+
+/** Whether older pages may still come for this chart: scroll mode, a live series (no dataset, chart range or replay) and no history start yet. */
+export function canPageOlder(s: ChartState, mode: HistoryLoading): boolean {
+  return mode === 'scroll' && !s.historyStart && s.activeDatasetId == null && s.chartRange == null && s.replay == null && s.candles.length > 0;
 }

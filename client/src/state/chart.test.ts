@@ -917,6 +917,7 @@ describe('chartRange fetched from the provider', () => {
   async function setup() {
     const { useStore } = await import('./store');
     track(useStore);
+    useStore.setState({ historyLoading: 'all' }); // these tests pin the saved Bars value in the request
     const { demoProvider } = await import('../lib/providers');
     const base = mk(1_600_000_000 - (1_600_000_000 % DAY), 100);
     chartOf(useStore).setState({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d', bars: 100, candles: base, activeDatasetId: null });
@@ -1643,6 +1644,7 @@ describe('two chart stores stay apart', () => {
       pushMessage: (source, _severity, text) => void messages.push({ source, text }),
       timeZone: () => 'UTC',
       buildTimeframes: () => false,
+      historyLoading: () => 'all',
       datasets: () => [],
       addDataset: () => {},
       removeDataset: () => {},

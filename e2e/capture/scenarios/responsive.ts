@@ -251,7 +251,9 @@ export const responsive: Scenario = {
       expect(b.x >= 0 && b.x + b.width <= 360 && b.y + b.height <= 740, `menu outside the viewport: ${JSON.stringify(b)}`);
       expect((await more.getAttribute('aria-expanded')) === 'true', 'More not expanded');
       // each moved control exists once
-      for (const name of ['Provider', 'Number of bars']) expect((await page.getByLabel(name, { exact: true }).count()) === 1, `${name} select is not unique`);
+      // Bars is hidden in the default scroll mode (history pages in as the chart is scrolled)
+      expect((await page.getByLabel('Number of bars', { exact: true }).count()) === 0, 'Bars select shown in scroll mode');
+      for (const name of ['Provider']) expect((await page.getByLabel(name, { exact: true }).count()) === 1, `${name} select is not unique`);
       expect((await page.getByRole('button', { name: 'Range', exact: true }).count()) === 1, 'Range is not unique');
       await check('more-360');
     });

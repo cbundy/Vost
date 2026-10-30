@@ -9,6 +9,7 @@ const env: ChartEnv = {
   pushMessage: () => {},
   timeZone: () => 'UTC',
   buildTimeframes: () => false,
+  historyLoading: () => 'scroll',
   datasets: () => [],
   addDataset: () => {},
   removeDataset: () => {},
