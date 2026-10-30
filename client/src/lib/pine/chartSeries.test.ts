@@ -118,3 +118,36 @@ describe('buildPineChart', () => {
     expect(cssColor(null, 'fb')).toBe('fb');
   });
 });
+
+describe('buildPineChart fills', () => {
+  it('rsi-band: no series for the fill; one fill joining the hlines with an rgba colour', async () => {
+    const { m } = await model('rsi-band');
+    expect(m.series.map((s) => s.title)).toEqual(['RSI', 'Upper', 'Lower']);
+    expect(m.fills).toHaveLength(1);
+    const f = m.fills[0];
+    expect(f.pane).toBe('separate');
+    expect([f.key1, f.key2]).toEqual([m.series[1].key, m.series[2].key]);
+    expect(f.color).toBe(cssColor('#9C27B01A', ''));
+    expect(f.color).toMatch(/^rgba\(156,39,176,0\.1/);
+    expect(f.colors).toBeUndefined();
+  });
+
+  it('cloud: per-bar colours are converted', async () => {
+    const { m } = await model('cloud');
+    expect(m.series.map((s) => s.title)).toEqual(['Fast', 'Slow']);
+    const f = m.fills[0];
+    expect(f.pane).toBe('price');
+    expect(f.colors).toHaveLength(candles.length);
+    const set = new Set((f.colors ?? []).filter((c) => c !== null));
+    expect(set.size).toBe(2);
+    for (const c of set) expect(c).toMatch(/^rgba\(/);
+  });
+
+  it('drops a fill whose hline has no level', async () => {
+    const { r } = await model('rsi-band');
+    const plots = r.plots.map((p) => (p.kind === 'hline' && p.name === 'Lower' ? { ...p, values: p.values.map(() => null) } : p));
+    const m = buildPineChart({ ...r, plots }, candles, '#123456');
+    expect(m.fills).toEqual([]);
+    expect(m.series.map((s) => s.title)).toEqual(['RSI', 'Upper']);
+  });
+});

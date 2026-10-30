@@ -7,7 +7,7 @@ const fixture = (name: string) =>
 
 export const pineRender: Scenario = {
   name: 'pine-render',
-  description: 'Pine shapes: a separate-pane script draws its shapes and characters in its own pane (none on the candles); an overlay script keeps them on the candles',
+  description: 'Pine shapes and fills: a separate-pane script draws its shapes and characters in its own pane (none on the candles); an overlay script keeps them on the candles; fill() shades the RSI 30/70 band and a colour-changing moving-average cloud',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -53,5 +53,21 @@ export const pineRender: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('overlay');
+    await ctx.step('a fill shades the band between two hlines', async () => {
+      await reopenEditor();
+      await setSource(fixture('rsi-band'));
+      await closeEditor();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('fill-band');
+    await ctx.step('a fill shades the cloud between two moving averages', async () => {
+      await reopenEditor();
+      await setSource(fixture('cloud'));
+      await closeEditor();
+      // zoom in so the cloud between the averages is wide enough to see
+      await page.getByRole('button', { name: '6M', exact: true }).click();
+      await page.waitForTimeout(800);
+    });
+    await ctx.screenshot('fill-cloud');
   },
 };

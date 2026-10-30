@@ -1,0 +1,7 @@
+//@version=6
+indicator("Cloud", overlay=true)
+a = ta.sma(close, 10)
+b = ta.sma(close, 30)
+p1 = plot(a, "Fast", color.green)
+p2 = plot(b, "Slow", color.red)
+fill(p1, p2, color = a > b ? color.new(color.green, 70) : color.new(color.red, 70))

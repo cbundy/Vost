@@ -46,8 +46,22 @@ export interface PineMarkerDesc {
   size: number;
 }
 
+/** A fill() between two series of the same pane, drawn by a primitive on the first one. */
+export interface PineFillDesc {
+  pane: 'price' | 'separate';
+  /** Keys of the two series it joins. */
+  key1: string;
+  key2: string;
+  /** Base colour, as CSS. */
+  color: string;
+  /** One colour per candle (CSS, null = the base colour) where they vary. */
+  colors?: (string | null)[];
+}
+
 export interface PineChartModel {
   series: PineSeriesDesc[];
+  /** Shaded areas between two of `series`; they add no series of their own. */
+  fills: PineFillDesc[];
   /** Each mark carries its pane: shapes follow their plot, trade marks are on the price pane. */
   markers: PineMarkerDesc[];
 }
@@ -105,11 +119,17 @@ export function separatePosition(loc: string | undefined, value?: number | null)
 export function buildPineChart(result: PineResult, candles: Candle[], fallbackColor: string): PineChartModel {
   const series: PineSeriesDesc[] = [];
   const markers: PineMarkerDesc[] = [];
+  const fills: PineFillDesc[] = [];
+  const keyOf = (idx: number) => `${idx}_${result.plots[idx].name}`;
 
   result.plots.forEach((plot, idx) => {
-    const key = `${idx}_${plot.name}`;
+    const key = keyOf(idx);
     const color = cssColor(plot.color, fallbackColor);
     const pane = plot.pane;
+    if (plot.kind === 'fill') {
+      // Resolved against the series actually emitted below, once all are known.
+      return;
+    }
     if (plot.kind === 'hline') {
       const level = plot.values.find((v): v is number => v !== null && Number.isFinite(v));
       if (level === undefined) return;
@@ -156,6 +176,19 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     });
   });
 
+  const emitted = new Set(series.map((d) => d.key));
+  result.plots.forEach((plot, idx) => {
+    if (plot.kind !== 'fill' || plot.plot1 === undefined || plot.plot2 === undefined) return;
+    const key1 = result.plots[plot.plot1] && keyOf(plot.plot1);
+    const key2 = result.plots[plot.plot2] && keyOf(plot.plot2);
+    if (!key1 || !key2 || !emitted.has(key1) || !emitted.has(key2)) return;
+    const color = cssColor(plot.color, fallbackColor);
+    fills.push({
+      pane: plot.pane, key1, key2, color,
+      ...(plot.colors && { colors: candles.map((_, i) => (plot.colors![i] ? cssColor(plot.colors![i], color) : null)) }),
+    });
+  });
+
   for (const t of result.trades) {
     const long = t.direction === 'long';
     markers.push({
@@ -174,5 +207,5 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     }
   }
   markers.sort((a, b) => a.time - b.time);
-  return { series, markers };
+  return { series, fills, markers };
 }
