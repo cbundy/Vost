@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { candlesFromCsvText } from '../csv';
 import { bollinger, ema, macd, rsi } from '../indicators';
 import { convertToV6 } from './convert';
@@ -134,6 +134,11 @@ describe('runPine errors', () => {
   it('runtime error resolves to ok:false', async () => {
     const r = await runPine('//@version=6\nindicator("x")\nplot(foo)', candles);
     expect(r.ok).toBe(false);
+  });
+
+  it('runtime.error stops the run with its message', async () => {
+    const r = await runPine('//@version=6\nindicator("x")\nif bar_index == 3\n    runtime.error("boom")\nplot(close)', candles);
+    expect(r).toEqual({ ok: false, error: { message: 'boom' } });
   });
 
   it('a script with no version line gets a plain message, not a parser error', async () => {
@@ -433,5 +438,110 @@ describe('runPine candle, bar, barcolor and arrow plots', () => {
     });
     expect(p.values.some((v) => v !== null && v > 0)).toBe(true);
     expect(p.values.some((v) => v !== null && v < 0)).toBe(true);
+  });
+});
+
+describe('runPine messages', () => {
+  const cross = `//@version=6
+indicator("Msg", overlay=true)
+fast = ta.sma(close, 3)
+slow = ta.sma(close, 8)
+up = ta.crossover(fast, slow)
+if up
+    alert("crossed up", alert.freq_once_per_bar_close)
+alertcondition(up, "Cross up", "fast crossed slow")
+alertcondition(close < 0, "Never", "never")
+plot(fast)`;
+  const crossTimes = () => {
+    const f = ema(closes, 1); void f;
+    const sma = (n: number, i: number) => (i < n - 1 ? null : closes.slice(i - n + 1, i + 1).reduce((a, b) => a + b, 0) / n);
+    const out: number[] = [];
+    for (let i = 1; i < candles.length; i++) {
+      const [f0, s0, f1, s1] = [sma(3, i - 1), sma(8, i - 1), sma(3, i), sma(8, i)];
+      if (f0 !== null && s0 !== null && f1 !== null && s1 !== null && f0 <= s0 && f1 > s1) out.push(candles[i].time);
+    }
+    return out;
+  };
+  const run = async (src: string, opts = {}) => {
+    const r = await runPine(src, candles, {}, opts);
+    if (!r.ok) throw new Error(r.error.message);
+    return r;
+  };
+
+  it('lists alerts on every bar, not only the last', async () => {
+    const m = (await run(cross)).messages!;
+    const times = crossTimes();
+    expect(times.length).toBeGreaterThan(1);
+    expect(m.alerts.map((a) => a.time)).toEqual(times);
+    expect(m.alerts[0]).toMatchObject({ message: 'crossed up', frequency: 'once_per_bar_close' });
+  });
+
+  it('lists a condition that came true, not one that never did', async () => {
+    const m = (await run(cross)).messages!;
+    expect(m.alertConditions).toHaveLength(1);
+    expect(m.alertConditions[0]).toMatchObject({ title: 'Cross up', message: 'fast crossed slow', times: crossTimes() });
+    expect(m.alertConditions[0].count).toBe(crossTimes().length);
+  });
+
+  it('captures log lines with level, formatted text and bar time', async () => {
+    const src = `//@version=6
+indicator("L")
+if bar_index == 2
+    log.info("bar {0}", bar_index)
+    log.warning("warn")
+    log.error("err")
+plot(close)`;
+    const spy = vi.spyOn(console, 'log');
+    const w = vi.spyOn(console, 'warn');
+    const e = vi.spyOn(console, 'error');
+    const m = (await run(src)).messages!;
+    expect(spy).not.toHaveBeenCalled();
+    expect(w).not.toHaveBeenCalled();
+    expect(e).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+    expect(m.logs).toEqual([
+      { time: candles[2].time, level: 'info', text: 'bar 2' },
+      { time: candles[2].time, level: 'warning', text: 'warn' },
+      { time: candles[2].time, level: 'error', text: 'err' },
+    ]);
+  });
+
+  it('cuts long lists to the newest 500 and counts the rest', async () => {
+    const many: typeof candles = Array.from({ length: 700 }, (_, i) => ({ ...candles[0], time: candles[0].time + i * 86400 }));
+    const src = `//@version=6
+indicator("C")
+alert("a", alert.freq_all)
+log.info("l {0}", bar_index)
+plot(close)`;
+    const r = await runPine(src, many);
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.messages!.alerts).toHaveLength(500);
+    expect(r.messages!.logs).toHaveLength(500);
+    expect(r.messages!.logs[499].text).toBe('l 699');
+    expect(r.messages!.alerts[499].time).toBe(many[699].time);
+    expect(r.messages!.omitted).toMatchObject({ alerts: 200, logs: 200 });
+  });
+
+  it('a paged run gives the same messages as an unpaged one', async () => {
+    const a = await run(cross);
+    const b = await run(cross, { onProgress: () => {} });
+    expect(b.messages).toEqual(a.messages);
+  });
+
+  it('two runs at once keep their own logs', async () => {
+    const mk = (t: string) => `//@version=6\nindicator("I")\nif bar_index == 1\n    log.info("${t}")\nplot(close)`;
+    const [a, b] = await Promise.all([run(mk('alpha')), run(mk('beta'))]);
+    expect(a.messages!.logs.map((l) => l.text)).toEqual(['alpha']);
+    expect(b.messages!.logs.map((l) => l.text)).toEqual(['beta']);
+  });
+
+  it('a strategy with alert() on fills has the same trades as without', async () => {
+    const base = fixture('strategy-sma-cross');
+    const withAlert = base + '\nif strategy.position_size != strategy.position_size[1]\n    alert("fill", alert.freq_all)\n';
+    const a = await run(base);
+    const b = await run(withAlert);
+    expect(b.trades).toEqual(a.trades);
+    expect(b.position).toEqual(a.position);
+    expect(b.messages!.alerts.length).toBeGreaterThan(0);
   });
 });

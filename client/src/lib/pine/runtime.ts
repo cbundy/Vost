@@ -8,6 +8,7 @@ import type { Candle } from '../../types';
 import { createMarketProvider } from './market';
 import type { MarketFeed } from './marketFeed';
 import { createServerResolver, libraryMessage, missingLibraryPath } from './libraries';
+import { mapMessages, takeLogs } from './messages';
 import { detectPineVersion, legacyMessage } from './version';
 import type {
   PineInput,
@@ -246,6 +247,8 @@ export async function runPine(
     const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market, opts.feed);
     // An end date marks the data as fixed: without it a paged run waits for live updates from the provider.
     const pine = new PineTS(provider, ticker, timeframe, undefined, undefined, endTime);
+    // By default PineTS records alerts only on the last bar; the pane lists every bar's.
+    pine.setAlertMode('all');
     pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
     const ctx: any = opts.onProgress ? await runPaged(pine, indicator, candles.length, opts.onProgress) : await pine.run(indicator);
 
@@ -280,6 +283,7 @@ export async function runPine(
       trades,
       position: isStrategy ? positionSeries(trades, candles.length) : [],
       ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
+      messages: mapMessages(ctx, takeLogs(ctx)),
     };
   } catch (err) {
     const error = parseError(err);

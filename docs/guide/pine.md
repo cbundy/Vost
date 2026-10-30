@@ -8,6 +8,12 @@ Press **Pine Editor** in the top bar (or **Edit** on a Pine indicator in the Ind
 
 ![The Pine pane](../evidence/pine-pane/pine-pane-editor-desktop.png)
 
+### Messages
+
+After a successful run, a Messages section below the inputs lists what the script said on the loaded bars: the `alert()` calls that fired, the `alertcondition()`s that came true (with how many bars and the last one), and the `log.info`, `log.warning` and `log.error` lines, with times in the chart's time zone. Each list shows the newest 500 and says how many more are not shown. Pine alerts are only listed here; they are not sent to Vost's alerts, and a condition that was never true on the loaded bars is not listed. `runtime.error()` stops the run and shows its message as an error.
+
+![Messages in the Pine pane](../evidence/pine-pane/pine-pane-messages-desktop.png)
+
 Pine strategies run from the Backtest tab and the Optimizer too ([Backtesting](backtesting.md)).
 
 ## What a script sees of the chart
