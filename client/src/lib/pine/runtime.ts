@@ -62,7 +62,11 @@ function mapPlots(plots: Record<string, any>, candles: Candle[], overlay: boolea
     const kind = plotKind(opts.style);
     const byTime = new Map<number, { value: number | null; color: string | null }>();
     for (const p of plot.data) {
-      const value = kind === 'bgcolor' || kind === 'plotshape' ? (p.value === true ? 1 : null) : toNum(p.value);
+      const absolute = String(p.options?.location ?? opts.location ?? '').toLowerCase() === 'absolute';
+      const value =
+        kind === 'plotshape' && absolute
+          ? p.value === true ? 1 : toNum(p.value)
+          : kind === 'bgcolor' || kind === 'plotshape' ? (p.value === true ? 1 : null) : toNum(p.value);
       byTime.set(p.time, { value, color: typeof p.options?.color === 'string' ? p.options.color : null });
     }
     const pineOverlay = typeof opts.overlay === 'boolean' ? opts.overlay : overlay;

@@ -132,3 +132,7 @@ Pick **Pine Script** in the Backtest panel to backtest a Pine v6 `strategy()` sc
 - Stops/takes are checked against bar highs/lows. If both could trigger within one bar, the **stop wins** (conservative). Gaps fill at the open.
 - Equity is marked to market on every close; max drawdown is peak-to-trough of that curve.
 - Sharpe/Sortino are annualised from per-bar returns using the median bar interval of the dataset — comparable across timeframes, approximate across markets (crypto trades 365 days, stocks ~252).
+
+## Strategy maker (research)
+
+A study of a small, local, trainable (non-LLM) tool that would recommend indicators and settings from entries and exits the user highlights is in [spikes/strategy-maker/README.md](spikes/strategy-maker/README.md). It is research only: nothing in the app uses it yet.

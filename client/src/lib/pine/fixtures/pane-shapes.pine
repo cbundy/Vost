@@ -1,0 +1,5 @@
+//@version=6
+indicator("Pane shapes", overlay=false)
+plot(ta.rsi(close, 14), "RSI", color=color.purple)
+plotshape(ta.rsi(close, 14) < 40, title="Low", style=shape.triangleup, location=location.belowbar, color=color.green)
+plotchar(ta.rsi(close, 14) > 60, title="High", char="H", location=location.abovebar, color=color.red)

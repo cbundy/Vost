@@ -38,6 +38,7 @@ import { isGlyphKind } from '../lib/iconSets/types';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
+import { resetLogicalRange } from '../lib/quickRange';
 import { useChart, useChartStore } from '../state/chartContext';
 import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
 
@@ -89,6 +90,7 @@ export function ChartPanel({
   const providerId = useChart((s) => s.providerId);
   const setProvider = useChart((s) => s.setProvider);
   const timeZone = useStore((s) => s.timeZone);
+  const timeframe = useChart((s) => s.timeframe);
   const replayPhase = useChart((s) => s.replay?.phase ?? null);
   /** During replay: the last visible bar's time, the cut-off for trade markers and Pine output. */
   const replayCutoff = replayPhase === 'active' ? (candles[candles.length - 1]?.time ?? null) : null;
@@ -531,7 +533,8 @@ export function ChartPanel({
 
   const provider = getProvider(providerId);
 
-  // Restore the fresh-load view: auto-scale every pane's price scales, default right offset, fit all data.
+  // Restore the fresh-load view: auto-scale every pane's price scales, default right offset, then show the window for the
+  // timeframe (minutes: last day, hours: 5 days, days: a month), or all data for weeks, months or when the bars do not reach back.
   function resetView() {
     if (!chartApi) return;
     const panes = chartApi.panes();
@@ -545,7 +548,9 @@ export function ChartPanel({
       }
     }
     chartApi.timeScale().applyOptions({ rightOffset: RIGHT_OFFSET });
-    chartApi.timeScale().fitContent();
+    const range = resetLogicalRange(timeframe, candles, timeZone, RIGHT_OFFSET);
+    if (range) chartApi.timeScale().setVisibleLogicalRange(range);
+    else chartApi.timeScale().fitContent();
   }
 
   const favorites = useStore((s) => s.drawingFavorites);
