@@ -1,0 +1,7 @@
+ok   Cyclic lines stored - cyclicLines:2
+ok   Time cycles stored - cyclicLines:2,timeCycles:2
+ok   Sine line stored - cyclicLines:2,timeCycles:2,sineLine:2
+ok   chart painted
+ok   three drawings after reload
+ok   unchanged by the timeframe change
+ok   zoom keeps the drawings

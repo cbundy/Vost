@@ -454,6 +454,18 @@ describe('the pattern tools', () => {
   });
 });
 
+describe('the cycle tools', () => {
+  it('round trips each with two anchors and drops a wrong count', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['cyclicLines', 'timeCycles', 'sineLine'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([2, 2, 2]);
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(2) }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(3) }));
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('the pitchfork tools', () => {
   it('round trips each with three anchors and a custom levels list and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');

@@ -1,6 +1,6 @@
 # Chart patterns
 
-The **Patterns** family of the [drawing rail](drawings.md) holds three harmonic-pattern tools in its **Chart patterns** section: **XABCD pattern** (5 points X A B C D), **Cypher pattern** (5 points X A B C D) and **ABCD pattern** (4 points A B C D).
+The **Patterns** family of the [drawing rail](drawings.md) holds three harmonic-pattern tools in its **Chart patterns** section: **XABCD pattern** (5 points X A B C D), **Cypher pattern** (5 points X A B C D) and **ABCD pattern** (4 points A B C D). Its **Cycles** section holds the two-point [cycle tools](#cycle-tools): **Cyclic lines**, **Time cycles** and **Sine line**.
 
 ![The three patterns drawn together](../evidence/drawing-patterns/drawing-patterns-all-desktop.png)
 
@@ -23,3 +23,15 @@ Pick the tool, then click the points one by one (or tap them on a phone). Each c
 Select a pattern to see a handle on every point and the price and time of each point on the axes. Drag a handle to move that point only, or drag a leg or fill to move the whole pattern. Double-click it for its settings: line colour, width and style, and (XABCD and Cypher) fill colour and opacity on the **Style** tab; the label text colour and size, and **Show ratios**, on the **Text** tab. Patterns are saved with the chart.
 
 ![A pattern restyled with its ratios hidden](../evidence/drawing-patterns/drawing-patterns-styled-xabcdPattern-desktop.png)
+
+## Cycle tools
+
+The **Cycles** section holds three tools placed with two points, like a trend line: click twice, tap twice, or press, drag and release. Handles sit on the two points; drag a handle to change the period, or the body to move the drawing. Each repeats across the whole chart, to the left and right of the points, and the selected drawing shows its time labels on the time axis.
+
+![The three cycle tools drawn together](../evidence/drawing-cycles/drawing-cycles-all-desktop.png)
+
+- **Cyclic lines**: full-height vertical lines at point 1 and at every whole multiple of the distance from point 1 to point 2, in both directions. The settings are colour, width and line style.
+- **Time cycles**: a row of half arcs on point 1's price line, each as wide as the distance between the points. The height of the arcs follows point 2's vertical offset, so they bulge up or down toward point 2. The settings are colour, width, line style, and a background fill (on by default) with its colour and opacity.
+- **Sine line**: a sine wave with a peak or trough at point 1 and the opposite extreme at point 2, half a period away; the price difference sets the amplitude. The settings are colour, width and line style.
+
+Like every drawing, they have the Coordinates and Visibility tabs and are saved with the chart.
