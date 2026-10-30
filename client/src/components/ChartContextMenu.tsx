@@ -111,8 +111,8 @@ export function ChartContextMenu({
     return (
       <div ref={menuRef} className="chart-context-menu" role="menu" aria-label={d.title} style={pos}>
         <div className="chart-context-menu-title">{d.title}</div>
-        {d.hasSettings && item('Settings', () => actions.current.edit(d.id))}
-        {renaming ? (
+        {d.hasSettings && item('Settings', () => actions.current.edit(d.ids[0]))}
+        {d.count > 1 ? null : renaming ? (
           <input
             className="chart-context-menu-input"
             aria-label="Name"
@@ -124,7 +124,7 @@ export function ChartContextMenu({
                 ev.preventDefault();
                 const name = ev.currentTarget.value;
                 close();
-                actions.current.rename(d.id, name);
+                actions.current.rename(d.ids[0], name);
               }
             }}
           />
@@ -133,14 +133,14 @@ export function ChartContextMenu({
             Rename
           </button>
         )}
-        {item('Clone', () => actions.current.clone(d.id))}
-        {item('Copy', () => actions.current.copy(d.id))}
-        {item(d.locked ? 'Unlock' : 'Lock', () => actions.current.toggleLock(d.id))}
-        {item('Bring to front', () => actions.current.reorder(d.id, 'front'))}
-        {item('Bring forward', () => actions.current.reorder(d.id, 'forward'))}
-        {item('Send backward', () => actions.current.reorder(d.id, 'backward'))}
-        {item('Send to back', () => actions.current.reorder(d.id, 'back'))}
-        {item('Delete', () => actions.current.remove(d.id))}
+        {item('Clone', () => actions.current.clone(d.ids))}
+        {item('Copy', () => actions.current.copy(d.ids))}
+        {item(d.locked ? 'Unlock' : 'Lock', () => actions.current.toggleLock(d.ids))}
+        {item('Bring to front', () => actions.current.reorder(d.ids, 'front'))}
+        {item('Bring forward', () => actions.current.reorder(d.ids, 'forward'))}
+        {item('Send backward', () => actions.current.reorder(d.ids, 'backward'))}
+        {item('Send to back', () => actions.current.reorder(d.ids, 'back'))}
+        {item('Delete', () => actions.current.remove(d.ids))}
       </div>
     );
   }
