@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { compareSummary, defaultCompareState, formatSummary, loadCompareState, saveCompareState, savedPineScripts } from './compare';
+import { compareSummary, describeCompare, defaultCompareState, formatSummary, loadCompareState, saveCompareState, savedPineScripts } from './compare';
 
 const sum = (a: string, b: string) => {
   const s = compareSummary(a, b);
@@ -125,5 +125,16 @@ describe('saved state', () => {
     store['vost.prefs.v1'] = JSON.stringify({ indicators: 5 });
     expect(savedPineScripts()).toEqual([]);
     expect(Object.keys(store)).toEqual(['vost.prefs.v1']);
+  });
+});
+
+describe('describeCompare', () => {
+  it('says Empty for an empty compared text, even against an empty reference', () => {
+    expect(describeCompare('a\nb', '', 'Code A')).toBe('Empty');
+    expect(describeCompare('', '', 'Code A')).toBe('Empty');
+  });
+  it('otherwise formats the summary', () => {
+    expect(describeCompare('a', 'a', 'Code A')).toBe('Identical to Code A');
+    expect(describeCompare('', 'a', 'Code A')).toBe(formatSummary(compareSummary('', 'a'), 'Code A'));
   });
 });
