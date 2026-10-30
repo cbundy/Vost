@@ -16,6 +16,12 @@ A script that draws in its own pane (`overlay=false`) shows its `plotshape` and 
 
 ![Shapes in the script's own pane, none on the candles](../evidence/pine-render/pine-render-pane-desktop.png)
 
+## Fills
+
+`fill()` shades the area between two plots, or between two `hline`s, in the pane of those lines: the RSI 30/70 band, or a moving-average cloud that changes colour with `color = a > b ? color.green : color.red`. The area takes the fill's own colour, transparency included, sits beneath the lines and leaves a gap where either side has no value. The gradient form of `fill` is not shown yet.
+
+![A shaded cloud between two moving averages that turns green or red](../evidence/pine-render/pine-render-fill-cloud-desktop.png)
+
 ## Converting old scripts
 
 A script with no `//@version` line, or a version below 5, will not run. The pane says so and shows **Convert to v6**. It rewrites the source in one edit (Ctrl+Z restores the original) and reports "Converted from Pine v<N> to v6". Whatever it cannot convert safely stays with a `// TODO(convert)` comment above it; search for that.
