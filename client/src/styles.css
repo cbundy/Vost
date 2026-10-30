@@ -2496,6 +2496,14 @@ a:hover {
   justify-content: center;
 }
 
+/* On a 360px phone the Settings gear needs the icon buttons 4px narrower to keep the row inside the screen. */
+@media (max-width: 420px) {
+  .topbar button.icon,
+  .topbar-more > button {
+    width: 24px;
+  }
+}
+
 .topbar select,
 .topbar input[type='text'] {
   padding: 0 8px;

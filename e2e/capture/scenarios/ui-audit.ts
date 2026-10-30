@@ -449,12 +449,9 @@ export const uiAudit: Scenario = {
     // ---- CSV import ----------------------------------------------------------------------------------------------
     const csvText = await readFile(path.join(EXAMPLES, 'sample-daily.csv'), 'utf8');
     const openCsv = async (): Promise<void> => {
-      if (narrow) {
-        await openMore();
-        await page.getByRole('button', { name: /Import CSV/ }).first().click();
-      } else {
-        await page.locator('.topbar').getByRole('button', { name: /Import CSV/ }).click();
-      }
+      // Import CSV sits in the More menu below 1601px, which covers the 1440px desktop capture too.
+      await openMore();
+      await page.getByRole('button', { name: /Import CSV/ }).first().click();
       await page.locator('.modal').waitFor();
     };
     await ctx.step('CSV import from examples/', async () => {

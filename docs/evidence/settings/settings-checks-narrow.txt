@@ -1,5 +1,6 @@
-gear visible at narrow: true
+gear inside viewport at narrow (topbar): true (right 384 of 390, scrollWidth 390)
 dialog heading: Settings
 Escape closes the popup: true
+gear inside viewport at narrow (with Bars menu): true (right 384 of 390, scrollWidth 390)
 vost.prefs.v1 historyLoading: all
 new /api/history requests after the switch: 1

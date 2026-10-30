@@ -162,11 +162,12 @@ describe('drawer breakpoint', () => {
 describe('topbarTier', () => {
   it('switches at each boundary (inclusive on the narrower side)', () => {
     expect(topbarTier(1920)).toBe('full');
-    expect(topbarTier(1281)).toBe('full');
-    expect(topbarTier(1280)).toBe('compact');
-    expect(topbarTier(1024)).toBe('compact');
-    expect(topbarTier(961)).toBe('compact');
-    expect(topbarTier(960)).toBe('narrow');
+    expect(topbarTier(1601)).toBe('full');
+    expect(topbarTier(1600)).toBe('compact');
+    expect(topbarTier(1440)).toBe('compact');
+    expect(topbarTier(1024)).toBe('narrow');
+    expect(topbarTier(1161)).toBe('compact');
+    expect(topbarTier(1160)).toBe('narrow');
     expect(topbarTier(768)).toBe('narrow');
     expect(topbarTier(601)).toBe('narrow');
     expect(topbarTier(600)).toBe('tiny');

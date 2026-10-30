@@ -20,9 +20,20 @@ export const settings: Scenario = {
       if (narrow) await page.keyboard.press('Escape');
     });
     const gear = page.getByRole('button', { name: 'Settings', exact: true });
+    // waitFor visible only checks for a non-empty box, so check the gear is on screen and the page has not scrolled sideways
+    const inViewport = async (label: string) => {
+      const r = await page.evaluate((el) => {
+        const b = el!.getBoundingClientRect();
+        const d = document.documentElement;
+        return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, w: window.innerWidth, h: window.innerHeight, sw: d.scrollWidth };
+      }, await gear.elementHandle());
+      const ok = r.left >= 0 && r.right <= r.w && r.top >= 0 && r.bottom <= r.h && r.sw <= r.w;
+      notes.push(`gear inside viewport at ${viewport} (${label}): ${ok} (right ${Math.round(r.right)} of ${r.w}, scrollWidth ${r.sw})`);
+      if (!ok) throw new Error(`gear not inside the viewport (${label}): ${JSON.stringify(r)}`);
+    };
     await ctx.step('the gear is visible', async () => {
       await gear.waitFor({ state: 'visible' });
-      notes.push(`gear visible at ${viewport}: true`);
+      await inViewport('topbar');
     });
     await ctx.screenshot('topbar');
     await ctx.step('open the popup', () => gear.click());
@@ -49,8 +60,13 @@ export const settings: Scenario = {
       await dialog.waitFor({ state: 'detached' });
     });
     await ctx.step('the Bars menu is shown', async () => {
-      if (narrow) await page.getByRole('button', { name: 'More', exact: true }).click();
+      await page.getByRole('button', { name: 'More', exact: true }).click();
       await page.getByLabel('Number of bars', { exact: true }).waitFor({ state: 'visible' });
+    });
+    await ctx.step('the gear is still inside the viewport with the Bars menu', async () => {
+      await page.keyboard.press('Escape');
+      await inViewport('with Bars menu');
+      await page.getByRole('button', { name: 'More', exact: true }).click();
     });
     await ctx.screenshot('all');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('vost.prefs.v1') ?? '{}').historyLoading);

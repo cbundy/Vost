@@ -22,7 +22,7 @@ From left to right (on narrow screens the less used controls move into a **More*
 - **Replay** starts bar replay. See [Bar replay](replay.md).
 - **Import CSV**. See [Data](data.md).
 - The loaded date range and bar count.
-- The **connection light**, the **Inbox** (messages and errors), the **Pine Editor** button and the **Alerts** bell and the **Settings** gear at the right end of the bar (see [The Settings popup](#the-settings-popup)). See [Charts](charts.md), [Pine Script](pine.md) and [Alerts](alerts.md).
+- The **connection light**, the **Inbox** (messages and errors), the **Pine Editor** button, the **Alerts** bell and the **Settings** gear at the right end of the bar (see [The Settings popup](#the-settings-popup)). See [Charts](charts.md), [Pine Script](pine.md) and [Alerts](alerts.md).
 
 ## The Settings popup
 

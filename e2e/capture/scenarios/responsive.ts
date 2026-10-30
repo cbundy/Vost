@@ -89,7 +89,7 @@ export const responsive: Scenario = {
   async run(ctx) {
     const { page } = ctx;
     const log: string[] = [];
-    const sizes: Array<[number, number]> = [[360, 740], [768, 1024], [1024, 768], [1920, 1080], [740, 360], [1281, 800], [1280, 800], [1440, 900]];
+    const sizes: Array<[number, number]> = [[360, 740], [768, 1024], [1024, 768], [1920, 1080], [740, 360], [1601, 800], [1600, 800], [1440, 900]];
 
     const check = (label: string, opts: { chart?: boolean } = {}) =>
       ctx.step(`check ${label}`, async () => {
@@ -127,7 +127,7 @@ export const responsive: Scenario = {
         expect(l.rail != null && l.panelLeft != null && l.panelLeft >= l.chartRight - 4 && l.panelLeft < l.rail.left, `${w}x${h}: the panel is not right of the chart and left of the rail`);
       }
       expect((await page.getByRole('button', { name: 'Toggle sidebar' }).count()) === 0, `${w}x${h}: a Toggle sidebar button is present`);
-      if (w > 1280) expect(!l.hasMore, `${w}x${h}: More button present on a wide screen`);
+      if (w > 1600) expect(!l.hasMore, `${w}x${h}: More button present on a wide screen`);
       else expect(l.hasMore, `${w}x${h}: More button missing`);
       if (w === 360 || w === 768 || w === 1024 || w === 1920 || w === 740) await ctx.screenshot(`${w}x${h}`);
     }

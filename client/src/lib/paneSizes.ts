@@ -33,11 +33,11 @@ export function isDrawerWidth(viewportW: number): boolean {
 }
 
 /**
- * Top bar tiers: the widest viewport (inclusive) of each tier below 'full'. The row holds about 1100px of controls
- * before the brand tag, so 'full' starts well above that and 'narrow' covers the whole drawer range.
+ * Top bar tiers: the widest viewport (inclusive) of each tier below 'full'. The full row (with a market provider's Bars menu and the Settings gear) needs about 1560px,
+ * so 'full' starts above 1600 and 'narrow' covers the whole drawer range.
  */
-export const TOPBAR_COMPACT_MAX = 1280;
-export const TOPBAR_NARROW_MAX = 960;
+export const TOPBAR_COMPACT_MAX = 1600;
+export const TOPBAR_NARROW_MAX = 1160;
 export const TOPBAR_TINY_MAX = 600;
 
 export type TopbarTier = 'full' | 'compact' | 'narrow' | 'tiny';
