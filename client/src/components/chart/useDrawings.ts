@@ -21,6 +21,8 @@ import {
   setCells,
   setText,
   sourceKey,
+  stateImageKeys,
+  persistedImageKeys,
   undo,
   anchorRange,
   type Anchor,
@@ -37,6 +39,10 @@ import { DrawingPrimitive } from './drawingPrimitive';
 import { NotePopups } from './notePopups';
 import { editorStyle, type EditorTarget } from './textPlacement';
 import { cellRect, cellUnder } from './tableEditing';
+import { available, createSweeper, registerImageRefs } from '../../lib/drawingImages';
+import { dragCorner, fitToHalfPane, naturalEnd } from '../../lib/geometry/image';
+import { subscribeBitmaps } from './imageCache';
+import { IMAGE_TOOL, adoptFile, dragHasFiles, droppedFile, getPending, openChooser, pictureFrom, setPending } from './imagePlacement';
 import { TABLE_DEFAULT_COLS, TABLE_DEFAULT_ROWS, emptyCells, stepCell } from '../../lib/geometry/table';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
@@ -61,6 +67,16 @@ let storage: DrawingsStorage | null = null;
 function drawingsStorage(): DrawingsStorage {
   storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS, CAPTION_TOOLS, VALIDATORS).sources, saveDrawings);
   return storage;
+}
+
+/** The tab's one picture sweeper: it reads the persisted drawings fresh (after writing any pending save) and the in-tab references. */
+let sweeper: ReturnType<typeof createSweeper> | null = null;
+function imageSweeper() {
+  sweeper ??= createSweeper(() => {
+    drawingsStorage().flush();
+    return persistedImageKeys();
+  });
+  return sweeper;
 }
 
 /** Two taps on the same note within this many ms open its editor. */
@@ -96,7 +112,11 @@ type DragItem = { id: string; tool: string; origAnchors: Anchor[]; origText: str
 type Drag = { handle: number | null; start: Pt; items: DragItem[]; before: Drawing[]; /** A press on a member of a selection: a release without moving keeps just this one. */ collapseTo: string | null };
 const dragItem = (d: Drawing, origPts: Pt[]): DragItem => ({ id: d.id, tool: d.tool, origAnchors: d.anchors, origText: d.text, origCells: d.cells, origStyle: d.style, origPts });
 /** The draft as a drawing the primitive paints (it has fewer anchors than the tool needs until it is placed). */
-const draftDrawing = (d: Draft | null): Drawing | null => (d ? { id: 'draft', tool: d.tool, anchors: d.anchors } : null);
+const draftDrawing = (d: Draft | null): Drawing | null => {
+  if (!d) return null;
+  const picture = d.tool === IMAGE_TOOL ? getPending() : null;
+  return { id: 'draft', tool: d.tool, anchors: d.anchors, ...(picture ? { image: picture } : {}) };
+};
 
 function isEditable(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
@@ -133,6 +153,9 @@ export function useDrawings(
 
   const [tool, setToolState] = useState(CURSOR);
   const [drawingCount, setDrawingCount] = useState(0);
+  const [imagesAvailable, setImagesAvailable] = useState(true);
+  const imagesAvailableRef = useRef(true);
+  imagesAvailableRef.current = imagesAvailable;
   const toolRef = useRef(CURSOR);
   const keyRef = useRef(key);
   const hasDataRef = useRef(hasData);
@@ -195,6 +218,7 @@ export function useDrawings(
       setDrawingCount(next.drawings.length);
       if (persist) {
         drawingsStorage().set(keyRef.current, next.drawings);
+        imageSweeper().schedule();
       }
       sync();
     },
@@ -204,6 +228,7 @@ export function useDrawings(
   const setTool = useCallback(
     (id: string) => {
       if (id !== CURSOR && hiddenRef.current) return;
+      if (id !== IMAGE_TOOL) setPending(null);
       toolRef.current = id;
       setToolState(id);
       draftRef.current = null;
@@ -240,16 +265,33 @@ export function useDrawings(
     [setTool],
   );
 
+  /** A chosen, pasted or dropped file becomes the pending picture, or its refusal is shown. */
+  const adoptPicture = useCallback(
+    async (file: Blob) => {
+      const r = await adoptFile(file);
+      if (!r.ok) {
+        useStore.getState().pushToast('error', r.message);
+        return;
+      }
+      // The tool was changed while the file was stored: the picture stays in the store, unplaced.
+      if (toolRef.current !== IMAGE_TOOL) setPending(null);
+      sync();
+    },
+    [sync],
+  );
+
   /** The rail's pick of one entry: sets its mode (and cursor kind) and remembers it as its family's last tool. */
   const pickEntry = useCallback(
     (e: RailEntry) => {
       if (e.toolId !== CURSOR && (hiddenRef.current || !hasDataRef.current)) return;
+      if (e.toolId === IMAGE_TOOL && !imagesAvailableRef.current) return;
       pickTool(e.toolId);
+      if (e.toolId === IMAGE_TOOL) openChooser((file) => void adoptPicture(file));
       const app = useStore.getState();
       if (e.cursorKind) app.setCursorKind(e.cursorKind);
       app.setDrawingLastTool(e.group, e.key);
     },
-    [pickTool],
+    [pickTool, adoptPicture],
   );
 
   /** Pixel position of the editor's note: the container's offset in the chart area plus the anchor's pixel. */
@@ -456,6 +498,20 @@ export function useDrawings(
     sync();
   }, [key, sync, getState]);
 
+  /* Pictures: whether the store opens, the references this tab holds, a repaint when a picture is decoded, a first sweep. */
+  useEffect(() => {
+    let on = true;
+    void available().then((ok) => on && setImagesAvailable(ok));
+    imageSweeper().schedule();
+    const unregister = registerImageRefs(() => [...statesRef.current.values()].flatMap(stateImageKeys));
+    const unsubscribe = subscribeBitmaps(sync);
+    return () => {
+      on = false;
+      unregister();
+      unsubscribe();
+    };
+  }, [sync]);
+
   /* Hide all: nothing is painted or hit, and the selection, any draft and the tool are dropped. */
   useEffect(() => {
     if (hidden) {
@@ -537,6 +593,17 @@ export function useDrawings(
       }
     };
 
+    /** Where the picture's moving corner is: natural size (fit to half the pane) on a still press, else the ratio-kept (Shift: free) drag. */
+    const imageEnd = (start: Pt, p: Pt, shift: boolean): Pt => {
+      const picture = getPending();
+      if (!picture) return p;
+      if (Math.hypot(p.x - start.x, p.y - start.y) < DRAG_PX) {
+        const s = chart.paneSize(0);
+        return naturalEnd(start, fitToHalfPane(picture.w, picture.h, s.width, s.height));
+      }
+      return dragCorner(start, p, picture.w / picture.h, shift);
+    };
+
     const point = (e: PointerEvent): Pt => {
       const r = el.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -613,6 +680,23 @@ export function useDrawings(
         openCell(created.id, 0, 0);
         return;
       }
+      if (id === IMAGE_TOOL) {
+        // The pending picture is placed in the box; it stays pending for the next click while the tool stays picked.
+        const picture = getPending();
+        draftRef.current = null;
+        measureRef.current = null;
+        if (!picture) {
+          afterDrawing();
+          sync();
+          return;
+        }
+        const created = { id: newDrawingId(), tool: id, anchors, image: { ...picture } };
+        setState(add(getState(), created), true);
+        afterDrawing();
+        selectedRef.current = only(created.id);
+        sync();
+        return;
+      }
       if (getTool(id)?.text) {
         // A text tool with several anchors (Callout) types its text now that all are placed; the drawing is added on commit.
         draftRef.current = null;
@@ -679,7 +763,9 @@ export function useDrawings(
         const def = getTool(toolId);
         const raw = prim.toAnchor(p, def);
         if (!def || !raw || !hasDataRef.current) return;
-        const anchor = snap(raw, def);
+        // The Image tool places nothing until a picture is chosen; its box follows the pointer pixel for pixel (no magnet).
+        if (toolId === IMAGE_TOOL && !getPending()) return;
+        const anchor = toolId === IMAGE_TOOL ? raw : snap(raw, def);
         claim(e);
         if (def.freehand) {
           draftRef.current = startFreehand(toolId, p, raw);
@@ -807,6 +893,14 @@ export function useDrawings(
           }
           return;
         }
+        if (draft.tool === IMAGE_TOOL) {
+          const end = prim.toAnchor(imageEnd(draft.start, p, e.shiftKey && !touch), draftTool);
+          if (end) {
+            draftRef.current = moveDraft(draft, end);
+            sync();
+          }
+          return;
+        }
         const raw = prim.toAnchor(p, draftTool);
         if (raw) {
           draftRef.current = moveDraft(draft, snap(raw, draftTool));
@@ -829,7 +923,10 @@ export function useDrawings(
           if (!def) continue;
           const dragged =
             drag.handle !== null && def.dragHandle
-              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy))
+              ? def.dragHandle(item.origPts, drag.handle, handleTarget(def, drag, item, prim, dx, dy), {
+                  shift: e.shiftKey && !touch,
+                  style: prim.viewFor({ tool: item.tool, anchors: item.origAnchors, style: item.origStyle }).style,
+                })
               : null;
           moves[item.id] = item.origAnchors.map((orig, i) => {
             if (dragged) {
@@ -874,6 +971,18 @@ export function useDrawings(
         const def = getTool(draft.tool);
         const done = prim ? endFreehand(draft, (q) => prim.toAnchor(q, def), anchorRange(def!.anchors).max) : null;
         if (done) finish(done, draft.tool);
+        else {
+          draftRef.current = null;
+          sync();
+        }
+        release(e);
+        return;
+      }
+      if (draft && draft.phase === 'pressing' && draft.tool === IMAGE_TOOL) {
+        const prim = primRef.current;
+        const def = getTool(draft.tool);
+        const end = prim && def ? prim.toAnchor(imageEnd(draft.start, point(e), e.shiftKey && !touch), def) : null;
+        if (end) finish([draft.anchors[0], end], draft.tool);
         else {
           draftRef.current = null;
           sync();
@@ -1078,6 +1187,8 @@ export function useDrawings(
         return;
       }
       if (action === 'paste') {
+        // With the Image tool picked the system paste event decides: a picture is taken, else the drawing clipboard is pasted.
+        if (toolRef.current === IMAGE_TOOL) return;
         if (actionsRef.current.paste()) e.preventDefault();
         return;
       }
@@ -1090,9 +1201,45 @@ export function useDrawings(
     return () => window.removeEventListener('keydown', onKey);
   }, [active, getState, setState, setTool, sync, settingsOpenRef]);
 
+  /* The Image tool takes a picture pasted from the system clipboard; with none in it the drawing clipboard is pasted as always. */
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!active || settingsOpenRef.current || isEditable(e.target) || toolRef.current !== IMAGE_TOOL) return;
+      const file = pictureFrom(e.clipboardData);
+      if (file) {
+        e.preventDefault();
+        void adoptPicture(file);
+      } else if (actionsRef.current.paste()) e.preventDefault();
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [active, adoptPicture, settingsOpenRef]);
+
+  /* ... and a file dropped on the chart. */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onOver = (e: DragEvent) => {
+      if (toolRef.current === IMAGE_TOOL && dragHasFiles(e.dataTransfer)) e.preventDefault();
+    };
+    const onDrop = (e: DragEvent) => {
+      const file = toolRef.current === IMAGE_TOOL ? droppedFile(e.dataTransfer) : null;
+      if (!file) return;
+      e.preventDefault();
+      void adoptPicture(file);
+    };
+    el.addEventListener('dragover', onOver);
+    el.addEventListener('drop', onDrop);
+    return () => {
+      el.removeEventListener('dragover', onOver);
+      el.removeEventListener('drop', onDrop);
+    };
+  }, [containerRef, adoptPicture, chart]);
+
   return {
     tool,
     setTool,
+    imagesAvailable,
     pickTool,
     pickEntry,
     cursorKind,

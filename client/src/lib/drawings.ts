@@ -2,7 +2,7 @@
  * Pure model for chart drawings: types, edits, undo/redo history, the per-source key
  * and the versioned browser storage payload. No chart or React imports.
  */
-import { debounce, loadJson, saveJson } from './storage';
+import { debounce, loadJson, peekJson, saveJson } from './storage';
 
 /**
  * A point of a drawing. For most tools `time` (unix seconds) and `price` place it on the chart. A pane-anchored
@@ -39,6 +39,8 @@ export type Drawing = {
   name?: string;
   /** The content of a table (rows of equal length, 1..20 by 1..20); only the Table tool has it. */
   cells?: string[][];
+  /** The picture of an Image drawing: its key in the picture store (SHA-256 hex of the bytes) and its natural size. */
+  image?: { key: string; w: number; h: number };
 };
 
 /** Longest stored name of a drawing. */
@@ -402,6 +404,37 @@ export function loadDrawings(
 ): DrawingStore {
   const v2 = loadJson<unknown>(STORAGE_KEY, null);
   return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient, paneTools, captionTools, validators);
+}
+
+/** The picture keys a list of drawings refers to; any drawing with an `image.key` counts, whatever its tool. */
+export function imageKeys(drawings: readonly unknown[]): string[] {
+  const out: string[] = [];
+  for (const d of drawings) {
+    const key = isPlain(d) && isPlain(d.image) ? d.image.key : undefined;
+    if (typeof key === 'string') out.push(key);
+  }
+  return out;
+}
+
+/** Every picture key a state refers to: its drawings and its undo and redo snapshots. */
+export function stateImageKeys(s: DrawingsState): string[] {
+  return [...imageKeys(s.drawings), ...s.past.flatMap(imageKeys), ...s.future.flatMap(imageKeys)];
+}
+
+/**
+ * The picture keys of every stored drawing of every source, read fresh from storage (other tabs share it). Null when
+ * storage cannot be read; `newer` when the payload is from a newer app, which this one cannot read completely.
+ */
+export function persistedImageKeys(): { keys: Set<string>; newer: boolean } | null {
+  const r = peekJson(STORAGE_KEY);
+  if (!r.ok) return null;
+  const v = r.value;
+  if (v === null) return { keys: new Set(), newer: false };
+  if (!isPlain(v)) return null;
+  if (finite(v.version) && v.version > STORAGE_VERSION) return { keys: new Set(), newer: true };
+  const keys = new Set<string>();
+  if (isPlain(v.sources)) for (const list of Object.values(v.sources)) if (Array.isArray(list)) for (const k of imageKeys(list)) keys.add(k);
+  return { keys, newer: false };
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */
