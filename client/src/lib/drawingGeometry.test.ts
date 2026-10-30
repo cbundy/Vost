@@ -74,6 +74,11 @@ describe('snapToBar', () => {
     expect(snapToBar(bars, { time: hourly[1], price: 101.2 })).toEqual({ time: hourly[1], price: 101 });
     expect(snapToBar(bars, { time: hourly[1], price: 103.2 })).toEqual({ time: hourly[1], price: 103 });
   });
+  it('timeOnly takes the bar time and keeps the anchor price', () => {
+    expect(snapToBar(bars, { time: hourly[3] + 0.4 * H, price: 112 }, { timeOnly: true })).toEqual({ time: hourly[3], price: 112 });
+    const off = { time: hourly[0] - 0.6 * H, price: 105 };
+    expect(snapToBar(bars, off, { timeOnly: true })).toBe(off);
+  });
   it('leaves an anchor outside every bar unchanged', () => {
     const left = { time: hourly[0] - 0.6 * H, price: 105 };
     const right = { time: hourly[7] + 0.6 * H, price: 105 };
