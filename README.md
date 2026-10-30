@@ -14,6 +14,8 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 
 </div>
 
+**New to Vost? Read the [user guide](docs/guide/README.md)** - one page per feature, with screenshots.
+
 ---
 
 ## Why Vost?
@@ -29,22 +31,30 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 
 ## Feature tour
 
-**Charting**
+Each area below has a page in the [user guide](docs/guide/README.md).
+
+**Charting** ([guide](docs/guide/charts.md))
 - Candlestick chart with volume, powered by TradingView's open-source *lightweight-charts* (v5, panes supported)
 - Indicators: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD — configurable periods & colors, live editing
 - Coloured crosshair legend (label, OHLC, change, volume), a bar under the chart with quick ranges (1D to All), the Range picker and the time-zone clock, fit-to-screen, PNG screenshot, CSV export
-- Bar replay: pick a starting bar (click it or type a date, and pick a new one at any time during replay), then step or play forward at 1, 3 or 10 bars a second with no look-ahead in the chart, indicators, Pine output or trade markers; backtests still use all the data and live bars keep arriving in the background
+- Bar replay: pick a starting bar (click it or type a date, and pick a new one at any time during replay), then step or play forward at 1, 3 or 10 bars a second with no look-ahead in the chart, indicators, Pine output or trade markers; backtests still use all the data and live bars keep arriving in the background ([guide](docs/guide/replay.md))
+- Layouts ([guide](docs/guide/layouts.md)): 1 to 16 charts in 55 arrangements with one active chart, **Sync in layout** switches (symbol, interval, crosshair, time, date range) and named layouts you can save (Ctrl/Cmd+S), autosave, copy, rename and reopen
+- Custom intervals ([guide](docs/guide/timeframes.md)): any number-and-unit timeframe such as 2h, 10m or 3M from **Add interval...** in the timeframe picker
+- Drawings ([guide](docs/guide/drawings.md)): trend line, horizontal line, ray, rectangle, Fibonacci, text notes, measure and magnet, saved per symbol
+- Price alerts ([guide](docs/guide/alerts.md)): the server watches prices around the clock and can message you on Telegram
+- Watchlist ([guide](docs/guide/watchlist.md)): lists, sections, tags and live quotes
+- Pine Script ([guide](docs/guide/pine.md)): Pine v5 and v6 indicators and strategies, an editor pane, old-script conversion, TradingView libraries and a side-by-side compare page
 - Live streaming candles (the server keeps one exchange websocket per feed, shared by all tabs, with auto-reconnect and a Binance fallback host)
 - Connection health light in the top bar: whether each exchange's price history, symbol lookup and live stream is working right now, with a "Test now" button (the server checks about once a minute; `VOST_STATUS_INTERVAL=0` turns that off)
 
-**Data**
+**Data** ([guide](docs/guide/data.md))
 - **Binance** — free public crypto klines + realtime websocket, no key
 - **Yahoo Finance** — stocks, ETFs, indices, forex, crypto (delayed), no key
 - **Demo** — deterministic synthetic candles, fully offline
 - **CSV import** — auto-detects delimiter, header, column roles, and ~8 timestamp formats (see [CSV support](#csv-import--the-offline-workflow))
 - Local library: imported datasets persist in browser storage; chart & backtest with the network off
 
-**Backtesting**
+**Backtesting** ([guide](docs/guide/backtesting.md))
 - Built-in strategies: SMA/EMA crossover, MACD, RSI mean-reversion, Bollinger (breakout & reversion), Donchian breakout, Buy & hold — plus **custom JavaScript strategies**
 - Engine: single position, next-bar-open fills, bps fees & slippage per side, intrabar stops/takes (stop-first conservative assumption, gap-through fills), shorts optional
 - Results: 20+ metrics (CAGR, Sharpe, Sortino, Calmar, max drawdown & duration, profit factor, exposure, expectancy…), equity + underwater chart, full trade log, CSV exports, trade markers drawn on the chart
@@ -189,7 +199,7 @@ Vost/
 │   └── providers/             # one REST adapter per data provider (Binance, Yahoo, …)
 ├── shared/                    # wire types and the provider catalog, used by server and client
 ├── examples/                  # ready-to-import sample CSVs
-└── docs/                      # strategy authoring & deployment guides
+└── docs/                      # user guide (docs/guide), strategy authoring & deployment guides
 ```
 
 - The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its state on disk is the price-alerts file (`alerts.json`), the Pine libraries it keeps for scripts that import them (`pine-libraries.json`: open-source TradingView libraries it fetched, and ones you pasted) and the candle store (`candles.sqlite`, a SQLite file written through Node's built-in `node:sqlite`), both in `VOST_DATA_DIR`; the candle store holds chart history for the markets the server records and is safe to delete (history is refetched from the exchange). The symbol-list cache and the open exchange websockets are in memory. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency.

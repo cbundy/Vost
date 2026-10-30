@@ -23,9 +23,18 @@ The first release is v0.2.0. 0.1.0 is the untagged import the fork started from.
 2. `npm version X.Y.Z --no-git-tag-version`.
 3. Write `release-notes/vX.Y.Z.md`: user-facing highlights, then a `## Changes` list of the PRs merged
    since the last tag, from `git log --first-parent <last-tag>..origin/main` (from the root commit for
-   the first release).
-4. Open the bump PR and merge it once CI is green.
-5. Confirm that the Release workflow tagged and published the release. When it failed, fix the cause and
+   the first release). Under `## Highlights`, write each user-facing item as a top-level `- **Title**: text`
+   bullet that links its guide page by the tag-pinned absolute URL
+   `https://github.com/cbundy/Vost/blob/vX.Y.Z/docs/guide/<page>.md` (optionally with `#anchor`). The URL is
+   absolute because the notes become the GitHub release body (`.github/workflows/release.yml`), where a
+   relative link would break. A bullet titled exactly `Under the hood` is exempt. `scripts/guide.test.ts`
+   fails the bump PR for notes at v0.11.0 or later whose highlight lacks such a link, links another
+   version, or links a page or anchor that does not exist.
+4. Check that the guide covers every feature PR in the release: read `git log --first-parent <last-tag>..origin/main`
+   and, for each PR that changed what a user sees or does, confirm the matching `docs/guide/` page says so.
+   Add any missing page or section in the bump PR (and list a new page in `docs/guide/README.md`).
+5. Open the bump PR and merge it once CI is green.
+6. Confirm that the Release workflow tagged and published the release. When it failed, fix the cause and
    re-run it with `workflow_dispatch` (Actions, Release, Run workflow); a re-run on an already tagged
    commit resumes and rewrites the release safely.
 
