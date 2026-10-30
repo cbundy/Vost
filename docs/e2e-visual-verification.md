@@ -51,6 +51,7 @@ npm run -s e2e:capture -- network-audit         # docs/evidence/network-audit/ne
 npm run -s e2e:capture -- watchlist             # docs/evidence/watchlist/watchlist-{quotes,card,initial,with-section,after-drag,pinned-card}-desktop.png + a desktop webm (rows with Last, Chg, Chg% and the symbol card)
 npm run -s e2e:capture -- outage                # docs/evidence/outage/outage.webm (+ .gif) and outage-{live,outage,recovered}-desktop.png
 npm run -s e2e:capture -- zone-clock            # docs/evidence/zone-clock/zone-clock-{clock,list,filtered,tehran}-{desktop,narrow}.png
+npm run -s e2e:capture -- pine-security        # docs/evidence/pine-security/pine-security-daily-ema-desktop.png
 npm run -s e2e:capture -- pine-pane            # docs/evidence/pine-pane/pine-pane-{editor,error,reopened,resized,empty}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-convert        # docs/evidence/pine-convert/pine-convert-{legacy,converted}-{desktop,narrow}.png
 npm run -s e2e:capture -- pine-libraries    # docs/evidence/pine-libraries/pine-libraries-{fetched,missing,dialog,pasted,removed}-{desktop,narrow}.png (a script importing an open-source library from the fake TradingView runs, a closed-source one shows the error and Paste library, pasting it makes the script run, Remove brings the error back)

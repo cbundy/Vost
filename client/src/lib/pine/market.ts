@@ -6,8 +6,10 @@
  * (right for every crypto provider, not for stocks) and `syminfo.mintick` is estimated from the prices.
  */
 import type { IProvider, ISymbolInfo } from 'pinets';
-import { parseInterval } from '../../../../shared/market';
+import { intervalSeconds, parseInterval, type Interval } from '../../../../shared/market';
+import { buildBars } from '../../../../shared/timeframes';
 import type { Candle } from '../../types';
+import { defaultMarketFeed, intervalEndMs, type MarketFeed } from './marketFeed';
 import type { PineMarket } from './types';
 
 /** The Pine timeframe string of a Vost interval (`15m` -> "15", `2h` -> "120", `3d` -> "3D", `1w` -> "W", `1M` -> "M"). */
@@ -131,26 +133,113 @@ export function toKlines(candles: Candle[], market: PineMarket | undefined, tf: 
   });
 }
 
-/** What PineTS runs on: the chart's own candles, and an error for any other symbol or timeframe. */
-export function createMarketProvider(candles: Candle[], market: PineMarket | undefined): { provider: IProvider; ticker: string; timeframe: string; endTime: number } {
+type Kline = ReturnType<typeof toKlines>[number];
+
+/** The Vost interval of a Pine timeframe string (`"720"` is `12h`, `"D"` is `1d`, `"W"` is `1w`), or null for seconds and anything else. */
+export function vostInterval(timeframe: string): Interval | null {
+  const m = /^(\d*)([SDWM]?)$/i.exec(timeframe.trim());
+  if (!m || !(m[1] || m[2])) return null;
+  const n = Number(m[1] || 1);
+  const unit = m[2].toUpperCase();
+  if (n < 1 || unit === 'S') return null;
+  const text: string = unit === 'D' ? `${n}d` : unit === 'W' ? `${n}w` : unit === 'M' ? `${n}M` : n % 60 === 0 ? `${n / 60}h` : `${n}m`;
+  return parseInterval(text) ? (text as Interval) : null;
+}
+
+function kline(c: Candle, closeTime: number): Kline {
+  return {
+    openTime: c.time * 1000, closeTime, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume,
+    quoteAssetVolume: 0, numberOfTrades: 0, takerBuyBaseAssetVolume: 0, takerBuyQuoteAssetVolume: 0, ignore: 0,
+  };
+}
+
+/**
+ * Higher-timeframe bars as the run may see them. `finished` are the bars whose interval ended by the run's end; the bar
+ * holding the run's last chart bar is rebuilt from the chart's own candles and closes at its full interval end.
+ *
+ * A finished bar closes with the last chart bar inside `[its open, the next bar's open)`, so with `lookahead_off` its
+ * value first shows on that chart bar (a stock's daily value on the day's last session bar, with no exchange calendar).
+ * With no chart bar inside, it closes at its own interval end (capped at the next bar's open) minus 1 ms.
+ */
+export function higherKlines(chart: Kline[], candles: Candle[], finished: Candle[], interval: Interval, endTime: number): Kline[] {
+  const out: Kline[] = [];
+  let ci = 0;
+  for (let j = 0; j < finished.length; j++) {
+    const c = finished[j];
+    const open = c.time * 1000;
+    if (open > endTime) break;
+    const natural = intervalEndMs(open, interval);
+    const next = j + 1 < finished.length ? Math.min(natural, finished[j + 1].time * 1000) : natural;
+    while (ci < chart.length && chart[ci].openTime < open) ci++;
+    let last = -1;
+    for (let k = ci; k < chart.length && chart[k].openTime < next; k++) last = k;
+    out.push(kline(c, last >= 0 ? Math.min(chart[last].closeTime, next - 1) : next - 1));
+  }
+  // The forming bar: chart candles after the last finished bar's interval (else from the interval's UTC bucket start).
+  const lastCandle = candles[candles.length - 1];
+  const lastFinished = finished.length ? finished[finished.length - 1] : undefined;
+  const formingOpen = lastFinished ? intervalEndMs(lastFinished.time * 1000, interval) : buildBars([lastCandle], interval)[0].time * 1000;
+  if (lastCandle.time * 1000 >= formingOpen) {
+    const part = candles.filter((c) => c.time * 1000 >= formingOpen);
+    const agg = part.reduce((a, c) => ({ ...a, high: Math.max(a.high, c.high), low: Math.min(a.low, c.low), close: c.close, volume: a.volume + c.volume }), { ...part[0] });
+    out.push(kline({ ...agg, time: formingOpen / 1000 }, intervalEndMs(formingOpen, interval) - 1));
+  }
+  return out;
+}
+
+/** What PineTS runs on: the chart's own candles, the chart's symbol at other timeframes (from `feed`), and an error for any other symbol. */
+export function createMarketProvider(
+  candles: Candle[],
+  market: PineMarket | undefined,
+  feed: MarketFeed = defaultMarketFeed(),
+): { provider: IProvider; ticker: string; timeframe: string; endTime: number } {
   const tf = marketTimeframe(market, candles);
   const id = marketIdentity(market);
   const klines = toKlines(candles, market, tf);
+  const endTime = klines.length ? klines[klines.length - 1].closeTime : 0;
   const own = (t: string) => {
     const u = t.toUpperCase();
     return u === id.ticker.toUpperCase() || u === id.tickerid.toUpperCase();
   };
+
+  async function otherTimeframe(m: PineMarket, timeframe: string, startMs: number): Promise<Kline[]> {
+    const interval = vostInterval(timeframe);
+    if (!interval) throw new Error(`${timeframe} is not a timeframe Vost has bars for`);
+    const wantMs = intervalSeconds(interval) * 1000;
+    const chartMs = barLengthMs(m, tf, candles[candles.length - 1].time * 1000);
+    if (wantMs === chartMs) return klines;
+    const from = Math.min(startMs, candles[0].time * 1000);
+    if (wantMs < chartMs) {
+      if (m.dataset) throw new Error(`the imported data has ${tf} bars and cannot give lower ones`);
+      const bars = await feed.bars({ providerId: m.providerId, symbol: m.symbol, interval, ...(m.source && { source: m.source }), fromMs: from, toMs: endTime });
+      return bars.map((c) => kline(c, intervalEndMs(c.time * 1000, interval) - 1)).filter((k) => k.closeTime <= endTime);
+    }
+    if (m.dataset) {
+      // Built from the dataset's own candles; the oldest bucket may start before the data and is left out.
+      const built = buildBars(candles, interval);
+      const bars = built.filter((c, i) => i > 0 || c.time >= candles[0].time).filter((c) => intervalEndMs(c.time * 1000, interval) <= endTime + 1);
+      return higherKlines(klines, candles, bars, interval, endTime);
+    }
+    const bars = await feed.bars({ providerId: m.providerId, symbol: m.symbol, interval, ...(m.source && { source: m.source }), fromMs: from, toMs: endTime });
+    return higherKlines(klines, candles, bars.filter((c) => intervalEndMs(c.time * 1000, interval) <= endTime + 1), interval, endTime);
+  }
+
   const provider: IProvider = {
-    async getMarketData(tickerId, timeframe) {
-      if (!own(tickerId) || normalizeTimeframe(timeframe) !== normalizeTimeframe(tf)) {
-        throw new Error(`request.security(${tickerId}, ${timeframe}) needs data Vost does not load yet`);
+    async getMarketData(tickerId, timeframe, _limit, sDate) {
+      const unavailable = new Error(`request.security(${tickerId}, ${timeframe}) needs data Vost does not load yet`);
+      if (!own(tickerId)) throw unavailable;
+      if (normalizeTimeframe(timeframe) === normalizeTimeframe(tf)) return klines;
+      if (!market) throw unavailable;
+      try {
+        return await otherTimeframe(market, timeframe, typeof sDate === 'number' && Number.isFinite(sDate) ? sDate : candles[0].time * 1000);
+      } catch (e) {
+        throw new Error(`request.security(${tickerId}, ${timeframe}): could not load ${timeframe} bars of ${market.symbol}: ${e instanceof Error ? e.message : String(e)}`);
       }
-      return klines;
     },
     async getSymbolInfo() {
       return symbolInfo(market, candles, tf);
     },
     configure() {},
   };
-  return { provider, ticker: id.ticker, timeframe: tf, endTime: klines.length ? klines[klines.length - 1].closeTime : 0 };
+  return { provider, ticker: id.ticker, timeframe: tf, endTime };
 }

@@ -10,6 +10,8 @@ export interface PineMarket {
   barSeconds?: number;
   /** An imported dataset is shown: `syminfo.type` is empty. */
   dataset?: boolean;
+  /** `built` when the chart's Build setting is on: other timeframes are asked for built the same way. */
+  source?: 'built';
 }
 
 export type PineKind = 'indicator' | 'strategy';

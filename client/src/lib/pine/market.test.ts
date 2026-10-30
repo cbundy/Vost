@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
-import { createMarketProvider, estimateMintick, marketIdentity, pineTimeframe, pineTimeframeOfSeconds, toKlines } from './market';
+import { createMarketProvider, estimateMintick, marketIdentity, pineTimeframe, pineTimeframeOfSeconds, toKlines, vostInterval } from './market';
 
 const bar = (time: number, p = 100): Candle => ({ time, open: p, high: p + 1, low: p - 1, close: p, volume: 1 });
 
@@ -59,12 +59,24 @@ describe('createMarketProvider', () => {
     expect(await provider.getMarketData('BTCUSDT', '60')).toHaveLength(2);
     expect(await provider.getMarketData('BINANCE:BTCUSDT', '60')).toHaveLength(2);
   });
-  it('throws a named error for another symbol or timeframe', async () => {
+  it('throws a named error for another symbol', async () => {
     await expect(provider.getMarketData('ETHUSDT', '60')).rejects.toThrow('request.security(ETHUSDT, 60) needs data Vost does not load yet');
-    await expect(provider.getMarketData('BTCUSDT', 'D')).rejects.toThrow('request.security(BTCUSDT, D) needs data Vost does not load yet');
+    await expect(provider.getMarketData('ETHUSDT', 'D')).rejects.toThrow('request.security(ETHUSDT, D) needs data Vost does not load yet');
+  });
+  it('throws the same error for another timeframe when there is no market', async () => {
+    const { provider: bare } = createMarketProvider(candles, undefined);
+    await expect(bare.getMarketData('VOST', 'D')).rejects.toThrow('request.security(VOST, D) needs data Vost does not load yet');
   });
   it('reports symbol info', async () => {
     const info = await provider.getSymbolInfo('BTCUSDT');
     expect(info).toMatchObject({ ticker: 'BTCUSDT', tickerid: 'BINANCE:BTCUSDT', prefix: 'BINANCE', type: 'crypto', timezone: 'UTC', mintick: 1, pricescale: 1, minmove: 1 });
+  });
+});
+
+describe('vostInterval', () => {
+  it('maps Pine timeframes to Vost intervals', () => {
+    const m = (tf: string) => vostInterval(tf);
+    expect([m('1'), m('15'), m('60'), m('720'), m('D'), m('1D'), m('3D'), m('W'), m('M'), m('2M')]).toEqual(['1m', '15m', '1h', '12h', '1d', '1d', '3d', '1w', '1M', '2M']);
+    expect([m('1S'), m('30S'), m(''), m('x'), m('0')]).toEqual([null, null, null, null, null]);
   });
 });
