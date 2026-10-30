@@ -128,4 +128,11 @@ Any agent making code changes - solo or delegated - works inside a a treehouse w
 To run the app: `npm run dev` starts the API server (`server/index.mjs`, port 8787) and the
 Vite client (port 5173) together. No keys are needed: the defaults in `.env.example` work
 as they are.
+## User guide
+
+`docs/guide/` is the user guide (one page per feature area, indexed in `docs/guide/README.md`). A PR that adds or
+changes something a user sees or does updates the matching guide page in the same PR, reusing that PR's captures
+from `docs/evidence/` (add a page and list it in the index for a new area). `scripts/guide.test.ts` (part of `npm test`)
+fails on an unindexed or missing page, a broken relative link or image, or a bad `#anchor`. Release notes from v0.11.0
+must link every highlight to the guide (see `RELEASING.md`).
 <!-- end repo-owned -->

@@ -134,6 +134,7 @@ Then append it to the `strategies` array. Rules:
 2. Conventional commit messages (`feat:`, `fix:`, `docs:`, `refactor:` …) are appreciated.
 3. Make sure `npm run typecheck && npm test && npm run build` pass.
 4. Open a PR describing the change, with a screenshot for UI work (see `docs/e2e-visual-verification.md`).
+5. If the change adds or changes something a user sees or does, update the matching page in `docs/guide/` in the same PR (reuse the screenshots you captured, committed under `docs/evidence/`). `npm test` checks the guide's links, images and index.
 
 ## Reporting bugs
 
