@@ -642,12 +642,17 @@ describe('drawing management edits', () => {
 
 describe('caption tools', () => {
   const CAPTION = new Set(['arrowMarkUp', 'arrowMarker']);
-  const counts = { ...COUNTS, arrowMarkUp: 1, arrowMarker: 2, circle: 2, arrow: 2, arrowMarkDown: 1, text: 1 };
+  const counts = { ...COUNTS, arrowMarkUp: 1, arrowMarker: 2, circle: 2, arrow: 2, arrowMarkDown: 1, text: 1, rotatedRectangle: 3, ellipse: 3, triangle: 3, arc: 3, curve: 3, doubleCurve: 4 };
   const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
   const parse = (list: unknown[]) => parseStore({ version: 2, sources: { s: list } }, counts, TEXT, TRANSIENT, new Set(), CAPTION).sources.s;
   it('round trips each new tool id', () => {
     const list = [['circle', 2], ['arrow', 2], ['arrowMarker', 2], ['arrowMarkUp', 1], ['arrowMarkDown', 1]].map(([tool, n]) => ({ id: String(tool), tool, anchors: an(n as number) }));
     expect(parse(list)).toEqual(list);
+  });
+  it('round trips the three and four anchor shapes and drops a wrong count alone', () => {
+    const list = [['rotatedRectangle', 3], ['ellipse', 3], ['triangle', 3], ['arc', 3], ['curve', 3], ['doubleCurve', 4]].map(([tool, n]) => ({ id: String(tool), tool, anchors: an(n as number) }));
+    expect(parse(list)).toEqual(list);
+    expect(parse([{ id: 'x', tool: 'curve', anchors: an(2) }, { id: 'y', tool: 'doubleCurve', anchors: an(3) }, list[0]])).toEqual([list[0]]);
   });
   it('keeps a cleaned label and the drawing when it is empty, missing or not a string', () => {
     const d = (id: string, text: unknown) => ({ id, tool: 'arrowMarkUp', anchors: an(1), ...(text === undefined ? {} : { text }) });

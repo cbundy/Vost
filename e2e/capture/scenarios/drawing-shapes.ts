@@ -10,13 +10,19 @@ type Stored = { id: string; tool: string; anchors: { time: number; price: number
 type Pt = { x: number; y: number };
 
 /** The shape tools: label, stored id, where (canvas fractions) each is placed, clear of the others, and how it is drawn with a mouse. */
-const TOOLS = [
+const TOOLS: readonly { label: string; id: string; how: 'drag' | 'clicks' | 'click'; stores?: number; at: readonly Pt[] }[] = [
   { label: 'Circle', id: 'circle', how: 'drag', at: [{ x: 0.2, y: 0.3 }, { x: 0.28, y: 0.3 }] },
   { label: 'Arrow', id: 'arrow', how: 'clicks', at: [{ x: 0.4, y: 0.75 }, { x: 0.6, y: 0.55 }] },
   { label: 'Arrow marker', id: 'arrowMarker', how: 'drag', at: [{ x: 0.65, y: 0.35 }, { x: 0.9, y: 0.2 }] },
   { label: 'Arrow mark up', id: 'arrowMarkUp', how: 'click', at: [{ x: 0.1, y: 0.7 }] },
   { label: 'Arrow mark down', id: 'arrowMarkDown', how: 'click', at: [{ x: 0.5, y: 0.2 }] },
-] as const;
+  { label: 'Rotated rectangle', id: 'rotatedRectangle', how: 'drag', at: [{ x: 0.04, y: 0.1 }, { x: 0.2, y: 0.14 }, { x: 0.12, y: 0.24 }] },
+  { label: 'Ellipse', id: 'ellipse', how: 'clicks', at: [{ x: 0.3, y: 0.12 }, { x: 0.46, y: 0.12 }, { x: 0.38, y: 0.2 }] },
+  { label: 'Triangle', id: 'triangle', how: 'clicks', at: [{ x: 0.7, y: 0.1 }, { x: 0.78, y: 0.2 }, { x: 0.62, y: 0.2 }] },
+  { label: 'Arc', id: 'arc', how: 'clicks', at: [{ x: 0.84, y: 0.1 }, { x: 0.98, y: 0.1 }, { x: 0.91, y: 0.18 }] },
+  { label: 'Curve', id: 'curve', how: 'drag', stores: 3, at: [{ x: 0.3, y: 0.42 }, { x: 0.5, y: 0.42 }] },
+  { label: 'Double curve', id: 'doubleCurve', how: 'clicks', stores: 4, at: [{ x: 0.7, y: 0.82 }, { x: 0.95, y: 0.9 }] },
+];
 type ToolSpec = (typeof TOOLS)[number];
 
 /** The point-by-point tools: where (canvas fractions) each is placed, clear of the shapes above. */
@@ -31,7 +37,7 @@ export const drawingShapes: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'The shape tools (Circle, Arrow, Arrow marker, Arrow mark up, Arrow mark down, Path, Polyline): draw each (clicks, press-drag-release or taps) with a live preview, check an arrow mark lands on a bar time and stays on one when dragged sideways, select with handles, resize the circle, restyle in settings including a label on the marker and a mark, place a Path and a Polyline point by point (ended by double-click or double tap, a click on the first point or Enter; Backspace removes a point, Escape cancels), drag one point or the body, undo and redo, reload and a timeframe change',
+    'The shape tools (Circle, Arrow, Arrow marker, Arrow mark up, Arrow mark down, Rotated rectangle, Ellipse, Triangle, Arc, Curve, Double curve, Path, Polyline): draw each (clicks, press-drag-release or taps) with a live preview, check an arrow mark lands on a bar time and stays on one when dragged sideways, select with handles, resize the circle, restyle in settings including a label on the marker and a mark, place a Path and a Polyline point by point (ended by double-click or double tap, a click on the first point or Enter; Backspace removes a point, Escape cancels), drag one point or the body, undo and redo, reload and a timeframe change',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -82,7 +88,8 @@ export const drawingShapes: Scenario = {
     };
     const draw = async (t: ToolSpec) => {
       await pickTool(t.label);
-      const pts = await Promise.all(t.at.map(at));
+      // On a narrow screen the floating toolbar of the selected drawing covers the top of the chart, so the top row sits lower.
+      const pts = await Promise.all(t.at.map((f) => at(narrow && t.at.some((q) => q.y < 0.22) ? { x: f.x, y: f.y + 0.22 } : f)));
       if (narrow) {
         for (const p of pts) {
           await page.touchscreen.tap(p.x, p.y);
@@ -95,6 +102,10 @@ export const drawingShapes: Scenario = {
         await page.mouse.move(pts[1].x, pts[1].y, { steps: 12 });
         await ctx.screenshot(`preview-${t.id}`);
         await page.mouse.up();
+        for (const p of pts.slice(2)) {
+          await page.mouse.move(p.x, p.y, { steps: 6 });
+          await page.mouse.click(p.x, p.y);
+        }
       } else {
         for (const p of pts) {
           await page.mouse.move(p.x, p.y, { steps: 6 });
@@ -111,7 +122,7 @@ export const drawingShapes: Scenario = {
       await ctx.step(`draw ${t.label}${narrow ? ' by taps' : ` (${t.how})`}`, async () => {
         await draw(t);
         const list = await stored();
-        check(`${t.label} stored`, list.length === i + 1 && list[i].tool === t.id && list[i].anchors.length === t.at.length, list.map((d) => `${d.tool}:${d.anchors.length}`).join(','));
+        check(`${t.label} stored`, list.length === i + 1 && list[i].tool === t.id && list[i].anchors.length === (t.stores ?? t.at.length), list.map((d) => `${d.tool}:${d.anchors.length}`).join(','));
         await ctx.screenshot(`drawn-${t.id}`);
       });
     }
@@ -199,6 +210,95 @@ export const drawingShapes: Scenario = {
 
       await ctx.step('Arrow: drawn with its arrow head on by default', async () => {
         check('no style stored for a default arrow', (await one('arrow')).style === undefined);
+      });
+
+      await ctx.step('new shapes: select, resize by a handle, restyle', async () => {
+        const spec = (id: string) => TOOLS.find((x) => x.id === id)!;
+        const pix = (id: string) => Promise.all(spec(id).at.map(at));
+        const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+        const normal = (a: Pt, b: Pt): Pt => {
+          const len = Math.hypot(b.x - a.x, b.y - a.y);
+          return { x: -(b.y - a.y) / len, y: (b.x - a.x) / len };
+        };
+        const same = (x: Stored['anchors'][number], y: Stored['anchors'][number]) => x.time === y.time && x.price === y.price;
+        await page.keyboard.press('Escape');
+
+        // Rotated rectangle: the far-side handle changes only the width.
+        const [ra, rb, rc] = await pix('rotatedRectangle');
+        const rn = normal(ra, rb);
+        const w = (rc.x - ra.x) * rn.x + (rc.y - ra.y) * rn.y;
+        await page.mouse.click(mid(ra, rb).x, mid(ra, rb).y);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-rotatedRectangle');
+        const far = { x: mid(ra, rb).x + rn.x * w, y: mid(ra, rb).y + rn.y * w };
+        const before = await one('rotatedRectangle');
+        await drag(far, { x: far.x + rn.x * 20, y: far.y + rn.y * 20 });
+        const wider = await one('rotatedRectangle');
+        check('rotated rectangle: the width handle moves only the third point', same(wider.anchors[0], before.anchors[0]) && same(wider.anchors[1], before.anchors[1]) && !same(wider.anchors[2], before.anchors[2]));
+
+        // Ellipse: select on its edge, restyle the fill.
+        const [, , ec] = await pix('ellipse');
+        await page.mouse.click(ec.x, ec.y);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-ellipse');
+        await page.mouse.dblclick(ec.x, ec.y);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Fill opacity', { exact: true }).fill('0.5');
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('ellipse fill stored', (await one('ellipse')).style?.fillOpacity === 0.5);
+
+        // Triangle: a vertex handle moves only that vertex.
+        const [ta, tb, tc] = await pix('triangle');
+        await page.mouse.click(mid(ta, tb).x, mid(ta, tb).y);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-triangle');
+        const tri = await one('triangle');
+        await drag(tc, { x: tc.x - 20, y: tc.y + 20 });
+        const tri2 = await one('triangle');
+        check('triangle: a vertex drag moves only that vertex', same(tri2.anchors[0], tri.anchors[0]) && same(tri2.anchors[1], tri.anchors[1]) && !same(tri2.anchors[2], tri.anchors[2]));
+
+        // Arc: the bulge handle sets the bulge, an end keeps it.
+        const [, , ac] = await pix('arc');
+        await page.mouse.click(ac.x, ac.y);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-arc');
+        const arcBefore = await one('arc');
+        await drag(ac, { x: ac.x, y: ac.y + 25 });
+        const arcAfter = await one('arc');
+        check('arc: the bulge handle moves only the third point', same(arcAfter.anchors[0], arcBefore.anchors[0]) && same(arcAfter.anchors[1], arcBefore.anchors[1]) && !same(arcAfter.anchors[2], arcBefore.anchors[2]));
+
+        // Curve: the control handle bends it; the ends stay.
+        const [ca, cb] = await pix('curve');
+        const cn = normal(ca, cb);
+        const clen = Math.hypot(cb.x - ca.x, cb.y - ca.y);
+        const cmid = { x: mid(ca, cb).x + cn.x * clen * 0.15, y: mid(ca, cb).y + cn.y * clen * 0.15 };
+        await page.mouse.click(cmid.x, cmid.y);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-curve');
+        const control = { x: mid(ca, cb).x + cn.x * clen * 0.3, y: mid(ca, cb).y + cn.y * clen * 0.3 };
+        const curveBefore = await one('curve');
+        await drag(control, { x: control.x, y: control.y + 40 });
+        const curveAfter = await one('curve');
+        check('curve: the control handle moves only the control point', same(curveAfter.anchors[0], curveBefore.anchors[0]) && same(curveAfter.anchors[1], curveBefore.anchors[1]) && !same(curveAfter.anchors[2], curveBefore.anchors[2]));
+        await page.keyboard.press('Escape');
+
+        // Double curve: select at its middle, put an arrow on its end in settings.
+        const [da, db] = await pix('doubleCurve');
+        await page.mouse.click(mid(da, db).x, mid(da, db).y);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-doubleCurve');
+        await page.mouse.dblclick(mid(da, db).x, mid(da, db).y);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Arrow at end', { exact: true }).check();
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('double curve end arrow stored', (await one('doubleCurve')).style?.arrowEnd === true);
+        await page.keyboard.press('Control+z');
+        check('undo takes the arrow off', (await one('doubleCurve')).style?.arrowEnd === undefined);
+        await page.keyboard.press('Control+Shift+z');
+        await page.keyboard.press('Escape');
+        await ctx.screenshot('styled-new');
       });
     }
 
@@ -323,7 +423,7 @@ export const drawingShapes: Scenario = {
       await page.reload();
       await ctx.waitForChart();
       await page.waitForTimeout(500);
-      check('eight drawings after reload', (await stored()).length === 8);
+      check('fourteen drawings after reload', (await stored()).length === 14);
       await ctx.screenshot('reloaded');
       await page.locator('select[title="Timeframe"]').selectOption('1h');
       await page.waitForTimeout(1500);

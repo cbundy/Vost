@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MARK, arrowMarkLabelRect, arrowMarkOutline, arrowMarkerLabelRect, arrowMarkerOutline, circleHit, circleRadius, inRect, pointInPolygon, polylineHit } from './shapes';
+import { MARK, arrowMarkLabelRect, arrowMarkOutline, arrowMarkerLabelRect, arrowMarkerOutline, circleHit, circleRadius, inRect, pointInPolygon, polylineHit, arcPoints, cubicPoints, curvePoints, defaultCurveControl, ellipseFrom3, quadraticPoints, rotatedRectCorners, sideDistance } from './shapes';
 
 describe('circle', () => {
   const c = { x: 100, y: 100 };
@@ -111,5 +111,71 @@ describe('polyline hit', () => {
     const same = [{ x: 5, y: 5 }, { x: 5, y: 5 }, { x: 5, y: 5 }];
     expect(polylineHit(same, { x: 5, y: 6 }, true, 4)).toBe(true);
     expect(polylineHit(same, { x: 50, y: 6 }, true, 4)).toBe(false);
+  });
+});
+
+describe('rotated rectangle', () => {
+  it('has the corners of a side and a width', () => {
+    expect(rotatedRectCorners({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 4, y: 5 })).toEqual([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5 }, { x: 0, y: 5 }]);
+    const slanted = rotatedRectCorners({ x: 0, y: 0 }, { x: 3, y: 4 }, { x: -2, y: 5 });
+    // Width: the signed distance of (-2, 5) from the line, along the normal (-0.8, 0.6): 1.6 + 3 = 4.6.
+    expect(sideDistance({ x: 0, y: 0 }, { x: 3, y: 4 }, { x: -2, y: 5 })).toBeCloseTo(4.6);
+    expect(slanted[2].x).toBeCloseTo(3 - 0.8 * 4.6);
+    expect(slanted[2].y).toBeCloseTo(4 + 0.6 * 4.6);
+  });
+  it('is safe with equal and collinear points', () => {
+    for (const c of [rotatedRectCorners({ x: 1, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 1 }), rotatedRectCorners({ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 9, y: 0 })]) {
+      expect(c.every((q) => Number.isFinite(q.x) && Number.isFinite(q.y))).toBe(true);
+    }
+  });
+});
+
+describe('ellipse and arc', () => {
+  it('finds the centre, semi-axes and rotation', () => {
+    const e = ellipseFrom3({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 3 });
+    expect(e).toEqual({ cx: 5, cy: 0, rx: 5, ry: 3, rot: 0 });
+    const r = ellipseFrom3({ x: 0, y: 0 }, { x: 0, y: 8 }, { x: 2, y: 4 });
+    expect(r.rot).toBeCloseTo(Math.PI / 2);
+    expect(r.rx).toBe(4);
+    expect(r.ry).toBeCloseTo(2);
+  });
+  it('is safe for equal points', () => {
+    const e = ellipseFrom3({ x: 2, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 2 });
+    expect(Object.values(e).every(Number.isFinite)).toBe(true);
+  });
+  it('runs the arc from the first end to the second through the bulge on the third point side', () => {
+    const pts = arcPoints({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 3 }, 64);
+    expect(pts[0].x).toBeCloseTo(0);
+    expect(pts[64].x).toBeCloseTo(10);
+    expect(pts[32].x).toBeCloseTo(5);
+    expect(pts[32].y).toBeCloseTo(3);
+    expect(arcPoints({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: -3 }, 64)[32].y).toBeCloseTo(-3);
+    expect(arcPoints({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 0 }).every((q) => Number.isFinite(q.x + q.y))).toBe(true);
+  });
+});
+
+describe('curves', () => {
+  it('samples a quadratic Bezier by hand', () => {
+    const q = quadraticPoints({ x: 0, y: 0 }, { x: 50, y: 100 }, { x: 100, y: 0 }, 4);
+    expect(q[0]).toEqual({ x: 0, y: 0 });
+    expect(q[2]).toEqual({ x: 50, y: 50 });
+    expect(q[4]).toEqual({ x: 100, y: 0 });
+  });
+  it('samples a cubic Bezier by hand', () => {
+    const c = cubicPoints({ x: 0, y: 0 }, { x: 0, y: 100 }, { x: 100, y: 100 }, { x: 100, y: 0 }, 2);
+    expect(c[1]).toEqual({ x: 50, y: 75 });
+    expect(c[2]).toEqual({ x: 100, y: 0 });
+  });
+  it('picks the curve by the points it is given', () => {
+    const p = (x: number, y: number) => ({ x, y });
+    expect(curvePoints([p(0, 0), p(1, 1)])).toEqual([p(0, 0), p(1, 1)]);
+    expect(curvePoints([p(0, 0), p(10, 0), p(5, 5)])).toHaveLength(49);
+    expect(curvePoints([p(0, 0), p(10, 0), p(2, 5), p(8, -5)])).toHaveLength(65);
+    expect(curvePoints([])).toEqual([]);
+  });
+  it('bends a new curve to one side by a fixed fraction of its length', () => {
+    const c = defaultCurveControl({ x: 0, y: 0 }, { x: 100, y: 0 });
+    expect(c).toEqual({ x: 50, y: 30 });
+    expect(defaultCurveControl({ x: 3, y: 3 }, { x: 3, y: 3 })).toEqual({ x: 3, y: 3 });
   });
 });
