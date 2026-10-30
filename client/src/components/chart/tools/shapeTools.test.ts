@@ -4,6 +4,7 @@ import { arrow } from './arrow';
 import { arrowMarkDown, arrowMarkUp } from './arrowMark';
 import { arrowMarker } from './arrowMarker';
 import { circle } from './circle';
+import { path, polyline } from './path';
 import { CAPTION_TOOLS, TOOLS } from './index';
 import type { DrawingTool, ToolView } from './types';
 
@@ -26,7 +27,7 @@ const tabsOf = (t: DrawingTool) => new Set((t.settings ?? []).map((f) => f.tab))
 describe('registry', () => {
   it('lists the new tools after Rectangle in the Shapes family', () => {
     const shapes = TOOLS.filter((t) => t.group === 'shapes').map((t) => t.id);
-    expect(shapes).toEqual(['rectangle', 'circle', 'arrow', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown']);
+    expect(shapes).toEqual(['rectangle', 'circle', 'arrow', 'arrowMarker', 'arrowMarkUp', 'arrowMarkDown', 'path', 'polyline']);
     expect([...CAPTION_TOOLS].sort()).toEqual(['arrowMarkDown', 'arrowMarkUp', 'arrowMarker']);
     expect(TOOLS.filter((t) => t.barTime).map((t) => t.id)).toEqual(['arrowMarkUp', 'arrowMarkDown']);
   });
@@ -115,5 +116,50 @@ describe('arrow marks', () => {
     expect(arrowMarkUp.hit(tip, { x: 100, y: 135 }, view(arrowMarkUp))).toBe(false);
     expect(arrowMarkUp.hit(tip, { x: 100, y: 135 }, view(arrowMarkUp, 'buy'))).toBe(true);
     expect(arrowMarkDown.hit(tip, { x: 100, y: 65 }, view(arrowMarkDown, 'sell'))).toBe(true);
+  });
+});
+
+describe('path and polyline', () => {
+  const pts = [{ x: 100, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 200 }, { x: 100, y: 200 }];
+  const ctx = new Proxy({}, { get: () => () => undefined, set: () => true }) as unknown as CanvasRenderingContext2D;
+  it('take a range of points', () => {
+    expect(path.anchors).toEqual({ min: 2, max: 100 });
+    expect(polyline.anchors).toEqual({ min: 3, max: 100 });
+  });
+  it('have a handle on every point and move only the dragged one', () => {
+    for (const t of [path, polyline]) {
+      expect(t.handles(pts, view(t))).toEqual(pts);
+      expect(t.dragHandle).toBeUndefined();
+    }
+  });
+  it('hit on every segment and not a little away', () => {
+    expect(path.hit(pts, { x: 150, y: 101 }, view(path))).toBe(true);
+    expect(path.hit(pts, { x: 201, y: 150 }, view(path))).toBe(true);
+    expect(path.hit(pts, { x: 150, y: 120 }, view(path))).toBe(false);
+    expect(path.hit(pts, { x: 99, y: 150 }, view(path))).toBe(false);
+  });
+  it('closes the polyline: its last segment and, with a fill, inside', () => {
+    expect(polyline.hit(pts, { x: 99, y: 150 }, view(polyline))).toBe(true);
+    expect(polyline.hit(pts, { x: 150, y: 150 }, view(polyline))).toBe(true);
+    expect(polyline.hit(pts, { x: 150, y: 150 }, view(polyline, '', { fillOpacity: 0 }))).toBe(false);
+    expect(polyline.hit(pts, { x: 300, y: 150 }, view(polyline))).toBe(false);
+  });
+  it('draw one, two or repeated points without throwing', () => {
+    for (const t of [path, polyline]) {
+      for (const p of [[], pts.slice(0, 1), pts.slice(0, 2), [pts[0], pts[0], pts[0]], pts]) {
+        expect(() => t.draw(ctx, p, view(t), { selected: true })).not.toThrow();
+      }
+    }
+  });
+  it('have TradingView defaults: no arrows; a translucent fill', () => {
+    const s = view(path).style;
+    expect([s.arrowStart, s.arrowEnd]).toEqual([false, false]);
+    expect((view(polyline).style.fillOpacity as number) > 0).toBe(true);
+    expect((polyline.settings ?? []).map((f) => f.key)).toEqual(['color', 'width', 'lineStyle', 'fillColor', 'fillOpacity']);
+  });
+  it('label every price and the first and last time while selected', () => {
+    const a = [1, 2, 3].map((n) => ({ time: n, price: n * 10 }));
+    expect(path.axisLabels!(a, {}, true)).toEqual({ price: [10, 20, 30], time: [1, 3] });
+    expect(polyline.axisLabels!(a, {}, false)).toEqual({});
   });
 });

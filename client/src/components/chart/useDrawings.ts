@@ -20,6 +20,7 @@ import {
   setText,
   sourceKey,
   undo,
+  anchorRange,
   type Anchor,
   type Drawing,
   type DrawingsState,
@@ -27,7 +28,7 @@ import {
 } from '../../lib/drawings';
 import { addAll, normalizeRect, only, prune, toggle } from '../../lib/drawingSelection';
 import { drawingKeyAction } from '../../lib/drawingKeys';
-import { DRAG_PX, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, type Draft } from '../../lib/drawingDraft';
+import { DRAG_PX, closesOnFirst, endDraft, isOpenEnded, moveDraft, pressDraft, releaseDraft, secondFinger, startDraft, undoPoint, type Draft } from '../../lib/drawingDraft';
 import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawingRail';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
@@ -59,6 +60,9 @@ function drawingsStorage(): DrawingsStorage {
 
 /** Two taps on the same note within this many ms open its editor. */
 const DOUBLE_TAP_MS = 350;
+
+/** A double-click or double tap this soon after a drawing was placed belongs to the placing, not to the new drawing. */
+const DRAFT_END_GRACE_MS = 500;
 
 export type DrawingEditor = {
   /** Changes with every opening, so the input is made new. */
@@ -125,6 +129,8 @@ export function useDrawings(
   const statesRef = useRef(new Map<string, DrawingsState>());
   const selectedRef = useRef<string[]>([]);
   const draftRef = useRef<Draft | null>(null);
+  /** Ends the open-ended draft in flight (Enter); set by the pointer effect, which owns finishing a drawing. */
+  const endDraftRef = useRef<() => void>(() => {});
   const dragRef = useRef<Drag | null>(null);
   const measureRef = useRef<Drawing | null>(null);
   const editTargetRef = useRef<EditorTarget | null>(null);
@@ -413,6 +419,10 @@ export function useDrawings(
     let box: { start: Pt; cur: Pt } | null = null;
     let touch = false;
     let lastTap: { id: string; t: number; p: Pt } | null = null;
+    /** The last touch press that added a point to an open-ended draft: a second one close by in time and place ends it. */
+    let draftTap: { t: number; p: Pt } | null = null;
+    /** When an open-ended draft last ended: the double-click that follows must not open the new drawing's settings. */
+    let draftEndedAt = -Infinity;
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
     const snap = (a: Anchor, def?: DrawingTool): Anchor =>
@@ -466,12 +476,28 @@ export function useDrawings(
         setTool(CURSOR);
         return;
       }
+      draftEndedAt = performance.now();
       setState(add(getState(), { id: newDrawingId(), tool: id, anchors }), true);
       const created = getState().drawings.at(-1)!;
       draftRef.current = null;
       setTool(CURSOR);
       selectedRef.current = only(created.id);
       sync();
+    };
+
+    /** The user ends an open-ended draft: it is saved when it has enough points, else dropped (the tool stays picked). */
+    const endOpen = (draft: Draft) => {
+      const step = endDraft(draft, anchorRange(getTool(draft.tool)?.anchors ?? 2).min);
+      draftEndedAt = performance.now();
+      if (step.done) finish(step.done, draft.tool);
+      else {
+        draftRef.current = null;
+        sync();
+      }
+    };
+    endDraftRef.current = () => {
+      const draft = draftRef.current;
+      if (draft && draft.phase === 'waiting') endOpen(draft);
     };
 
     const onDown = (e: PointerEvent) => {
@@ -514,6 +540,18 @@ export function useDrawings(
         claim(e);
         const draft = draftRef.current;
         if (draft) {
+          if (isOpenEnded(def.anchors) && draft.phase === 'waiting') {
+            const { min } = anchorRange(def.anchors);
+            const first = prim.toPoint(draft.anchors[0], def);
+            const hitOpts = touch ? TOUCH_HIT : MOUSE_HIT;
+            const doubleTap = touch && draftTap !== null && e.timeStamp - draftTap.t <= DOUBLE_TAP_MS && Math.hypot(p.x - draftTap.p.x, p.y - draftTap.p.y) < DRAG_PX * 2;
+            draftTap = touch ? { t: e.timeStamp, p } : null;
+            if (doubleTap || (first && closesOnFirst(draft, p, first, hitOpts.handleRadius, min))) {
+              draftTap = null;
+              endOpen(draft);
+              return; // the pointerup releases
+            }
+          }
           const step = pressDraft(draft, anchor, def.anchors);
           if (step.done) finish(step.done, toolId);
           else {
@@ -528,7 +566,7 @@ export function useDrawings(
           openEditor(null, toolId, anchor, '');
           return; // the pointerup releases
         }
-        if (def.anchors === 1) {
+        if (anchorRange(def.anchors).max === 1) {
           finish([anchor], toolId);
           return; // the pointerup releases
         }
@@ -725,6 +763,15 @@ export function useDrawings(
 
     const onDblClick = (e: MouseEvent) => {
       const prim = primRef.current;
+      const draft = draftRef.current;
+      if (draft && isOpenEnded(getTool(draft.tool)?.anchors ?? 2)) {
+        // A double-click ends an open-ended draft; its second press added a point on the first, which the end drops.
+        e.stopPropagation();
+        e.preventDefault();
+        if (draft.phase === 'waiting') endOpen(draft);
+        return;
+      }
+      if (performance.now() - draftEndedAt < DRAFT_END_GRACE_MS) return;
       if (!prim || toolRef.current !== CURSOR || hiddenRef.current) return;
       const r = el.getBoundingClientRect();
       const p = { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -793,6 +840,7 @@ export function useDrawings(
         editable: isEditable(e.target),
         dragging: dragRef.current != null,
         hasSelection: selectedRef.current.length > 0,
+        drafting: draftRef.current != null && isOpenEnded(getTool(draftRef.current.tool)?.anchors ?? 2),
       });
       if (!action) return;
       if (action === 'escape') {
@@ -800,6 +848,19 @@ export function useDrawings(
           measureRef.current = null;
           setTool(CURSOR);
           e.preventDefault();
+        }
+        return;
+      }
+      if (action === 'end-draft') {
+        e.preventDefault();
+        endDraftRef.current();
+        return;
+      }
+      if (action === 'undo-point') {
+        e.preventDefault();
+        if (draftRef.current) {
+          draftRef.current = undoPoint(draftRef.current);
+          sync();
         }
         return;
       }

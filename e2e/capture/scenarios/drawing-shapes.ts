@@ -19,6 +19,11 @@ const TOOLS = [
 ] as const;
 type ToolSpec = (typeof TOOLS)[number];
 
+/** The point-by-point tools: where (canvas fractions) each is placed, clear of the shapes above. */
+const PATH_AT = [{ x: 0.12, y: 0.85 }, { x: 0.25, y: 0.78 }, { x: 0.38, y: 0.87 }, { x: 0.52, y: 0.8 }, { x: 0.66, y: 0.88 }];
+const POLY_AT = [{ x: 0.72, y: 0.5 }, { x: 0.9, y: 0.5 }, { x: 0.95, y: 0.68 }, { x: 0.8, y: 0.74 }];
+const ENTER_AT = [{ x: 0.05, y: 0.5 }, { x: 0.15, y: 0.44 }, { x: 0.27, y: 0.56 }];
+
 const GROUP = 'Shapes';
 
 export const drawingShapes: Scenario = {
@@ -26,7 +31,7 @@ export const drawingShapes: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'The shape tools (Circle, Arrow, Arrow marker, Arrow mark up, Arrow mark down): draw each (clicks, press-drag-release or taps) with a live preview, check an arrow mark lands on a bar time and stays on one when dragged sideways, select with handles, resize the circle, restyle in settings including a label on the marker and a mark, undo and redo, reload and a timeframe change',
+    'The shape tools (Circle, Arrow, Arrow marker, Arrow mark up, Arrow mark down, Path, Polyline): draw each (clicks, press-drag-release or taps) with a live preview, check an arrow mark lands on a bar time and stays on one when dragged sideways, select with handles, resize the circle, restyle in settings including a label on the marker and a mark, place a Path and a Polyline point by point (ended by double-click or double tap, a click on the first point or Enter; Backspace removes a point, Escape cancels), drag one point or the body, undo and redo, reload and a timeframe change',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -197,12 +202,128 @@ export const drawingShapes: Scenario = {
       });
     }
 
+    /* Path and Polyline: any number of points, ended in the ways TradingView ends them. */
+    const count = async (id: string) => (await stored()).filter((d) => d.tool === id).length;
+    const tapOnce = async (p: Pt) => {
+      await page.touchscreen.tap(p.x, p.y);
+      await page.waitForTimeout(700);
+    };
+    const place = async (pts: readonly { x: number; y: number }[], shot?: string) => {
+      const ps = await Promise.all(pts.map(at));
+      for (const [i, p] of ps.entries()) {
+        if (narrow) await tapOnce(p);
+        else {
+          await page.mouse.move(p.x, p.y, { steps: 6 });
+          if (shot && i === ps.length - 1) await ctx.screenshot(shot);
+          await page.mouse.click(p.x, p.y);
+        }
+      }
+      return ps;
+    };
+
+    await ctx.step(`Path: five points ended by a ${narrow ? 'double tap' : 'double-click'}`, async () => {
+      await pickTool('Path');
+      const ps = await place(PATH_AT.slice(0, 4), 'placing-path');
+      await ctx.screenshot('placing-path');
+      const last = await at(PATH_AT[4]);
+      if (narrow) {
+        await page.touchscreen.tap(last.x, last.y);
+        await page.touchscreen.tap(last.x, last.y);
+      } else {
+        await page.mouse.move(last.x, last.y, { steps: 6 });
+        await page.mouse.dblclick(last.x, last.y);
+      }
+      await page.waitForTimeout(500);
+      const d = (await stored()).find((x) => x.tool === 'path');
+      check('path stored with five points, no duplicate', d?.anchors.length === 5 && ps.length === 4, String(d?.anchors.length));
+      check('the double-click did not open the settings', (await dialog.count()) === 0);
+      await ctx.screenshot('drawn-path');
+    });
+
+    await ctx.step('Polyline: closed by a click on its first point', async () => {
+      await pickTool('Polyline');
+      await place(POLY_AT);
+      const first = await at(POLY_AT[0]);
+      if (narrow) await tapOnce(first);
+      else {
+        await page.mouse.move(first.x + 2, first.y + 1, { steps: 6 });
+        await page.mouse.click(first.x + 2, first.y + 1);
+      }
+      await page.waitForTimeout(500);
+      const d = (await stored()).find((x) => x.tool === 'polyline');
+      check('polyline stored with four points, none added by the closing click', d?.anchors.length === 4, String(d?.anchors.length));
+      await ctx.screenshot('drawn-polyline');
+    });
+
+    await ctx.step('Path: ended by Enter; Escape cancels a draft; Backspace removes a point', async () => {
+      await pickTool('Path');
+      const ps = await place(ENTER_AT);
+      check('no drawing yet while placing', (await count('path')) === 1);
+      await page.keyboard.press('Backspace');
+      await page.mouse.move(ps[1].x + 1, ps[1].y + 1);
+      await ctx.screenshot('backspace-path');
+      await place([ENTER_AT[2]]);
+      await page.keyboard.press('Enter');
+      const d = (await stored()).filter((x) => x.tool === 'path')[1];
+      check('Enter ends it with the three points left after Backspace and a new click', d?.anchors.length === 3, String(d?.anchors.length));
+      await pickTool('Path');
+      await place([{ x: 0.35, y: 0.5 }, { x: 0.45, y: 0.45 }]);
+      await page.keyboard.press('Escape');
+      check('Escape cancels the draft, no drawing saved', (await count('path')) === 2);
+      await page.keyboard.press('Control+z');
+      check('undo removes the Enter-ended path', (await count('path')) === 1);
+      await page.keyboard.press('Control+Shift+z');
+      check('redo restores it', (await count('path')) === 2);
+    });
+
+    if (!narrow) {
+      await ctx.step('Path and Polyline: select, drag one point, drag the body, restyle', async () => {
+        await page.keyboard.press('Escape');
+        const dragTo = async (from: Pt, to: Pt) => {
+          await page.mouse.move(from.x, from.y);
+          await page.waitForTimeout(150);
+          await page.mouse.down();
+          await page.mouse.move(to.x, to.y, { steps: 12 });
+          await page.mouse.up();
+        };
+        const ps = await Promise.all(PATH_AT.map(at));
+        await page.mouse.click((ps[1].x + ps[2].x) / 2, (ps[1].y + ps[2].y) / 2);
+        await page.waitForTimeout(300);
+        await ctx.screenshot('selected-both');
+        const before = (await stored()).find((x) => x.tool === 'path')!;
+        await dragTo(ps[2], { x: ps[2].x, y: ps[2].y - 40 });
+        const one = (await stored()).find((x) => x.tool === 'path')!;
+        const moved = one.anchors.map((a, i) => a.price !== before.anchors[i].price);
+        check('a handle drag moves only that point', moved.join() === 'false,false,true,false,false', moved.join());
+        await dragTo({ x: (ps[0].x + ps[1].x) / 2, y: (ps[0].y + ps[1].y) / 2 }, { x: (ps[0].x + ps[1].x) / 2, y: (ps[0].y + ps[1].y) / 2 - 20 });
+        const body = (await stored()).find((x) => x.tool === 'path')!;
+        check('a body drag moves every point', body.anchors.every((a, i) => a.price !== one.anchors[i].price));
+        await page.keyboard.press('Control+z');
+        check('undo is one step for the whole drag', JSON.stringify((await stored()).find((x) => x.tool === 'path')!.anchors) === JSON.stringify(one.anchors));
+        await page.mouse.dblclick((ps[3].x + ps[4].x) / 2, (ps[3].y + ps[4].y) / 2);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Arrow at end', { exact: true }).check();
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('Path end arrow stored', (await stored()).find((x) => x.tool === 'path')?.style?.arrowEnd === true);
+        const poly = await Promise.all(POLY_AT.map(at));
+        const inside = { x: (poly[0].x + poly[2].x) / 2, y: (poly[0].y + poly[2].y) / 2 };
+        await page.mouse.dblclick(inside.x, inside.y);
+        await dialog.waitFor({ state: 'visible' });
+        await dialog.getByLabel('Fill opacity', { exact: true }).fill('0.5');
+        await dialog.getByRole('button', { name: 'OK' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        check('Polyline fill stored', (await stored()).find((x) => x.tool === 'polyline')?.style?.fillOpacity === 0.5);
+        await ctx.screenshot('styled-both');
+      });
+    }
+
     await ctx.step('reload and a timeframe change keep every shape', async () => {
       const before = await stored();
       await page.reload();
       await ctx.waitForChart();
       await page.waitForTimeout(500);
-      check('five drawings after reload', (await stored()).length === 5);
+      check('eight drawings after reload', (await stored()).length === 8);
       await ctx.screenshot('reloaded');
       await page.locator('select[title="Timeframe"]').selectOption('1h');
       await page.waitForTimeout(1500);

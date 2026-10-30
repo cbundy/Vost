@@ -54,3 +54,24 @@ describe('copy and paste keys', () => {
     }
   });
 });
+
+describe('keys while an open-ended drawing is placed', () => {
+  const drafting = ctx({ drafting: true });
+  it('Enter ends it and Backspace removes the last point, even with a selection', () => {
+    expect(drawingKeyAction(key('Enter'), drafting)).toBe('end-draft');
+    expect(drawingKeyAction(key('Backspace'), drafting)).toBe('undo-point');
+    expect(drawingKeyAction(key('Backspace'), ctx({ drafting: true, hasSelection: false }))).toBe('undo-point');
+    expect(drawingKeyAction(key('Escape'), drafting)).toBe('escape');
+  });
+  it('without a draft Backspace still deletes the selection and Enter does nothing', () => {
+    expect(drawingKeyAction(key('Backspace'), ctx())).toBe('delete');
+    expect(drawingKeyAction(key('Backspace'), ctx({ hasSelection: false }))).toBeNull();
+    expect(drawingKeyAction(key('Enter'), ctx())).toBeNull();
+  });
+  it('does nothing in a text field, on an inactive chart or while dragging', () => {
+    for (const over of [{ editable: true }, { active: false }, { dragging: true }]) {
+      expect(drawingKeyAction(key('Enter'), ctx({ drafting: true, ...over }))).toBeNull();
+      expect(drawingKeyAction(key('Backspace'), ctx({ drafting: true, hasSelection: false, ...over }))).toBeNull();
+    }
+  });
+});
