@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const optimizer: Scenario = {
   name: 'optimizer',
-  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a sortable full results table, a fractional step on a whole-number parameter, a grid over the limit, an in-sample / out-of-sample split with its held-out check and a refused 99%, then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -20,6 +20,34 @@ export const optimizer: Scenario = {
       await page.getByText('Rows:').scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('slow-sweep');
+    await ctx.step('split 70% in-sample, check the top 10', async () => {
+      await page.getByLabel('Validation').selectOption('split');
+      await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Top results to check').fill('10');
+      await page.getByText(/^In-sample: [\d,]+ bars/).waitFor();
+      await page.getByText('Parameter 1', { exact: true }).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('split-settings');
+    await ctx.step('run the split and show the held-out check', async () => {
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Held-out check/).waitFor();
+      await page.getByText(/Results \(in-sample\)/).waitFor();
+      await page.getByText(/Held-out check/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('held-out-check');
+    await ctx.step('refuse 99% in-sample', async () => {
+      await page.getByLabel('In-sample %').fill('99');
+      await page.getByText(/In-sample % must be a whole number/).waitFor();
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).isDisabled();
+      await page.getByText(/In-sample % must be a whole number/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('split-invalid');
+    await ctx.step('back to no validation', async () => {
+      await page.getByLabel('In-sample %').fill('70');
+      await page.getByLabel('Validation').selectOption('none');
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Results ·/).waitFor();
+    });
     await ctx.step('sort the results by Trades, then reverse', async () => {
       const header = page.getByRole('columnheader', { name: /Trades/ });
       await header.getByRole('button').click();

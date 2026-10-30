@@ -6,6 +6,7 @@ import type { Candle } from '../../types';
 import { runAnyBacktest, runFullBacktest } from './runner';
 import { getStrategy } from './strategies';
 import type { BacktestConfig, Metrics } from './types';
+import type { ValidationConfig } from './validation';
 
 export type MetricKey = 'totalReturnPct' | 'cagrPct' | 'sharpe' | 'sortino' | 'profitFactor' | 'maxDrawdownPct' | 'calmar' | 'winRatePct';
 
@@ -31,6 +32,8 @@ export interface OptimizeConfig {
   /** One sweep per parameter, in sweep order (first outermost). The grid is their product. */
   sweeps: SweepParam[];
   metric: MetricKey;
+  /** How the results are validated; absent means none. */
+  validation?: ValidationConfig;
 }
 
 export interface OptimizeRow {
@@ -56,7 +59,7 @@ export function defaultOptimizeConfig(config: BacktestConfig): OptimizeConfig {
   const strategy = getStrategy(config.strategyId);
   const numeric = strategy.params.filter((p) => p.type !== 'select' && !p.key.startsWith('__'));
   if (numeric.length === 0) {
-    return { sweeps: [{ key: 'fast', from: 5, to: 15, step: 1 }, { key: 'slow', from: 15, to: 45, step: 2 }], metric: 'sharpe' };
+    return { sweeps: [{ key: 'fast', from: 5, to: 15, step: 1 }, { key: 'slow', from: 15, to: 45, step: 2 }], metric: 'sharpe', validation: { method: 'none' } };
   }
   const sweeps: SweepParam[] = numeric.slice(0, 2).map((p, i) => {
     const d = config.params[p.key] ?? p.default ?? (i === 0 ? 10 : 30);
@@ -64,7 +67,7 @@ export function defaultOptimizeConfig(config: BacktestConfig): OptimizeConfig {
       ? { key: p.key, from: Math.max(1, Math.round(d * 0.5)), to: Math.max(2, Math.round(d * 1.5)), step: 1 }
       : { key: p.key, from: Math.max(2, Math.round(d * 0.5)), to: Math.max(3, Math.round(d * 1.5)), step: 2 };
   });
-  return { sweeps, metric: 'sharpe' };
+  return { sweeps, metric: 'sharpe', validation: { method: 'none' } };
 }
 
 export function paramValues(s: SweepParam): number[] {

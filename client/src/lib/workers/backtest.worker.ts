@@ -5,8 +5,8 @@
  */
 import type { Candle } from '../../types';
 import type { OptimizeConfig, OptimizeRow, MetricKey } from '../backtest/optimizer';
-import { runOptimizeAsync } from '../backtest/optimizer';
 import { runMonteCarlo, type MonteCarloOptions, type MonteCarloResult } from '../backtest/monteCarlo';
+import { runValidatedOptimize, type ValidationOutput } from '../backtest/validation';
 import { runAnyBacktest } from '../backtest/runner';
 import type { BacktestConfig, BacktestResult, BacktestStage, Trade } from '../backtest/types';
 import { runPine } from '../pine/runtime';
@@ -28,7 +28,7 @@ export type WorkerRequestBody =
 export type WorkerResponse =
   | { id: string; type: 'progress'; pct: number; stage?: BacktestStage }
   | { id: string; type: 'result'; result: BacktestResult }
-  | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; keys: string[]; combos: number; metric: MetricKey; errored: number }
+  | { id: string; type: 'optimizeResult'; rows: OptimizeRow[]; keys: string[]; combos: number; metric: MetricKey; errored: number; validation?: ValidationOutput }
   | { id: string; type: 'pineResult'; outcome: PineRunOutcome }
   | { id: string; type: 'monteCarloResult'; result: MonteCarloResult }
   | { id: string; type: 'error'; message: string };
@@ -68,7 +68,7 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
     return;
   }
   if (msg.type === 'optimize') {
-    runOptimizeAsync(msg.candles, msg.config, msg.optimize, (pct) => reply({ id: msg.id, type: 'progress', pct }))
+    runValidatedOptimize(msg.candles, msg.config, msg.optimize, (pct) => reply({ id: msg.id, type: 'progress', pct }))
       .then((out) =>
         reply({
           id: msg.id,
@@ -78,6 +78,7 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
           combos: out.combos,
           metric: out.metric,
           errored: out.errored,
+          validation: out.validation,
         }),
       )
       .catch(fail);

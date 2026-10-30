@@ -19,6 +19,7 @@ import type { MonteCarloOptions, MonteCarloResult } from '../lib/backtest/monteC
 import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
 import { getStrategy } from '../lib/backtest/strategies';
 import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
+import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
 import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
@@ -184,7 +185,15 @@ export interface ChartState {
   optRunning: boolean;
   optProgress: number;
   /** The last finished run, with the settings it ran with (kept for the export). */
-  optResult: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; combos: number; errored: number; context: OptimizeRunContext } | null;
+  optResult: {
+    rows: OptimizeRow[];
+    keys: string[];
+    metric: MetricKey;
+    combos: number;
+    errored: number;
+    validation?: ValidationOutput;
+    context: OptimizeRunContext;
+  } | null;
 
   symbolQuery: string;
   symbolSuggestions: SymbolSuggestion[];
@@ -890,6 +899,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', timeRangeErrorText(error));
         return;
       }
+      const problem = validationProblem(optConfig.validation, candles.length);
+      if (problem) {
+        env.pushToast('error', problem);
+        return;
+      }
       const previous = optRun ? optRun.previous : get().optResult;
       const swept = new Set(optConfig.sweeps.map((sw) => sw.key));
       const context: OptimizeRunContext = {
@@ -911,6 +925,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         allowShort: btConfig.allowShort,
         sweeps: optConfig.sweeps.map((sw) => ({ ...sw })),
       };
+      const v = optConfig.validation;
+      if (v && v.method === 'split') {
+        const parts = splitBars(candles, v.inSamplePct);
+        context.validation = { method: 'split', inSamplePct: v.inSamplePct, topN: v.topN, inSample: spanOf(parts.inSample), heldOut: spanOf(parts.heldOut) };
+      }
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
       const call = optimizerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
@@ -924,7 +943,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         optRun = null;
         if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
         set({
-          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored, context },
+          optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored, validation: msg.validation, context },
           optRunning: false,
           optProgress: 1,
         });
