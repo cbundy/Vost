@@ -14,8 +14,9 @@ import { cssColor, resolveStyle, timeframeKind, visibleOn } from '../../lib/draw
 import type { Anchor, Drawing } from '../../lib/drawings';
 import { inBox, type Rect } from '../../lib/drawingSelection';
 import { theme } from '../../lib/theme';
+import { fractionToPoint, pointToFraction } from './paneAnchor';
 import { getTool } from './tools';
-import type { ToolView } from './tools/types';
+import type { DrawingTool, ToolView } from './tools/types';
 
 type RenderTarget = Parameters<IPrimitivePaneRenderer['draw']>[0];
 
@@ -117,9 +118,18 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     this.rebuildAxisViews();
   }
 
-  /** Chart pixels of an anchor, or null when it cannot be placed (no data, off the scales). */
-  toPoint(a: Anchor, anyX = false, anyY = false): Pt | null {
+  /**
+   * Chart pixels of an anchor of a tool, or null when it cannot be placed (no data, off the scales). A pane-anchored
+   * tool's anchor is a pair of pane fractions; a tool that spans the pane's width or height places even off the scale.
+   */
+  toPoint(a: Anchor, tool?: DrawingTool): Pt | null {
     if (!this.chart || !this.series) return null;
+    if (tool?.paneAnchored) {
+      const { width, height } = this.chart.paneSize(0);
+      return fractionToPoint(a, width, height);
+    }
+    const anyX = tool?.priceOnly === true || tool?.fullWidth === true;
+    const anyY = tool?.timeOnly === true || tool?.fullHeight === true;
     const x = this.chart.timeScale().logicalToCoordinate(timeToLogical(this.getTimes(), a.time) as never);
     let y: number | null = this.series.priceToCoordinate(a.price);
     // A tool that spans the width (horizontal line) still places when its time is off the scale, and one that
@@ -139,9 +149,13 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
     return price >= Math.max(top, bottom) === top >= bottom ? 0 : height;
   }
 
-  /** Anchor under a chart pixel, or null. */
-  toAnchor(p: Pt): Anchor | null {
+  /** Anchor under a chart pixel, or null; for a pane-anchored tool the pane fractions, clamped onto the pane. */
+  toAnchor(p: Pt, tool?: DrawingTool): Anchor | null {
     if (!this.chart || !this.series) return null;
+    if (tool?.paneAnchored) {
+      const { width, height } = this.chart.paneSize(0);
+      return pointToFraction(p, width, height);
+    }
     const times = this.getTimes();
     if (times.length === 0) return null;
     const logical = this.chart.timeScale().coordinateToLogical(p.x);
@@ -153,10 +167,8 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   private points(d: Drawing): Pt[] | null {
     const pts: Pt[] = [];
     const tool = getTool(d.tool);
-    const anyX = tool?.priceOnly === true || tool?.fullWidth === true;
-    const anyY = tool?.timeOnly === true || tool?.fullHeight === true;
     for (const a of d.anchors) {
-      const pt = this.toPoint(a, anyX, anyY);
+      const pt = this.toPoint(a, tool);
       if (!pt) return null;
       pts.push(pt);
     }

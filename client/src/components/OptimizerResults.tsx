@@ -16,6 +16,7 @@ import { downloadFile } from '../lib/export';
 import { fmtNum, pnlClass } from '../lib/format';
 import type { ChartState } from '../state/chart';
 import { Heatmap } from './OptimizerHeatmap';
+import { MonteCarloChecks } from './OptimizerMonteCarlo';
 import { HeldOutCheck } from './OptimizerValidation';
 import { WalkForwardResults } from './OptimizerWalkForward';
 
@@ -25,6 +26,7 @@ type Result = NonNullable<ChartState['optResult']>;
 export function OptimizerResults({ result, onApply }: { result: Result; onApply: (row: OptimizeRow) => void }) {
   const rob = result.validation?.method === 'robustness' ? result.validation : null;
   const split = result.validation?.method === 'split' ? result.validation : null;
+  const mcOut = result.validation?.method === 'monte-carlo' ? result.validation : null;
   const scores = rob?.scores;
   const [sort, setSort] = useState<{ column: ColumnId; dir: SortDir }>(
     rob?.rankByScore ? { column: 'robustness', dir: 'desc' } : { column: 'rank', dir: 'asc' },
@@ -146,6 +148,7 @@ export function OptimizerResults({ result, onApply }: { result: Result; onApply:
           onApply={onApply}
         />
       )}
+      {mcOut && <MonteCarloChecks validation={mcOut} rows={result.rows} keys={result.keys} metric={metric} onApply={onApply} />}
       {split && <HeldOutCheck validation={split} keys={result.keys} metric={metric} onApply={onApply} />}
 
       <Heatmap key={result.keys.join('|')} rows={result.rows} keys={result.keys} metric={metric} onApply={onApply} robustBest={robustBest && robustBest !== result.rows[0] ? { row: robustBest, score: robustScore } : null} />

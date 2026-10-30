@@ -56,7 +56,7 @@ export const regressionTrend: DrawingTool = {
   settings: channelSettings(true, [
     colorField('upperColor', 'Upper line colour', 'accent'),
     colorField('lowerColor', 'Lower line colour', 'accent'),
-    choiceField('source', 'Source', 'close', SOURCES),
+    choiceField('source', 'Source', 'close', SOURCES.map((s) => ({ value: s, label: s }))),
     numberField('deviation', 'Deviation', 2, 0, 10, 0.1),
   ]),
   axisLabels: (anchors, _style, selected) => (selected ? { time: anchors.map((a) => a.time) } : {}),

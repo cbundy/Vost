@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 import { METRIC_LABELS, type OptimizeRow } from '../lib/backtest/optimizer';
 import { formatMetric } from '../lib/backtest/optimizerTable';
+import { MC_MAX_RUNS, MC_MIN_RUNS, type MonteCarloMethod } from '../lib/backtest/monteCarlo';
 import {
+  DEFAULT_MONTE_CARLO_VALIDATION,
   DEFAULT_ROBUSTNESS,
   DEFAULT_SPLIT,
   ROBUST_RADIUS_MAX,
@@ -29,6 +31,7 @@ import type { MetricKey } from '../lib/backtest/optimizer';
 
 type Split = Extract<ValidationConfig, { method: 'split' }>;
 type Robust = Extract<ValidationConfig, { method: 'robustness' }>;
+type MonteCarlo = Extract<ValidationConfig, { method: 'monte-carlo' }>;
 
 const wholeOrNaN = (text: string): number => (text === '' ? NaN : Number(text));
 
@@ -39,6 +42,9 @@ export function ValidationSettings({ value, onChange }: { value: ValidationConfi
   if (value.method === 'split') lastSplit.current = value;
   const lastRobust = useRef<Robust>({ ...DEFAULT_ROBUSTNESS });
   if (value.method === 'robustness') lastRobust.current = value;
+  const lastMc = useRef<MonteCarlo>({ ...DEFAULT_MONTE_CARLO_VALIDATION });
+  if (value.method === 'monte-carlo') lastMc.current = value;
+  const mc = value.method === 'monte-carlo' ? value : null;
   const split = value.method === 'split' ? value : null;
   const robust = value.method === 'robustness' ? value : null;
   if (value.method === 'walk-forward') lastWalk.current = value;
@@ -57,7 +63,9 @@ export function ValidationSettings({ value, onChange }: { value: ValidationConfi
                   ? { ...lastRobust.current }
                   : e.target.value === 'walk-forward'
                     ? { ...lastWalk.current }
-                    : { method: 'none' },
+                    : e.target.value === 'monte-carlo'
+                      ? { ...lastMc.current }
+                      : { method: 'none' },
             )
           }
         >
@@ -65,6 +73,7 @@ export function ValidationSettings({ value, onChange }: { value: ValidationConfi
           <option value="split">In-sample / out-of-sample</option>
           <option value="robustness">Robustness</option>
           <option value="walk-forward">Walk-forward</option>
+          <option value="monte-carlo">Monte Carlo</option>
         </select>
       </label>
       {robust && (
@@ -83,6 +92,43 @@ export function ValidationSettings({ value, onChange }: { value: ValidationConfi
           <label className="form-field">
             <span>Rank by robustness</span>
             <input type="checkbox" style={{ width: 'auto', alignSelf: 'flex-start' }} checked={robust.rankByScore} onChange={(e) => onChange({ ...robust, rankByScore: e.target.checked })} />
+          </label>
+        </>
+      )}
+      {mc && (
+        <>
+          <label className="form-field">
+            <span>Top results to check</span>
+            <input
+              type="number"
+              min={SPLIT_TOPN_MIN}
+              max={SPLIT_TOPN_MAX}
+              step={1}
+              value={Number.isNaN(mc.topN) ? '' : mc.topN}
+              onChange={(e) => onChange({ ...mc, topN: wholeOrNaN(e.target.value) })}
+            />
+          </label>
+          <label className="form-field">
+            <span>Runs</span>
+            <input
+              type="number"
+              min={MC_MIN_RUNS}
+              max={MC_MAX_RUNS}
+              step={1}
+              value={Number.isNaN(mc.iterations) ? '' : mc.iterations}
+              onChange={(e) => onChange({ ...mc, iterations: wholeOrNaN(e.target.value) })}
+            />
+          </label>
+          <label className="form-field">
+            <span>Method</span>
+            <select value={mc.mcMethod} onChange={(e) => onChange({ ...mc, mcMethod: e.target.value as MonteCarloMethod })}>
+              <option value="shuffle">Shuffle trade order</option>
+              <option value="bootstrap">Resample trades</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Seed</span>
+            <input type="number" step={1} value={Number.isNaN(mc.seed) ? '' : mc.seed} onChange={(e) => onChange({ ...mc, seed: wholeOrNaN(e.target.value) })} />
           </label>
         </>
       )}

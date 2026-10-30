@@ -243,6 +243,30 @@ describe('btRange', () => {
     expect(sent[0].candles[30].time).toBe(to);
   });
 
+  describe('monte-carlo validation', () => {
+    it('sends the setting to the worker and keeps it in the run context', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const posts: Array<{ id: string; optimize?: unknown }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        postMessage(req: { id: string }) {
+          posts.push(req);
+          const validation = { method: 'monte-carlo', topN: 5, iterations: 500, mcMethod: 'bootstrap', seed: 4, checks: [], failed: 0 };
+          queueMicrotask(() => this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0, validation } }));
+        }
+        terminate() {}
+      }
+      vi.stubGlobal('Worker', FakeW);
+      const mc = { method: 'monte-carlo', topN: 5, iterations: 500, mcMethod: 'bootstrap', seed: 4 } as const;
+      st().setOptConfig({ validation: mc });
+      await st().runOptimizer();
+      expect((posts[0].optimize as { validation: unknown }).validation).toEqual(mc);
+      expect(st().optResult!.context.validation).toEqual(mc);
+    });
+  });
+
   describe('split validation', () => {
     const split = { method: 'split', inSamplePct: 70, topN: 3 } as const;
     function fakeWorker(reply: boolean) {
