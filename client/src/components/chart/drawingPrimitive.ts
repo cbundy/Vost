@@ -187,7 +187,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
   /** What a press at p would grab: the selected drawing's handles first, then drawings from the top. */
   hit(p: Pt, opts: HitOpts = MOUSE_HIT): DrawingHit | null {
     const sel = this.drawings.find((d) => d.id === this.selectedId && this.shown(d));
-    if (sel) {
+    if (sel && !sel.locked) {
       const tool = getTool(sel.tool);
       const pts = tool && this.points(sel);
       if (tool && pts) {
@@ -222,7 +222,7 @@ export class DrawingPrimitive implements ISeriesPrimitive<Time> {
         ctx.save();
         const view = this.viewFor(d, mediaSize);
         tool.draw(ctx, pts, view, { selected });
-        if (selected) {
+        if (selected && !d.locked) {
           for (const h of tool.handles(pts, view)) {
             ctx.beginPath();
             ctx.arc(h.x, h.y, HANDLE_RADIUS, 0, Math.PI * 2);

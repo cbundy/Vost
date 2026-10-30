@@ -15,6 +15,7 @@ import {
   remove,
   removeAll,
   cleanText,
+  cloneMany,
   setText,
   sourceKey,
   undo,
@@ -28,6 +29,7 @@ import { CURSOR, ERASER, type CursorKind, type RailEntry } from '../../lib/drawi
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { editorStyle, type EditorTarget } from './textPlacement';
+import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
 import { ANCHOR_COUNTS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
@@ -283,6 +285,28 @@ export function useDrawings(
     [closeEditor, commitEditor, editorPos, sync],
   );
 
+  const deleteAll = useCallback(() => {
+    if (getState().drawings.length === 0) return;
+    if (!window.confirm('Delete all drawings on this chart?')) return;
+    setState(removeAll(getState()), true);
+    selectedRef.current = null;
+    draftRef.current = null;
+    sync();
+  }, [getState, setState, sync]);
+
+  const edit = useCallback(
+    (id: string) => {
+      const d = getState().drawings.find((x) => x.id === id);
+      if (!d) return;
+      if (TEXT_TOOLS.has(d.tool)) openEditor(d.id, d.tool, d.anchors[0], d.text ?? '', d.style);
+      else openSettings(d.id);
+    },
+    [getState, openEditor, openSettings],
+  );
+  const actions = useDrawingActions({ getState, setState, selectedRef, primRef, containerRef, hiddenRef, sync, edit, deleteAll });
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+
   /* The input follows its anchor when the chart pans, zooms or resizes. */
   useEffect(() => {
     const el = containerRef.current;
@@ -503,15 +527,39 @@ export function useDrawings(
       if (!d || !origPts || origPts.some((q) => !q)) return;
       selectedRef.current = d.id;
       claim(e);
+      if (d.locked && !(hit.handle === null && (e.ctrlKey || e.metaKey))) {
+        // A locked drawing only selects: nothing drags and the chart does not pan under it (the pointerup releases).
+        sync();
+        return;
+      }
+      let target = d;
+      const before = st.drawings;
+      if (hit.handle === null && (e.ctrlKey || e.metaKey)) {
+        // Ctrl/Cmd+drag: a copy is made and the copy is dragged; the copy and its move are one undo step (`before` is pre-copy).
+        const cloned = cloneMany(st, [d.id]);
+        const copy = cloned.drawings[cloned.drawings.findIndex((x) => x.id === d.id) + 1];
+        if (copy) {
+          if (d.locked) {
+            // A locked original: the copy is made (one undo step) and stays where it is.
+            setState(cloned, true);
+            selectedRef.current = copy.id;
+            sync();
+            return;
+          }
+          setState({ ...st, drawings: cloned.drawings }, false);
+          target = copy;
+          selectedRef.current = copy.id;
+        }
+      }
       dragRef.current = {
-        id: d.id,
+        id: target.id,
         handle: hit.handle,
         start: p,
-        origAnchors: d.anchors,
-        origText: d.text,
-        origStyle: d.style,
+        origAnchors: target.anchors,
+        origText: target.text,
+        origStyle: target.style,
         origPts: origPts as Pt[],
-        before: st.drawings,
+        before,
       };
       sync();
     };
@@ -696,6 +744,15 @@ export function useDrawings(
         setState(next, true);
         return;
       }
+      if (action === 'copy') {
+        e.preventDefault();
+        actionsRef.current.copy();
+        return;
+      }
+      if (action === 'paste') {
+        if (actionsRef.current.paste()) e.preventDefault();
+        return;
+      }
       e.preventDefault();
       setState(remove(getState(), selectedRef.current as string), true);
       selectedRef.current = null;
@@ -704,15 +761,6 @@ export function useDrawings(
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [active, getState, setState, setTool, sync, settingsOpenRef]);
-
-  const deleteAll = useCallback(() => {
-    if (getState().drawings.length === 0) return;
-    if (!window.confirm('Delete all drawings on this chart?')) return;
-    setState(removeAll(getState()), true);
-    selectedRef.current = null;
-    draftRef.current = null;
-    sync();
-  }, [getState, setState, sync]);
 
   return {
     tool,
@@ -727,6 +775,8 @@ export function useDrawings(
     toggleMagnet: () => useStore.getState().setDrawingMagnet(!magnet),
     toggleHidden: () => useStore.getState().setDrawingsHidden(!hidden),
     deleteAll,
+    /** Lock, rename, order, clone, copy and paste, and the lookup behind the right-click menu. */
+    actions,
     drawingCount,
     /** The open settings dialog's model, or null. */
     settings,

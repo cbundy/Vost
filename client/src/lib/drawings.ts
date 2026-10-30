@@ -19,7 +19,26 @@ export type AnchorCounts = Readonly<Record<string, number>>;
  * and so on, see lib/drawingStyle); a drawing without it looks like the tool's default. A stored drawing may carry
  * more fields than these, or belong to a tool this app does not know: those are kept as they were stored.
  */
-export type Drawing = { id: string; tool: string; anchors: Anchor[]; text?: string; style?: Record<string, unknown> };
+export type Drawing = {
+  id: string;
+  tool: string;
+  anchors: Anchor[];
+  text?: string;
+  style?: Record<string, unknown>;
+  /** A locked drawing can be selected but not moved or reshaped. */
+  locked?: true;
+  /** The drawing's own name, shown in the right-click menu. */
+  name?: string;
+};
+
+/** Longest stored name of a drawing. */
+export const NAME_MAX = 60;
+
+/** A drawing's name as stored: trimmed, control characters turned to spaces, and cut to {@link NAME_MAX} characters. */
+export function cleanName(name: string): string {
+  // eslint-disable-next-line no-control-regex
+  return name.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, NAME_MAX).trim();
+}
 
 /** Longest stored text of a note. */
 export const TEXT_MAX = 500;
@@ -118,6 +137,79 @@ export function removeAll(s: DrawingsState): DrawingsState {
   return record(s, s.drawings, []);
 }
 
+function mapIds(s: DrawingsState, ids: readonly string[], f: (d: Drawing) => Drawing): DrawingsState {
+  const set = new Set(ids);
+  let changed = false;
+  const drawings = s.drawings.map((d) => {
+    if (!set.has(d.id)) return d;
+    const n = f(d);
+    if (n !== d) changed = true;
+    return n;
+  });
+  return changed ? record(s, s.drawings, drawings) : s;
+}
+
+/** Locks or unlocks drawings as one undoable step; the same state when none changes. */
+export function setLocked(s: DrawingsState, ids: readonly string[], locked: boolean): DrawingsState {
+  return mapIds(s, ids, (d) => {
+    if ((d.locked === true) === locked) return d;
+    const { locked: _old, ...rest } = d;
+    return locked ? { ...rest, locked: true } : rest;
+  });
+}
+
+/** Names a drawing as an undoable step (an empty name clears it); the same state when unchanged. */
+export function rename(s: DrawingsState, id: string, name: string): DrawingsState {
+  const clean = cleanName(name);
+  return mapIds(s, [id], (d) => {
+    if ((d.name ?? '') === clean) return d;
+    const { name: _old, ...rest } = d;
+    return clean ? { ...rest, name: clean } : rest;
+  });
+}
+
+export type ReorderTo = 'front' | 'back' | 'forward' | 'backward';
+
+/** Moves a drawing in the paint order (last paints on top) as an undoable step; the same state when it already sits there. */
+export function reorder(s: DrawingsState, id: string, to: ReorderTo): DrawingsState {
+  const i = s.drawings.findIndex((d) => d.id === id);
+  if (i < 0) return s;
+  const last = s.drawings.length - 1;
+  const j = to === 'front' ? last : to === 'back' ? 0 : to === 'forward' ? Math.min(last, i + 1) : Math.max(0, i - 1);
+  if (j === i) return s;
+  const drawings = [...s.drawings];
+  const [d] = drawings.splice(i, 1);
+  drawings.splice(j, 0, d);
+  return record(s, s.drawings, drawings);
+}
+
+const copyOf = (d: Drawing): Drawing => ({ ...JSON.parse(JSON.stringify(d)), id: newDrawingId() });
+
+/** Copies drawings under new ids, each copy just above its original, as one undoable step. */
+export function cloneMany(s: DrawingsState, ids: readonly string[]): DrawingsState {
+  const set = new Set(ids);
+  if (!s.drawings.some((d) => set.has(d.id))) return s;
+  const drawings: Drawing[] = [];
+  for (const d of s.drawings) {
+    drawings.push(d);
+    if (set.has(d.id)) drawings.push(copyOf(d));
+  }
+  return record(s, s.drawings, drawings);
+}
+
+/** Adds copies of drawings (from another chart or an earlier copy) on top under new ids as one undoable step. */
+export function paste(s: DrawingsState, drawings: readonly Drawing[]): DrawingsState {
+  if (drawings.length === 0) return s;
+  return record(s, s.drawings, [...s.drawings, ...drawings.map(copyOf)]);
+}
+
+/** Removes several drawings as one undoable step; the same state when none exists. */
+export function removeMany(s: DrawingsState, ids: readonly string[]): DrawingsState {
+  const set = new Set(ids);
+  if (!s.drawings.some((d) => set.has(d.id))) return s;
+  return record(s, s.drawings, s.drawings.filter((d) => !set.has(d.id)));
+}
+
 /** Live drag preview: changes the anchors without touching history. Pair with {@link commit}. */
 export function preview(s: DrawingsState, id: string, anchors: Anchor[]): DrawingsState {
   return { ...s, drawings: s.drawings.map((d) => (d.id === id ? { ...d, anchors } : d)) };
@@ -181,9 +273,12 @@ function sanitizeDrawing(
     const pane = paneTools.has(raw.tool);
     anchors.push({ ...a, time: pane ? Math.min(1, Math.max(0, time)) : time, price: pane ? Math.min(1, Math.max(0, price)) : price });
   }
-  const { text: rawText, style: rawStyle, ...rest } = raw;
+  const { text: rawText, style: rawStyle, locked: rawLocked, name: rawName, ...rest } = raw;
   const out: Drawing = { ...(rest as Drawing), anchors };
   if (isPlain(rawStyle)) out.style = rawStyle;
+  if (rawLocked === true) out.locked = true;
+  const name = typeof rawName === 'string' ? cleanName(rawName) : '';
+  if (name) out.name = name;
   if (!textTools.has(raw.tool)) return out;
   const text = typeof rawText === 'string' ? cleanText(rawText) : '';
   if (!text) return null;

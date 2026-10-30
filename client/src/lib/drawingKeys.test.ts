@@ -33,3 +33,24 @@ describe('drawingKeyAction', () => {
     expect(drawingKeyAction(key('a'), ctx())).toBeNull();
   });
 });
+
+describe('copy and paste keys', () => {
+  it('maps copy with Ctrl or Cmd and a selection, paste with Ctrl or Cmd', () => {
+    expect(drawingKeyAction(key('c', { ctrlKey: true }), ctx())).toBe('copy');
+    expect(drawingKeyAction(key('C', { metaKey: true }), ctx())).toBe('copy');
+    expect(drawingKeyAction(key('v', { ctrlKey: true }), ctx())).toBe('paste');
+    expect(drawingKeyAction(key('v', { metaKey: true }), ctx({ hasSelection: false }))).toBe('paste');
+    expect(drawingKeyAction(key('c', { ctrlKey: true }), ctx({ hasSelection: false }))).toBeNull();
+    expect(drawingKeyAction(key('c'), ctx())).toBeNull();
+    expect(drawingKeyAction(key('v'), ctx())).toBeNull();
+  });
+  it('maps neither with Alt or Shift, in a text field, during a drag or on an inactive chart', () => {
+    for (const k of ['c', 'v']) {
+      expect(drawingKeyAction(key(k, { ctrlKey: true, altKey: true }), ctx())).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true, shiftKey: true }), ctx())).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true }), ctx({ editable: true }))).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true }), ctx({ dragging: true }))).toBeNull();
+      expect(drawingKeyAction(key(k, { ctrlKey: true }), ctx({ active: false }))).toBeNull();
+    }
+  });
+});
