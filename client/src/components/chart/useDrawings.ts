@@ -1,7 +1,7 @@
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { MOUSE_HIT, TOUCH_HIT, snapToBar, type Pt } from '../../lib/drawingGeometry';
+import { MOUSE_HIT, TOUCH_HIT, WEAK_MAGNET_PX, snapToBar, type Pt } from '../../lib/drawingGeometry';
 import {
   add,
   commit,
@@ -116,6 +116,9 @@ export function useDrawings(
   const hasData = useChart((s) => s.candles.length > 0);
   const magnet = useStore((s) => s.drawingMagnet);
   const hidden = useStore((s) => s.drawingsHidden);
+  const magnetStrength = useStore((s) => s.drawingMagnetStrength);
+  const lockAll = useStore((s) => s.drawingsLocked);
+  const stayMode = useStore((s) => s.drawingStayMode);
   const defaults = useStore((s) => s.drawingDefaults);
   const timeframe = useChart((s) => s.timeframe);
   const cursorKind = useStore((s) => s.cursorKind);
@@ -140,10 +143,17 @@ export function useDrawings(
   const [editor, setEditor] = useState<DrawingEditor | null>(null);
   const magnetRef = useRef(magnet);
   const hiddenRef = useRef(hidden);
+  const strengthRef = useRef(magnetStrength);
+  const lockAllRef = useRef(lockAll);
+  const stayRef = useRef(stayMode);
   const cursorKindRef = useRef(cursorKind);
   cursorKindRef.current = cursorKind;
   magnetRef.current = magnet;
   hiddenRef.current = hidden;
+  strengthRef.current = magnetStrength;
+  lockAllRef.current = lockAll;
+  stayRef.current = stayMode;
+  primRef.current?.setLockAll(lockAll);
   keyRef.current = key;
   hasDataRef.current = hasData;
 
@@ -358,6 +368,7 @@ export function useDrawings(
       }
       return cachedTimes;
     }, () => chartStore.getState().timeframe, () => useStore.getState().drawingDefaults, () => chartStore.getState().candles);
+    prim.setLockAll(lockAllRef.current);
     series.attachPrimitive(prim);
     primRef.current = prim;
     sync();
@@ -430,8 +441,23 @@ export function useDrawings(
     let draftEndedAt = -Infinity;
 
     /** Magnet: snap an anchor to the nearest bar's time and OHLC price. */
-    const snap = (a: Anchor, def?: DrawingTool): Anchor =>
-      magnetRef.current && !def?.paneAnchored ? snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }) : a;
+    const snap = (a: Anchor, def?: DrawingTool): Anchor => {
+      if (!magnetRef.current || def?.paneAnchored) return a;
+      const series = strengthRef.current === 'weak' ? primRef.current?.priceSeries() : null;
+      const within =
+        strengthRef.current === 'weak'
+          ? { px: WEAK_MAGNET_PX, y: (price: number) => (series ? (series.priceToCoordinate(price) as number | null) : null) }
+          : undefined;
+      return snapToBar(chartStore.getState().candles, a, { priceOnly: def?.priceOnly, timeOnly: def?.timeOnly }, within);
+    };
+
+    /** A drawing that cannot be moved: its own lock or Lock all drawings. */
+    const isLocked = (d: Drawing): boolean => lockAllRef.current || !!d.locked;
+
+    /** After a drawing: back to the cursor, unless Stay in drawing mode keeps the tool picked. */
+    const afterDrawing = () => {
+      if (!stayRef.current) setTool(CURSOR);
+    };
 
     /** Whether a drawing's tool has a popup (a note). */
     const hasPopup = (id: string): boolean => {
@@ -491,7 +517,7 @@ export function useDrawings(
           if (mapped.some((a) => !a)) {
             // A point the tool added cannot be put on the chart: the drawing is not stored.
             draftRef.current = null;
-            setTool(CURSOR);
+            afterDrawing();
             sync();
             return;
           }
@@ -509,14 +535,14 @@ export function useDrawings(
       if (getTool(id)?.text) {
         // A text tool with several anchors (Callout) types its text now that all are placed; the drawing is added on commit.
         draftRef.current = null;
-        setTool(CURSOR);
+        afterDrawing();
         openEditor(null, id, anchors, '');
         return;
       }
       setState(add(getState(), { id: newDrawingId(), tool: id, anchors }), true);
       const created = getState().drawings.at(-1)!;
       draftRef.current = null;
-      setTool(CURSOR);
+      afterDrawing();
       selectedRef.current = only(created.id);
       sync();
     };
@@ -603,7 +629,7 @@ export function useDrawings(
         }
         if (def.text && def.anchors === 1) {
           draftRef.current = null;
-          setTool(CURSOR);
+          afterDrawing();
           openEditor(null, toolId, [anchor], '');
           return; // the pointerup releases
         }
@@ -656,9 +682,9 @@ export function useDrawings(
         const known = new Set(st.drawings.map((x) => x.id));
         const copies = cloned.drawings.filter((x) => !known.has(x.id));
         selectedRef.current = copies.map((x) => x.id);
-        if (copies.length === members.length && members.some((x) => !x.locked)) {
+        if (copies.length === members.length && members.some((x) => !isLocked(x))) {
           setState({ ...st, drawings: cloned.drawings }, false);
-          moving = copies.filter((_, i) => !members[i].locked);
+          moving = copies.filter((_, i) => !isLocked(members[i]));
         } else {
           setState(cloned, true);
           sync();
@@ -667,7 +693,7 @@ export function useDrawings(
       }
       const items: DragItem[] = [];
       for (const m of moving) {
-        if (m.locked && !cloning) continue;
+        if (isLocked(m) && !cloning) continue;
         const mt = getTool(m.tool);
         const pts = m.anchors.map((a) => prim.toPoint(a, mt));
         if (pts.some((q) => !q) || !prim.shown(m)) continue;
@@ -979,7 +1005,21 @@ export function useDrawings(
     hasData,
     magnet,
     hidden,
+    magnetStrength,
+    lockAll,
+    stayMode,
     toggleMagnet: () => useStore.getState().setDrawingMagnet(!magnet),
+    /** Off, or on with a strength (which is remembered). */
+    setMagnetMode: (m: 'off' | 'weak' | 'strong') => {
+      const st = useStore.getState();
+      if (m === 'off') st.setDrawingMagnet(false);
+      else {
+        st.setDrawingMagnetStrength(m);
+        st.setDrawingMagnet(true);
+      }
+    },
+    toggleLockAll: () => useStore.getState().setDrawingsLocked(!lockAll),
+    toggleStayMode: () => useStore.getState().setDrawingStayMode(!stayMode),
     toggleHidden: () => useStore.getState().setDrawingsHidden(!hidden),
     deleteAll,
     /** Lock, rename, order, clone, copy and paste, and the lookup behind the right-click menu. */

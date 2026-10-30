@@ -1,3 +1,4 @@
+import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import type { Scenario } from '../scenario.ts';
 
 type Anchor = { time: number; price: number };
@@ -121,6 +122,187 @@ export const drawingManage: Scenario = {
       check('the menu offers Unlock', await item('Unlock').isVisible());
       await item('Unlock').click();
       check('unlocked', (await stored())[0].locked === undefined);
+    });
+
+    /** A rail switch (on the phone, a button of the drawing menu, which is closed again after a click). */
+    const sw = async (name: string, action: 'click' | 'state' = 'click') => {
+      if (narrow) {
+        await menuBtn.click();
+        if (name === 'Magnet') {
+          // the phone menu has the magnet's modes, not a toggle: pressed is "Off" not being the checked one
+          const off = toolMenu.getByRole('radio', { name: 'Off', exact: true });
+          const v = (await off.getAttribute('aria-checked')) === 'false' ? 'true' : 'false';
+          if (action === 'click') await off.click();
+          await page.keyboard.press('Escape');
+          return action === 'state' ? v : null;
+        }
+        const b = toolMenu.getByRole('button', { name, exact: true });
+        if (action === 'state') {
+          const v = await b.getAttribute('aria-pressed');
+          await page.keyboard.press('Escape');
+          return v;
+        }
+        await b.click();
+        await page.keyboard.press('Escape');
+        return null;
+      }
+      const b = rail.getByRole('button', { name, exact: true });
+      if (action === 'state') return b.getAttribute('aria-pressed');
+      await b.click();
+      return null;
+    };
+    const countIs = async (n: number) => (await stored()).length === n;
+    const undoTo = async (n: number) => {
+      for (let i = 0; i < 6 && !(await countIs(n)); i++) await page.keyboard.press('Control+z');
+      check(`back to ${n} drawing(s)`, await countIs(n));
+    };
+
+    await ctx.step('Lock all drawings: nothing moves, no handles, own locks untouched, off restores them', async () => {
+      const before = (await stored())[0];
+      await page.mouse.click(body.x, body.y);
+      await sw('Lock all drawings');
+      check('Lock all pressed', (await sw('Lock all drawings', 'state')) === 'true');
+      const still = await shot();
+      await drag(body, { x: body.x + 60, y: body.y + 50 });
+      check('a body drag moved nothing', JSON.stringify((await stored())[0].anchors) === JSON.stringify(before.anchors));
+      await page.mouse.click(body.x, body.y);
+      await drag(ta, { x: ta.x - 40, y: ta.y + 40 });
+      check('a handle drag moved nothing', JSON.stringify((await stored())[0].anchors) === JSON.stringify(before.anchors));
+      check('the drawing has no flag of its own', (await stored())[0].locked === undefined);
+      await page.mouse.click(body.x, body.y);
+      check('the chart did not pan and no handles are drawn', (await shot()).equals(still));
+      await rightClick(body);
+      check('the menu still offers Lock (own flag)', await item('Lock').isVisible());
+      await ctx.screenshot('lock-all');
+      await item('Lock').click();
+      check('own lock stored', (await stored())[0].locked === true);
+      await sw('Lock all drawings');
+      check('Lock all off', (await sw('Lock all drawings', 'state')) === 'false');
+      await drag(body, { x: body.x + 60, y: body.y + 50 });
+      check('own lock still holds', JSON.stringify((await stored())[0].anchors) === JSON.stringify(before.anchors));
+      await rightClick(body);
+      await item('Unlock').click();
+      check('unlocked again', (await stored())[0].locked === undefined);
+      await drag(body, { x: body.x + 60, y: body.y + 50 });
+      check('now it drags', JSON.stringify((await stored())[0].anchors) !== JSON.stringify(before.anchors));
+      await page.keyboard.press('Control+z');
+      check('undo puts it back', JSON.stringify((await stored())[0].anchors) === JSON.stringify(before.anchors));
+    });
+
+    await ctx.step('Stay in drawing mode: two trend lines in a row, Escape and a Measure return to the cursor', async () => {
+      await sw('Stay in drawing mode');
+      check('Stay pressed', (await sw('Stay in drawing mode', 'state')) === 'true');
+      await pickTool('Lines', 'Trend line');
+      const [a1, a2] = await Promise.all([{ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.3 }].map(at));
+      const [b1, b2] = await Promise.all([{ x: 0.1, y: 0.8 }, { x: 0.3, y: 0.7 }].map(at));
+      await drag(a1, a2);
+      await drag(b1, b2);
+      check('two more stored without picking again', await countIs(3));
+      if (!narrow) check('Trend line still pressed', (await rail.getByRole('button', { name: 'Trend line', exact: true }).getAttribute('aria-pressed')) === 'true');
+      await ctx.screenshot('stay-mode');
+      await page.keyboard.press('Escape');
+      if (!narrow) check('Escape returns to Cross', (await rail.getByRole('button', { name: 'Cross', exact: true }).getAttribute('aria-pressed')) === 'true');
+      await undoTo(1);
+      await pickTool('Forecasting and measurers', 'Measure');
+      await drag(a1, a2);
+      await drag(b1, b2);
+      check('a Measure stores nothing', await countIs(1));
+      if (!narrow) check('the Measure went back to the cursor', (await rail.getByRole('button', { name: 'Cross', exact: true }).getAttribute('aria-pressed')) === 'true');
+      await sw('Stay in drawing mode');
+      check('Stay off', (await sw('Stay in drawing mode', 'state')) === 'false');
+      await page.keyboard.press('Escape');
+    });
+
+    await ctx.step('Magnet: weak snaps only close to an OHLC, strong snaps any point; the strength survives a reload', async () => {
+      const bars = generateDemoCandles({ bars: 5000, timeframe: '1d', seed: 1337 });
+      const isBarTime = (t: number) => bars.some((c) => c.time === t);
+      const barOf = (t: number) => bars.reduce((best, c) => (Math.abs(c.time - t) < Math.abs(best.time - t) ? c : best));
+      const ohlc = (t: number) => {
+        const c = barOf(t);
+        return [c.open, c.high, c.low, c.close];
+      };
+      const pickMode = async (name: string) => {
+        if (narrow) {
+          await menuBtn.click();
+          await toolMenu.getByRole('radio', { name, exact: true }).click();
+          await page.keyboard.press('Escape');
+          return;
+        }
+        await rail.getByRole('button', { name: 'Open Magnet modes', exact: true }).click();
+        await page.getByRole('menuitemradio', { name, exact: true }).click();
+      };
+      const modeChecked = async (name: string) => {
+        if (narrow) {
+          await menuBtn.click();
+          const v = await toolMenu.getByRole('radio', { name, exact: true }).getAttribute('aria-checked');
+          await page.keyboard.press('Escape');
+          return v === 'true';
+        }
+        await rail.getByRole('button', { name: 'Open Magnet modes', exact: true }).click();
+        const v = await page.getByRole('menuitemradio', { name, exact: true }).getAttribute('aria-checked');
+        await page.keyboard.press('Escape');
+        return v === 'true';
+      };
+      const trend = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+        await pickTool('Lines', 'Trend line');
+        await drag(from, to);
+        const list = await stored();
+        return list[list.length - 1].anchors;
+      };
+      // two far points (their bars' prices are clear of them), which also calibrate pixels to price
+      const f1 = await at({ x: 0.45, y: 0.5 });
+      const f2 = await at({ x: 0.6, y: 0.9 });
+
+      await pickMode('Weak magnet');
+      if (!narrow) check('title says weak', (await rail.getByRole('button', { name: 'Magnet', exact: true }).getAttribute('title')) === 'Magnet: weak');
+      check('Magnet pressed', (await sw('Magnet', 'state')) === 'true');
+      const far = await trend(f1, f2);
+      for (const [i, a] of far.entries()) {
+        const near = ohlc(a.time).some((v) => Math.abs(v - a.price) < 1e-6);
+        check(`weak: far point ${i + 1} is not snapped`, !near, JSON.stringify(a));
+      }
+      const perPx = (far[0].price - far[1].price) / (f2.y - f1.y);
+      const near = async (frac: { x: number; y: number }) => {
+        const p = await at(frac);
+        const t = (await trend(f1, p))[1];
+        // a bar's high, found from the pixels: put the pointer on it
+        const high = barOf(t.time).high;
+        const y = f1.y + (far[0].price - high) / perPx;
+        return { y, high };
+      };
+      const probe = await near({ x: 0.5, y: 0.5 });
+      const pt = await at({ x: 0.5, y: 0.5 });
+      const nearAnchors = await trend(f1, { x: pt.x, y: probe.y });
+      check('weak: a point on the high of a bar snaps to it', Math.abs(nearAnchors[1].price - probe.high) < 1e-6 && isBarTime(nearAnchors[1].time), `${nearAnchors[1].price} vs ${probe.high}`);
+      await ctx.screenshot('magnet-weak');
+
+      await pickMode('Strong magnet');
+      if (!narrow) check('title says strong', (await rail.getByRole('button', { name: 'Magnet', exact: true }).getAttribute('title')) === 'Magnet: strong');
+      const strong = await trend(f1, f2);
+      for (const [i, a] of strong.entries()) {
+        check(`strong: far point ${i + 1} snaps to an OHLC`, isBarTime(a.time) && ohlc(a.time).some((v) => Math.abs(v - a.price) < 1e-6), JSON.stringify(a));
+      }
+      if (!narrow) {
+        await rail.getByRole('button', { name: 'Open Magnet modes', exact: true }).click();
+        await ctx.screenshot('magnet-menu');
+        await page.keyboard.press('Escape');
+        check('Escape closes the menu and refocuses the Magnet button', await rail.getByRole('button', { name: 'Magnet', exact: true }).evaluate((el) => el === document.activeElement));
+      }
+      await undoTo(1);
+      await sw('Stay in drawing mode');
+      await sw('Lock all drawings');
+      await page.waitForTimeout(700);
+      await page.reload();
+      await ctx.waitForChart();
+      check('strength survives a reload', await modeChecked('Strong magnet'));
+      check('Magnet survives a reload', (await sw('Magnet', 'state')) === 'true');
+      check('Stay survives a reload', (await sw('Stay in drawing mode', 'state')) === 'true');
+      check('Lock all survives a reload', (await sw('Lock all drawings', 'state')) === 'true');
+      await ctx.screenshot('switches-on');
+      await sw('Stay in drawing mode');
+      await sw('Lock all drawings');
+      await sw('Magnet');
+      check('switches off for the steps below', (await sw('Magnet', 'state')) === 'false' && (await sw('Stay in drawing mode', 'state')) === 'false' && (await sw('Lock all drawings', 'state')) === 'false');
     });
 
     await ctx.step('Rename in the menu stores the name and titles the menu', async () => {

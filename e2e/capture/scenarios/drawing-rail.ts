@@ -122,7 +122,7 @@ export const drawingRail: Scenario = {
       }
       check('Icons is hidden until it has tools', (await chevron('Icons').count()) === 0);
       check('Cross pressed at start', await pressedOf('Cross'));
-      for (const name of ['Magnet', 'Hide all drawings', 'Delete all drawings']) check(`${name} stays below the divider`, await groupBtn(name).isVisible());
+      for (const name of ['Magnet', 'Stay in drawing mode', 'Lock all drawings', 'Hide all drawings', 'Delete all drawings']) check(`${name} stays below the divider`, await groupBtn(name).isVisible());
     });
     await ctx.screenshot('rail');
 

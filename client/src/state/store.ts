@@ -75,6 +75,9 @@ interface Prefs {
   sidePanel?: SidePanelSection;
   sidePanelCollapsed?: boolean;
   drawingMagnet?: boolean;
+  drawingMagnetStrength?: 'weak' | 'strong';
+  drawingsLocked?: boolean;
+  drawingStayMode?: boolean;
   drawingsHidden?: boolean;
   /** The style new drawings of a tool start with, per tool id (see lib/drawingStyle). */
   drawingDefaults?: Record<string, Record<string, unknown>>;
@@ -166,6 +169,12 @@ export interface AppState {
   sidePanel: SidePanelSection;
   sidePanelCollapsed: boolean;
   drawingMagnet: boolean;
+  /** How far the magnet reaches; an old magnet-on pref loads as weak. */
+  drawingMagnetStrength: 'weak' | 'strong';
+  /** Lock all drawings: none can be moved (their own lock flags are untouched). */
+  drawingsLocked: boolean;
+  /** Stay in drawing mode: the tool stays picked after each drawing. */
+  drawingStayMode: boolean;
   drawingsHidden: boolean;
   drawingDefaults: Record<string, Record<string, unknown>>;
   /** Rail entry keys (see lib/drawingRail.ts) the person starred, in the order the favourites bar shows them. */
@@ -269,6 +278,9 @@ export interface AppState {
   closePineEditor(): void;
   togglePineEditor(): void;
   setDrawingMagnet(v: boolean): void;
+  setDrawingMagnetStrength(v: 'weak' | 'strong'): void;
+  setDrawingsLocked(v: boolean): void;
+  setDrawingStayMode(v: boolean): void;
   setDrawingsHidden(v: boolean): void;
   /** Saves (or with null clears) the style new drawings of a tool start with. */
   setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
@@ -312,6 +324,9 @@ export const useStore = create<AppState>()((set, get) => {
       sidePanel: s.sidePanel,
       sidePanelCollapsed: s.sidePanelCollapsed,
       drawingMagnet: s.drawingMagnet,
+      drawingMagnetStrength: s.drawingMagnetStrength,
+      drawingsLocked: s.drawingsLocked,
+      drawingStayMode: s.drawingStayMode,
       drawingsHidden: s.drawingsHidden,
       drawingDefaults: s.drawingDefaults,
       drawingFavorites: s.drawingFavorites,
@@ -497,6 +512,9 @@ export const useStore = create<AppState>()((set, get) => {
     sidePanel: 'watchlist',
     sidePanelCollapsed: false,
     drawingMagnet: false,
+    drawingMagnetStrength: 'weak',
+    drawingsLocked: false,
+    drawingStayMode: false,
     drawingsHidden: false,
     drawingDefaults: {},
     drawingFavorites: [],
@@ -583,6 +601,9 @@ export const useStore = create<AppState>()((set, get) => {
         sidePanel: SIDE_PANEL_SECTIONS.includes(prefs.sidePanel as SidePanelSection) ? (prefs.sidePanel as SidePanelSection) : 'watchlist',
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
         drawingMagnet: prefs.drawingMagnet === true,
+        drawingMagnetStrength: prefs.drawingMagnetStrength === 'strong' ? 'strong' : 'weak',
+        drawingsLocked: prefs.drawingsLocked === true,
+        drawingStayMode: prefs.drawingStayMode === true,
         drawingsHidden: prefs.drawingsHidden === true,
         drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
         drawingFavorites: sanitizeFavorites(prefs.drawingFavorites),
@@ -828,6 +849,21 @@ export const useStore = create<AppState>()((set, get) => {
 
     setDrawingMagnet(v) {
       set({ drawingMagnet: v });
+      persistPrefs();
+    },
+
+    setDrawingMagnetStrength(v) {
+      set({ drawingMagnetStrength: v });
+      persistPrefs();
+    },
+
+    setDrawingsLocked(v) {
+      set({ drawingsLocked: v });
+      persistPrefs();
+    },
+
+    setDrawingStayMode(v) {
+      set({ drawingStayMode: v });
       persistPrefs();
     },
 
