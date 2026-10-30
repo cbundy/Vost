@@ -80,3 +80,23 @@ describe('vostInterval', () => {
     expect([m('1S'), m('30S'), m(''), m('x'), m('0')]).toEqual([null, null, null, null, null]);
   });
 });
+
+describe('createMarketProvider for another symbol', () => {
+  const chartBars = Array.from({ length: 48 }, (_, i) => bar(i * 3600, 100 + i));
+  const other = Array.from({ length: 48 }, (_, i) => ({ ...bar(i * 3600, 5 + i * 0.125), open: 5 }));
+  const feed = { bars: async (r: { providerId: string; symbol: string }) => (r.symbol === 'ETH-USD' ? other : []) };
+
+  it('serves its bars at the chart timeframe, clipped to the run end, and its own syminfo', async () => {
+    const { provider } = createMarketProvider(chartBars, { providerId: 'binance', symbol: 'BTCUSDT', interval: '1h' }, feed);
+    const data = await provider.getMarketData('coinbase~ETH-USD', '60', undefined, undefined, undefined);
+    expect(data).toHaveLength(48);
+    expect(data[3].close).toBe(other[3].close);
+    const info = await provider.getSymbolInfo!('coinbase~ETH-USD');
+    expect(info).toMatchObject({ prefix: 'COINBASE', ticker: 'ETH-USD', tickerid: 'COINBASE:ETH-USD', type: 'crypto', mintick: 0.001 });
+  });
+
+  it('says there are no bars when the other symbol has none in the chart range', async () => {
+    const { provider } = createMarketProvider(chartBars, { providerId: 'binance', symbol: 'BTCUSDT', interval: '1h' }, feed);
+    await expect(provider.getMarketData('bybit~NOPE', '60', undefined, undefined, undefined)).rejects.toThrow(/BYBIT:NOPE.*no 60 bars/);
+  });
+});

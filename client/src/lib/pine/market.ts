@@ -7,9 +7,12 @@
  */
 import type { IProvider, ISymbolInfo } from 'pinets';
 import { intervalSeconds, parseInterval, type Interval } from '../../../../shared/market';
+import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog';
 import { buildBars } from '../../../../shared/timeframes';
 import type { Candle } from '../../types';
+import { getProvider } from '../providers';
 import { defaultMarketFeed, intervalEndMs, type MarketFeed } from './marketFeed';
+import { decodeRoute, type Route } from './requestRouting';
 import type { PineMarket } from './types';
 
 /** The Pine timeframe string of a Vost interval (`15m` -> "15", `2h` -> "120", `3d` -> "3D", `1w` -> "W", `1M` -> "M"). */
@@ -83,13 +86,16 @@ export function estimateMintick(candles: Candle[]): number {
 /** The ticker, prefix and type a market reports. A missing market is the documented default (ticker `VOST`). */
 export function marketIdentity(market: PineMarket | undefined): { ticker: string; prefix: string; tickerid: string; type: string } {
   if (!market) return { ticker: 'VOST', prefix: 'VOST', tickerid: 'VOST:VOST', type: '' };
-  const prefix = market.providerId.toUpperCase();
-  const type = market.dataset || market.providerId === 'demo' ? '' : market.providerId === 'yahoo' ? 'stock' : 'crypto';
-  return { ticker: market.symbol, prefix, tickerid: `${prefix}:${market.symbol}`, type };
+  return identityOf(market.providerId, market.symbol, Boolean(market.dataset));
 }
 
-function symbolInfo(market: PineMarket | undefined, candles: Candle[], tf: string): ISymbolInfo {
-  const id = marketIdentity(market);
+function identityOf(providerId: string, symbol: string, dataset: boolean) {
+  const prefix = providerId.toUpperCase();
+  const type = dataset || providerId === 'demo' ? '' : providerId === 'yahoo' ? 'stock' : 'crypto';
+  return { ticker: symbol, prefix, tickerid: `${prefix}:${symbol}`, type };
+}
+
+function symbolInfo(id: ReturnType<typeof marketIdentity>, candles: Candle[], tf: string): ISymbolInfo {
   const mintick = estimateMintick(candles);
   const pricescale = Math.round(1 / mintick);
   return {
@@ -155,7 +161,8 @@ function kline(c: Candle, closeTime: number): Kline {
 
 /**
  * Higher-timeframe bars as the run may see them. `finished` are the bars whose interval ended by the run's end; the bar
- * holding the run's last chart bar is rebuilt from the chart's own candles and closes at its full interval end.
+ * holding the run's last chart bar is rebuilt from `candles` (the symbol's own bars at the chart's timeframe: the chart's
+ * candles, or another symbol's) and closes at its full interval end. `chart` only places each bar on the chart.
  *
  * A finished bar closes with the last chart bar inside `[its open, the next bar's open)`, so with `lookahead_off` its
  * value first shows on that chart bar (a stock's daily value on the day's last session bar, with no exchange calendar).
@@ -175,7 +182,8 @@ export function higherKlines(chart: Kline[], candles: Candle[], finished: Candle
     for (let k = ci; k < chart.length && chart[k].openTime < next; k++) last = k;
     out.push(kline(c, last >= 0 ? Math.min(chart[last].closeTime, next - 1) : next - 1));
   }
-  // The forming bar: chart candles after the last finished bar's interval (else from the interval's UTC bucket start).
+  // The forming bar: candles after the last finished bar's interval (else from the interval's UTC bucket start).
+  if (candles.length === 0) return out;
   const lastCandle = candles[candles.length - 1];
   const lastFinished = finished.length ? finished[finished.length - 1] : undefined;
   let formingOpen = lastFinished ? intervalEndMs(lastFinished.time * 1000, interval) : buildBars([lastCandle], interval)[0].time * 1000;
@@ -193,7 +201,7 @@ export function higherKlines(chart: Kline[], candles: Candle[], finished: Candle
   return out;
 }
 
-/** What PineTS runs on: the chart's own candles, the chart's symbol at other timeframes (from `feed`), and an error for any other symbol. */
+/** What PineTS runs on: the chart's own candles, and the chart's symbol or another symbol (from `feed`) at any timeframe. */
 export function createMarketProvider(
   candles: Candle[],
   market: PineMarket | undefined,
@@ -230,9 +238,52 @@ export function createMarketProvider(
     return higherKlines(klines, candles, bars.filter((c) => intervalEndMs(c.time * 1000, interval) <= endTime + 1), interval, endTime);
   }
 
+  /** What was loaded for each other symbol (route id), for its `syminfo`. */
+  const loaded = new Map<string, { candles: Candle[]; tf: string }>();
+
+  /** Another symbol's bars, placed on the chart by the rules of the chart's own symbol at another timeframe. */
+  async function otherSymbol(m: PineMarket, route: Route, tickerId: string, timeframe: string, startMs: number): Promise<Kline[]> {
+    const interval = vostInterval(timeframe);
+    if (!interval) throw new Error(`${timeframe} is not a timeframe Vost has bars for`);
+    const info = PROVIDER_CATALOG.find((p) => p.id === route.providerId);
+    // The chart's Build setting rides along to its own provider; another provider is asked for built bars only where it has to.
+    const sourceOf = (iv: Interval) => (m.source && (route.providerId === m.providerId || info?.builtTimeframes.includes(iv as never)) ? { source: m.source } : {});
+    const get = (iv: Interval) => feed.bars({ providerId: route.providerId, symbol: route.symbol, interval: iv, ...sourceOf(iv), fromMs: Math.min(startMs, candles[0].time * 1000), toMs: endTime });
+    const wantMs = intervalSeconds(interval) * 1000;
+    const chartMs = barLengthMs(m, tf, candles[candles.length - 1].time * 1000);
+    let out: Kline[];
+    let own: Candle[];
+    if (wantMs <= chartMs) {
+      own = await get(interval);
+      out = own.map((c) => kline(c, intervalEndMs(c.time * 1000, interval) - 1)).filter((k) => k.closeTime <= endTime);
+    } else {
+      const fine = vostInterval(tf);
+      if (!fine) throw new Error(`the chart's ${tf} bars are not ones Vost has bars for`);
+      const [bars, fineBars] = await Promise.all([get(interval), get(fine)]);
+      own = fineBars;
+      out = higherKlines(klines, fineBars, bars.filter((c) => intervalEndMs(c.time * 1000, interval) <= endTime + 1), interval, endTime);
+    }
+    if (out.length === 0) throw new Error(`no ${timeframe} bars in the chart's date range`);
+    loaded.set(tickerId, { candles: own, tf: timeframe });
+    return out;
+  }
+
   const provider: IProvider = {
     async getMarketData(tickerId, timeframe, _limit, sDate) {
       const unavailable = new Error(`request.security(${tickerId}, ${timeframe}) needs data Vost does not load yet`);
+      const route = decodeRoute(tickerId);
+      if (route) {
+        if (!market) throw unavailable;
+        const label = `${route.providerId.toUpperCase()}:${route.symbol}`;
+        try {
+          return await otherSymbol(market, route, tickerId, timeframe, typeof sDate === 'number' && Number.isFinite(sDate) ? sDate : candles[0].time * 1000);
+        } catch (e) {
+          if ((e as { status?: number }).status === 404) {
+            throw new Error(`request.security(${label}, ${timeframe}): symbol not found on ${getProvider(route.providerId).name}`);
+          }
+          throw new Error(`request.security(${label}, ${timeframe}): could not load ${timeframe} bars of ${label}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
       if (!own(tickerId)) throw unavailable;
       if (normalizeTimeframe(timeframe) === normalizeTimeframe(tf)) return klines;
       if (!market) throw unavailable;
@@ -242,8 +293,11 @@ export function createMarketProvider(
         throw new Error(`request.security(${tickerId}, ${timeframe}): could not load ${timeframe} bars of ${market.symbol}: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
-    async getSymbolInfo() {
-      return symbolInfo(market, candles, tf);
+    async getSymbolInfo(tickerId) {
+      const route = decodeRoute(tickerId);
+      const got = route && market ? loaded.get(tickerId) : undefined;
+      if (route && got) return symbolInfo(identityOf(route.providerId, route.symbol, false), got.candles, got.tf);
+      return symbolInfo(id, candles, tf);
     },
     configure() {},
   };

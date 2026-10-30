@@ -155,8 +155,221 @@ describe('request.security on the chart symbol at another timeframe', () => {
     const span = await run('plot(request.security(syminfo.tickerid, "1", close))');
     expect(span.ok).toBe(false);
     if (!span.ok) expect(span.error.message).toMatch(/BTCUSDT.*20000/);
-    const other = await run('plot(request.security("ETHUSDT", "D", close))');
+    const other = await run('plot(request.security("NOPE:ETHUSDT", "D", close))');
     expect(other.ok).toBe(false);
-    if (!other.ok) expect(other.error.message).toContain('request.security(ETHUSDT, D) needs data Vost does not load yet');
+    if (!other.ok) expect(other.error.message).toContain('unknown data source "NOPE"');
+  });
+});
+
+describe('request.security on another symbol', () => {
+  const bybit = candles15(96 * 60, 7, 200);
+  const eth = candles15(96 * 60, 11, 50);
+  const ethUsd = candles15(96 * 60, 13, 30);
+  const markets = { 'binance|BTCUSDT': base, 'bybit|BTCUSDT': bybit, 'binance|ETHUSDT': eth, 'coinbase|ETH-USD': ethUsd, 'hyperliquid-perps|BTC': bybit };
+  const server = () => fakeServer(base, { markets });
+  const run = (src: string, s = server(), m: PineMarket = market, c: Candle[] = chart) => runPine(head + src, c, {}, { market: m, feed: s.feed });
+  const ok = async (src: string, s = server(), m: PineMarket = market) => {
+    const r = await run(src, s, m);
+    if (!r.ok) throw new Error(r.error.message);
+    return r.plots[0].values;
+  };
+  const seen = (s: ReturnType<typeof server>) => [...new Set(s.calls.map((c) => `${c.providerId}|${c.symbol}|${c.timeframe}`))].sort();
+
+  it('BYBIT:BTCUSDT on a Binance BTCUSDT chart reads Bybit at the chart timeframe, never the chart bars', async () => {
+    const s = server();
+    const got = await ok('plot(request.security("BYBIT:BTCUSDT", "", close))', s);
+    const want = hourlyOf(bybit);
+    chart.slice(0, -1).forEach((_, i) => expect(got[i]).toBe(want[i].close));
+    expect(got[5]).not.toBe(chart[5].close);
+    expect(seen(s)).toEqual(['bybit|BTCUSDT|1h']);
+  });
+
+  it('BYBIT:BTCUSDT at "D" matches a hand-computed daily close of Bybit, not Binance', async () => {
+    const s = server();
+    const got = await ok('plot(request.security("BYBIT:BTCUSDT", "D", close))', s);
+    const days = buildBars(hourlyOf(bybit), '1d');
+    chart.forEach((_, i) => {
+      const day = Math.floor(i / 24);
+      const w = i % 24 === 23 ? days[day].close : day > 0 ? days[day - 1].close : null;
+      if (w === null) expect(got[i], String(i)).toBeNull(); else expect(got[i], String(i)).toBe(w);
+    });
+    expect(seen(s).every((c) => c.startsWith('bybit|BTCUSDT|'))).toBe(true);
+  });
+
+  it('routes by prefix: none, own prefix, lower case, another provider, a hyphenated id', async () => {
+    const cases: Array<[string, string]> = [
+      ['ETHUSDT', 'binance|ETHUSDT|1h'],
+      ['BINANCE:ETHUSDT', 'binance|ETHUSDT|1h'],
+      ['binance:ETHUSDT', 'binance|ETHUSDT|1h'],
+      ['COINBASE:ETH-USD', 'coinbase|ETH-USD|1h'],
+      ['HYPERLIQUID-PERPS:BTC', 'hyperliquid-perps|BTC|1h'],
+    ];
+    for (const [sym, call] of cases) {
+      const s = server();
+      await ok(`plot(request.security("${sym}", "", close))`, s);
+      expect(seen(s), sym).toEqual([call]);
+    }
+  });
+
+  it('the chart own symbol (full id, bare ticker, either case) is the chart data and fetches nothing', async () => {
+    for (const sym of ['BTCUSDT', 'BINANCE:BTCUSDT', 'binance:btcusdt', 'syminfo.tickerid']) {
+      const s = server();
+      const arg = sym === 'syminfo.tickerid' ? sym : `"${sym}"`;
+      const got = await ok(`plot(request.security(${arg}, "", close))`, s);
+      chart.forEach((c, i) => expect(got[i]).toBe(c.close));
+      expect(s.calls).toHaveLength(0);
+    }
+  });
+
+  it('reads a symbol from input.symbol, a computed string, a series string and the named symbol argument', async () => {
+    const want = (m: string) => hourlyOf(m === 'bybit' ? bybit : eth).map((c) => c.close);
+    const b = want('bybit');
+    for (const src of [
+      'sym = input.symbol("BYBIT:BTCUSDT", "S")\nplot(request.security(sym, "", close))',
+      'sym = "BYBIT:" + "BTCUSDT"\nplot(request.security(sym, "", close))',
+      'plot(request.security(symbol = "BYBIT:BTCUSDT", timeframe = "", expression = close))',
+      'plot(request.security("BYBIT:BTCUSDT", "", close, lookahead = barmerge.lookahead_off))',
+      'string s = bar_index >= 0 ? "BYBIT:BTCUSDT" : "x"\nplot(request.security(s, "", close))',
+    ]) {
+      const got = await ok(src);
+      expect(got.slice(0, 100), src).toEqual(b.slice(0, 100));
+    }
+    expect(want('eth')[0]).not.toBe(b[0]);
+  });
+
+  it('stops on a prefix Vost has no provider for, naming it and listing the provider ids', async () => {
+    const r = await run('plot(request.security("FOO:BTCUSDT", "", close))');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message).toContain('"FOO"');
+      for (const id of ['binance', 'coinbase', 'bybit', 'hyperliquid-perps', 'yahoo', 'demo']) expect(r.error.message).toContain(id);
+    }
+    const lt = await run('plot(array.size(request.security_lower_tf("FOO:BTCUSDT", "15", close)))');
+    expect(lt.ok).toBe(false);
+    if (!lt.ok) expect(lt.error.message).toContain('"FOO"');
+  });
+
+  it('a dataset chart reads a symbol with a provider prefix, and stops on one without', async () => {
+    const ds: PineMarket = { providerId: 'csv', symbol: 'DATA', barSeconds: 3600, dataset: true };
+    const s = server();
+    const got = await ok('plot(request.security("BYBIT:BTCUSDT", "", close))', s, ds);
+    expect(got[3]).toBe(hourlyOf(bybit)[3].close);
+    const bare = await run('plot(request.security("BTCUSDT", "", close))', server(), ds);
+    expect(bare.ok).toBe(false);
+    if (!bare.ok) expect(bare.error.message).toContain('imported dataset chart can only read a symbol with a provider prefix');
+  });
+
+  it('a missing symbol stops with symbol not found on the provider; another failure keeps the server message', async () => {
+    const s = server();
+    const miss = await run('plot(request.security("COINBASE:NOPE", "D", close))', s);
+    expect(miss.ok).toBe(false);
+    if (!miss.ok) expect(miss.error.message).toContain('request.security(COINBASE:NOPE, D): symbol not found on Coinbase');
+    s.failWith = 'HTTP 500 upstream is down';
+    const bad = await run('plot(request.security("BYBIT:BTCUSDT", "D", close))', s);
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.error.message).toContain('HTTP 500 upstream is down');
+  });
+
+  it('ignore_invalid_symbol gives na on every bar and a warning', async () => {
+    const r = await run('plot(request.security("COINBASE:NOPE", "D", close, ignore_invalid_symbol = true))');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.plots[0].values.every((v) => v === null)).toBe(true);
+      expect((r.messages?.logs ?? []).filter((m) => m.level === 'warning' && /returns na/.test(m.text))).toHaveLength(1);
+    }
+  });
+
+  it('same-timeframe bars of another symbol are clipped to the run end, and cutting later candles keeps earlier values', async () => {
+    const src = 'plot(request.security("BYBIT:BTCUSDT", "", close))';
+    const s = server();
+    const full = await ok(src, s);
+    const cut = await run(src, s, market, chart.slice(0, 500));
+    expect(cut.ok).toBe(true);
+    if (cut.ok) {
+      expect(cut.plots[0].values).toHaveLength(500);
+      expect(cut.plots[0].values).toEqual(full.slice(0, 500));
+    }
+    for (const c of s.calls) expect(c.to! * 1000).toBeLessThanOrEqual(chart.at(-1)!.time * 1000 + 3600000);
+  });
+
+  it('the forming day of another symbol is built from its own bars, never its final close', async () => {
+    const cut = chart.slice(0, 24 * 40 + 5);
+    const s = server();
+    const hi = await ok('plot(request.security("BYBIT:BTCUSDT", "D", high, lookahead = barmerge.lookahead_on))', s);
+    const r = await run('plot(request.security("BYBIT:BTCUSDT", "D", high, lookahead = barmerge.lookahead_on))', s, market, cut);
+    expect(r.ok).toBe(true);
+    const own = hourlyOf(bybit).slice(24 * 40, 24 * 40 + 5);
+    if (r.ok) expect(r.plots[0].values.at(-1)).toBe(Math.max(...own.map((c) => c.high)));
+    expect(hi).toHaveLength(chart.length);
+  });
+
+  it('a second run makes no second fetch (feed cache)', async () => {
+    const s = server();
+    await ok('plot(request.security("BYBIT:BTCUSDT", "D", close))', s);
+    const n = s.calls.length;
+    expect(n).toBeGreaterThan(0);
+    await ok('plot(request.security("BYBIT:BTCUSDT", "D", close))', s);
+    expect(s.calls).toHaveLength(n);
+  });
+
+  it('syminfo inside the expression reports the other symbol, outside it the chart', async () => {
+    const r = await run('plot(request.security("COINBASE:ETH-USD", "", syminfo.prefix == "COINBASE" and syminfo.ticker == "ETH-USD" and syminfo.tickerid == "COINBASE:ETH-USD" ? 1 : 0))\nplot(syminfo.prefix == "BINANCE" and syminfo.ticker == "BTCUSDT" ? 1 : 0)');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.plots[0].values.at(-2)).toBe(1);
+      expect(r.plots[1].values.at(-1)).toBe(1);
+    }
+  });
+
+  it('security_lower_tf on another symbol gives four 15 minute closes per hourly bar', async () => {
+    const r = await run('plot(array.size(request.security_lower_tf("BYBIT:BTCUSDT", "15", close)))\nplot(array.get(request.security_lower_tf("BYBIT:BTCUSDT", "15", close), 3))');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.plots[0].values.slice(5, 50).every((v) => v === 4)).toBe(true);
+      expect(r.plots[1].values[10]).toBe(bybit[43].close);
+    }
+  });
+
+  it('a higher timeframe of another symbol equals a hand calculation (EMA of daily closes)', async () => {
+    const got = await ok('plot(request.security("COINBASE:ETH-USD", "D", ta.ema(close, 5)))');
+    const e = ema(buildBars(hourlyOf(ethUsd), '1d').map((b) => b.close), 5);
+    chart.slice(0, -24).forEach((_, i) => {
+      const day = Math.floor(i / 24);
+      const w = e[i % 24 === 23 ? day : day - 1] ?? null;
+      if (w === null) expect(got[i]).toBeNull(); else expect(got[i]).toBeCloseTo(w, 9);
+    });
+  });
+});
+
+describe('request.currency_rate', () => {
+  const markets = { 'binance|BTCUSDT': base, 'binance|USDTEUR': candles15(96 * 60, 5, 2) };
+  const server = () => fakeServer(base, { markets });
+  const run = (src: string, s = server()) => runPine(head + src, chart, {}, { market, feed: s.feed });
+
+  it('gives the close of a direct pair', async () => {
+    const r = await run('plot(request.currency_rate("BTC", "USDT"))');
+    expect(r.ok).toBe(true);
+    if (r.ok) chart.forEach((c, i) => expect(r.plots[0].values[i]).toBe(c.close));
+  });
+
+  it('gives 1/close of an inverse pair', async () => {
+    const r = await run('plot(request.currency_rate("USDT", "BTC"))');
+    expect(r.ok).toBe(true);
+    if (r.ok) chart.forEach((c, i) => expect(r.plots[0].values[i]).toBeCloseTo(1 / c.close, 12));
+  });
+
+  it('stops naming both currencies for a pair the provider lacks, unless ignore_invalid_currency', async () => {
+    const r = await run('plot(request.currency_rate("BTC", "XYZ"))');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/BTC.*XYZ/);
+    const na = await run('plot(request.currency_rate("BTC", "XYZ", ignore_invalid_currency = true))');
+    expect(na.ok).toBe(true);
+    if (na.ok) expect(na.plots[0].values.every((v) => v === null)).toBe(true);
+  });
+
+  it('one currency to itself is 1', async () => {
+    const r = await run('plot(request.currency_rate("USDT", "USDT"))');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.plots[0].values.every((v) => v === 1)).toBe(true);
   });
 });

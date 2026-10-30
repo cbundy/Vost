@@ -2,15 +2,16 @@
 import { buildBars } from '../../../../shared/timeframes';
 import type { HistoryRequest } from '../providers';
 import type { Candle } from '../../types';
+import { ApiHttpError } from '../providers/api';
 import { createMarketFeed, type MarketFeed } from './marketFeed';
 
 export const START = Date.UTC(2024, 0, 1) / 1000;
 
 /** A pseudo-random walk of 15-minute candles from `START`. */
-export function candles15(count: number): Candle[] {
-  let x = 1;
+export function candles15(count: number, seed = 1, start = 100): Candle[] {
+  let x = seed;
   const rnd = () => ((x = (x * 1103515245 + 12345) % 2147483648) / 2147483648);
-  let price = 100;
+  let price = start;
   return Array.from({ length: count }, (_, i) => {
     const open = price;
     price = Math.max(1, price + (rnd() - 0.5) * 2);
@@ -22,7 +23,7 @@ export function candles15(count: number): Candle[] {
 
 export interface FakeServer {
   feed: MarketFeed;
-  calls: HistoryRequest[];
+  calls: Array<HistoryRequest & { providerId?: string }>;
   /** What the next requests do: throw this error. */
   failWith?: string;
 }
@@ -31,12 +32,15 @@ export interface FakeServer {
  * A feed over a fake server that holds `base` candles and builds any interval from them, the unfinished newest bucket
  * included (as a real server would). `finalClose` replaces the close of the newest daily bar, a future value a run must not see.
  */
-export function fakeServer(base: Candle[], opts: { finalClose?: number } = {}): FakeServer {
+export function fakeServer(base: Candle[], opts: { finalClose?: number; markets?: Record<string, Candle[]> } = {}): FakeServer {
   const server: FakeServer = { calls: [], feed: null as unknown as MarketFeed };
-  server.feed = createMarketFeed(() => async (req) => {
-    server.calls.push(req);
+  server.feed = createMarketFeed((providerId) => async (req) => {
+    server.calls.push({ ...req, providerId });
     if (server.failWith) throw new Error(server.failWith);
-    let bars = buildBars(base, req.timeframe);
+    // With `markets` (`provider|SYMBOL` -> 15-minute candles) the server has only those, and a 404 for any other symbol.
+    const held = opts.markets ? opts.markets[`${providerId}|${req.symbol}`] : base;
+    if (!held) throw new ApiHttpError(`Unknown symbol ${req.symbol}`, 404);
+    let bars = buildBars(held, req.timeframe);
     if (opts.finalClose !== undefined && req.timeframe === '1d' && bars.length) {
       bars = bars.map((b, i) => (i === bars.length - 1 ? { ...b, close: opts.finalClose! } : b));
     }
