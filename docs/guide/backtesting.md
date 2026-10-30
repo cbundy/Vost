@@ -126,3 +126,21 @@ Tick **Rank by robustness** to open the table sorted by Robustness, highest firs
 ![The table with its four robustness columns, sorted by Robustness](../evidence/optimizer/optimizer-robustness-results-desktop.png)
 
 ![The heatmap with the most robust result outlined](../evidence/optimizer/optimizer-robustness-heatmap-desktop.png)
+
+#### Monte Carlo of the top results
+
+**Monte Carlo** shows how fragile the best results are. The grid is searched on the whole backtest range (no split), then each of the top results (fewer if fewer have a ranking value) is run once more to get its trades and the backtester's [Monte Carlo](#monte-carlo) is run on them. How the figures are computed is described there; every result is simulated with the same settings, so a row shows exactly what the Results tab's Monte Carlo shows after you **Apply** that row with the same settings.
+
+The settings are **Top results to check** (a whole number from 1 to 50, default 10), **Runs** (a whole number from 100 to 10,000, default 1,000), **Method** (**Shuffle trade order** or **Resample trades**) and **Seed** (a whole number, default 1). Anything else disables **Optimize** and the pane says why. The values you last chose are kept while you switch to another method and back.
+
+The table and heatmap above keep their normal title ("Results · <metric>"). A **Monte Carlo · <metric>** section below them names the runs, method and seed and lists one row per checked result: its rank, the swept parameters, the ranking metric, trades, the 5th percentile, median and 95th percentile of the final return and of the max drawdown (measured trade to trade), the chance of a loss, and **Apply**. Every column header sorts the rows (click again to reverse; rows without figures stay last either way) and the default order is by rank. A result with fewer than 2 trades reads "needs at least 2 trades" and a re-run that fails reads "failed" and is counted in a badge, not dropped.
+
+Cost: the button counts only the grid; the checks add one more backtest and simulation per checked result, and the progress bar covers all of it. **Cancel** stops any phase and brings back the previous result.
+
+**Export results CSV** adds `validation: monte-carlo`, `top results checked`, `runs`, `method`, `seed` and `max drawdown is measured trade to trade` lines and the columns `mc_status`, `mc_trades`, `mc_return_p5`, `mc_return_p50`, `mc_return_p95`, `mc_drawdown_p5`, `mc_drawdown_p50`, `mc_drawdown_p95` and `mc_prob_loss_pct`, filled for checked rows and empty for the rest.
+
+![Choosing Monte Carlo with the top 5 results, 500 runs and seed 1](../evidence/optimizer/optimizer-monte-carlo-settings-desktop.png)
+
+![The Monte Carlo table, one row per checked result](../evidence/optimizer/optimizer-monte-carlo-results-desktop.png)
+
+![The table sorted by chance of a loss](../evidence/optimizer/optimizer-monte-carlo-sorted-desktop.png)

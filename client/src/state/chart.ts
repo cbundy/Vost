@@ -934,6 +934,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         const parts = splitBars(candles, v.inSamplePct);
         context.validation = { method: 'split', inSamplePct: v.inSamplePct, topN: v.topN, inSample: spanOf(parts.inSample), heldOut: spanOf(parts.heldOut) };
       }
+      if (v && v.method === 'monte-carlo') {
+        context.validation = { method: 'monte-carlo', topN: v.topN, iterations: v.iterations, mcMethod: v.mcMethod, seed: v.seed };
+      }
       if (v && v.method === 'walk-forward') {
         const spans = walkForwardWindows(candles.length, v).map((w) => ({
           inSample: spanOf(candles.slice(w.inSample.from, w.inSample.to)),
