@@ -8,7 +8,7 @@
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { applyKline, mergeCandles } from '../lib/applyKline';
-import { MAX_BARS, intervalSeconds } from '../../../shared/market.ts';
+import { MAX_BARS, intervalSeconds, parseInterval } from '../../../shared/market.ts';
 import type { Candle, Dataset, Interval } from '../types';
 import { uid } from '../types';
 import type { BacktestResult, BacktestConfig, BacktestStage } from '../lib/backtest/types';
@@ -22,7 +22,7 @@ import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
 import { walkForwardWindows, type WalkForwardOutput } from '../lib/backtest/walkForward';
 import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
-import type { PineInput } from '../lib/pine/types';
+import type { PineInput, PineMarket } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import type { MessageSeverity } from '../lib/messages';
@@ -76,6 +76,25 @@ export function selectDataCandles(s: Pick<ChartState, 'candles' | 'fullCandles' 
 /** The bars the chart would show without a replay cut: what backtests and optimizer runs use (a chart range still crops). */
 export function selectBars(s: Pick<ChartState, 'candles' | 'replay'>): Candle[] {
   return s.replay?.phase === 'active' ? s.replay.source : s.candles;
+}
+
+/**
+ * The market a Pine script on this chart sees: the shown dataset's when one is shown (symbol from its name, prefix
+ * from its source, timeframe from its bar length), else the picked provider, symbol and interval.
+ */
+export function marketOf(
+  s: Pick<ChartState, 'providerId' | 'symbol' | 'timeframe' | 'activeDatasetId'>,
+  datasets: readonly Dataset[],
+): PineMarket {
+  const ds = s.activeDatasetId ? datasets.find((d) => d.id === s.activeDatasetId) : undefined;
+  if (!ds) return { providerId: s.providerId, symbol: s.symbol, interval: s.timeframe };
+  const symbol = ds.name.replace(/\.[A-Za-z0-9]{1,4}$/, '').trim() || ds.description.trim() || 'DATASET';
+  return {
+    providerId: ds.source || 'dataset',
+    symbol,
+    ...(parseInterval(ds.barLabel) ? { interval: ds.barLabel } : ds.barSeconds > 0 ? { barSeconds: ds.barSeconds } : {}),
+    dataset: true,
+  };
 }
 
 /** What a chart starts from: the part of the saved prefs that belongs to one chart. */
@@ -307,7 +326,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     setPineRun(id, { ...prev, running: true });
     let outcome: PineRunOutcome;
     try {
-      const res = await workerCall({ type: 'pine', source, candles, inputs });
+      const res = await workerCall({ type: 'pine', source, candles, inputs, market: marketOf(get(), env.datasets()) });
       outcome =
         res.type === 'pineResult' ? res.outcome : { ok: false, error: { message: 'Unexpected worker reply' } };
     } catch (err) {
@@ -926,7 +945,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       set({ btRunning: true, btProgress: 0, btStage: null, btError: null });
       try {
         const t0 = performance.now();
-        const msg = await workerCall({ type: 'run', candles, config: btConfig }, (pct, stage) =>
+        const msg = await workerCall({ type: 'run', candles, config: { ...btConfig, market: marketOf(get(), env.datasets()) } }, (pct, stage) =>
           set({ btProgress: pct, btStage: stage ?? null }),
         );
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
@@ -956,6 +975,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           type: 'pine',
           source: btConfig.pineCode ?? DEFAULT_PINE_CODE,
           candles: candles.slice(0, 60),
+          market: marketOf(get(), env.datasets()),
         });
         if (msg.type !== 'pineResult') throw new Error('Unexpected worker reply');
         set({ pineInputs: msg.outcome.ok ? msg.outcome.inputs : [] });
@@ -1060,7 +1080,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
-      const call = optimizerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
+      const call = optimizerCall({ type: 'optimize', candles, config: { ...btConfig, market: marketOf(get(), env.datasets()) }, optimize: optConfig }, (pct) => {
         if (optRun === run) set({ optProgress: pct });
       });
       const run = { cancel: call.cancel, previous };

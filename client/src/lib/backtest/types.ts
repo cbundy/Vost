@@ -7,6 +7,8 @@
  * enabled in the configuration.
  */
 
+import type { PineMarket } from '../pine/types';
+
 /** The step a running backtest is in, reported with its progress. */
 export type BacktestStage = 'signals' | 'simulating' | 'pine' | 'metrics';
 
@@ -35,6 +37,8 @@ export interface BacktestConfig {
   stopLossPct: number | null;
   /** Take profit distance in percent (null disables). */
   takeProfitPct: number | null;
+  /** Pine only: the chart's symbol, timeframe and market details. Added when a run is requested, never saved. */
+  market?: PineMarket;
 }
 
 export type ExitReason = 'signal' | 'stop_loss' | 'take_profit' | 'end_of_data';
