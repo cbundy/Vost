@@ -15,5 +15,5 @@ export const trendLine = lineTool(
       </Svg>
     ),
   },
-  false,
+  {},
 );

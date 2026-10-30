@@ -386,3 +386,15 @@ describe('the shared drawings storage (several charts on one page)', () => {
     expect(Object.keys(saved()).sort()).toEqual(['demo:DEMO', 'old:SYM']);
   });
 });
+
+describe('the line tools', () => {
+  it('keeps each new tool id with its own anchor count and drops a wrong one', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
+    const ids = ['infoLine', 'extendedLine', 'trendAngle', 'horizontalRay', 'verticalLine', 'crossLine'];
+    const ok = ids.map((tool) => ({ id: tool, tool, anchors: an(ANCHOR_COUNTS[tool]) }));
+    const bad = ids.map((tool) => ({ id: `${tool}-bad`, tool, anchors: an(ANCHOR_COUNTS[tool] === 1 ? 2 : 1) }));
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([2, 2, 2, 1, 1, 1]);
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS).sources).toEqual({ s: ok });
+  });
+});

@@ -93,12 +93,12 @@ export type OhlcBar = { time: number; open: number; high: number; low: number; c
 /**
  * Magnet: when the anchor's fractional bar index is within half a bar of a real bar, moves it to that
  * bar's time and to the nearest of its open, high, low, close. Outside every bar it is returned as is.
- * `priceOnly` keeps the time (a horizontal line).
+ * `priceOnly` keeps the time (a horizontal line); `timeOnly` keeps the price (a vertical line).
  */
 export function snapToBar(
   candles: readonly OhlcBar[],
   anchor: { time: number; price: number },
-  opts: { priceOnly?: boolean } = {},
+  opts: { priceOnly?: boolean; timeOnly?: boolean } = {},
 ): { time: number; price: number } {
   const n = candles.length;
   if (n === 0) return anchor;
@@ -111,7 +111,7 @@ export function snapToBar(
   const bar = candles[i];
   let price = bar.open;
   for (const v of [bar.high, bar.low, bar.close]) if (Math.abs(v - anchor.price) < Math.abs(price - anchor.price)) price = v;
-  return { time: opts.priceOnly ? anchor.time : bar.time, price };
+  return { time: opts.priceOnly ? anchor.time : bar.time, price: opts.timeOnly ? anchor.price : price };
 }
 
 /** Where the ray from a through b leaves the pane [0,width] x [0,height]; a itself when a equals b. */

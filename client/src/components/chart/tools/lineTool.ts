@@ -1,29 +1,34 @@
 import { HIT_TOLERANCE, distToSegment, extendSegment, measureSummary, type Pt } from '../../../lib/drawingGeometry';
 import type { SettingField } from '../../../lib/drawingStyle';
+import { lineDistance } from '../../../lib/geometry/lines';
 import { fmtDurationBarCount, fmtElapsed, fmtPct } from '../../../lib/format';
 import { theme } from '../../../lib/theme';
 import { applyDash, boolField, colorField, lineStyleField, opacityField, strokeColor, strokeWidth, widthField } from './fields';
 import type { DrawingTool, ToolView } from './types';
 
-/** The settings of the trend line and the ray; the ray extends to the right by default. */
-export function lineSettings(extendRight: boolean): SettingField[] {
+/** What a line tool shows or extends before the user changes it; the trend line has none of it, the ray extends right. */
+export type LineDefaults = Partial<Record<'extendLeft' | 'extendRight' | 'showPriceChange' | 'showAngle' | 'showBars' | 'showDistance', boolean>>;
+
+/** The settings of the line tools; `defaults` overrides what a tool turns on. */
+export function lineSettings(defaults: LineDefaults = {}): SettingField[] {
   return [
     colorField('color', 'Colour', 'accent'),
     opacityField('opacity', 'Opacity', 1),
     widthField('width', 'Width', 1.5),
     lineStyleField('lineStyle', 'Line style'),
-    boolField('extendLeft', 'Extend left', false),
-    boolField('extendRight', 'Extend right', extendRight),
+    boolField('extendLeft', 'Extend left', defaults.extendLeft ?? false),
+    boolField('extendRight', 'Extend right', defaults.extendRight ?? false),
     boolField('arrowStart', 'Arrow at start', false),
     boolField('arrowEnd', 'Arrow at end', false),
-    boolField('showPriceChange', 'Show price change', false),
-    boolField('showAngle', 'Show angle', false),
-    boolField('showBars', 'Show bars', false),
+    boolField('showPriceChange', 'Show price change', defaults.showPriceChange ?? false),
+    boolField('showAngle', 'Show angle', defaults.showAngle ?? false),
+    boolField('showBars', 'Show bars', defaults.showBars ?? false),
+    boolField('showDistance', 'Show distance', defaults.showDistance ?? false),
   ];
 }
 
 /** The pixels the line is drawn between: its anchors, continued as the style says. */
-function span([a, b]: Pt[], view: ToolView): [Pt, Pt] {
+export function span([a, b]: Pt[], view: ToolView): [Pt, Pt] {
   return extendSegment(a, b, view.width, view.height, view.style.extendLeft === true, view.style.extendRight === true);
 }
 
@@ -48,6 +53,7 @@ function statsLines(view: ToolView, a: Pt, b: Pt): string[] {
   if (view.style.showPriceChange === true) lines.push(`${s.change > 0 ? '+' : ''}${view.formatPrice(s.change)} (${s.pct === null ? '—' : fmtPct(s.pct)})`);
   if (view.style.showBars === true) lines.push(`${fmtDurationBarCount(s.bars)}, ${fmtElapsed(s.seconds)}`);
   if (view.style.showAngle === true) lines.push(`${Math.round((Math.atan2(a.y - b.y, b.x - a.x) * 180) / Math.PI)}°`);
+  if (view.style.showDistance === true) lines.push(`${Math.round(lineDistance(a, b))} px`);
   return lines;
 }
 
@@ -70,12 +76,13 @@ function drawStats(ctx: CanvasRenderingContext2D, lines: string[], b: Pt, view: 
   lines.forEach((l, i) => ctx.fillText(l, lx + PAD, ly + PAD + LINE * i + LINE / 2));
 }
 
-/** A two-anchor line tool: trend line and ray differ only in their id, label, icon and default extension. */
-export function lineTool(base: Pick<DrawingTool, 'id' | 'label' | 'group' | 'section' | 'icon'>, extendRight: boolean): DrawingTool {
+/** A two-anchor line tool: the line tools differ in their id, label, icon, what they extend and what they show. */
+export function lineTool(base: Pick<DrawingTool, 'id' | 'label' | 'group' | 'section' | 'icon'>, defaults: LineDefaults = {}): DrawingTool {
   return {
     ...base,
     anchors: 2,
-    settings: lineSettings(extendRight),
+    settings: lineSettings(defaults),
+    axisLabels: (anchors, _style, selected) => (selected ? { price: anchors.map((a) => a.price), time: anchors.map((a) => a.time) } : {}),
     draw(ctx, pts, view, { selected }) {
       const [a, b] = pts;
       const [from, to] = span(pts, view);

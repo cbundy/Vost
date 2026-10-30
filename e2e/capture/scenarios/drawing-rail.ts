@@ -156,13 +156,13 @@ export const drawingRail: Scenario = {
       const focused = async () => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent ?? '');
       check('focus starts on the current tool', (await focused()).includes('Trend line') || (await items.first().evaluate((el) => el === document.activeElement)));
       await page.keyboard.press('ArrowDown');
-      check('ArrowDown moves to Horizontal line', (await focused()).includes('Horizontal line'));
+      check('ArrowDown moves to Ray', (await focused()).includes('Ray'));
       await page.keyboard.press('End');
-      check('End goes to Ray', (await focused()).includes('Ray'));
+      check('End goes to Cross line', (await focused()).includes('Cross line'));
       await page.keyboard.press('ArrowDown');
       check('ArrowDown wraps to Trend line', (await focused()).includes('Trend line'));
       await page.keyboard.press('ArrowUp');
-      check('ArrowUp wraps to Ray', (await focused()).includes('Ray'));
+      check('ArrowUp wraps to Cross line', (await focused()).includes('Cross line'));
       await page.keyboard.press('Home');
       check('Home goes to Trend line', (await focused()).includes('Trend line'));
       await ctx.screenshot('keyboard');
@@ -179,7 +179,7 @@ export const drawingRail: Scenario = {
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('Enter');
-      check('Enter picks Ray and closes the menu', (await page.getByRole('menu').count()) === 0 && (await groupBtn('Ray').getAttribute('aria-pressed')) === 'true');
+      check('Enter picks Info line and closes the menu', (await page.getByRole('menu').count()) === 0 && (await groupBtn('Info line').getAttribute('aria-pressed')) === 'true');
       await page.keyboard.press('Escape');
       check('Escape leaves the tool', await pressedOf('Cross'));
     });
