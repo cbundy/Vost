@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
 import {
   MAX_GRID_COMBOS,
+  gridSize,
   defaultOptimizeConfig,
   paramValues,
   runOptimize,
@@ -48,7 +49,7 @@ describe('paramValues', () => {
 describe('optimizer rows equal single backtests', () => {
   it('1D sweep of slow on SMA crossover has only the swept key', () => {
     const config = base();
-    const opt: OptimizeConfig = { sweepA: { key: 'slow', from: 20, to: 40, step: 5 }, sweepB: null, metric: 'totalReturnPct' };
+    const opt: OptimizeConfig = { sweeps: [{ key: 'slow', from: 20, to: 40, step: 5 }], metric: 'totalReturnPct' };
     const out = runOptimize(wavy, config, opt);
     expect(out.keys).toEqual(['slow']);
     expect(out.rows).toHaveLength(5);
@@ -59,8 +60,7 @@ describe('optimizer rows equal single backtests', () => {
   it('2D sweep on SMA crossover', () => {
     const config = base();
     const opt: OptimizeConfig = {
-      sweepA: { key: 'fast', from: 5, to: 15, step: 5 },
-      sweepB: { key: 'slow', from: 20, to: 40, step: 10 },
+      sweeps: [{ key: 'fast', from: 5, to: 15, step: 5 }, { key: 'slow', from: 20, to: 40, step: 10 }],
       metric: 'sharpe',
     };
     const out = runOptimize(wavy, config, opt);
@@ -72,8 +72,7 @@ describe('optimizer rows equal single backtests', () => {
   it('2D sweep on another built-in (EMA crossover), async', async () => {
     const config = base({ strategyId: 'ema_cross', params: { fast: 12, slow: 26, direction: 1 } });
     const opt: OptimizeConfig = {
-      sweepA: { key: 'fast', from: 6, to: 12, step: 3 },
-      sweepB: { key: 'slow', from: 20, to: 30, step: 5 },
+      sweeps: [{ key: 'fast', from: 6, to: 12, step: 3 }, { key: 'slow', from: 20, to: 30, step: 5 }],
       metric: 'calmar',
     };
     const out = await runOptimizeAsync(wavy, config, opt);
@@ -84,8 +83,7 @@ describe('optimizer rows equal single backtests', () => {
 
 describe('ranking', () => {
   const opt = (metric: MetricKey): OptimizeConfig => ({
-    sweepA: { key: 'fast', from: 3, to: 20, step: 1 },
-    sweepB: { key: 'slow', from: 25, to: 45, step: 5 },
+    sweeps: [{ key: 'fast', from: 3, to: 20, step: 1 }, { key: 'slow', from: 25, to: 45, step: 5 }],
     metric,
   });
 
@@ -109,8 +107,7 @@ describe('ranking', () => {
     const candles = series((i) => (i < 40 ? 200 - i : 160 + (i - 40) * 2), 200);
     const config = base({ feeBps: 0, slippageBps: 0 });
     const out = runOptimize(candles, config, {
-      sweepA: { key: 'fast', from: 3, to: 6, step: 1 },
-      sweepB: { key: 'slow', from: 20, to: 30, step: 5 },
+      sweeps: [{ key: 'fast', from: 3, to: 6, step: 1 }, { key: 'slow', from: 20, to: 30, step: 5 }],
       metric: 'profitFactor',
     });
     const inf = out.rows.filter((r) => r.value === Number.POSITIVE_INFINITY);
@@ -124,8 +121,7 @@ describe('ranking', () => {
 
 describe('grid limit', () => {
   const huge: OptimizeConfig = {
-    sweepA: { key: 'fast', from: 1, to: 400, step: 1 },
-    sweepB: { key: 'slow', from: 1, to: 400, step: 1 },
+    sweeps: [{ key: 'fast', from: 1, to: 400, step: 1 }, { key: 'slow', from: 1, to: 400, step: 1 }],
     metric: 'sharpe',
   };
   it('exports a 100,000 limit', () => expect(MAX_GRID_COMBOS).toBe(100_000));
@@ -137,5 +133,77 @@ describe('grid limit', () => {
   });
   it('default config has no maxCombos', () => {
     expect('maxCombos' in defaultOptimizeConfig(base())).toBe(false);
+  });
+});
+
+describe('any number of sweeps', () => {
+  const macdConfig = () => base({ strategyId: 'macd_cross', params: { fast: 12, slow: 26, signal: 9, direction: 1 } });
+  const three: OptimizeConfig = {
+    sweeps: [
+      { key: 'fast', from: 8, to: 12, step: 2 },
+      { key: 'slow', from: 20, to: 30, step: 5 },
+      { key: 'signal', from: 5, to: 9, step: 4 },
+    ],
+    metric: 'sharpe',
+  };
+
+  it('3-sweep grid runs every combination once, keys in sweep order, rows equal single backtests', () => {
+    const config = macdConfig();
+    const out = runOptimize(wavy, config, three);
+    expect(out.keys).toEqual(['fast', 'slow', 'signal']);
+    expect(out.combos).toBe(3 * 3 * 2);
+    expect(out.rows.length + out.errored).toBe(18);
+    const seen = new Set(out.rows.map((r) => `${r.params.fast}|${r.params.slow}|${r.params.signal}`));
+    expect(seen.size).toBe(out.rows.length);
+    expectRowsMatchSingleBacktests(wavy, config, out);
+  });
+
+  it('gridSize is the product, 0 for no sweeps or a non-finite sweep', () => {
+    expect(gridSize(three)).toBe(18);
+    expect(gridSize({ sweeps: [] })).toBe(0);
+    expect(gridSize({ sweeps: [{ key: 'a', from: 1, to: Number.NaN, step: 1 }, three.sweeps[0]] })).toBe(0);
+  });
+
+  it('refuses empty sweeps and a repeated key', async () => {
+    expect(() => runOptimize(wavy, base(), { sweeps: [], metric: 'sharpe' })).toThrow(/at least one/);
+    const dup: OptimizeConfig = { sweeps: [three.sweeps[0], { ...three.sweeps[0] }], metric: 'sharpe' };
+    expect(() => runOptimize(wavy, base(), dup)).toThrow(/more than once/);
+    await expect(runOptimizeAsync(wavy, base(), dup)).rejects.toThrow(/more than once/);
+    await expect(runOptimizeAsync(wavy, base(), { sweeps: [], metric: 'sharpe' })).rejects.toThrow(/at least one/);
+  });
+
+  it('applies the limit to a 3-sweep product', () => {
+    const big: OptimizeConfig = {
+      sweeps: [
+        { key: 'fast', from: 1, to: 50, step: 1 },
+        { key: 'slow', from: 1, to: 50, step: 1 },
+        { key: 'signal', from: 1, to: 50, step: 1 },
+      ],
+      metric: 'sharpe',
+    };
+    expect(gridSize(big)).toBe(125_000);
+    expect(() => runOptimize(wavy, macdConfig(), big)).toThrow(/limit/);
+  });
+
+  it('visits combinations first-sweep-outermost', () => {
+    // Constant series: every row ties, so the stable sort leaves grid order.
+    const flat = series(() => 100, 60);
+    const out = runOptimize(flat, base(), {
+      sweeps: [{ key: 'fast', from: 3, to: 4, step: 1 }, { key: 'slow', from: 10, to: 12, step: 1 }],
+      metric: 'sharpe',
+    });
+    expect(out.rows.map((r) => `${r.params.fast},${r.params.slow}`)).toEqual(['3,10', '3,11', '3,12', '4,10', '4,11', '4,12']);
+    // 3 sweeps: last sweep innermost
+    const out3 = runOptimize(flat, macdConfig(), {
+      sweeps: [{ key: 'fast', from: 3, to: 4, step: 1 }, { key: 'slow', from: 10, to: 11, step: 1 }, { key: 'signal', from: 2, to: 3, step: 1 }],
+      metric: 'sharpe',
+    });
+    expect(out3.rows.map((r) => Object.values(r.params).join(','))).toEqual(['3,10,2', '3,10,3', '3,11,2', '3,11,3', '4,10,2', '4,10,3', '4,11,2', '4,11,3']);
+  });
+
+  it('defaults: the first two numeric params', () => {
+    expect(defaultOptimizeConfig(base()).sweeps.map((x) => x.key)).toEqual(['fast', 'slow']);
+    // never more than the first two numeric params, even for a three-param strategy
+    expect(defaultOptimizeConfig(macdConfig()).sweeps.map((x) => x.key)).toEqual(['fast', 'slow']);
   });
 });

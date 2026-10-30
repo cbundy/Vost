@@ -30,10 +30,18 @@ The **Results** tab shows 20+ metrics (return against Buy & hold, CAGR, Sharpe, 
 
 ## The Optimizer
 
-The **Optimizer** tab grid-searches one or two parameters (**Parameter A**, optionally B, each with **From**, **To** and **Step**) and shows how many combinations it will run. Choose the metric in **Rank by** and press **Optimize**. The best results are ranked in a table, and a heatmap shows every combination. Click a heatmap cell or press the apply button on a row to set those parameters and re-run the backtest.
+The **Optimizer** tab grid-searches any number of parameters at once. Each parameter is a row (**Parameter 1**, **Parameter 2**, ...) with its own **From**, **To** and **Step**. Press **Add parameter** to sweep another one (it starts at half to one and a half times its current value) and **Remove** to drop a row; a parameter can only be used in one row. The pane shows how many combinations it will run (the product of every row). Choose the metric in **Rank by** and press **Optimize**. The best results are ranked in a table with one column per swept parameter, and a heatmap shows the combinations. Click a heatmap cell or press the apply button on a row to set those parameters and re-run the backtest.
+
+The heatmap has **Rows** and **Columns** pickers for choosing its two axes among the swept parameters (**Columns** can be set to none). With three or more parameters it shows only the combinations where the other parameters equal the best result, and says which values they are fixed at.
+
+While a sweep runs, **Cancel** next to the progress bar stops it and brings back the result that was shown before. Other charts are not affected.
 
 The table and heatmap are labelled with the parameters you swept, and each result is exactly what a single backtest with those parameters gives. Every value from **From** to **To** is tried (nothing is dropped). A grid is limited to 100,000 combinations: above that the pane says so and **Optimize** stays disabled until you narrow a range or raise a step. A whole-number parameter (such as a period) needs a whole-number step, otherwise the pane says so and **Optimize** is disabled.
 
 ![Sweeping the slow period alone](../evidence/optimizer/optimizer-slow-sweep-desktop.png)
 
 ![A grid over the limit](../evidence/optimizer/optimizer-over-limit-desktop.png)
+
+![Three parameters swept together, with the heatmap axis pickers](../evidence/optimizer/optimizer-three-parameters-desktop.png)
+
+![A long run with its Cancel button](../evidence/optimizer/optimizer-cancel-visible-desktop.png)
