@@ -3,7 +3,7 @@ import type { Scenario } from '../scenario.ts';
 
 /** Reads the saved drawings of the demo source (waits past the 400 ms debounce first). */
 const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v1');
+  const raw = localStorage.getItem('vost.drawings.v2');
   const all = raw ? JSON.parse(raw).sources : {};
   return all['demo:DEMO'] ?? [];
 })()`;

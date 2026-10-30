@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Pt } from '../../../lib/drawingGeometry';
+import type { SettingField } from '../../../lib/drawingStyle';
 import type { Anchor } from '../../../lib/drawings';
 
 export type ToolRenderOpts = { selected: boolean };
@@ -19,6 +20,10 @@ export interface ToolView {
   priceToY(price: number): number | null;
   /** A price as the series formats it. */
   formatPrice(price: number): string;
+  /** The drawing's effective style: every setting of the tool with its validated value. */
+  style: Readonly<Record<string, unknown>>;
+  /** The drawing (or the user's default for its tool) sets a style value of its own; false keeps today's selection colour. */
+  styled: boolean;
 }
 
 /** One drawing tool. Geometry is in chart pixels (the anchors are already converted). */
@@ -33,6 +38,11 @@ export interface DrawingTool {
   text?: true;
   /** The tool is shown while and after it is drawn but never stored, hit or undone (the measure). */
   transient?: true;
+  /**
+   * The style settings the dialog offers, with their defaults. A tool that is stored declares them; the
+   * visibility settings every drawing has are added to them.
+   */
+  settings?: readonly SettingField[];
   /** A drag moves it vertically only (the time of its anchor is kept). */
   priceOnly?: boolean;
   draw(ctx: CanvasRenderingContext2D, pts: Pt[], view: ToolView, opts: ToolRenderOpts): void;

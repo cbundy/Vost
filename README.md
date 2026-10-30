@@ -40,7 +40,7 @@ Each area below has a page in the [user guide](docs/guide/README.md).
 - Bar replay: pick a starting bar (click it or type a date, and pick a new one at any time during replay), then step or play forward at 1, 3 or 10 bars a second with no look-ahead in the chart, indicators, Pine output or trade markers; backtests still use all the data and live bars keep arriving in the background ([guide](docs/guide/replay.md))
 - Layouts ([guide](docs/guide/layouts.md)): 1 to 16 charts in 55 arrangements with one active chart, **Sync in layout** switches (symbol, interval, crosshair, time, date range) and named layouts you can save (Ctrl/Cmd+S), autosave, copy, rename and reopen
 - Custom intervals ([guide](docs/guide/timeframes.md)): any number-and-unit timeframe such as 2h, 10m or 3M from **Add interval...** in the timeframe picker
-- Drawings ([guide](docs/guide/drawings.md)): trend line, horizontal line, ray, rectangle, Fibonacci, text notes, measure and magnet, saved per symbol
+- Drawings ([guide](docs/guide/drawings.md)): trend line, horizontal line, ray, rectangle, Fibonacci, text notes, measure and magnet, saved per symbol, each with its own style and a settings dialog
 - Price alerts ([guide](docs/guide/alerts.md)): the server watches prices around the clock and can message you on Telegram
 - Watchlist ([guide](docs/guide/watchlist.md)): lists, sections, tags and live quotes
 - Pine Script ([guide](docs/guide/pine.md)): Pine v5 and v6 indicators and strategies, an editor pane, old-script conversion, TradingView libraries and a side-by-side compare page
@@ -219,7 +219,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker, systemd, nginx/TLS exam
 
 ## Roadmap
 
-- [x] Drawing tools: trend line, horizontal line, ray, rectangle, Fibonacci retracement and text notes (select, move, resize, delete, undo/redo, saved per symbol), magnet, hide all, delete all and touch drawing with a phone menu, plus a temporary measure tool (price change, percent, bars and time)
+- [x] Drawing tools: trend line, horizontal line, ray, rectangle, Fibonacci retracement and text notes (select, move, resize, delete, undo/redo, saved per symbol), per-drawing styles (colour, opacity, width, line style, fill, extend, Fibonacci levels, text size) with a settings dialog (double-click a drawing), saved defaults and per-timeframe visibility, magnet, hide all, delete all and touch drawing with a phone menu, plus a temporary measure tool (price change, percent, bars and time)
 - [x] Price alerts (stored and watched by the server around the clock, optional Telegram message)
 - [ ] Alerts on indicator conditions
 - [x] Multiple chart layouts (named, saved in the browser)

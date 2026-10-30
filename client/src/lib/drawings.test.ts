@@ -3,6 +3,10 @@ import {
   HISTORY_LIMIT,
   createDrawingsStorage,
   STORAGE_KEY,
+  LEGACY_KEY_V1,
+  STORAGE_VERSION,
+  setStyle,
+  previewPatch,
   add,
   commit,
   emptyState,
@@ -22,6 +26,7 @@ import {
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, text: 1 };
 const TEXT = new Set(['text']);
+const TRANSIENT = new Set(['measure']);
 const store = new Map<string, string>();
 beforeEach(() => {
   store.clear();
@@ -122,23 +127,22 @@ describe('storage', () => {
     saveDrawings({ 'demo:DEMO': [trend('a'), hline('b')], 'local:x': [] });
     const got = loadDrawings(COUNTS);
     expect(got.sources).toEqual({ 'demo:DEMO': [trend('a'), hline('b')] });
-    expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!).version).toBe(1);
+    expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!).version).toBe(2);
   });
   it('loads none when missing, unparsable or the wrong shape', () => {
     expect(loadDrawings(COUNTS).sources).toEqual({});
     store.set('vost.' + STORAGE_KEY, '{nope');
     expect(loadDrawings(COUNTS).sources).toEqual({});
-    for (const bad of [null, 5, [], { version: 1 }, { version: 1, sources: [] }, { version: 'x', sources: {} }, { sources: {} }]) {
+    for (const bad of [null, 5, [], { version: 2 }, { version: 2, sources: [] }, { version: 'x', sources: {} }, { sources: {} }]) {
       expect(parseStore(bad, COUNTS)).toEqual({ sources: {}, newer: false });
     }
   });
-  it('drops a bad item alone', () => {
+  it('drops a bad item alone (an unknown tool, even one named like an object method, is kept as stored)', () => {
     const raw = {
-      version: 1,
+      version: 2,
       sources: {
         s: [
           trend('a'),
-          { id: 'u', tool: 'fib', anchors: [{ time: 1, price: 1 }] },
           { id: 'n', tool: 'trendLine', anchors: [{ time: 1, price: NaN }, { time: 2, price: 2 }] },
           { id: 'c', tool: 'trendLine', anchors: [{ time: 1, price: 1 }] },
           { id: 'p', tool: 'toString', anchors: [] },
@@ -148,7 +152,7 @@ describe('storage', () => {
         t: 'not a list',
       },
     };
-    expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS).sources).toEqual({ s: [trend('a'), hline('b')] });
+    expect(parseStore(JSON.parse(JSON.stringify(raw)), COUNTS).sources).toEqual({ s: [trend('a'), { id: 'p', tool: 'toString', anchors: [] }, hline('b')] });
   });
   it('keeps ray, rectangle and fibRetracement with 2 anchors and drops other counts', () => {
     const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: i + 1 }));
@@ -180,16 +184,101 @@ describe('storage', () => {
   });
   it('drops a stored measure drawing', () => {
     const measure = { id: 'm', tool: 'measure', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }] };
-    expect(parseStore({ version: 1, sources: { s: [measure, trend('a')] } }, COUNTS, TEXT).sources).toEqual({ s: [trend('a')] });
+    expect(parseStore({ version: 2, sources: { s: [measure, trend('a')] } }, COUNTS, TEXT, TRANSIENT).sources).toEqual({ s: [trend('a')] });
   });
   it('treats a newer version as none and leaves it in storage until the user saves', () => {
-    const newer = JSON.stringify({ version: 2, sources: { s: [trend('a')] } });
+    const newer = JSON.stringify({ version: STORAGE_VERSION + 1, sources: { s: [trend('a')] } });
     store.set('vost.' + STORAGE_KEY, newer);
     const got = loadDrawings(COUNTS);
     expect(got).toEqual({ sources: {}, newer: true });
     expect(store.get('vost.' + STORAGE_KEY)).toBe(newer);
     saveDrawings({ s: [hline('z')] });
-    expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!).version).toBe(1);
+    expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!).version).toBe(2);
+  });
+});
+
+describe('storage version 2', () => {
+  const v1 = { version: 1, sources: { s: [trend('a'), hline('b'), { id: 'n', tool: 'text', anchors: [{ time: 5, price: 6 }], text: 'hi' }] } };
+  it('migrates a v1 payload without loss and leaves the v1 key as it is', () => {
+    const raw = JSON.stringify(v1);
+    store.set('vost.' + LEGACY_KEY_V1, raw);
+    expect(loadDrawings(COUNTS, TEXT, TRANSIENT).sources).toEqual(v1.sources);
+    expect(store.get('vost.' + LEGACY_KEY_V1)).toBe(raw);
+    expect(store.has('vost.' + STORAGE_KEY)).toBe(false);
+    saveDrawings(v1.sources as never);
+    expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!)).toEqual({ ...v1, version: 2 });
+    expect(store.get('vost.' + LEGACY_KEY_V1)).toBe(raw);
+  });
+  it('reads v2 in preference to v1 once it exists', () => {
+    store.set('vost.' + LEGACY_KEY_V1, JSON.stringify(v1));
+    store.set('vost.' + STORAGE_KEY, JSON.stringify({ version: 2, sources: { s: [hline('only')] } }));
+    expect(loadDrawings(COUNTS, TEXT, TRANSIENT).sources).toEqual({ s: [hline('only')] });
+  });
+  it('keeps an unknown tool and unknown fields (top-level and in style) through load and save', () => {
+    const payload = {
+      version: 2,
+      sources: {
+        s: [
+          { id: 'u', tool: 'pitchfork', anchors: [{ time: 1, price: 1 }, { time: 2, price: 2 }, { time: 3, price: 3 }], style: { color: 'red', future: [1, 2] }, extra: { deep: true } },
+          { ...trend('k'), style: { color: 'accent', futureKey: 'x' }, group: 'g1', locked: true },
+          { id: 'n', tool: 'text', anchors: [{ time: 5, price: 6 }], text: 'hi', style: { size: 20, other: 1 }, z: 3 },
+        ],
+      },
+    };
+    store.set('vost.' + STORAGE_KEY, JSON.stringify(payload));
+    const got = loadDrawings(COUNTS, TEXT, TRANSIENT);
+    expect(got.sources).toEqual(payload.sources);
+    saveDrawings(got.sources);
+    expect(JSON.parse(store.get('vost.' + STORAGE_KEY)!)).toEqual(payload);
+  });
+  it('keeps an unknown tool whose anchors are not understood, but not one without an id', () => {
+    const odd = { id: 'u', tool: 'future', anchors: 'many', note: 1 };
+    const got = parseStore({ version: 2, sources: { s: [odd, { tool: 'future' }, trend('a')] } }, COUNTS, TEXT, TRANSIENT);
+    expect(got.sources.s).toEqual([odd, trend('a')]);
+  });
+  it('drops a known tool bad drawing alone, and keeps a bad style out of the drawing', () => {
+    const got = parseStore(
+      { version: 2, sources: { s: [{ ...trend('a'), style: 'nope' }, { ...trend('b'), anchors: [{ time: 1, price: 'x' }, { time: 2, price: 2 }] }, { id: 't', tool: 'text', anchors: [{ time: 1, price: 1 }], text: ' ' }, hline('z')] } },
+      COUNTS,
+      TEXT,
+      TRANSIENT,
+    );
+    expect(got.sources).toEqual({ s: [trend('a'), hline('z')] });
+  });
+});
+
+describe('setStyle', () => {
+  it('is one undo step; undo and redo restore it', () => {
+    const s0 = add(emptyState(), trend('a'));
+    const s1 = setStyle(s0, 'a', { color: '#ff0000', width: 3 });
+    expect(s1.drawings[0].style).toEqual({ color: '#ff0000', width: 3 });
+    expect(s1.past).toHaveLength(2);
+    const u = undo(s1);
+    expect(u.drawings[0].style).toBeUndefined();
+    expect(redo(u).drawings[0].style).toEqual({ color: '#ff0000', width: 3 });
+  });
+  it('is the same state when nothing changed or the drawing is unknown', () => {
+    const s1 = setStyle(add(emptyState(), trend('a')), 'a', { width: 3 });
+    expect(setStyle(s1, 'a', { width: 3 })).toBe(s1);
+    expect(setStyle(s1, 'zz', { width: 4 })).toBe(s1);
+    const plain = add(emptyState(), trend('a'));
+    expect(setStyle(plain, 'a', {})).toBe(plain);
+    expect(setStyle(plain, 'a', undefined)).toBe(plain);
+  });
+  it('clears the style with an empty one', () => {
+    const s1 = setStyle(add(emptyState(), trend('a')), 'a', { width: 3 });
+    expect('style' in setStyle(s1, 'a', {}).drawings[0]).toBe(false);
+  });
+  it('previewPatch changes anchors, text and style without history, and commit makes one step', () => {
+    const s0 = add(emptyState(), { id: 'n', tool: 'text', anchors: [{ time: 1, price: 1 }], text: 'a' });
+    const before = s0.drawings;
+    let s = previewPatch(s0, 'n', { style: { size: 20 } });
+    s = previewPatch(s, 'n', { anchors: [{ time: 2, price: 3 }], text: 'b', style: { size: 20 } });
+    expect(s.past).toHaveLength(1);
+    expect(s.drawings[0]).toEqual({ id: 'n', tool: 'text', anchors: [{ time: 2, price: 3 }], text: 'b', style: { size: 20 } });
+    s = commit(s, before);
+    expect(s.past).toHaveLength(2);
+    expect(undo(s).drawings).toEqual(before);
   });
 });
 

@@ -31,6 +31,7 @@ import { selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
+import { DrawingSettingsDialog } from './DrawingSettingsDialog';
 import { DrawingMenu, DrawingRail, type DrawingControls } from './DrawingRail';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useChart, useChartStore } from '../state/chartContext';
@@ -565,6 +566,7 @@ export function ChartPanel({
           onCancel={drawings.editor.onCancel}
         />
       )}
+      {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}
       <ChartRangeBar chartApi={chartApi} />
       <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} />
       <div className="chart-toolbar">

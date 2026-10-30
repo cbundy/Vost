@@ -1,0 +1,101 @@
+{
+  "version": 2,
+  "sources": {
+    "demo:DEMO": [
+      {
+        "id": "dmvuh8auh1n8uj",
+        "tool": "trendLine",
+        "anchors": [
+          {
+            "time": 1788393600,
+            "price": 121.5686997022437
+          },
+          {
+            "time": 1793145600,
+            "price": 204.0359306068668
+          }
+        ],
+        "style": {
+          "color": "#ff4d4d",
+          "width": 3,
+          "lineStyle": "dashed",
+          "extendRight": true,
+          "showDays": false
+        }
+      },
+      {
+        "id": "dmvuh8jbo1g17n",
+        "tool": "fibRetracement",
+        "anchors": [
+          {
+            "time": 1719273600,
+            "price": 235.2089091174603
+          },
+          {
+            "time": 1757116800,
+            "price": 141.68996427722738
+          }
+        ],
+        "style": {
+          "levels": [
+            {
+              "value": 0,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 0.236,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 0.382,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 0.5,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 0.618,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 0.786,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 1,
+              "color": "accent",
+              "on": true
+            },
+            {
+              "value": 0.9,
+              "color": "accent",
+              "on": true
+            }
+          ],
+          "background": true
+        }
+      },
+      {
+        "id": "dmvuh8lqq24vct",
+        "tool": "trendLine",
+        "anchors": [
+          {
+            "time": 1671926400,
+            "price": 32.58455112571554
+          },
+          {
+            "time": 1709769600,
+            "price": 79.34401656449273
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIB_LEVELS, distToSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
+import { FIB_LEVELS, distToSegment, extendSegment, fibLevelPrices, hitsHandle, logicalToTime, medianInterval, pointInRect, rayEnd, rectCornerDrag, rectCorners, measureSummary, snapToBar, timeToLogical, wrapText } from './drawingGeometry';
 
 const H = 3600;
 const hourly = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 1_000_000 + i * H);
@@ -88,6 +88,38 @@ describe('snapToBar', () => {
   it('returns the anchor for empty candles', () => {
     const a = { time: 5, price: 6 };
     expect(snapToBar([], a)).toBe(a);
+  });
+});
+
+describe('fibLevelPrices with custom and reversed levels', () => {
+  it('prices a custom level list', () => {
+    expect(fibLevelPrices(200, 100, [0, 0.5, 1, 1.618])).toEqual([100, 150, 200, 261.8]);
+    expect(fibLevelPrices(200, 100, [])).toEqual([]);
+    expect(fibLevelPrices(200, 100)).toEqual(fibLevelPrices(200, 100, FIB_LEVELS, false));
+  });
+  it('measures a reversed list from the start anchor', () => {
+    expect(fibLevelPrices(200, 100, [0, 0.5, 1], true)).toEqual([200, 150, 100]);
+    expect(fibLevelPrices(100, 300, [0, 0.25, 1], true)).toEqual([100, 150, 300]);
+  });
+});
+
+describe('extendSegment', () => {
+  const a = { x: 100, y: 100 };
+  const b = { x: 200, y: 100 };
+  it('keeps the segment when neither side extends', () => {
+    expect(extendSegment(a, b, 500, 300, false, false)).toEqual([a, b]);
+  });
+  it('continues to the pane edge on the extended side only', () => {
+    expect(extendSegment(a, b, 500, 300, false, true)).toEqual([a, { x: 500, y: 100 }]);
+    expect(extendSegment(a, b, 500, 300, true, false)).toEqual([{ x: 0, y: 100 }, b]);
+    expect(extendSegment(a, b, 500, 300, true, true)).toEqual([{ x: 0, y: 100 }, { x: 500, y: 100 }]);
+  });
+  it('follows a slanted line and keeps an end that is already off the pane', () => {
+    const [from, to] = extendSegment({ x: 0, y: 0 }, { x: 100, y: 100 }, 500, 300, false, true);
+    expect(from).toEqual({ x: 0, y: 0 });
+    expect(to).toEqual({ x: 300, y: 300 });
+    const far = { x: 900, y: 100 };
+    expect(extendSegment(a, far, 500, 300, false, true)[1]).toEqual(far);
   });
 });
 

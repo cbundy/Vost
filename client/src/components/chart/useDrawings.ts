@@ -26,6 +26,7 @@ import {
 import { drawingKeyAction } from '../../lib/drawingKeys';
 import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
+import { useDrawingSettings } from './useDrawingSettings';
 import { ANCHOR_COUNTS, TEXT_TOOLS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
@@ -57,11 +58,11 @@ type EditorTarget = { id: string | null; anchor: Anchor; text: string; key: numb
 
 /** Where a dragged handle now is: its starting pixel moved by the drag. */
 function handleTarget(def: DrawingTool, drag: Drag, prim: DrawingPrimitive, dx: number, dy: number): Pt {
-  const h = def.handles(drag.origPts, prim.viewFor({ anchors: drag.origAnchors, text: drag.origText }))[drag.handle as number];
+  const h = def.handles(drag.origPts, prim.viewFor({ tool: def.id, anchors: drag.origAnchors, text: drag.origText, style: drag.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
 }
 
-type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origPts: Pt[]; before: Drawing[] };
+type Drag = { id: string; handle: number | null; start: Pt; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[]; before: Drawing[] };
 type Draft = { drawing: Drawing; start: Pt; /** pressing: the button is down; waiting: the first anchor is placed, the next click ends it. */ phase: 'pressing' | 'waiting' };
 
 function isEditable(t: EventTarget | null): boolean {
@@ -89,6 +90,8 @@ export function useDrawings(
   const hasData = useChart((s) => s.candles.length > 0);
   const magnet = useStore((s) => s.drawingMagnet);
   const hidden = useStore((s) => s.drawingsHidden);
+  const defaults = useStore((s) => s.drawingDefaults);
+  const timeframe = useChart((s) => s.timeframe);
   const key = sourceKey({ providerId, symbol, activeDatasetId });
 
   const [tool, setToolState] = useState(CURSOR);
@@ -158,6 +161,24 @@ export function useDrawings(
     },
     [sync],
   );
+
+  const select = useCallback(
+    (id: string | null) => {
+      selectedRef.current = id;
+      sync();
+    },
+    [sync],
+  );
+  const restore = useCallback((k: string, drawings: Drawing[]) => {
+    const st = statesRef.current.get(k);
+    if (st) statesRef.current.set(k, { ...st, drawings });
+  }, []);
+  const { settings, openSettings, settingsOpenRef } = useDrawingSettings({ sourceKey: key, getState, restore, setState, select });
+
+  /* A new timeframe or default style changes what shows and how. */
+  useEffect(() => {
+    sync();
+  }, [timeframe, defaults, sync]);
 
   /** The rail's pick: any tool, Cursor too, clears a measure left on the chart. */
   const pickTool = useCallback(
@@ -266,7 +287,7 @@ export function useDrawings(
         cachedTimes = candles.map((c) => c.time);
       }
       return cachedTimes;
-    });
+    }, () => chartStore.getState().timeframe, () => useStore.getState().drawingDefaults);
     series.attachPrimitive(prim);
     primRef.current = prim;
     sync();
@@ -447,6 +468,7 @@ export function useDrawings(
         start: p,
         origAnchors: d.anchors,
         origText: d.text,
+        origStyle: d.style,
         origPts: origPts as Pt[],
         before: st.drawings,
       };
@@ -548,11 +570,12 @@ export function useDrawings(
       const p = { x: e.clientX - r.left, y: e.clientY - r.top };
       if (!inPlot(p)) return;
       const hit = prim.hit(p);
-      const note = hit && getState().drawings.find((x) => x.id === hit.id);
-      if (!note || !TEXT_TOOLS.has(note.tool)) return;
+      const d = hit && getState().drawings.find((x) => x.id === hit.id);
+      if (!d) return;
       e.stopPropagation();
       e.preventDefault();
-      openEditor(note.id, note.anchors[0], note.text ?? '');
+      if (TEXT_TOOLS.has(d.tool)) openEditor(d.id, d.anchors[0], d.text ?? '');
+      else openSettings(d.id);
     };
 
     const eat = (e: Event) => {
@@ -576,7 +599,7 @@ export function useDrawings(
       el.removeEventListener('touchstart', eat, true);
       el.style.cursor = '';
     };
-  }, [chart, containerRef, getState, setState, setTool, sync, openEditor]);
+  }, [chart, containerRef, getState, setState, setTool, sync, openEditor, openSettings]);
 
   /* Another chart changed a source this chart has open: show it, keeping this chart's own undo history. */
   useEffect(
@@ -597,6 +620,7 @@ export function useDrawings(
   /* Keyboard: only the active chart's panel acts on it. */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (settingsOpenRef.current) return;
       const action = drawingKeyAction(e, {
         active,
         editable: isEditable(e.target),
@@ -628,7 +652,7 @@ export function useDrawings(
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, getState, setState, setTool, sync]);
+  }, [active, getState, setState, setTool, sync, settingsOpenRef]);
 
   const deleteAll = useCallback(() => {
     if (getState().drawings.length === 0) return;
@@ -651,5 +675,9 @@ export function useDrawings(
     toggleHidden: () => useStore.getState().setDrawingsHidden(!hidden),
     deleteAll,
     drawingCount,
+    /** The open settings dialog's model, or null. */
+    settings,
+    /** Opens the settings dialog of a drawing (a no-op for one without settings). */
+    openSettings,
   };
 }

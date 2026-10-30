@@ -373,6 +373,7 @@ describe('chart registry and flat prefs', () => {
     sidePanelCollapsed: true,
     drawingMagnet: true,
     drawingsHidden: true,
+    drawingDefaults: { trendLine: { width: 3 } },
     buildTimeframes: true,
     customTimeframes: ['2h'],
   });

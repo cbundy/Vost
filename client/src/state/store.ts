@@ -38,6 +38,8 @@ import type { IndicatorSpec } from '../lib/indicatorCompute';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
 import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
+import { sanitizeDefaults } from '../lib/drawingStyle';
+import { toolSettings } from '../components/chart/tools';
 import { canonicalInterval } from '../../../shared/market.ts';
 import type { TimeRange } from '../lib/timeRange';
 
@@ -73,6 +75,8 @@ interface Prefs {
   sidePanelCollapsed?: boolean;
   drawingMagnet?: boolean;
   drawingsHidden?: boolean;
+  /** The style new drawings of a tool start with, per tool id (see lib/drawingStyle). */
+  drawingDefaults?: Record<string, Record<string, unknown>>;
   buildTimeframes?: boolean;
   customTimeframes?: Interval[];
 }
@@ -158,6 +162,7 @@ export interface AppState {
   sidePanelCollapsed: boolean;
   drawingMagnet: boolean;
   drawingsHidden: boolean;
+  drawingDefaults: Record<string, Record<string, unknown>>;
   /** Build every timeframe above the provider's lowest from the next lower native one, instead of the exchange's own bars. */
   buildTimeframes: boolean;
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
@@ -252,6 +257,8 @@ export interface AppState {
   togglePineEditor(): void;
   setDrawingMagnet(v: boolean): void;
   setDrawingsHidden(v: boolean): void;
+  /** Saves (or with null clears) the style new drawings of a tool start with. */
+  setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
   setTimeZone(tz: string): void;
   /** Loads a provider's full symbol list once (silent fallback to popular symbols on error). */
   loadSymbolCatalog(providerId: string): Promise<void>;
@@ -289,6 +296,7 @@ export const useStore = create<AppState>()((set, get) => {
       sidePanelCollapsed: s.sidePanelCollapsed,
       drawingMagnet: s.drawingMagnet,
       drawingsHidden: s.drawingsHidden,
+      drawingDefaults: s.drawingDefaults,
       buildTimeframes: s.buildTimeframes,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
@@ -469,6 +477,7 @@ export const useStore = create<AppState>()((set, get) => {
     sidePanelCollapsed: false,
     drawingMagnet: false,
     drawingsHidden: false,
+    drawingDefaults: {},
     buildTimeframes: false,
     customTimeframes: [],
     charts: firstCharts,
@@ -550,6 +559,7 @@ export const useStore = create<AppState>()((set, get) => {
         sidePanelCollapsed: typeof prefs.sidePanelCollapsed === 'boolean' ? prefs.sidePanelCollapsed : false,
         drawingMagnet: prefs.drawingMagnet === true,
         drawingsHidden: prefs.drawingsHidden === true,
+        drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
         buildTimeframes: prefs.buildTimeframes === true,
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
@@ -794,6 +804,17 @@ export const useStore = create<AppState>()((set, get) => {
 
     setDrawingsHidden(v) {
       set({ drawingsHidden: v });
+      persistPrefs();
+    },
+
+    setDrawingDefault(tool, style) {
+      const fields = toolSettings(tool);
+      if (!fields) return;
+      const next = { ...get().drawingDefaults };
+      delete next[tool];
+      const valid = style ? sanitizeDefaults({ [tool]: style }, toolSettings)[tool] : undefined;
+      if (valid) next[tool] = valid;
+      set({ drawingDefaults: next });
       persistPrefs();
     },
 
