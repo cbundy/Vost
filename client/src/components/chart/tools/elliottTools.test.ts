@@ -18,6 +18,7 @@ function view(tool: DrawingTool, anchors: ToolView['anchors'] = [], style?: Reco
     height: H,
     anchors,
     text: '',
+    cells: [],
     times: [],
     candles: [],
     priceToY: (p) => H - p,
