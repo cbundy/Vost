@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const optimizer: Scenario = {
   name: 'optimizer',
-  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), then a fractional step on a whole-number parameter, then a grid over the limit',
+  description: 'Optimizer pane on demo data: a one-parameter sweep of slow (table and heatmap), a fractional step on a whole-number parameter, a grid over the limit, then a three-parameter MACD sweep with the heatmap axis pickers and a cancelled long run',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -11,11 +11,10 @@ export const optimizer: Scenario = {
     await ctx.step('open the Optimizer pane', async () => {
       const tab = page.locator('.dock-tab', { hasText: 'Optimizer' });
       if (!(await tab.evaluate((el) => el.classList.contains('active')))) await tab.click();
-      await page.getByText('Parameter A').waitFor();
+      await page.getByText('Parameter 1', { exact: true }).waitFor();
     });
     await ctx.step('sweep slow alone', async () => {
-      await page.getByLabel('Parameter A').selectOption('slow');
-      await page.getByLabel('Parameter B (2D sweep)').selectOption('');
+      await page.getByRole('button', { name: 'Remove parameter 1' }).click();
       await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
       await page.getByText(/Top results/).waitFor();
       await page.getByText('Rows:').scrollIntoViewIfNeeded();
@@ -33,7 +32,7 @@ export const optimizer: Scenario = {
       await step.fill('1');
       await num.nth(0).fill('1');
       await num.nth(1).fill('400');
-      await page.getByLabel('Parameter B (2D sweep)').selectOption('fast');
+      await page.getByRole('button', { name: 'Add parameter' }).click();
       await num.nth(3).fill('1');
       await num.nth(4).fill('400');
       await num.nth(5).fill('1');
@@ -41,5 +40,48 @@ export const optimizer: Scenario = {
       await page.getByText(/Grid too large/).scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('over-limit');
+    await ctx.step('three-parameter MACD sweep', async () => {
+      await page.goto('/');
+      await ctx.waitForChart();
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
+      await page.getByLabel('Strategy').selectOption('macd_cross');
+      await page.locator('.dock-tab', { hasText: 'Optimizer' }).click();
+      await page.getByText('Parameter 1', { exact: true }).waitFor();
+      await page.getByRole('button', { name: 'Add parameter' }).click();
+      await page.getByText('Parameter 3', { exact: true }).waitFor();
+      const n = page.locator('.form-grid input[type=number]');
+      const ranges = [
+        [8, 12, 2],
+        [20, 30, 5],
+        [6, 10, 2],
+      ];
+      for (const [i, r] of ranges.entries()) {
+        await n.nth(i * 3).fill(String(r[0]));
+        await n.nth(i * 3 + 1).fill(String(r[1]));
+        await n.nth(i * 3 + 2).fill(String(r[2]));
+      }
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByText(/Top results/).waitFor();
+      await page.getByText(/Other parameters fixed at the best result/).scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('three-parameters');
+    await ctx.step('cancel a long run and keep the previous result', async () => {
+      const n = page.locator('.form-grid input[type=number]');
+      await n.nth(0).fill('1');
+      await n.nth(1).fill('40');
+      await n.nth(2).fill('1');
+      await n.nth(3).fill('2');
+      await n.nth(4).fill('40');
+      await n.nth(5).fill('1');
+      await page.getByRole('button', { name: /Optimize \d+ combinations/ }).click();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
+    });
+    await ctx.screenshot('cancel-visible');
+    await ctx.step('press Cancel', async () => {
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page.getByText(/Optimizer cancelled/).waitFor();
+      await page.getByText(/Top results/).waitFor();
+    });
+    await ctx.screenshot('cancelled-restored');
   },
 };

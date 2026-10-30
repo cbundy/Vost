@@ -190,6 +190,7 @@ describe('btRange', () => {
     class FakeWorker {
       onmessage: ((ev: { data: unknown }) => void) | null = null;
       onerror: (() => void) | null = null;
+      terminate() {}
       postMessage(req: { id: string; candles: { time: number }[] }) {
         sent.push(req);
         queueMicrotask(() =>
@@ -208,14 +209,105 @@ describe('btRange', () => {
     expect(sent[0].candles[30].time).toBe(to);
   });
 
+  describe('cancelOptimizer', () => {
+    function stubWorkers(answer: boolean) {
+      const made: FakeW[] = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string }) {
+          if (req.type === 'optimize' && answer)
+            queueMicrotask(() =>
+              this.onmessage?.({ data: { id: req.id, type: 'optimizeResult', rows: [], keys: ['slow'], metric: 'sharpe', combos: 7, errored: 0 } }),
+            );
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      return made;
+    }
+
+    it('restores the earlier result, pushes no error, terminates only that worker, ignores late messages', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const made = stubWorkers(true);
+      await st().runOptimizer();
+      expect(made).toHaveLength(1);
+      expect(made[0].terminated).toBe(true); // an answered run terminates its dedicated worker
+      const earlier = st().optResult;
+      expect(earlier?.combos).toBe(7);
+
+      const made2 = stubWorkers(false);
+      const run = st().runOptimizer();
+      expect(st().optRunning).toBe(true);
+      expect(st().optResult).toBeNull();
+      st().cancelOptimizer();
+      await run;
+      expect(made2).toHaveLength(1);
+      expect(made2[0].terminated).toBe(true);
+      expect(st().optRunning).toBe(false);
+      expect(st().optProgress).toBe(0);
+      expect(st().optResult).toBe(earlier);
+      expect(snap(useStore).toasts.some((t) => t.kind === 'error')).toBe(false);
+
+      // a late message from the cancelled worker changes nothing
+      made2[0].onmessage?.({ data: { id: 'x', type: 'optimizeResult', rows: [], keys: [], metric: 'sharpe', combos: 99, errored: 0 } });
+      expect(st().optResult).toBe(earlier);
+
+      // the next run builds a fresh worker
+      stubWorkers(false);
+      void st().runOptimizer();
+      st().cancelOptimizer();
+    });
+
+    it('does not touch the shared worker: a backtest in flight during the cancel still resolves', async () => {
+      const { useStore } = await setup();
+      const st = () => chartOf(useStore).getState();
+      const made: Array<{ terminated: boolean; onmessage: ((ev: { data: unknown }) => void) | null; last?: { id: string } }> = [];
+      class FakeW {
+        onmessage: ((ev: { data: unknown }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        terminated = false;
+        last?: { id: string };
+        constructor() {
+          made.push(this);
+        }
+        postMessage(req: { id: string; type: string }) {
+          this.last = req;
+        }
+        terminate() {
+          this.terminated = true;
+        }
+      }
+      vi.stubGlobal('Worker', FakeW);
+      const bt = st().runBacktest();
+      const shared = made[0];
+      void st().runOptimizer();
+      expect(made).toHaveLength(2);
+      st().cancelOptimizer();
+      expect(shared.terminated).toBe(false);
+      expect(made[1].terminated).toBe(true);
+      const { runFullBacktest } = await import('../lib/backtest/runner');
+      const result = runFullBacktest(st().candles, st().btConfig);
+      shared.onmessage?.({ data: { id: shared.last!.id, type: 'result', result } });
+      await bt;
+      expect(st().btResult).not.toBeNull();
+    });
+  });
+
   it('applyOptimizeRow sets exactly the row params and the next backtest equals the row metrics', async () => {
     const { useStore } = await setup();
     const { runOptimize } = await import('../lib/backtest/optimizer');
     const st = () => chartOf(useStore).getState();
     st().setBtConfig({ feeBps: 0, slippageBps: 0 });
     const out = runOptimize(chartOf(useStore).getState().candles, st().btConfig, {
-      sweepA: { key: 'slow', from: 20, to: 40, step: 10 },
-      sweepB: null,
+      sweeps: [{ key: 'slow', from: 20, to: 40, step: 10 }],
       metric: 'totalReturnPct',
     });
     const row = out.rows[out.rows.length - 1];

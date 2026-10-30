@@ -120,8 +120,7 @@ if ta.crossunder(fast, slow)
       base,
       {
         ...defaultOptimizeConfig(base),
-        sweepA: { key: 'Fast', from: 5, to: 10, step: 5 },
-        sweepB: { key: 'Slow', from: 20, to: 40, step: 20 },
+        sweeps: [{ key: 'Fast', from: 5, to: 10, step: 5 }, { key: 'Slow', from: 20, to: 40, step: 20 }],
         metric: 'totalReturnPct',
       },
       (p) => progress.push(p),

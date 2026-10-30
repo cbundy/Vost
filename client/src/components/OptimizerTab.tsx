@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { gridSize, MAX_GRID_COMBOS, METRIC_LABELS, type MetricKey, type OptimizeRow } from '../lib/backtest/optimizer';
+import { gridSize, MAX_GRID_COMBOS, METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from '../lib/backtest/optimizer';
 import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtPct, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
@@ -20,6 +20,7 @@ export function OptimizerTab() {
   const timeZone = useStore((s) => s.timeZone);
   const setOptConfig = useChart((s) => s.setOptConfig);
   const runOptimizer = useChart((s) => s.runOptimizer);
+  const cancelOptimizer = useChart((s) => s.cancelOptimizer);
   const applyOptimizeRow = useChart((s) => s.applyOptimizeRow);
 
   const range = describeTimeRange(candles, btRange);
@@ -44,24 +45,29 @@ export function OptimizerTab() {
     if (strategy.pine && pineInputs.length === 0) void refreshPineInputs();
   }, [strategy.pine, pineInputs.length, refreshPineInputs, candles.length > 0]);
   const firstKey = numericParams[0]?.key;
+  const defaultValue = (key: string): number => {
+    if (strategy.pine) {
+      const d = pineInputs.find((i) => i.name === key)?.defval;
+      return typeof d === 'number' ? d : 10;
+    }
+    return btConfig.params[key] ?? strategy.params.find((p) => p.key === key)?.default ?? 10;
+  };
+  const defaultSweep = (key: string): SweepParam => {
+    const base = defaultValue(key);
+    return { key, from: Math.max(1, Math.round(base * 0.5)), to: Math.max(2, Math.round(base * 1.5)), step: 1 };
+  };
   useEffect(() => {
-    if (!strategy.pine || !firstKey || numericParams.some((p) => p.key === optConfig.sweepA.key)) return;
-    const d = pineInputs.find((i) => i.name === firstKey);
-    const base = typeof d?.defval === 'number' ? d.defval : 10;
-    setOptConfig({
-      sweepA: { key: firstKey, from: Math.max(1, Math.round(base * 0.5)), to: Math.max(2, Math.round(base * 1.5)), step: 1 },
-      sweepB: null,
-    });
+    if (!strategy.pine || !firstKey || optConfig.sweeps.some((sw) => numericParams.some((p) => p.key === sw.key))) return;
+    setOptConfig({ sweeps: [defaultSweep(firstKey)] });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategy.pine, firstKey]);
   const combos = gridSize(optConfig);
   const isIntKey = (key: string) => numericParams.find((p) => p.key === key)?.isInt === true;
-  const fractionalInt = (sw: { key: string; step: number } | null) => sw != null && isIntKey(sw.key) && !Number.isInteger(sw.step);
-  const stepProblem = fractionalInt(optConfig.sweepA)
-    ? optConfig.sweepA.key
-    : fractionalInt(optConfig.sweepB)
-      ? optConfig.sweepB!.key
-      : null;
+  const stepProblem = optConfig.sweeps.find((sw) => isIntKey(sw.key) && !Number.isInteger(sw.step))?.key ?? null;
+  const usedKeys = new Set(optConfig.sweeps.map((sw) => sw.key));
+  const nextFree = numericParams.find((p) => !usedKeys.has(p.key));
+  const patchSweep = (i: number, patch: Partial<SweepParam>) =>
+    setOptConfig({ sweeps: optConfig.sweeps.map((sw, j) => (j === i ? { ...sw, ...patch } : sw)) });
   const overLimit = combos > MAX_GRID_COMBOS;
 
   return (
@@ -72,51 +78,42 @@ export function OptimizerTab() {
       </div>
 
       <div className="form-grid">
-        <label className="form-field">
-          <span>Parameter A</span>
-          <select
-            value={optConfig.sweepA.key}
-            onChange={(e) => setOptConfig({ sweepA: { ...optConfig.sweepA, key: e.target.value } })}
+        {optConfig.sweeps.map((sw, i) => (
+          <div key={i} style={{ display: 'contents' }}>
+            <label className="form-field">
+              <span>Parameter {i + 1}</span>
+              <select value={sw.key} onChange={(e) => patchSweep(i, { key: e.target.value })}>
+                {numericParams
+                  .filter((p) => p.key === sw.key || !usedKeys.has(p.key))
+                  .map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <SweepRange from={sw.from} to={sw.to} step={sw.step} onChange={(patch) => patchSweep(i, patch)}>
+              <button
+                className="ghost"
+                aria-label={`Remove parameter ${i + 1}`}
+                disabled={optConfig.sweeps.length <= 1}
+                onClick={() => setOptConfig({ sweeps: optConfig.sweeps.filter((_, j) => j !== i) })}
+              >
+                Remove
+              </button>
+            </SweepRange>
+          </div>
+        ))}
+        <div className="form-field">
+          <button
+            className="ghost"
+            aria-label="Add parameter"
+            disabled={!nextFree}
+            onClick={() => nextFree && setOptConfig({ sweeps: [...optConfig.sweeps, defaultSweep(nextFree.key)] })}
           >
-            {numericParams.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <SweepRange
-          from={optConfig.sweepA.from}
-          to={optConfig.sweepA.to}
-          step={optConfig.sweepA.step}
-          onChange={(patch) => setOptConfig({ sweepA: { ...optConfig.sweepA, ...patch } })}
-        />
-
-        <label className="form-field">
-          <span>Parameter B (2D sweep)</span>
-          <select
-            value={optConfig.sweepB?.key ?? ''}
-            onChange={(e) => {
-              if (!e.target.value) setOptConfig({ sweepB: null });
-              else setOptConfig({ sweepB: optConfig.sweepB ? { ...optConfig.sweepB, key: e.target.value } : { key: e.target.value, from: 2, to: 50, step: 2 } });
-            }}
-          >
-            <option value="">— none (1D) —</option>
-            {numericParams.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {optConfig.sweepB && (
-          <SweepRange
-            from={optConfig.sweepB.from}
-            to={optConfig.sweepB.to}
-            step={optConfig.sweepB.step}
-            onChange={(patch) => setOptConfig({ sweepB: { ...optConfig.sweepB!, ...patch } })}
-          />
-        )}
+            + Add parameter
+          </button>
+        </div>
 
         <label className="form-field">
           <span>Rank by</span>
@@ -150,8 +147,13 @@ export function OptimizerTab() {
       </div>
 
       {optRunning && (
-        <div className="progress mt-3" style={{ maxWidth: 420 }}>
-          <div style={{ width: `${Math.round(optProgress * 100)}%` }} />
+        <div className="row mt-3">
+          <div className="progress" style={{ maxWidth: 420, flex: 1 }}>
+            <div style={{ width: `${Math.round(optProgress * 100)}%` }} />
+          </div>
+          <button className="ghost" aria-label="Cancel" onClick={() => cancelOptimizer()}>
+            Cancel
+          </button>
         </div>
       )}
 
@@ -167,7 +169,7 @@ export function OptimizerTab() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 16, alignItems: 'start' }}>
             <TopResultsTable rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
-            <Heatmap rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
+            <Heatmap key={optResult.keys.join('|')} rows={optResult.rows} keys={optResult.keys} metric={optResult.metric} onApply={(row) => void applyOptimizeRow(row)} />
           </div>
         </div>
       )}
@@ -180,11 +182,13 @@ function SweepRange({
   to,
   step,
   onChange,
+  children,
 }: {
   from: number;
   to: number;
   step: number;
   onChange: (patch: { from?: number; to?: number; step?: number }) => void;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="form-field" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
@@ -200,6 +204,7 @@ function SweepRange({
         <span>Step</span>
         <input type="number" min={0.001} value={step} onChange={(e) => onChange({ step: Math.max(0.001, Number(e.target.value)) })} />
       </label>
+      {children}
     </div>
   );
 }
@@ -254,17 +259,65 @@ function TopResultsTable({ rows, keys, metric, onApply }: { rows: OptimizeRow[];
 }
 
 function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: string[]; metric: MetricKey; onApply: (row: OptimizeRow) => void }) {
-  const aKey = keys[0];
-  const bKey = keys[1];
-  if (!aKey) return null;
+  const [rowKey, setRowKey] = useState(keys[0]);
+  const [colKey, setColKey] = useState(keys[1] ?? '');
+  if (!rowKey) return null;
 
-  const values = rows.map((r) => r.value).filter((v): v is number => v != null && Number.isFinite(v));
+  const best = rows[0];
+  const axes = [rowKey, colKey].filter(Boolean);
+  const pinnedKeys = keys.filter((k) => !axes.includes(k));
+  const shown = best ? rows.filter((r) => pinnedKeys.every((k) => r.params[k] === best.params[k])) : rows;
+
+  const values = shown.map((r) => r.value).filter((v): v is number => v != null && Number.isFinite(v));
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const aVals = Array.from(new Set(rows.map((r) => r.params[aKey]))).sort((x, y) => x - y);
-  const bVals = bKey ? Array.from(new Set(rows.map((r) => r.params[bKey]))).sort((x, y) => x - y) : [null];
+  const aVals = Array.from(new Set(shown.map((r) => r.params[rowKey]))).sort((x, y) => x - y);
+  const bVals: Array<number | null> = colKey ? Array.from(new Set(shown.map((r) => r.params[colKey]))).sort((x, y) => x - y) : [null];
+
+  const pickers = (
+    <div className="row mb-2 wrap">
+      <label className="row" style={{ gap: 4 }}>
+        <span className="hint">Rows</span>
+        <select
+          aria-label="Rows"
+          value={rowKey}
+          onChange={(e) => {
+            setRowKey(e.target.value);
+            if (e.target.value === colKey) setColKey('');
+          }}
+        >
+          {keys.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+      </label>
+      {keys.length > 1 && (
+        <label className="row" style={{ gap: 4 }}>
+          <span className="hint">Columns</span>
+          <select aria-label="Columns" value={colKey} onChange={(e) => setColKey(e.target.value)}>
+            <option value="">none</option>
+            {keys
+              .filter((k) => k !== rowKey)
+              .map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
+    </div>
+  );
+
   if (aVals.length * bVals.length > 900) {
-    return <div className="hint">Heatmap hidden (grid too large). See the table instead.</div>;
+    return (
+      <div>
+        {pickers}
+        <div className="hint">Heatmap hidden (grid too large). See the table instead.</div>
+      </div>
+    );
   }
 
   const color = (v: number | null): string => {
@@ -277,22 +330,25 @@ function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: s
   };
 
   const lookup = new Map<string, OptimizeRow>();
-  for (const r of rows) lookup.set(`${r.params[aKey]}|${bKey ? r.params[bKey] : ''}`, r);
+  for (const r of shown) lookup.set(`${r.params[rowKey]}|${colKey ? r.params[colKey] : ''}`, r);
 
-  const best = rows[0];
   return (
     <div>
+      {pickers}
       <div className="hint mb-2">
-        Rows: <b>{aKey}</b>
-        {bKey ? (
+        Rows: <b>{rowKey}</b>
+        {colKey ? (
           <>
             {' '}
-            · Columns: <b>{bKey}</b>
+            · Columns: <b>{colKey}</b>
           </>
         ) : null}{' '}
         · colour = {METRIC_LABELS[metric]}
-        {bKey ? '' : ' (1D sweep)'}
+        {colKey ? '' : ' (1D)'}
       </div>
+      {pinnedKeys.length > 0 && best && (
+        <div className="hint mb-2">Other parameters fixed at the best result: {pinnedKeys.map((k) => `${k}=${best.params[k]}`).join(', ')}</div>
+      )}
       <div className="heatmap" style={{ gridTemplateColumns: `52px repeat(${bVals.length}, minmax(52px, 1fr))` }}>
         <div className="hm-head" />
         {bVals.map((bv) => (
@@ -304,13 +360,13 @@ function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: s
           <RowCells
             key={av}
             av={av}
-            aKey={aKey}
+            aKey={rowKey}
             bVals={bVals}
-            bKey={bKey}
+            bKey={colKey || undefined}
             lookup={lookup}
             color={color}
             metric={metric}
-            bestKey={best ? `${best.params[aKey]}|${bKey ? best.params[bKey] : ''}` : ''}
+            bestKey={best ? `${best.params[rowKey]}|${colKey ? best.params[colKey] : ''}` : ''}
             onApply={onApply}
           />
         ))}
@@ -318,7 +374,6 @@ function Heatmap({ rows, keys, metric, onApply }: { rows: OptimizeRow[]; keys: s
     </div>
   );
 }
-
 function RowCells({
   av,
   aKey,
