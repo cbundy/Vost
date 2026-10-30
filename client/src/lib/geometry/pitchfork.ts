@@ -5,10 +5,9 @@
  * k draws two lines parallel to the median through M + k(P3 - M) and M - k(P3 - M), so level 1 passes through P2 and P3.
  * The origin is P1 (Pitchfork), (P1.x, midY of P1 and P2) (Schiff) or the midpoint of P1 and P2 (Modified Schiff).
  *
- * Inside: TradingView's own help pages and charting-library reference could not be read from the build environment
- * (the support pages returned 403/404 or an unrelated article), so its construction is NOT confirmed. This module
- * mirrors Schiff: the origin keeps P1's y and takes the x midway between P1 and P2 (midX of P1 and P2, P1.y).
- * Replace {@link medianOrigin}'s 'inside' case if TradingView's documented construction differs.
+ * Inside: per TradingView's help article https://www.tradingview.com/support/solutions/43000518146-inside-pitchfork/
+ * "The inside pitchfork's origin is located at 1/2 the vertical distance and 1/2 the horizontal distance between the
+ * high and low points (first two points set)": the origin is the midpoint of P1 and P2 on both axes.
  */
 import type { Pt } from '../drawingGeometry';
 import { pointInPolygon } from './channels';
@@ -47,7 +46,7 @@ export function medianOrigin(variant: PitchforkVariant, p1: Pt, p2: Pt, _p3?: Pt
     case 'modifiedSchiff':
       return mid(p1, p2);
     case 'inside':
-      return { x: (p1.x + p2.x) / 2, y: p1.y };
+      return mid(p1, p2);
     default:
       return { ...p1 };
   }
@@ -127,7 +126,7 @@ export function pitchforkLines(
   const m = mid(p2, p3);
   const d = { x: m.x - origin.x, y: m.y - origin.y };
   const hasDir = d.x !== 0 || d.y !== 0;
-  const median = hasDir ? clipLine(origin, d, width, height, extend) : null;
+  const median = hasDir ? clipLine(origin, d, width, height, false) : null;
   const on = levels.filter((l) => l.on && Number.isFinite(l.value)).sort((a, b) => Math.abs(a.value) - Math.abs(b.value));
   const lines: PitchforkLine[] = [];
   const fills: PitchforkShape['fills'] = [];

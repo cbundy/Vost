@@ -13,7 +13,7 @@ describe('medianOrigin', () => {
     expect(medianOrigin('original', p1, p2, p3)).toEqual({ x: 100, y: 200 });
     expect(medianOrigin('schiff', p1, p2, p3)).toEqual({ x: 100, y: 150 });
     expect(medianOrigin('modifiedSchiff', p1, p2, p3)).toEqual({ x: 150, y: 150 });
-    expect(medianOrigin('inside', p1, p2, p3)).toEqual({ x: 150, y: 200 });
+    expect(medianOrigin('inside', p1, p2, p3)).toEqual({ x: 150, y: 150 });
   });
 });
 
@@ -41,6 +41,10 @@ describe('pitchforkLines', () => {
     const g = e.lines.find((l) => l.value === 1 && l.side === 1)!;
     expect(g.seg[0].x).toBeLessThan(f.seg[0].x);
     for (const l of e.lines) for (const p of l.seg) expect(p.x >= -1e-9 && p.x <= W + 1e-9 && p.y >= -1e-9 && p.y <= H + 1e-9).toBe(true);
+  });
+  it('keeps the median starting at the origin under extend', () => {
+    const e = pitchforkLines('original', [p1, p2, p3], [L(1)], W, H, true);
+    expect(e.median![0]).toEqual(p1);
   });
   it('fills between adjacent enabled lines on each side', () => {
     expect(s.fills).toHaveLength(4);
