@@ -285,6 +285,51 @@ describe('init with saved prefs', () => {
   });
 });
 
+describe('historyLoading setting', () => {
+  async function fresh(saved?: unknown) {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    if (saved !== undefined) {
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, historyLoading: saved }));
+    }
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore;
+  }
+
+  it('defaults to scroll; a missing or bad saved value reads as scroll', async () => {
+    expect((await fresh()).getState().historyLoading).toBe('scroll');
+    for (const bad of ['everything', 1, null, true]) expect((await fresh(bad)).getState().historyLoading).toBe('scroll');
+    expect((await fresh('all')).getState().historyLoading).toBe('all');
+  });
+
+  it('round-trips through prefs.v1, and the chart env follows setHistoryLoading', async () => {
+    const useStore = await fresh();
+    const env = { current: () => useStore.getState().historyLoading };
+    useStore.getState().setHistoryLoading('all');
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).historyLoading).toBe('all');
+    expect(env.current()).toBe('all');
+    // a chart built by the store reads the setting through its env: load-all asks for the saved Bars value
+    const { getProvider } = await import('../lib/providers');
+    const history = vi.spyOn(getProvider('demo'), 'fetchHistory').mockImplementation(async () => []);
+    chartOf(useStore).setState({ providerId: 'demo', symbol: 'DEMO', timeframe: '1h', bars: 321, activeDatasetId: null });
+    await chartOf(useStore).getState().loadData();
+    expect(history).toHaveBeenLastCalledWith(expect.objectContaining({ bars: 321 }));
+    useStore.getState().setHistoryLoading('scroll');
+    await chartOf(useStore).getState().loadData();
+    expect(history).toHaveBeenLastCalledWith(expect.objectContaining({ bars: 1000 }));
+    useStore.getState().flushPersist();
+    vi.restoreAllMocks();
+    vi.resetModules();
+    const again = track((await import('./store')).useStore);
+    again.getState().init();
+    expect(again.getState().historyLoading).toBe('scroll');
+  });
+});
+
 describe('buildTimeframes setting', () => {
   const bars = Array.from({ length: 5 }, (_, i) => ({ time: 1_700_000_000 + i * 3600, open: 1, high: 2, low: 1, close: 2, volume: 1 }));
 
@@ -394,6 +439,7 @@ describe('chart registry and flat prefs', () => {
     cursorKind: 'dot',
     favoritesBarPos: { x: 120, y: 44 },
     buildTimeframes: true,
+    historyLoading: 'all',
     customTimeframes: ['2h'],
   });
 
@@ -540,6 +586,7 @@ describe('chart registry and flat prefs', () => {
       pushMessage: () => {},
       timeZone: () => 'UTC',
       buildTimeframes: () => useStore.getState().buildTimeframes,
+      historyLoading: () => useStore.getState().historyLoading,
       datasets: () => [],
       addDataset: () => {},
       removeDataset: () => {},

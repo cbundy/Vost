@@ -53,16 +53,23 @@ export interface QuickRangeState {
   showAll: boolean;
   from: number | null;
   to: number | null;
+  /** The window starts before the first loaded bar and older pages may still come: clicking loads them first. */
+  needsOlder: boolean;
 }
 
-export function quickRangeState(key: QuickRangeKey, candles: Candle[], timeZone: string): QuickRangeState {
-  if (candles.length === 0) return { enabled: false, showAll: false, from: null, to: null };
+/**
+ * The state of a quick range. With `canPage` (older pages may still load) a window that starts before the first loaded bar
+ * is enabled and `needsOlder`; without it such a window shows all loaded bars. `All` never pages.
+ */
+export function quickRangeState(key: QuickRangeKey, candles: Candle[], timeZone: string, canPage = false): QuickRangeState {
+  if (candles.length === 0) return { enabled: false, showAll: false, from: null, to: null, needsOlder: false };
   const last = candles[candles.length - 1].time;
   const { from, to } = quickRangeWindow(key, last, timeZone);
-  if (from == null) return { enabled: candles.length >= MIN_RANGE_BARS, showAll: true, from, to };
+  if (from == null) return { enabled: candles.length >= MIN_RANGE_BARS, showAll: true, from, to, needsOlder: false };
   const showAll = from <= candles[0].time;
+  if (canPage && from < candles[0].time) return { enabled: true, showAll, from, to, needsOlder: true };
   const count = showAll ? candles.length : sliceByTimeRange(candles, { from, to }).length;
-  return { enabled: count >= MIN_RANGE_BARS, showAll, from, to };
+  return { enabled: count >= MIN_RANGE_BARS, showAll, from, to, needsOlder: false };
 }
 
 const RESET_RANGE: Record<string, QuickRangeKey> = { m: '1D', h: '5D', d: '1M' };
@@ -92,4 +99,11 @@ export function resetLogicalRange(
   const first = candles.findIndex((c) => c.time >= from);
   if (first < 0) return null;
   return { from: first, to: candles.length - 1 + rightOffset };
+}
+
+/** The time a quick range reaches back to when that is before the first loaded bar (older pages are needed), else null. */
+export function historyNeededFrom(key: QuickRangeKey, candles: Candle[], timeZone: string): number | null {
+  if (candles.length === 0 || key === 'All') return null;
+  const { from } = quickRangeWindow(key, candles[candles.length - 1].time, timeZone);
+  return from != null && from < candles[0].time ? from : null;
 }

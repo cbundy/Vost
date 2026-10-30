@@ -16,7 +16,7 @@ From left to right (on narrow screens the less used controls move into a **More*
 
 - **Select layout** and the **layout name**: pick how many charts to show and manage named layouts. See [Layouts](layouts.md).
 - The Vost logo with the running version.
-- **Symbol search**, the **Provider** menu and the **Number of bars** menu (500 to 20k bars).
+- **Symbol search**, the **Provider** menu and, when history loads all at once instead of by scrolling, the **Number of bars** menu (500 to 20k bars; see [Data](data.md#how-history-loads)).
 - The **timeframe picker** and the **Build** switch. See [Timeframes](timeframes.md).
 - **Load** reloads the data. **Live** streams new candles and is on by default for markets that support it. See [Charts](charts.md).
 - **Replay** starts bar replay. See [Bar replay](replay.md).
