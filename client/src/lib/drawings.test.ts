@@ -525,6 +525,21 @@ describe('the position tools', () => {
   });
 });
 
+describe('the forecast tools', () => {
+  it('round trips Forecast with two anchors and Projection with three, drops a wrong count and a non-finite anchor', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    expect(['forecast', 'projection'].map((t) => ANCHOR_COUNTS[t])).toEqual([2, 3]);
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: 10 + i }));
+    const ok = [{ id: 'f', tool: 'forecast', anchors: an(2) }, { id: 'p', tool: 'projection', anchors: an(3) }];
+    const bad = [
+      { id: 'f2', tool: 'forecast', anchors: an(3) },
+      { id: 'p2', tool: 'projection', anchors: an(2) },
+      { id: 'f3', tool: 'forecast', anchors: [{ time: 1, price: 1 }, { time: 2, price: Number.NaN }] },
+    ];
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS, undefined, undefined, undefined, undefined, VALIDATORS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('the cycle tools', () => {
   it('round trips each with two anchors and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');

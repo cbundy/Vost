@@ -1,0 +1,28 @@
+ok   one forecast with two anchors - [{"id":"dmvuxlnfm1khbx","tool":"forecast","anchors":[{"time":1768435200,"price":143.03427074831365},{"time":1778457600,"price":207.08233070947466}]}]
+ok   the target is later and higher than the source - 1768435200/143.03427074831365 -> 1778457600/207.08233070947466
+ok   one projection with three anchors - [{"id":"dmvuxlo7d23eb4","tool":"projection","anchors":[{"time":1766707200,"price":215.08833567538642},{"time":1775088000,"price":215.08833567538642},{"time":1771804800,"price":247.11236312673356}]}]
+ok   the source stayed, the target moved - [[{"time":1768435200,"price":143.03427074831365},{"time":1778457600,"price":207.08233070947466}],[{"time":1768435200,"price":143.03427074831365},{"time":1779667200,"price":190.5067468806994}]]
+ok   the projection's third point moved, the leg stayed
+ok   titled for the tool
+ok   forecast offers Source colour
+ok   forecast offers Target colour
+ok   forecast offers Success colour
+ok   forecast offers Failure colour
+ok   forecast offers Line width
+ok   forecast offers Text colour
+ok   the width is stored
+ok   projection titled for the tool
+ok   projection offers Line colour
+ok   projection offers Line width
+ok   projection offers Fill colour
+ok   projection offers Fill opacity
+ok   projection offers Text colour
+ok   seed-success: the bars decide it as designed - success vs success
+ok   seed-failure: the bars decide it as designed - failure vs failure
+ok   seed-future: the bars decide it as designed - pending vs pending
+info seed-success: source 162.08 at bar 4880, target 172.85, highest high in range 183.61, verdict success
+info seed-failure: source 164.59 at bar 4910, target 217.58, highest high in range 207.22, verdict failure
+info seed-future: source 199.03 at bar 4970, target 208.98, highest high in range 223.16, verdict pending
+ok   storage is unchanged after a reload
+ok   and after a timeframe change
+ok   no console error
