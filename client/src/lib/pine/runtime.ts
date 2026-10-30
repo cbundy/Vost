@@ -6,6 +6,7 @@
 import { Indicator, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
 import { mapDrawings } from './drawingObjects';
+import { checkDeclaredTimeframe, readDeclaredTimeframe, remapToChart, wrapProvider } from './declaredTimeframe';
 import { CurrencyRates, runWithRates } from './currencyRate';
 import { createMarketProvider } from './market';
 import { defaultMarketFeed, type MarketFeed } from './marketFeed';
@@ -284,19 +285,26 @@ export async function runPine(
     const indicator = new Indicator(source, await coerceInputs(source, inputs));
     const metas = indicator.getInputsMeta();
     const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market, opts.feed);
+    // An indicator that declares a higher timeframe runs on that timeframe's bars; its plots are mapped back onto the chart afterwards.
+    const declared = readDeclaredTimeframe(indicator, timeframe);
+    const problem = declared ? checkDeclaredTimeframe(declared, timeframe, opts.market) : null;
+    if (problem) return { ok: false, error: { message: problem } };
+    const wrapped = declared ? wrapProvider(provider, ticker, declared, timeframe) : null;
+    const higher = wrapped ? await wrapped.load() : null;
     const rates = new CurrencyRates(candles, opts.market, opts.feed ?? defaultMarketFeed());
     const ctx: any = await runWithRates(rates, async () => {
       // An end date marks the data as fixed: without it a paged run waits for live updates from the provider.
-      const pine = new RoutedPineTS(provider, ticker, timeframe, undefined, undefined, endTime);
+      const pine = new RoutedPineTS(wrapped?.provider ?? provider, ticker, declared?.timeframe ?? timeframe, undefined, undefined, endTime);
       pine.routing = { market: opts.market, rates };
       // By default PineTS records alerts only on the last bar; the pane lists every bar's.
       pine.setAlertMode('all');
       pine.setImportResolver(opts.resolver ?? ((libPath) => server!.resolve(libPath)));
-      const out = opts.onProgress ? await runPaged(pine, indicator, candles.length, opts.onProgress) : await pine.run(indicator);
+      const out = opts.onProgress ? await runPaged(pine, indicator, higher?.length ?? candles.length, opts.onProgress) : await pine.run(indicator);
       assertHooked(pine);
       return out;
     });
 
+    const mapped = declared && higher ? remapToChart(ctx.plots ?? {}, higher, candles, declared.gaps) : null;
     const isStrategy = indicator.getDeclarationType() === 'strategy';
     const decl = (isStrategy ? ctx.strategy?.config : ctx.indicator) ?? {};
     const overlay = Boolean(decl.overlay);
@@ -327,12 +335,12 @@ export async function runPine(
       kind: isStrategy ? 'strategy' : 'indicator',
       declaration: { title: String(decl.title ?? ''), overlay },
       inputs: declaredInputs,
-      plots: mapPlots(ctx.plots ?? {}, candles, overlay),
+      plots: mapPlots(mapped?.plots ?? ctx.plots ?? {}, candles, overlay),
       trades,
       position: isStrategy ? positionSeries(trades, candles.length) : [],
       ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
       messages: mapMessages(ctx, takeLogs(ctx)),
-      ...drawingsField(mapDrawings(ctx.plots ?? {}, candles.map((c) => c.time), candles, overlay)),
+      ...drawingsField(mapDrawings(ctx.plots ?? {}, mapped?.times ?? candles.map((c) => c.time), candles, overlay)),
     };
   } catch (err) {
     const error = parseError(err);

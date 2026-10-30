@@ -218,7 +218,7 @@ PineTS 0.13.0 - Pine v6 coverage probe: 160 cases, 120 synthetic daily candles f
 
 ## plot / plot-color-linewidth-offset
   pinets : ok  plots[1]: p=143.83
-  runPine: ok  plots[1]: p:plot/line/price=143.83 | declaration overlay=true
+  runPine: ok  plots[1]: p:plot/line/price=140.5 | declaration overlay=true
 
 ## hline / hline-basic
   pinets : ok  plots[1]: h=100
@@ -314,7 +314,7 @@ PineTS 0.13.0 - Pine v6 coverage probe: 160 cases, 120 synthetic daily candles f
 
 ## declaration / indicator-timeframe-arg
   pinets : ok  plots[1]: #0=143.83
-  runPine: ok  plots[1]: #0:plot/line/separate=143.83 | declaration overlay=false
+  runPine: ERR indicator(timeframe="W") cannot run on a D chart: the run has no market to load bars from
 
 ## declaration / indicator-overlay-false
   pinets : ok  plots[1]: #0=143.83

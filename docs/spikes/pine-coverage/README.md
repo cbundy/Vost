@@ -79,7 +79,7 @@ Columns: **PineTS** computes it (yes / partial / no); **runPine** passes it thro
 | `runtime.error` | yes | yes | yes | `runtime / runtime-error`: surfaces as `{ ok: false, error: { message: "boom" } }`, shown in the Pine pane |
 | `indicator()`: `overlay` | yes | yes | yes | `declaration / indicator-overlay-false`: `pane: separate` |
 | `indicator()`: `max_bars_back` | yes | yes (ignored) | n/a | `runtime / max-bars-back` runs; the value is not read |
-| `indicator()`: `format`, `precision`, `scale`, `timeframe`, `shorttitle`, `explicit_plot_zorder`, `max_lines_count` | accepted | dropped | no | `declaration / indicator-args, indicator-timeframe-arg` compile and run. `runtime.ts:152-153` reads only title and overlay. `timeframe="W"` has no effect (and `request.security` cannot do it anyway, see above) |
+| `indicator()`: `format`, `precision`, `scale`, `timeframe`, `shorttitle`, `explicit_plot_zorder`, `max_lines_count` | accepted | dropped | no | `declaration / indicator-args, indicator-timeframe-arg` compile and run. `runtime.ts:152-153` reads only title and overlay. Changed after the pinned commit (issue 337): a `timeframe` higher than the chart's now runs the script on that timeframe and maps it onto the chart's bars. The probe runs with no market, so `indicator-timeframe-arg` (`timeframe="W"`) now reports the no-market error, as expected |
 
 ### Strategy
 
