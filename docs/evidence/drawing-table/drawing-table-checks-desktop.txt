@@ -1,0 +1,21 @@
+ok   one table stored with empty 2 by 2 cells - [{"id":"dmvuthp761e40q","tool":"table","anchors":[{"time":1635033600,"price":219.62242218927668}],"cells":[["",""],["",""]]}]
+ok   the editor is a textarea over the first cell
+ok   Shift+Tab went back to Price
+ok   the first cells were committed - [["Symbol","Price"],["DEMO",""]]
+ok   Tab from the last cell commits and closes
+ok   all four cells stored - [["Symbol","Price"],["DEMO","100"]]
+ok   it opens on the clicked cell
+ok   Escape cancels
+ok   Ctrl+Enter commits
+ok   undo reverts the cell edit alone
+ok   redo reapplies it
+ok   a row was added below the first - [["Ticker","Price"],["",""],["DEMO","100"]]
+ok   a column was added right of the first - [["Ticker","","Price"],["","",""],["DEMO","","100"]]
+ok   Delete column on the new column removed it again - [["Ticker","Price"],["",""],["DEMO","100"]]
+ok   titled for the tool
+ok   nothing is stored before OK
+ok   4 by 3 cells with the text kept - [["Ticker","Price",""],["","",""],["DEMO","100",""],["","",""]]
+ok   header and border stored - {"header":true,"borderColor":"#f59e0b"}
+ok   one undo reverts the size and the style - {"id":"dmvuthp761e40q","tool":"table","anchors":[{"time":1635033600,"price":219.62242218927668}],"cells":[["Ticker","Price"],["",""],["DEMO","100"]]}
+ok   storage is unchanged
+ok   the table is still stored after a timeframe change

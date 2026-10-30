@@ -1,0 +1,12 @@
+ok   one table stored with empty 2 by 2 cells - [{"id":"dmvuti4w41s4nl","tool":"table","anchors":[{"time":1750032000,"price":219.67171918640645}],"cells":[["",""],["",""]]}]
+ok   the editor is a textarea over the first cell
+ok   Shift+Tab went back to Price
+ok   the first cells were committed - [["Symbol","Price"],["DEMO",""]]
+ok   Tab from the last cell commits and closes
+ok   all four cells stored - [["Symbol","Price"],["DEMO","100"]]
+ok   it opens on the clicked cell
+ok   Escape cancels
+ok   Ctrl+Enter commits
+ok   undo reverts the cell edit alone
+ok   redo reapplies it
+ok   storage is unchanged

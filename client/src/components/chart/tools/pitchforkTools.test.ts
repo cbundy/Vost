@@ -20,6 +20,7 @@ function view(tool: DrawingTool, style?: Record<string, unknown>, candles = bars
     formatPrice: String,
     style: resolveStyle(tool.settings ?? [], style, undefined).values,
     styled: false,
+    cells: [],
   };
 }
 

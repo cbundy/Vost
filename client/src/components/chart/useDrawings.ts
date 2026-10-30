@@ -17,6 +17,8 @@ import {
   removeMany,
   cleanText,
   cloneMany,
+  setCell,
+  setCells,
   setText,
   sourceKey,
   undo,
@@ -34,9 +36,11 @@ import { useStore } from '../../state/store';
 import { DrawingPrimitive } from './drawingPrimitive';
 import { NotePopups } from './notePopups';
 import { editorStyle, type EditorTarget } from './textPlacement';
+import { cellRect, cellUnder } from './tableEditing';
+import { TABLE_DEFAULT_COLS, TABLE_DEFAULT_ROWS, emptyCells, stepCell } from '../../lib/geometry/table';
 import { useDrawingActions } from './useDrawingActions';
 import { useDrawingSettings } from './useDrawingSettings';
-import { ANCHOR_COUNTS, CAPTION_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, getTool, type DrawingTool } from './tools';
+import { ANCHOR_COUNTS, CAPTION_TOOLS, CELL_TOOLS, PANE_TOOLS, TEXT_TOOLS, TRANSIENT_TOOLS, VALIDATORS, getTool, type DrawingTool } from './tools';
 import { useChart, useChartStore } from '../../state/chartContext';
 
 export { CURSOR, ERASER };
@@ -55,7 +59,7 @@ function baseCursor(tool: string, kind: CursorKind): string {
 /** The tab's one drawings store, shared by every chart panel (see createDrawingsStorage). */
 let storage: DrawingsStorage | null = null;
 function drawingsStorage(): DrawingsStorage {
-  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS, CAPTION_TOOLS).sources, saveDrawings);
+  storage ??= createDrawingsStorage(() => loadDrawings(ANCHOR_COUNTS, TEXT_TOOLS, TRANSIENT_TOOLS, PANE_TOOLS, CAPTION_TOOLS, VALIDATORS).sources, saveDrawings);
   return storage;
 }
 
@@ -75,19 +79,22 @@ export type DrawingEditor = {
   style: Readonly<Record<string, unknown>>;
   onCommit(text: string): void;
   onCancel(): void;
+  /** A table cell's editor: its width, and Tab (1) or Shift+Tab (-1) to commit and move to the next or previous cell. */
+  width?: number;
+  onTab?(text: string, dir: 1 | -1): void;
 };
 
 /** Where a dragged handle now is: its starting pixel moved by the drag. */
 function handleTarget(def: DrawingTool, drag: Drag, item: DragItem, prim: DrawingPrimitive, dx: number, dy: number): Pt {
-  const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, style: item.origStyle }))[drag.handle as number];
+  const h = def.handles(item.origPts, prim.viewFor({ tool: def.id, anchors: item.origAnchors, text: item.origText, cells: item.origCells, style: item.origStyle }))[drag.handle as number];
   return { x: h.x + dx, y: h.y + dy };
 }
 
 /** One drawing a drag moves, as it was when the press began. */
-type DragItem = { id: string; tool: string; origAnchors: Anchor[]; origText: string | undefined; origStyle: Drawing['style']; origPts: Pt[] };
+type DragItem = { id: string; tool: string; origAnchors: Anchor[]; origText: string | undefined; origCells: string[][] | undefined; origStyle: Drawing['style']; origPts: Pt[] };
 /** `items` is every drawing a body drag moves, or the one whose handle is dragged. */
 type Drag = { handle: number | null; start: Pt; items: DragItem[]; before: Drawing[]; /** A press on a member of a selection: a release without moving keeps just this one. */ collapseTo: string | null };
-const dragItem = (d: Drawing, origPts: Pt[]): DragItem => ({ id: d.id, tool: d.tool, origAnchors: d.anchors, origText: d.text, origStyle: d.style, origPts });
+const dragItem = (d: Drawing, origPts: Pt[]): DragItem => ({ id: d.id, tool: d.tool, origAnchors: d.anchors, origText: d.text, origCells: d.cells, origStyle: d.style, origPts });
 /** The draft as a drawing the primitive paints (it has fewer anchors than the tool needs until it is placed). */
 const draftDrawing = (d: Draft | null): Drawing | null => (d ? { id: 'draft', tool: d.tool, anchors: d.anchors } : null);
 
@@ -177,7 +184,7 @@ export function useDrawings(
         selectedRef.current,
         draftDrawing(draftRef.current),
         measureRef.current,
-        editTargetRef.current?.id ?? null,
+        editTargetRef.current && !editTargetRef.current.cell ? editTargetRef.current.id : null,
       );
     }
   }, [getState]);
@@ -255,6 +262,19 @@ export function useDrawings(
     [containerRef],
   );
 
+  /** Where the open editor goes: a note at its anchor, a table cell over the cell (with the cell's width). */
+  const editorPlace = useCallback(
+    (target: EditorTarget): { left: number; top: number; width?: number } | null => {
+      if (!target.cell) return editorPos(target.anchors[0], target.tool);
+      const d = getState().drawings.find((x) => x.id === target.id);
+      const prim = primRef.current;
+      const el = containerRef.current;
+      const r = d && prim && el ? cellRect(prim, d, target.cell) : null;
+      return r && el ? { left: el.offsetLeft + r.left, top: el.offsetTop + r.top, width: r.width } : null;
+    },
+    [containerRef, editorPos, getState],
+  );
+
   const closeEditor = useCallback(() => {
     if (!editTargetRef.current) return;
     editTargetRef.current = null;
@@ -268,7 +288,11 @@ export function useDrawings(
       const text = cleanText(raw);
       editTargetRef.current = null;
       setEditor(null);
-      if (target.id === null) {
+      if (target.cell && target.id !== null) {
+        // A table cell may be emptied: the table stays.
+        setState(setCell(getState(), target.id, target.cell.row, target.cell.col, text), true);
+        selectedRef.current = only(target.id);
+      } else if (target.id === null) {
         if (text) {
           const id = newDrawingId();
           setState(add(getState(), { id, tool: target.tool, anchors: target.anchors, text }), true);
@@ -310,6 +334,43 @@ export function useDrawings(
     [closeEditor, commitEditor, editorPos, sync],
   );
 
+  /** Opens the cell input over a cell of a table; Tab commits it and opens the next cell, the last one closes. */
+  const openCell = useCallback(
+    (id: string, row: number, col: number) => {
+      const d = getState().drawings.find((x) => x.id === id);
+      if (!d || !CELL_TOOLS.has(d.tool)) return;
+      if (editTargetRef.current?.id === id && editTargetRef.current.cell?.row === row && editTargetRef.current.cell.col === col) return;
+      // A table stored without cells starts with the default empty ones.
+      if (!d.cells) setState(setCells(getState(), id, emptyCells(TABLE_DEFAULT_ROWS, TABLE_DEFAULT_COLS)), true);
+      const cells = getState().drawings.find((x) => x.id === id)?.cells;
+      if (cells?.[row]?.[col] === undefined) return;
+      const style = editorStyle(d.tool, d.style, useStore.getState().drawingDefaults);
+      const target: EditorTarget = { id, tool: d.tool, anchors: d.anchors, text: cells[row][col], style, key: ++editorKeyRef.current, cell: { row, col } };
+      const pos = editorPlace(target);
+      if (!pos) return;
+      editTargetRef.current = target;
+      flushSync(() =>
+        setEditor({
+          key: target.key,
+          ...pos,
+          text: target.text,
+          style,
+          onCommit: (t) => commitEditor(target, t),
+          onCancel: closeEditor,
+          onTab: (t, dir) => {
+            commitEditor(target, t);
+            const next = stepCell(getState().drawings.find((x) => x.id === id)?.cells ?? cells, row, col, dir);
+            if (next) openCellRef.current(id, next.row, next.col);
+          },
+        }),
+      );
+      sync();
+    },
+    [closeEditor, commitEditor, editorPlace, getState, setState, sync],
+  );
+  const openCellRef = useRef(openCell);
+  openCellRef.current = openCell;
+
   const deleteAll = useCallback(() => {
     if (getState().drawings.length === 0) return;
     if (!window.confirm('Delete all drawings on this chart?')) return;
@@ -338,9 +399,9 @@ export function useDrawings(
     if (!chart || !el) return;
     const place = () => {
       const target = editTargetRef.current;
-      const pos = target && editorPos(target.anchors[0], target.tool);
+      const pos = target && editorPlace(target);
       if (!pos) return;
-      setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top) ? { ...cur, ...pos } : cur));
+      setEditor((cur) => (cur && cur.key === target.key && (cur.left !== pos.left || cur.top !== pos.top || cur.width !== pos.width) ? { ...cur, ...pos } : cur));
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(place);
     const ro = new ResizeObserver(place);
@@ -353,7 +414,7 @@ export function useDrawings(
       }
       ro.disconnect();
     };
-  }, [chart, containerRef, editorPos]);
+  }, [chart, containerRef, editorPlace]);
 
   /* Primitive on the candle series. */
   useEffect(() => {
@@ -466,6 +527,14 @@ export function useDrawings(
     };
     const onLeave = () => {
       if (popupsRef.current.hover(null)) sync();
+      clearHover();
+    };
+    /** The table the pointer carries before it is placed is held in `measureRef` (a temporary drawing that is never stored). */
+    const clearHover = () => {
+      if (measureRef.current?.id === 'hover') {
+        measureRef.current = null;
+        sync();
+      }
     };
 
     const point = (e: PointerEvent): Pt => {
@@ -532,6 +601,18 @@ export function useDrawings(
         return;
       }
       draftEndedAt = performance.now();
+      if (getTool(id)?.cells) {
+        // A table is placed with empty cells and the first one is typed in at once.
+        const created = { id: newDrawingId(), tool: id, anchors, cells: emptyCells(TABLE_DEFAULT_ROWS, TABLE_DEFAULT_COLS) };
+        setState(add(getState(), created), true);
+        draftRef.current = null;
+        measureRef.current = null;
+        afterDrawing();
+        selectedRef.current = only(created.id);
+        sync();
+        openCell(created.id, 0, 0);
+        return;
+      }
       if (getTool(id)?.text) {
         // A text tool with several anchors (Callout) types its text now that all are placed; the drawing is added on commit.
         draftRef.current = null;
@@ -768,6 +849,15 @@ export function useDrawings(
         return;
       }
       if (e.buttons === 0) {
+        const placing = getTool(toolRef.current);
+        if (placing?.cells && !hiddenRef.current && hasDataRef.current) {
+          // A table follows the pointer until it is placed.
+          const raw = inPlot(p) ? prim.toAnchor(p, placing) : null;
+          if (raw) {
+            measureRef.current = { id: 'hover', tool: placing.id, anchors: [snap(raw, placing)] };
+            sync();
+          } else clearHover();
+        }
         const over = inPlot(p) && prim.hit(p);
         // A note's popup shows while the pointer is on the note (or its open popup).
         const hoverId = over && hasPopup(over.id) ? over.id : null;
@@ -833,9 +923,12 @@ export function useDrawings(
           const prev = lastTap;
           lastTap = { id: lead, t: e.timeStamp, p };
           const note = getState().drawings.find((x) => x.id === lead);
-          if (note && TEXT_TOOLS.has(note.tool) && prev && prev.id === lead && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
+          if (note && (TEXT_TOOLS.has(note.tool) || CELL_TOOLS.has(note.tool)) && prev && prev.id === lead && e.timeStamp - prev.t <= DOUBLE_TAP_MS && Math.hypot(p.x - prev.p.x, p.y - prev.p.y) < DRAG_PX * 2) {
             lastTap = null;
-            openEditor(note.id, note.tool, note.anchors, note.text ?? '', note.style);
+            if (CELL_TOOLS.has(note.tool)) {
+              const cell = primRef.current && cellUnder(primRef.current, note, p, true);
+              if (cell) openCell(note.id, cell.row, cell.col);
+            } else openEditor(note.id, note.tool, note.anchors, note.text ?? '', note.style);
           }
         } else lastTap = null;
         return;
@@ -881,7 +974,9 @@ export function useDrawings(
       e.stopPropagation();
       e.preventDefault();
       // A note is edited in place; Shift+double-click opens its settings instead.
-      if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors, d.text ?? '', d.style);
+      const cell = CELL_TOOLS.has(d.tool) && !e.shiftKey ? cellUnder(prim, d, p, true) : null;
+      if (cell) openCell(d.id, cell.row, cell.col);
+      else if (TEXT_TOOLS.has(d.tool) && !e.shiftKey) openEditor(d.id, d.tool, d.anchors, d.text ?? '', d.style);
       else openSettings(d.id);
     };
 
@@ -908,7 +1003,7 @@ export function useDrawings(
       el.removeEventListener('touchstart', eat, true);
       el.style.cursor = '';
     };
-  }, [chart, containerRef, getState, setState, setTool, sync, openEditor, openSettings]);
+  }, [chart, containerRef, getState, setState, setTool, sync, openEditor, openCell, openSettings]);
 
   /* A new mode or cursor kind shows at once, without waiting for the pointer to move. */
   useEffect(() => {

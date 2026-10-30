@@ -37,6 +37,21 @@ Anchored text keeps its spot on the pane, whatever the chart does: panning, zoom
 
 ![Anchored text after a pan, a zoom and a timeframe change](../evidence/drawing-text/drawing-text-timeframe-desktop.png)
 
+## Table
+
+The **Table** tool (in the Annotations flyout, under Text) puts a grid of text cells on the chart. A table shows under the pointer until you click or tap: it is placed with two rows and two columns, and the first cell opens for typing at once.
+
+- **Type in a cell**: double-click it (double tap on a touch screen). **Tab** saves the cell and moves to the next one, wrapping to the next row, **Shift+Tab** to the previous one, and Tab from the last cell saves and closes. **Ctrl+Enter** or clicking away saves, **Escape** cancels. A cell may be empty; the table stays.
+- **Add and remove rows and columns**: right-click a cell for **Add row below**, **Add column right**, **Delete row** and **Delete column**. Or open the settings (Shift+double-click) and set **Rows** and **Columns** (1 to 20 each); new cells are added at the end and removed ones come off the end.
+- **Look**: columns are as wide as their widest cell and rows as tall as their tallest. The **Text** tab sets the colour, size, bold, italic and alignment of the cell text. The **Style** tab has the border colour and width, the cell background and its opacity, and a **Header row** that makes the first row bold on its own background colour.
+- **Move**: drag the table or its handle at the top-left corner. A table stays inside the pane, and follows its bar through zoom, pan and a timeframe change.
+
+Every edit, a cell, a row or a column, is one undo step, and tables are saved with the chart, copied and cloned with their cells.
+
+![A table with a header row and a changed border colour](../evidence/drawing-table/drawing-table-styled-desktop.png)
+
+![Tab moves between cells](../evidence/drawing-table/drawing-table-tabbing-desktop.png)
+
 ## Notes
 
 The Notes section has eight tools. Four of them carry text like Text does (Note, Anchored note, Callout and Comment): they are typed, edited, styled and saved the same way, and their settings have the same Text tab. They start as white 14 pixel text on a blue box, wrapped at 240 pixels. On the Style tab you set the box's background colour and opacity and its border colour.
