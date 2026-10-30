@@ -14,6 +14,8 @@ import type { PineCharDesc } from '../lib/pine/chartSeries';
 const MARGIN = 4;
 /** Gap between a glyph and its text. */
 const TEXT_GAP = 1;
+/** Top rows of a pane the indicator legend covers; glyphs are kept below them. */
+const LEGEND_INSET = 20;
 
 export interface CharPlacement {
   glyphY: number;
@@ -27,8 +29,8 @@ export interface CharPlacement {
  */
 export function placeChar(y: number, align: PineCharDesc['align'], fontPx: number, hasText: boolean, height = Infinity): CharPlacement {
   const p = placeUnclamped(y, align, fontPx, hasText);
-  // Kept inside the pane, so a glyph at the very top or bottom of a script's own pane is not cut off.
-  const keep = (v: number, px: number) => Math.min(Math.max(v, px / 2), height - px / 2);
+  // Kept inside the pane, so a glyph at the very top or bottom of a script's own pane is not cut off or drawn over its legend row.
+  const keep = (v: number, px: number) => Math.min(Math.max(v, LEGEND_INSET + px / 2), height - px / 2);
   const glyphY = keep(p.glyphY, fontPx);
   const shifted = p.textY === null ? null : p.textY + (glyphY - p.glyphY);
   return { glyphY, textY: shifted === null ? null : keep(shifted, p.textPx), textPx: p.textPx };

@@ -275,8 +275,6 @@ describe('buildPineChart plot options', () => {
     const m = await build(
       sizes.map((z) => `plotshape(close > open, "${z}", style=shape.circle, text="T", size=size.${z})`).join('\n') + '\nplotshape(close > open, "none")',
     );
-    const first = (title: string) => m.markers.find((k) => k.size === m.markers[0].size && title);
-    expect(first('x')).toBeDefined();
     // One marker per bar per plot: the first n markers share a time, in plot order.
     const t0 = m.markers[0].time;
     const sz = m.markers.filter((k) => k.time === t0).map((k) => k.size);

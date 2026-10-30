@@ -104,9 +104,9 @@ export const pineRender: Scenario = {
       await page.waitForTimeout(800);
     });
     await ctx.screenshot('plot-styles');
-    await ctx.step('the plotchar glyph is drawn in its colour in the script pane', async () => {
-      const orange = await colorPixels([0xff, 0x98, 0x00], 30);
-      if (orange < 30) throw new Error(`plotchar glyph not drawn (${orange} orange pixels)`);
+    await ctx.step('the plotchar glyph is drawn in its colour (yellow, unlike any default indicator) in the script pane', async () => {
+      const orange = await colorPixels([0xff, 0xeb, 0x3b], 30);
+      if (orange < 30) throw new Error(`plotchar glyph not drawn (${orange} yellow pixels)`);
     });
     await ctx.step('plotchar characters sit above and below the candles', async () => {
       await reopenEditor();
