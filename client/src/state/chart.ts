@@ -38,7 +38,7 @@ import {
   stepReplay as stepPosition,
 } from '../lib/replay';
 import { nextPineSelection } from '../lib/pineSelection';
-import { workerCall } from './worker';
+import { CancelledError, optimizerCall, workerCall } from './worker';
 import type { BroadcastOpt, SyncChange } from '../lib/layoutSync';
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
@@ -218,6 +218,8 @@ export interface ChartState {
   clearBacktest(): void;
   setOptConfig(patch: Partial<OptimizeConfig>): void;
   runOptimizer(): Promise<void>;
+  /** Stop a running optimizer sweep and bring back the result shown before it started. */
+  cancelOptimizer(): void;
   applyOptimizeRow(row: OptimizeRow): Promise<void>;
   setLive(v: boolean): void;
   searchSymbols(query: string): Promise<void>;
@@ -230,6 +232,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   const id0 = id; // the chart's id, for actions whose own argument is named id
   /* Per-chart singletons: each chart owns its own live stream, replay timer and request tokens. */
   let liveHandle: LiveHandle | null = null;
+  /** The running optimizer sweep: its cancel handle and the result shown before it started. */
+  let optRun: { cancel: () => void; previous: ChartState['optResult'] } | null = null;
   /** The replay play timer; every path that ends replay clears it. */
   let replayTimer: ReturnType<typeof setTimeout> | null = null;
   const clearReplayTimer = () => {
@@ -831,11 +835,18 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', timeRangeErrorText(error));
         return;
       }
+      const previous = optRun ? optRun.previous : get().optResult;
+      optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
+      const call = optimizerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
+        if (optRun === run) set({ optProgress: pct });
+      });
+      const run = { cancel: call.cancel, previous };
+      optRun = run;
       try {
-        const msg = await workerCall({ type: 'optimize', candles, config: btConfig, optimize: optConfig }, (pct) => {
-          set({ optProgress: pct });
-        });
+        const msg = await call.promise;
+        if (optRun !== run) return;
+        optRun = null;
         if (msg.type !== 'optimizeResult') throw new Error('Unexpected worker reply');
         set({
           optResult: { rows: msg.rows, keys: msg.keys, metric: msg.metric, combos: msg.combos, errored: msg.errored },
@@ -846,9 +857,20 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           env.pushToast('error', `${msg.errored} of ${msg.combos} parameter combinations failed (see custom code).`);
         }
       } catch (err) {
-        set({ optRunning: false });
+        if (optRun !== run || err instanceof CancelledError) return;
+        optRun = null;
+        set({ optRunning: false, optResult: previous });
         env.pushToast('error', `Optimizer failed: ${err instanceof Error ? err.message : String(err)}`);
       }
+    },
+
+    cancelOptimizer() {
+      const run = optRun;
+      if (!run) return;
+      optRun = null;
+      run.cancel();
+      set({ optRunning: false, optProgress: 0, optResult: run.previous });
+      env.pushToast('info', 'Optimizer cancelled');
     },
 
     async applyOptimizeRow(row) {
