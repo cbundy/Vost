@@ -1,0 +1,20 @@
+ok   nothing is stored before the click
+ok   the picture is in the store
+ok   one image drawing with the natural size - [{"id":"dmvuu9p0510iy2","tool":"image","anchors":[{"time":1628380800,"price":235.2089091174603},{"time":1656028800,"price":174.20503545515356}],"image":{"key":"692b123a378c2185955177a77ce3aafb14abd2ee20229016eb21e276580e6782","w":160,"h":100}}]
+ok   the same bytes are stored once
+ok   a second image drawing, same picture - [{"key":"692b123a378c2185955177a77ce3aafb14abd2ee20229016eb21e276580e6782","w":160,"h":100},{"key":"692b123a378c2185955177a77ce3aafb14abd2ee20229016eb21e276580e6782","w":160,"h":100}]
+ok   the anchors changed
+ok   titled for the tool
+ok   opacity and border stored - {"opacity":0.6,"borderWidth":3}
+ok   deleted
+ok   undo brings the picture drawing back
+ok   redo deletes it again
+ok   paste adds a copy with the same picture - ["692b12","692b12","692b12"]
+ok   still one stored record
+ok   the 5 MB message shows - ⚠That picture is over the 5 MB limit.✕
+ok   the type message shows - ⚠That picture is over the 5 MB limit.✕|⚠Only PNG, JPEG, GIF or WebP pictures can be added.✕
+ok   nothing was added
+ok   storage is unchanged
+ok   the picture store survived the reload
+ok   the pictures are still stored after a timeframe change
+ok   no console error

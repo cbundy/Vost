@@ -18,6 +18,8 @@ export interface ToolView {
   text: string;
   /** The drawing's cells (a table); empty for tools without cells. */
   cells: readonly (readonly string[])[];
+  /** The drawing's picture (an image); absent for tools without one. */
+  image?: { key: string; w: number; h: number };
   /** Times of the loaded bars, ascending. */
   times: readonly number[];
   /** The loaded bars (open, high, low, close), ascending by time. */
@@ -31,6 +33,9 @@ export interface ToolView {
   /** The drawing (or the user's default for its tool) sets a style value of its own; false keeps today's selection colour. */
   styled: boolean;
 }
+
+/** What a handle drag may know besides the pointer: the Shift key (desktop) and the drawing's effective style. */
+export type DragMods = { shift: boolean; style?: Readonly<Record<string, unknown>> };
 
 /** The rail's tool families, in rail order (see lib/drawingRail.ts for labels). */
 export type DrawingGroup = 'cursors' | 'lines' | 'fib-gann' | 'patterns' | 'forecast-measure' | 'shapes' | 'annotations' | 'icons';
@@ -122,5 +127,5 @@ export interface DrawingTool {
   /**
    * The new anchor pixels when handle `handle` is dragged to p. Absent: handle i moves anchor i.
    */
-  dragHandle?(origPts: Pt[], handle: number, p: Pt): Pt[];
+  dragHandle?(origPts: Pt[], handle: number, p: Pt, mods?: DragMods): Pt[];
 }

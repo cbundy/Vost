@@ -12,6 +12,7 @@ import {
   type RailEntry,
   type RailGroup,
 } from '../lib/drawingRail';
+import { IMAGE_TOOL, MESSAGES } from '../lib/drawingImages';
 import { DrawingFlyout } from './DrawingFlyout';
 import { MAGNET_MODES, MagnetMenu, type MagnetMode } from './MagnetMenu';
 import {
@@ -43,6 +44,8 @@ export type DrawingControls = {
   lastTool: Readonly<Record<string, string>>;
   /** No data to draw on. */
   disabled: boolean;
+  /** Pictures cannot be stored in this browser (IndexedDB is unavailable): the Image tool is off. Absent: they can. */
+  imagesOff?: boolean;
   magnet: boolean;
   onMagnet: () => void;
   magnetStrength: 'weak' | 'strong';
@@ -72,8 +75,13 @@ export function entryIcon(e: RailEntry): ReactNode {
 }
 
 /** Whether an entry cannot be picked now: every mode but the cursor kinds needs data and visible drawings. */
-export function entryDisabled(e: RailEntry, c: Pick<DrawingControls, 'disabled' | 'hidden'>): boolean {
-  return e.toolId !== CURSOR && (c.disabled || c.hidden);
+export function entryDisabled(e: RailEntry, c: Pick<DrawingControls, 'disabled' | 'hidden' | 'imagesOff'>): boolean {
+  return e.toolId !== CURSOR && (c.disabled || c.hidden || (e.toolId === IMAGE_TOOL && !!c.imagesOff));
+}
+
+/** An entry's tooltip: its label, or why the Image tool is off. */
+export function entryTitle(e: RailEntry, c: Pick<DrawingControls, 'imagesOff'>): string {
+  return e.toolId === IMAGE_TOOL && c.imagesOff ? MESSAGES.unavailable : e.label;
 }
 
 /** The magnet's current mode. */
@@ -241,7 +249,7 @@ function GroupButton({ group, c, open, onOpen, onClose }: { group: RailGroup; c:
         ref={btnRef}
         type="button"
         className={`ghost icon rail-btn${pressed ? ' active' : ''}`}
-        title={entry.label}
+        title={entryTitle(entry, c)}
         aria-label={entry.label}
         aria-pressed={pressed}
         aria-haspopup="menu"
@@ -418,7 +426,7 @@ export function DrawingMenu(c: DrawingControls) {
                               <button
                                 type="button"
                                 className={`fly-item${on ? ' active' : ''}`}
-                                title={e.label}
+                                title={entryTitle(e, c)}
                                 aria-label={e.label}
                                 aria-pressed={on}
                                 disabled={entryDisabled(e, c)}

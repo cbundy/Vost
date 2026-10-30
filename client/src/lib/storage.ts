@@ -71,3 +71,13 @@ export function debounce<A extends unknown[]>(fn: (...args: A) => void, wait = 4
   };
   return debounced;
 }
+
+/** A stored JSON value read without a fallback: `ok` is false when storage is unavailable or the value is not valid JSON; a missing key gives `value: null`. */
+export function peekJson(key: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    const raw = localStorage.getItem(PREFIX + key);
+    return { ok: true, value: raw === null || raw === '' ? null : JSON.parse(raw) };
+  } catch {
+    return { ok: false };
+  }
+}

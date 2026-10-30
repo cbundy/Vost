@@ -182,6 +182,8 @@ The dialog fits a phone screen.
 
 Drawings are saved per symbol in your browser, and keep their place across zoom, timeframe changes and live bars. Charts on the same market share their drawings. Drawings saved by an older version are carried over, and drawings from a newer version (a tool or a setting this version does not know) are kept as they are and written back unchanged, though this version does not show them.
 
+Pictures added with the [Image tool](drawing-annotations.md#image) are kept in a separate picture store in your browser (IndexedDB), which is cleared with the site's data. A drawing copied to another browser does not carry its picture and shows a "Picture missing" box there.
+
 ## On phones
 
 Below 600px the chart toolbar has a **Drawing tools** button that opens the same families as collapsible sections (the one holding the current tool is open), each tool with its star. The switches are below the sections. Picking a tool closes the menu, and Escape closes it too. Tap, tap places a line. One-finger pan and pinch zoom work as before in cursor mode.

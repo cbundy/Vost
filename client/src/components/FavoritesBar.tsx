@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { allEntries, clampBarPos, entryPressed, type BarPos } from '../lib/drawingRail';
-import { entryDisabled, entryIcon, type DrawingControls } from './DrawingRail';
+import { entryDisabled, entryIcon, entryTitle, type DrawingControls } from './DrawingRail';
 import { GripIcon } from './DrawingIcons';
 import { useStore } from '../state/store';
 
@@ -84,7 +84,7 @@ export function FavoritesBar(c: DrawingControls) {
             key={e.key}
             type="button"
             className={`ghost icon rail-btn${on ? ' active' : ''}`}
-            title={e.label}
+            title={entryTitle(e, c)}
             aria-label={e.label}
             aria-pressed={on}
             disabled={entryDisabled(e, c)}

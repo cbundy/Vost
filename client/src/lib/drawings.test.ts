@@ -30,6 +30,9 @@ import {
   reorderMany,
   previewMany,
   cloneMany,
+  imageKeys,
+  persistedImageKeys,
+  stateImageKeys,
   paste,
   removeMany,
   setCell,
@@ -820,5 +823,48 @@ describe('table cells', () => {
     expect(s1.drawings).toHaveLength(2);
     expect(s1.drawings[1].cells).toEqual([['a', 'b'], ['c', 'd']]);
     expect(s1.drawings[1].cells).not.toBe(s1.drawings[0].cells);
+  });
+});
+
+describe('image drawings', () => {
+  const KEY = 'b'.repeat(64);
+  const pic = (id: string): Drawing => ({ id, tool: 'image', anchors: [{ time: 100, price: 9 }, { time: 200, price: 4 }], image: { key: KEY, w: 40, h: 30 } });
+  const IMAGE_COUNTS = { ...COUNTS, image: 2 };
+
+  it('round-trips its image field through parseStore, and the tool check drops a malformed one', () => {
+    const raw = { version: 2, sources: { a: [pic('p'), { ...pic('q'), image: { key: 'nope', w: 1, h: 1 } }, { ...pic('r'), tool: 'future', image: { key: 'x' } }] } };
+    const got = parseStore(raw, IMAGE_COUNTS, TEXT, TRANSIENT, undefined, undefined, VALIDATORS);
+    expect(got.sources.a.map((d) => d.id)).toEqual(['p', 'r']);
+    expect(got.sources.a[0].image).toEqual({ key: KEY, w: 40, h: 30 });
+  });
+
+  it('copies the same image key on clone and paste', () => {
+    const s = cloneMany(emptyState([pic('p')]), ['p']);
+    expect(s.drawings).toHaveLength(2);
+    expect(s.drawings[1].image).toEqual({ key: KEY, w: 40, h: 30 });
+    expect(s.drawings[1].id).not.toBe('p');
+    const pasted = paste(emptyState(), [pic('p')]);
+    expect(pasted.drawings[0].image?.key).toBe(KEY);
+  });
+
+  it('keeps the picture when a delete is undone and redone', () => {
+    const del = removeMany(emptyState([pic('p')]), ['p']);
+    expect(del.drawings).toEqual([]);
+    expect(stateImageKeys(del)).toEqual([KEY]); // still held by the undo snapshot
+    const back = undo(del);
+    expect(back.drawings[0].image?.key).toBe(KEY);
+    expect(redo(back).drawings).toEqual([]);
+  });
+
+  it('lists the keys of drawings, history snapshots and every stored source', () => {
+    expect(imageKeys([pic('p'), trend('t'), null, 'x'])).toEqual([KEY]);
+    saveDrawings({ a: [pic('p')], b: [{ ...pic('q'), tool: 'future' }, trend('t')] });
+    expect(persistedImageKeys()).toEqual({ keys: new Set([KEY]), newer: false });
+    store.set('vost.drawings.v2', JSON.stringify({ version: 3, sources: {} }));
+    expect(persistedImageKeys()).toEqual({ keys: new Set(), newer: true });
+    store.set('vost.drawings.v2', '{broken');
+    expect(persistedImageKeys()).toBeNull();
+    store.clear();
+    expect(persistedImageKeys()).toEqual({ keys: new Set(), newer: false });
   });
 });
