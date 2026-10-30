@@ -18,7 +18,7 @@ PineTS is licensed AGPL-3.0-only. Vost itself is unchanged and remains MIT-licen
 
 ## Coverage
 
-Vost runs the Pine v6 language and its `ta`, `math`, `str`, `array`, `matrix`, `map` and `color` libraries, strategies (orders, exits, commission, pyramiding) and the basic plots: `plot`, `hline`, `bgcolor`, `plotshape`. It does not yet show `fill`, `barcolor`, `plotcandle`, `plotbar`, `plotarrow` or the drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`), alerts or logs, and `request.security` to another timeframe or symbol returns the chart's own data. The script always sees ticker `VOST` and timeframe `D`.
+Vost runs the Pine v6 language and its `ta`, `math`, `str`, `array`, `matrix`, `map` and `color` libraries, strategies (orders, exits, commission, pyramiding) and the basic plots: `plot`, `hline`, `bgcolor`, `plotshape`, `plotchar`. The shapes and characters of a script with `overlay=false` are drawn in its own pane (at the top for `abovebar`/`top`, at the bottom for `belowbar`/`bottom`, at the plotted value for `absolute`, mid-pane when there is no number); an overlay script's stay on the candles. It does not yet show `fill`, `barcolor`, `plotcandle`, `plotbar`, `plotarrow` or the drawing objects (`line`, `label`, `box`, `table`, `polyline`, `linefill`), alerts or logs, and `request.security` to another timeframe or symbol returns the chart's own data. The script always sees ticker `VOST` and timeframe `D`.
 
 The full table, with a rerunnable probe, is in [spikes/pine-coverage/README.md](spikes/pine-coverage/README.md).
 

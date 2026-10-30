@@ -41,6 +41,7 @@ import { paneResize } from './pane-resize.ts';
 import { pineConvert } from './pine-convert.ts';
 import { pineLibraries } from './pine-libraries.ts';
 import { pinePane } from './pine-pane.ts';
+import { pineRender } from './pine-render.ts';
 import { replay } from './replay.ts';
 import { responsive } from './responsive.ts';
 import { monteCarlo } from './monte-carlo.ts';
