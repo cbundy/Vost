@@ -17,4 +17,5 @@ export const extendedLine = lineTool(
     ),
   },
   { extendLeft: true, extendRight: true },
+  true,
 );

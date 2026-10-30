@@ -89,7 +89,7 @@ describe('every registered tool declares settings', () => {
     for (const t of TOOLS.filter((x) => x.settings)) for (const f of t.settings!) expect(validateValue(f, f.default), `${t.id}.${f.key}`).toBeDefined();
   });
   it('only the text tool stores text, and the line tools declare Text settings for their label', () => {
-    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['trendLine', 'ray', 'infoLine', 'extendedLine', 'trendAngle'].includes(t.id));
+    for (const t of TOOLS) expect(t.settings?.some((f) => f.tab === 'text') ?? false, t.id).toBe(['infoLine', 'extendedLine', 'trendAngle'].includes(t.id));
     expect(TOOLS.filter((t) => t.text).map((t) => t.id)).toEqual(['text']);
   });
 });

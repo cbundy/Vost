@@ -8,9 +8,9 @@ import type { DrawingTool, ToolView } from './types';
 /** What a line tool shows or extends before the user changes it; the trend line has none of it, the ray extends right. */
 export type LineDefaults = Partial<Record<'extendLeft' | 'extendRight' | 'showPriceChange' | 'showAngle' | 'showBars' | 'showDistance', boolean>>;
 
-/** The settings of the line tools; `defaults` overrides what a tool turns on. */
-export function lineSettings(defaults: LineDefaults = {}): SettingField[] {
-  return [
+/** The settings of the line tools; `defaults` overrides what a tool turns on, `text` adds the Text tab for tools with a label. */
+export function lineSettings(defaults: LineDefaults = {}, text = false): SettingField[] {
+  const fields: SettingField[] = [
     colorField('color', 'Colour', 'accent'),
     opacityField('opacity', 'Opacity', 1),
     widthField('width', 'Width', 1.5),
@@ -23,9 +23,9 @@ export function lineSettings(defaults: LineDefaults = {}): SettingField[] {
     boolField('showAngle', 'Show angle', defaults.showAngle ?? false),
     boolField('showBars', 'Show bars', defaults.showBars ?? false),
     boolField('showDistance', 'Show distance', defaults.showDistance ?? false),
-    colorField('textColor', 'Text colour', 'text', 'text'),
-    numberField('textSize', 'Text size', STATS_SIZE, 8, 48, 1, 'text'),
   ];
+  if (!text) return fields;
+  return [...fields, colorField('textColor', 'Text colour', 'text', 'text'), numberField('textSize', 'Text size', STATS_SIZE, 8, 48, 1, 'text')];
 }
 
 /** The pixels the line is drawn between: its anchors, continued as the style says. */
@@ -86,11 +86,11 @@ function drawStats(ctx: CanvasRenderingContext2D, lines: string[], b: Pt, view: 
 }
 
 /** A two-anchor line tool: the line tools differ in their id, label, icon, what they extend and what they show. */
-export function lineTool(base: Pick<DrawingTool, 'id' | 'label' | 'group' | 'section' | 'icon'>, defaults: LineDefaults = {}): DrawingTool {
+export function lineTool(base: Pick<DrawingTool, 'id' | 'label' | 'group' | 'section' | 'icon'>, defaults: LineDefaults = {}, text = false): DrawingTool {
   return {
     ...base,
     anchors: 2,
-    settings: lineSettings(defaults),
+    settings: lineSettings(defaults, text),
     axisLabels: (anchors, _style, selected) => (selected ? { price: anchors.map((a) => a.price), time: anchors.map((a) => a.time) } : {}),
     draw(ctx, pts, view, { selected }) {
       const [a, b] = pts;

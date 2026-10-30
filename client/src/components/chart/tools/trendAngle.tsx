@@ -25,7 +25,7 @@ const line = lineTool(
 /** A trend line with an arc and its angle in degrees at the first anchor and a dotted horizontal from it. */
 export const trendAngle: DrawingTool = {
   ...line,
-  settings: lineSettings().filter((f) => f.key !== 'showAngle'),
+  settings: lineSettings({}, true).filter((f) => f.key !== 'showAngle'),
   draw(ctx, pts, view, opts) {
     line.draw(ctx, pts, view, opts);
     const [a, b] = pts;

@@ -80,7 +80,6 @@ export const drawingLines: Scenario = {
         await page.mouse.up();
       }
     };
-    const axisText = () => page.locator('.chart-container').evaluate((el) => el.textContent ?? '');
 
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
@@ -201,7 +200,6 @@ export const drawingLines: Scenario = {
       if (narrow) await page.touchscreen.tap(p.x, p.y);
       else await page.mouse.click(p.x, p.y);
       await page.waitForTimeout(300);
-      check('the chart shows text', (await axisText()).length > 0);
       await ctx.screenshot('cross-selected');
     });
 

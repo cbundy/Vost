@@ -18,4 +18,5 @@ export const infoLine = lineTool(
     ),
   },
   { showPriceChange: true, showBars: true, showAngle: true, showDistance: true },
+  true,
 );
