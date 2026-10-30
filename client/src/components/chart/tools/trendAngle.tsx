@@ -1,9 +1,8 @@
 import { HIT_TOLERANCE, distToSegment, type Pt } from '../../../lib/drawingGeometry';
 import { angleArc, arcRadius, lineAngleDeg, referenceEnd } from '../../../lib/geometry/lines';
-import { theme } from '../../../lib/theme';
 import { Svg } from '../../DrawingIcons';
 import { applyDash, strokeColor, strokeWidth } from './fields';
-import { lineTool, lineSettings, span } from './lineTool';
+import { lineTool, lineSettings, labelText, span } from './lineTool';
 import type { DrawingTool } from './types';
 
 const line = lineTool(
@@ -46,8 +45,9 @@ export const trendAngle: DrawingTool = {
     ctx.arc(a.x, a.y, r, arc.start, arc.end, arc.anticlockwise);
     ctx.stroke();
     const mid = (arc.start + arc.end) / 2;
-    ctx.font = '12px sans-serif';
-    ctx.fillStyle = theme.text;
+    const label = labelText(view);
+    ctx.font = label.font;
+    ctx.fillStyle = label.color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const tx = Math.max(2, Math.min(a.x + (r + 6) * Math.cos(mid), view.width - 40));

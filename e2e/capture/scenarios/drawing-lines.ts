@@ -24,7 +24,7 @@ export const drawingLines: Scenario = {
   name: 'drawing-lines',
   touch: ['narrow'],
   keepPrefs: true,
-  description: 'The line tools (info line, extended line, trend angle, horizontal ray, vertical line, cross line): draw each (press-drag or tap), select with axis labels, move, resize, undo and redo, a vertical line dragged keeps its price, reload and timeframe change',
+  description: 'The line tools (info line, extended line, trend angle, horizontal ray, vertical line, cross line): draw each (press-drag or tap), select with axis labels, move, resize, restyle in the settings dialog (with a Text tab for the labelled lines), undo and redo, a vertical line dragged keeps its price, reload and timeframe change',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -121,13 +121,80 @@ export const drawingLines: Scenario = {
       await ctx.screenshot('vertical-selected');
     });
 
-    await ctx.step('undo and redo', async () => {
-      const n = (await stored()).length;
-      await page.keyboard.press('Control+z');
-      check('undo removes a step', (await stored()).length <= n);
-      await page.keyboard.press('Control+Shift+z');
-      check('redo restores it', (await stored()).length === n);
-    });
+    if (!narrow) {
+      const dialog = page.getByRole('dialog');
+      const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+        await page.mouse.move(from.x, from.y);
+        await page.waitForTimeout(150);
+        await page.mouse.down();
+        await page.mouse.move(to.x, to.y, { steps: 12 });
+        await page.mouse.up();
+      };
+      const one = async (id: string) => (await stored()).find((d) => d.tool === id)!;
+      /** A pixel on the drawing's body, clear of its handles and of the other tools. */
+      const body = async (t: (typeof TOOLS)[number], shift: { x: number; y: number }) => {
+        const pts = (await Promise.all(t.at.map(at))).map((p) => ({ x: p.x + shift.x, y: p.y + shift.y }));
+        if (t.id === 'horizontalRay') return { x: pts[0].x + 60, y: pts[0].y };
+        if (t.id === 'verticalLine') return { x: pts[0].x, y: (await box()).y + (await box()).height * 0.9 };
+        if (t.id === 'crossLine') return { x: pts[0].x, y: (await box()).y + (await box()).height * 0.62 };
+        return { x: pts[0].x + (pts[1].x - pts[0].x) * 0.75, y: pts[0].y + (pts[1].y - pts[0].y) * 0.75 };
+      };
+
+      for (const t of TOOLS) {
+        await ctx.step(`${t.label}: resize, move, restyle in settings, undo and redo`, async () => {
+          const shift = { x: 0, y: 0 };
+          if (t.at.length === 2) {
+            const first = await at(t.at[0]);
+            const before = await one(t.id);
+            await page.mouse.click((await body(t, shift)).x, (await body(t, shift)).y);
+            await drag(first, { x: first.x, y: first.y + 18 });
+            const after = await one(t.id);
+            check(`${t.label} resized by its handle`, after.anchors[0].price !== before.anchors[0].price && after.anchors[1].time === before.anchors[1].time && after.anchors[1].price === before.anchors[1].price);
+          }
+          const beforeMove = await one(t.id);
+          const grab = await body(t, { x: t.id === 'verticalLine' ? -30 : 0, y: t.at.length === 2 ? 4.5 : 0 });
+          await page.keyboard.press('Escape');
+          await page.mouse.click(grab.x, grab.y);
+          await drag(grab, { x: grab.x - 40, y: grab.y });
+          const moved = await one(t.id);
+          check(`${t.label} moved by its body`, moved.anchors[0].time !== beforeMove.anchors[0].time, JSON.stringify([beforeMove.anchors, moved.anchors, grab]));
+          const grab2 = { x: grab.x - 40, y: grab.y };
+          await page.mouse.move(grab2.x, grab2.y);
+          await page.mouse.dblclick(grab2.x, grab2.y);
+          await dialog.waitFor({ state: 'visible' });
+          check(`${t.label} settings are titled for the tool`, (await dialog.getByRole('heading').textContent()) === `${t.label} settings`);
+          const labelled = t.id === 'infoLine' || t.id === 'trendAngle' || t.id === 'extendedLine';
+          const tabs = (await dialog.getByRole('tab').allTextContents()).join(',');
+          check(`${t.label} has a Text tab only when it can draw a label`, tabs.includes('Text') === labelled, tabs);
+          await dialog.getByLabel('Width', { exact: true }).fill('3');
+          if (labelled) {
+            await dialog.getByRole('tab', { name: 'Text', exact: true }).click();
+            await dialog.getByLabel('Text size', { exact: true }).fill('16');
+          }
+          await dialog.getByRole('button', { name: 'OK' }).click();
+          await dialog.waitFor({ state: 'hidden' });
+          const styled = (await one(t.id)).style as Record<string, unknown> | undefined;
+          check(`${t.label} restyled`, styled?.width === 3 && (!labelled || styled?.textSize === 16), JSON.stringify(styled));
+          await ctx.screenshot(`styled-${t.id}`);
+          await page.keyboard.press('Control+z');
+          check(`${t.label} undo reverts the restyle`, ((await one(t.id)).style as Record<string, unknown> | undefined)?.width !== 3);
+          await page.keyboard.press('Control+Shift+z');
+          check(`${t.label} redo restores the restyle`, ((await one(t.id)).style as Record<string, unknown> | undefined)?.width === 3);
+        });
+      }
+
+      await ctx.step('undo and redo a deleted drawing', async () => {
+        const n = (await stored()).length;
+        await page.keyboard.press('Delete');
+        check('delete removes the selected drawing', (await stored()).length === n - 1);
+        await page.keyboard.press('Control+z');
+        check('undo brings it back', (await stored()).length === n);
+        await page.keyboard.press('Control+Shift+z');
+        check('redo removes it again', (await stored()).length === n - 1);
+        await page.keyboard.press('Control+z');
+        check('undo again brings it back', (await stored()).length === n);
+      });
+    }
 
     await ctx.step('a selected cross line shows its price and time on the axes', async () => {
       const p = await at(TOOLS[5].at[0]);

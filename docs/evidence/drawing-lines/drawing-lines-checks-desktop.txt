@@ -7,8 +7,49 @@ ok   Cross line stored - infoLine,extendedLine,trendAngle,horizontalRay,vertical
 ok   chart painted
 ok   time moved
 ok   price kept
-ok   undo removes a step
-ok   redo restores it
+ok   Info line resized by its handle
+ok   Info line moved by its body - [[{"time":1628380800,"price":52.776818414415246},{"time":1654905600,"price":110.51699972931245}],[{"time":1621468800,"price":52.776818414415246},{"time":1647993600,"price":110.51699972931245}],{"x":231.79999999999998,"y":345.7125}]
+ok   Info line settings are titled for the tool
+ok   Info line has a Text tab only when it can draw a label - Style,Text,Coordinates,Visibility
+ok   Info line restyled - {"width":3,"textSize":16}
+ok   Info line undo reverts the restyle
+ok   Info line redo restores the restyle
+ok   Extended line resized by its handle
+ok   Extended line moved by its body - [[{"time":1668124800,"price":6.017352975638065},{"time":1681430400,"price":32.58455112571554}],[{"time":1661212800,"price":6.017352975638065},{"time":1674518400,"price":32.58455112571554}],{"x":404.41999999999996,"y":460.6875}]
+ok   Extended line settings are titled for the tool
+ok   Extended line has a Text tab only when it can draw a label - Style,Text,Coordinates,Visibility
+ok   Extended line restyled - {"width":3,"textSize":16}
+ok   Extended line undo reverts the restyle
+ok   Extended line redo restores the restyle
+ok   Trend angle resized by its handle
+ok   Trend angle moved by its body - [[{"time":1694649600,"price":99.53630247009723},{"time":1727827200,"price":188.44943902445695}],[{"time":1687737600,"price":99.53630247009723},{"time":1720915200,"price":188.44943902445695}],{"x":644.1700000000001,"y":230.73749999999998}]
+ok   Trend angle settings are titled for the tool
+ok   Trend angle has a Text tab only when it can draw a label - Style,Text,Coordinates,Visibility
+ok   Trend angle restyled - {"width":3,"textSize":16}
+ok   Trend angle undo reverts the restyle
+ok   Trend angle redo restores the restyle
+ok   Horizontal ray moved by its body - [[{"time":1641600000,"price":244.56080406690626}],[{"time":1634688000,"price":244.5608040669063}],{"x":253.44,"y":102.32}]
+ok   Horizontal ray settings are titled for the tool
+ok   Horizontal ray has a Text tab only when it can draw a label - Style,Coordinates,Visibility
+ok   Horizontal ray restyled - {"width":3}
+ok   Horizontal ray undo reverts the restyle
+ok   Horizontal ray redo restores the restyle
+ok   Vertical line moved by its body - [[{"time":1702771200,"price":188.44943902445695}],[{"time":1695859200,"price":188.44943902445695}],{"x":547.04,"y":500.90000000000003}]
+ok   Vertical line settings are titled for the tool
+ok   Vertical line has a Text tab only when it can draw a label - Style,Coordinates,Visibility
+ok   Vertical line restyled - {"width":3}
+ok   Vertical line undo reverts the restyle
+ok   Vertical line redo restores the restyle
+ok   Cross line moved by its body - [[{"time":1681430400,"price":172.86294744204707}],[{"time":1674518400,"price":172.86294744204707}],{"x":423.59999999999997,"y":357.82}]
+ok   Cross line settings are titled for the tool
+ok   Cross line has a Text tab only when it can draw a label - Style,Coordinates,Visibility
+ok   Cross line restyled - {"width":3}
+ok   Cross line undo reverts the restyle
+ok   Cross line redo restores the restyle
+ok   delete removes the selected drawing
+ok   undo brings it back
+ok   redo removes it again
+ok   undo again brings it back
 ok   the chart shows text
 ok   six drawings after reload
 ok   unchanged by the timeframe change

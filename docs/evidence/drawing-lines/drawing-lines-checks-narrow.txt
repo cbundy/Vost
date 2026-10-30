@@ -5,8 +5,6 @@ ok   Horizontal ray stored - infoLine,extendedLine,trendAngle,horizontalRay
 ok   Vertical line stored - infoLine,extendedLine,trendAngle,horizontalRay,verticalLine
 ok   Cross line stored - infoLine,extendedLine,trendAngle,horizontalRay,verticalLine,crossLine
 ok   chart painted
-ok   undo removes a step
-ok   redo restores it
 ok   the chart shows text
 ok   six drawings after reload
 ok   unchanged by the timeframe change

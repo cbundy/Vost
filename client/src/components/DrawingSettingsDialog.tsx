@@ -140,7 +140,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
   // Remounts the numeric inputs after Reset so they show the defaults again.
   const [epoch, setEpoch] = useState(0);
 
-  const tabs: Tab[] = ['style', ...(tool.text ? (['text'] as const) : []), 'coordinates', 'visibility'];
+  const tabs: Tab[] = ['style', ...(tool.text || fields.some((f) => f.tab === 'text') ? (['text'] as const) : []), 'coordinates', 'visibility'];
   const values = resolveStyle(fields, style, userDefault).values;
   const textBad = tool.text === true && cleanText(text) === '';
 
@@ -201,7 +201,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
         ))}
       </div>
       <div className="ds-panel" role="tabpanel" aria-label={TAB_LABEL[tab]} key={`${tab}-${epoch}`}>
-        {tab === 'text' && (
+        {tab === 'text' && tool.text && (
           <div className="ds-row ds-wide">
             <textarea value={text} maxLength={TEXT_MAX} rows={4} aria-label="Text" aria-invalid={textBad} onChange={(e) => { setTextState(e.target.value); preview({ text: e.target.value }); }} />
             {textBad && (
@@ -226,7 +226,7 @@ export function DrawingSettingsDialog({ model }: { model: DrawingSettingsModel }
               </label>
             </div>
           ))}
-        {tab !== 'text' && tab !== 'coordinates' && (
+        {tab !== 'coordinates' && (
           <>
             {tab === 'visibility' && <p className="muted-2 ds-hint">Show this drawing on these timeframes.</p>}
             {shown.map((f) => (

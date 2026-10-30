@@ -1,9 +1,8 @@
 import { HIT_TOLERANCE, distToSegment, extendSegment, measureSummary, type Pt } from '../../../lib/drawingGeometry';
-import type { SettingField } from '../../../lib/drawingStyle';
+import { cssColor, type SettingField } from '../../../lib/drawingStyle';
 import { lineDistance } from '../../../lib/geometry/lines';
 import { fmtDurationBarCount, fmtElapsed, fmtPct } from '../../../lib/format';
-import { theme } from '../../../lib/theme';
-import { applyDash, boolField, colorField, lineStyleField, opacityField, strokeColor, strokeWidth, widthField } from './fields';
+import { applyDash, boolField, colorField, lineStyleField, numberField, opacityField, strokeColor, strokeWidth, widthField } from './fields';
 import type { DrawingTool, ToolView } from './types';
 
 /** What a line tool shows or extends before the user changes it; the trend line has none of it, the ray extends right. */
@@ -24,6 +23,8 @@ export function lineSettings(defaults: LineDefaults = {}): SettingField[] {
     boolField('showAngle', 'Show angle', defaults.showAngle ?? false),
     boolField('showBars', 'Show bars', defaults.showBars ?? false),
     boolField('showDistance', 'Show distance', defaults.showDistance ?? false),
+    colorField('textColor', 'Text colour', 'text', 'text'),
+    numberField('textSize', 'Text size', STATS_SIZE, 8, 48, 1, 'text'),
   ];
 }
 
@@ -42,9 +43,15 @@ function arrowHead(ctx: CanvasRenderingContext2D, tip: Pt, from: Pt, size: numbe
   ctx.fill();
 }
 
-const STATS_FONT = '12px sans-serif';
+/** The default size of a line's label text. */
+export const STATS_SIZE = 12;
 const PAD = 6;
-const LINE = 16;
+
+/** The label's text colour and size from the drawing's Text settings. */
+export function labelText(view: ToolView): { color: string; size: number; font: string } {
+  const size = (view.style.textSize as number | undefined) ?? STATS_SIZE;
+  return { color: cssColor(view.style.textColor ?? 'text'), size, font: `${size}px sans-serif` };
+}
 
 function statsLines(view: ToolView, a: Pt, b: Pt): string[] {
   const [start, end] = view.anchors;
@@ -58,7 +65,9 @@ function statsLines(view: ToolView, a: Pt, b: Pt): string[] {
 }
 
 function drawStats(ctx: CanvasRenderingContext2D, lines: string[], b: Pt, view: ToolView, color: string): void {
-  ctx.font = STATS_FONT;
+  const { color: textColor, size, font } = labelText(view);
+  const LINE = size + 4;
+  ctx.font = font;
   const lw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + PAD * 2;
   const lh = LINE * lines.length + PAD * 2;
   const lx = Math.max(2, Math.min(b.x + 8 + lw > view.width ? b.x - 8 - lw : b.x + 8, view.width - lw - 2));
@@ -70,7 +79,7 @@ function drawStats(ctx: CanvasRenderingContext2D, lines: string[], b: Pt, view: 
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.fillStyle = theme.text;
+  ctx.fillStyle = textColor;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   lines.forEach((l, i) => ctx.fillText(l, lx + PAD, ly + PAD + LINE * i + LINE / 2));
