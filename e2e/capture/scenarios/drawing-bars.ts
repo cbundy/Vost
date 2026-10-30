@@ -19,7 +19,7 @@ export const drawingBars: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'Bars pattern and Ghost feed: a bars pattern by two clicks and by a press-drag-release with the preview, Mirrored, Flipped, a display mode change and a move of the copy; a ghost feed placed point by point and ended by double-click; each selected, resized by a handle and restyled; then a reload and a timeframe change, with the ghost feed bars worked out from the stored anchors compared before and after the reload; at 390 px both are placed by taps',
+    'Bars pattern and Ghost feed: a bars pattern by two clicks and by a press-drag-release with the preview, Mirrored, Flipped, a display mode change and a move of the copy; a ghost feed placed point by point and ended by double-click; each selected, resized by a handle and restyled; then a reload and a timeframe change, with the ghost feed bars worked out from the stored anchors and a pixel comparison of the chart compared before and after the reload; at 390 px both are placed by taps',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -94,9 +94,9 @@ export const drawingBars: Scenario = {
     });
 
     if (!narrow) {
+      const d1 = await at({ x: 0.1, y: 0.25 });
       await ctx.step('Bars pattern: a press-drag-release places a second one', async () => {
         await pickTool('Bars pattern');
-        const d1 = await at({ x: 0.1, y: 0.25 });
         const d2 = await at({ x: 0.2, y: 0.25 });
         await page.mouse.move(d1.x, d1.y);
         await page.mouse.down();
@@ -111,15 +111,27 @@ export const drawingBars: Scenario = {
         await ctx.screenshot('bars-selected');
         const before = (await mine('barsPattern'))[0];
         const c = await at({ x: 0.55, y: 0.55 });
-        // The copy starts one bar after the run's end: grab its handle and drag it.
-        await page.mouse.move(s2.x + 6, s2.y);
+        // The copy's handle (anchor 2) is not under the source clicks: place it from the stored anchors.
+        // Price to pixel comes from the two patterns, placed by clicks at known heights (s1 and d1).
+        const second = (await mine('barsPattern'))[1];
+        const pxPerPrice = (d1.y - s1.y) / (second.anchors[0].price - before.anchors[0].price);
+        const [a0, a1, a2] = before.anchors;
+        const handle = {
+          x: s1.x + ((a2.time - a0.time) / (a1.time - a0.time)) * (s2.x - s1.x),
+          y: s1.y + (a2.price - a0.price) * pxPerPrice,
+        };
+        await page.mouse.move(handle.x, handle.y);
         await page.mouse.down();
         await page.mouse.move(c.x, c.y - 60, { steps: 8 });
         await page.mouse.up();
         const after = (await mine('barsPattern'))[0];
-        check('a handle drag changed the stored anchors', JSON.stringify(before.anchors) !== JSON.stringify(after.anchors));
+        const dt = after.anchors[2].time - a2.time;
+        const dp = after.anchors[2].price - a2.price;
+        const slid = after.anchors.every((p, k) => p.time - before.anchors[k].time === dt && Math.abs(p.price - before.anchors[k].price - dp) < 1e-6);
+        check('dragging the copy handle slid the whole pattern, copy included', dt !== 0 && slid, JSON.stringify({ before: before.anchors, after: after.anchors }));
         await ctx.screenshot('bars-moved');
-        await page.mouse.dblclick(s1.x, s1.y);
+        const moved = { x: s1.x + c.x - handle.x, y: s1.y + c.y - 60 - handle.y };
+        await page.mouse.dblclick(moved.x, moved.y);
         await dialog.waitFor();
         check('titled for the tool', (await dialog.getByRole('heading').textContent()) === 'Bars pattern settings');
         for (const label of ['Colour', 'Opacity', 'Display mode', 'Mirrored', 'Flipped']) {
@@ -131,7 +143,7 @@ export const drawingBars: Scenario = {
         await dialog.waitFor({ state: 'hidden' });
         check('Mirrored is stored', (await mine('barsPattern'))[0].style?.mirrored === true);
         await ctx.screenshot('bars-mirrored');
-        await page.mouse.dblclick(s1.x, s1.y);
+        await page.mouse.dblclick(moved.x, moved.y);
         await dialog.waitFor();
         await dialog.getByLabel('Flipped').check();
         await dialog.getByLabel('Display mode').selectOption('oc');
@@ -191,6 +203,12 @@ export const drawingBars: Scenario = {
 
     await ctx.step('reload and a timeframe change keep the drawings and draw the same bars', async () => {
       await page.keyboard.press('Escape');
+      await lastYear();
+      const blank = await at(narrow ? { x: 0.2, y: 0.1 } : { x: 0.5, y: 0.04 });
+      await tap(blank);
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(500);
+      const shotBefore = await page.locator('.chart-container').screenshot();
       const before = await mine();
       const bars = ghostBars((await mine('ghostFeed'))[0].anchors);
       await page.reload();
@@ -200,6 +218,10 @@ export const drawingBars: Scenario = {
       const after = await mine();
       check('storage is unchanged after a reload', JSON.stringify(after) === JSON.stringify(before));
       check('the ghost feed bars worked out from the stored anchors are identical after the reload', ghostBars((await mine('ghostFeed'))[0].anchors) === bars);
+      await page.mouse.move(2, 2);
+      await page.waitForTimeout(500);
+      const shotAfter = await page.locator('.chart-container').screenshot();
+      check('the chart drawn after the reload is pixel for pixel the one drawn before', shotBefore.equals(shotAfter), `${shotBefore.length} vs ${shotAfter.length} bytes`);
       await ctx.screenshot('reloaded');
       if (!narrow) {
         await page.locator('select[title="Timeframe"]').selectOption('1h');
