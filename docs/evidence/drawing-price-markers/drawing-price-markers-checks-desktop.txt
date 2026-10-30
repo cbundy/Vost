@@ -1,0 +1,14 @@
+ok   a price note with two different anchors is stored - [{"time":1635033600,"price":94.93049883845018},{"time":1661558400,"price":188.44943902445695}]
+ok   two price notes stored
+ok   the dot price changed - 63.757515673630465 -> 39.355966208707756
+ok   the other anchor stayed
+ok   undo restores the dot
+ok   redo moves it again
+ok   stored with one anchor
+ok   stored with one anchor
+ok   position and emoji stored - {"position":"below","emoji":"🚀"}
+ok   stored with one anchor
+ok   recoloured
+ok   all four tools still stored
+ok   storage is unchanged
+ok   all four tools are there - priceNote,priceNote,priceLabel,signpost,flagMark

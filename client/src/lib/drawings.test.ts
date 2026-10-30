@@ -222,6 +222,22 @@ describe('storage', () => {
     expect(got.map((d) => d.id)).toEqual(['y']);
     expect(got[0].anchors).toEqual([{ time: 0, price: 1 }]);
   });
+  it('round trips the price markers with text and style and drops a 1-anchor price note', () => {
+    const counts = { ...COUNTS, priceNote: 2, priceLabel: 1, signpost: 1, flagMark: 1 };
+    const tools = new Set(['text']);
+    const caps = new Set(['priceNote', 'signpost']);
+    const a = { time: 5, price: 6 };
+    const list = [
+      { id: 'n', tool: 'priceNote', anchors: [a, { time: 9, price: 1 }], text: 'target', style: { color: '#ff0000' } },
+      { id: 'l', tool: 'priceLabel', anchors: [a] },
+      { id: 's', tool: 'signpost', anchors: [a], text: 'sign', style: { position: 'below', emoji: '🚀' } },
+      { id: 'f', tool: 'flagMark', anchors: [a], style: { color: '#00ff00' } },
+    ];
+    saveDrawings({ s: list });
+    expect(loadDrawings(counts, tools, TRANSIENT, new Set(), caps).sources).toEqual({ s: list });
+    const raw = { version: 2, sources: { s: [{ id: 'x', tool: 'priceNote', anchors: [a] }, list[1]] } };
+    expect(parseStore(raw, counts, tools, TRANSIENT, new Set(), caps).sources.s.map((d) => d.id)).toEqual(['l']);
+  });
   it('clamps a pane-anchored anchor onto 0..1 and leaves other tools alone', () => {
     const counts = { ...COUNTS, anchoredText: 1 };
     const tools = new Set(['text', 'anchoredText']);
