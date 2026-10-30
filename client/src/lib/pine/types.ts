@@ -10,6 +10,8 @@ export interface PineMarket {
   barSeconds?: number;
   /** An imported dataset is shown: `syminfo.type` is empty. */
   dataset?: boolean;
+  /** `built` when the chart's Build setting is on: other timeframes are asked for built the same way. */
+  source?: 'built';
 }
 
 export type PineKind = 'indicator' | 'strategy';
@@ -100,6 +102,8 @@ export interface PineResult {
   position: number[];
   /** Strategies only. */
   strategyConfig?: PineStrategyConfig;
+  /** Alerts, alert conditions and log lines the script produced. */
+  messages?: PineMessages;
 }
 
 export interface PineError {
@@ -111,3 +115,34 @@ export interface PineError {
 }
 
 export type PineRunOutcome = PineResult | { ok: false; error: PineError };
+
+export interface PineAlert {
+  /** Bar open time, seconds. */
+  time: number;
+  message: string;
+  frequency: string;
+}
+
+export interface PineAlertCondition {
+  title: string;
+  message: string;
+  /** Bars where the condition was true (all of them, even past the cap on `times`). */
+  count: number;
+  /** Bar open times (seconds) where it was true, newest kept when capped. */
+  times: number[];
+}
+
+export interface PineLog {
+  time: number;
+  level: 'info' | 'warning' | 'error';
+  text: string;
+}
+
+/** What a script said during a run: alerts, alert conditions and log lines. Display only. */
+export interface PineMessages {
+  alerts: PineAlert[];
+  alertConditions: PineAlertCondition[];
+  logs: PineLog[];
+  /** How many entries each list dropped for the cap. */
+  omitted: { alerts: number; conditionTimes: number; logs: number };
+}

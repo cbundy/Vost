@@ -79,6 +79,32 @@ export const pinePane: Scenario = {
       });
       await ctx.screenshot('resized');
     }
+    await ctx.step('a script with alerts and logs lists its messages', async () => {
+      const script = [
+        '//@version=6',
+        'indicator("Messages", overlay=true)',
+        'fast = ta.sma(close, 3)',
+        'slow = ta.sma(close, 8)',
+        'up = ta.crossover(fast, slow)',
+        'if up',
+        '    alert("fast crossed above slow", alert.freq_once_per_bar_close)',
+        '    log.info("cross at bar {0}", bar_index)',
+        'if ta.crossunder(fast, slow)',
+        '    log.warning("fast fell below slow")',
+        'if bar_index == 30',
+        '    log.error("bar 30 reached")',
+        'alertcondition(up, "Cross up", "fast crossed slow")',
+        'plot(fast)',
+      ].join('\n');
+      await page.locator('.pine-editor .cm-content').click();
+      await page.keyboard.press('Control+A');
+      await page.keyboard.insertText(script);
+      await page.locator('.pine-messages').waitFor();
+      await page.locator('.pine-messages').getByText('Alerts (').waitFor();
+      await page.locator('.pine-messages').getByText('Alert conditions (').waitFor();
+      await page.locator('.pine-messages').getByText('Logs (').waitFor();
+    });
+    await ctx.screenshot('messages');
     await ctx.step('remove the indicator', async () => {
       if (narrow) await page.keyboard.press('Escape');
       await openSidebar();

@@ -8,13 +8,21 @@ Press **Pine Editor** in the top bar (or **Edit** on a Pine indicator in the Ind
 
 ![The Pine pane](../evidence/pine-pane/pine-pane-editor-desktop.png)
 
+### Messages
+
+After a successful run, a Messages section below the inputs lists what the script said on the loaded bars: the `alert()` calls that fired, the `alertcondition()`s that came true (with how many bars and the last one), and the `log.info`, `log.warning` and `log.error` lines, with times in the chart's time zone. Each list shows the newest 500 and says how many more are not shown. Pine alerts are only listed here; they are not sent to Vost's alerts, and a condition that was never true on the loaded bars is not listed. `runtime.error()` stops the run and shows its message as an error.
+
+![Messages in the Pine pane](../evidence/pine-pane/pine-pane-messages-desktop.png)
+
 Pine strategies run from the Backtest tab and the Optimizer too ([Backtesting](backtesting.md)).
 
 ## What a script sees of the chart
 
 A script runs with the chart's symbol, timeframe and market details, the same on the chart, in the backtester and in the optimizer. `syminfo.ticker` is the symbol, `syminfo.tickerid` reads like `BINANCE:BTCUSDT`, `syminfo.type` is `crypto` (or `stock` for Yahoo), and `timeframe.period`, `timeframe.in_seconds()` and `timeframe.isintraday` match the chart, also on a custom timeframe such as `2h`. `math.round_to_mintick` works. A chart that shows an imported dataset uses the dataset's name, source and bar length instead.
 
-A script that asks for another timeframe or symbol with `request.security` stops with a message such as `request.security(ETHUSDT, D) needs data Vost does not load yet`, rather than showing the chart's own numbers as if they were the other market's. Asking for the chart's own symbol and timeframe works.
+A script can ask for the same symbol at another timeframe with `request.security`, for example the daily EMA on an hourly chart (`request.security(syminfo.tickerid, "D", ta.ema(close, 10))`), and gets the real daily, 12-hour or 15-minute values from the chart's data source (the Build setting applies). The value of a finished higher bar shows on the last chart bar inside it, and the day still in progress never shows its final close, so a backtest, an optimizer combination, a walk-forward window and replay see the same numbers and nothing from the future. `lookahead_on` without `[1]` does look ahead in a backtest, as in TradingView. A seconds timeframe or a timeframe the data source cannot give stops the run with a message naming the symbol and timeframe. A different symbol stops with a message such as `request.security(ETHUSDT, D) needs data Vost does not load yet`, rather than showing the chart's own numbers as if they were the other market's.
+
+![A daily EMA plotted on an hourly chart steps once a day](../evidence/pine-security/pine-security-daily-ema-desktop.png)
 
 Two limits: the time zone is always UTC (right for crypto, not for Yahoo stocks), and the tick size is estimated from the prices on the chart, not taken from the exchange.
 

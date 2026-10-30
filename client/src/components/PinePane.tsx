@@ -3,7 +3,8 @@ import { useDialogKeys } from '../lib/useDialogKeys';
 import { detectPineVersion } from '../lib/pine/version';
 import { pineIndicatorName } from '../lib/pine/title';
 import { resolvePineSelection } from '../lib/pineSelection';
-import type { PineInput, PineInputValue } from '../lib/pine/types';
+import { fmtTime } from '../lib/format';
+import type { PineInput, PineInputValue, PineMessages } from '../lib/pine/types';
 import { useStore } from '../state/store';
 import { type PineRunState } from '../state/chart';
 import { PineConvert } from './PineConvert';
@@ -136,12 +137,69 @@ function PineEntry({
           ))}
         </div>
       )}
+      {!error && run?.result?.messages && <PineMessagesView messages={run.result.messages} />}
       <div className="pine-status">
         <span>
           Ln {cursor.line}, Col {cursor.col}
         </span>
         <span>{version === null ? 'no version' : `Pine v${version}`}</span>
       </div>
+    </div>
+  );
+}
+
+function PineMessagesView({ messages }: { messages: PineMessages }) {
+  const timeZone = useStore((s) => s.timeZone);
+  const { alerts, alertConditions, logs, omitted } = messages;
+  if (alerts.length + alertConditions.length + logs.length === 0) return null;
+  const at = (t: number) => fmtTime(t, { timeZone });
+  const more = (n: number) => n > 0 && <div className="pine-msg-more">{n} more not shown</div>;
+  return (
+    <div className="pine-messages" aria-label="Pine messages">
+      <div className="pine-msg-title">Messages</div>
+      {alerts.length > 0 && (
+        <section className="pine-msg-group" aria-label="Alerts">
+          <h4>Alerts ({alerts.length + omitted.alerts})</h4>
+          <ul>
+            {alerts.map((a, i) => (
+              <li key={i}>
+                <span className="pine-msg-time">{at(a.time)}</span> {a.message}
+              </li>
+            ))}
+          </ul>
+          {more(omitted.alerts)}
+        </section>
+      )}
+      {alertConditions.length > 0 && (
+        <section className="pine-msg-group" aria-label="Alert conditions">
+          <h4>Alert conditions ({alertConditions.length})</h4>
+          <ul>
+            {alertConditions.map((c, i) => (
+              <li key={i}>
+                <strong>{c.title}</strong>
+                {c.message && <> - {c.message}</>}
+                <div className="pine-msg-time">
+                  true on {c.count} {c.count === 1 ? 'bar' : 'bars'}, last {at(c.times[c.times.length - 1])}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {more(omitted.conditionTimes)}
+        </section>
+      )}
+      {logs.length > 0 && (
+        <section className="pine-msg-group" aria-label="Logs">
+          <h4>Logs ({logs.length + omitted.logs})</h4>
+          <ul>
+            {logs.map((l, i) => (
+              <li key={i} className={`pine-log-${l.level}`}>
+                <span className="pine-msg-time">{at(l.time)}</span> <span className="pine-log-level">{l.level}</span> {l.text}
+              </li>
+            ))}
+          </ul>
+          {more(omitted.logs)}
+        </section>
+      )}
     </div>
   );
 }
