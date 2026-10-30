@@ -64,7 +64,7 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 - A selected line shows its price on the price axis and its time on the time axis.
 - **Text** and **Anchored text**: click the chart and type a note in place. Enter adds a line, Ctrl+Enter (Cmd+Enter) saves, Escape cancels. Double-click a note to edit it. Anchored text keeps its spot on the pane when the chart moves. The Notes section adds **Note** and **Anchored note** (a pin whose text pops up on hover and stays open after a click), **Callout** (a text box with a pointer to a bar) and **Comment** (a speech bubble). See [Text and notes](drawing-annotations.md).
 - **Anchored VWAP**, **Fixed range volume profile** and **Anchored volume profile** (the Volume-based section of the Forecasting and measurers list): the volume-weighted average price with optional bands, and a histogram of traded volume with its point of control and value area. See [Volume-based tools](drawing-volume.md).
-- **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick.
+- **Measure**: drag, or click then click, between two points to see the price change, percent, bars and elapsed time in a shaded box (green up, red down). It is temporary: never saved, not in undo, and it clears on the next press, Escape or a rail pick. To keep a measurement, use **Price range**, **Date range** or **Date and price range**: saved range tools in the same section (see [Forecasting and measuring tools](drawing-forecast.md#measurers)).
 
 ![The line tools](../evidence/drawing-lines/drawing-lines-all-desktop.png)
 

@@ -558,6 +558,21 @@ describe('the bars tools', () => {
   });
 });
 
+describe('the range tools', () => {
+  it('round trips each with two anchors, drops a wrong count and a non-finite anchor', async () => {
+    const { ANCHOR_COUNTS } = await import('../components/chart/tools');
+    const ids = ['priceRange', 'dateRange', 'datePriceRange'];
+    expect(ids.map((t) => ANCHOR_COUNTS[t])).toEqual([2, 2, 2]);
+    const an = (n: number) => Array.from({ length: n }, (_, i) => ({ time: i + 1, price: 10 + i }));
+    const ok = ids.map((t) => ({ id: t, tool: t, anchors: an(2) }));
+    const bad = [
+      ...ids.map((t) => ({ id: `${t}3`, tool: t, anchors: an(3) })),
+      { id: 'n', tool: 'priceRange', anchors: [{ time: 1, price: 1 }, { time: 2, price: Number.NaN }] },
+    ];
+    expect(parseStore({ version: 2, sources: { s: [...ok, ...bad] } }, ANCHOR_COUNTS, undefined, undefined, undefined, undefined, VALIDATORS).sources).toEqual({ s: ok });
+  });
+});
+
 describe('the cycle tools', () => {
   it('round trips each with two anchors and drops a wrong count', async () => {
     const { ANCHOR_COUNTS } = await import('../components/chart/tools');

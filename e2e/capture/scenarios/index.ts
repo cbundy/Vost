@@ -26,6 +26,7 @@ import { drawingImage } from './drawing-image.ts';
 import { drawingNotes } from './drawing-notes.ts';
 import { drawingForecast } from './drawing-forecast.ts';
 import { drawingBars } from './drawing-bars.ts';
+import { drawingRanges } from './drawing-ranges.ts';
 import { drawingPositions } from './drawing-positions.ts';
 import { drawingPriceMarkers } from './drawing-price-markers.ts';
 import { drawingTable } from './drawing-table.ts';
@@ -54,7 +55,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, drawingBars, btProgress, btRange, btResults, builtTimeframe, chart, chartHistory, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingForecast, drawingGann, drawingIcons, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPositions, drawingPriceMarkers, drawingRail, drawingShapes, drawingTable, drawingText, drawingToolbar, drawingVolume, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, pineRender, replay, responsive, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, drawingBars, btProgress, btRange, btResults, builtTimeframe, chart, chartHistory, chartPan, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingForecast, drawingGann, drawingIcons, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPositions, drawingPriceMarkers, drawingRail, drawingRanges, drawingShapes, drawingTable, drawingText, drawingToolbar, drawingVolume, drawings, drawingSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineLibraries, pinePane, pineRender, replay, responsive, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();
