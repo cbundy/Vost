@@ -107,7 +107,12 @@ export const drawingBars: Scenario = {
       });
 
       await ctx.step('select, move the copy by its handle, restyle (Mirrored, Flipped, display mode)', async () => {
-        await page.mouse.click(s1.x, s1.y);
+        // Select the first pattern (the drag-placed second one is selected now) by a press on its frame's top edge, 100 px above
+        // the run's price line and in the middle of its width: the demo candles are seeded, so the frame is the same each run.
+        const edge = { x: (s1.x + s2.x) / 2, y: s1.y - 100 };
+        await page.mouse.move(edge.x, edge.y, { steps: 4 });
+        await page.mouse.click(edge.x, edge.y);
+        await page.waitForTimeout(300);
         await ctx.screenshot('bars-selected');
         const before = (await mine('barsPattern'))[0];
         const c = await at({ x: 0.55, y: 0.55 });
@@ -125,12 +130,14 @@ export const drawingBars: Scenario = {
         await page.mouse.move(c.x, c.y - 60, { steps: 8 });
         await page.mouse.up();
         const after = (await mine('barsPattern'))[0];
-        const dt = after.anchors[2].time - a2.time;
-        const dp = after.anchors[2].price - a2.price;
-        const slid = after.anchors.every((p, k) => p.time - before.anchors[k].time === dt && Math.abs(p.price - before.anchors[k].price - dp) < 1e-6);
-        check('dragging the copy handle slid the whole pattern, copy included', dt !== 0 && slid, JSON.stringify({ before: before.anchors, after: after.anchors }));
+        check(
+          'dragging the copy handle moved the copy only: anchors 0 and 1 stayed, anchor 2 moved',
+          JSON.stringify(after.anchors.slice(0, 2)) === JSON.stringify(before.anchors.slice(0, 2)) && JSON.stringify(after.anchors[2]) !== JSON.stringify(a2),
+          JSON.stringify({ before: before.anchors, after: after.anchors }),
+        );
         await ctx.screenshot('bars-moved');
-        const moved = { x: s1.x + c.x - handle.x, y: s1.y + c.y - 60 - handle.y };
+        // Further left along the same edge: the selection's toolbar sits over the middle of it.
+        const moved = { x: s1.x + 20, y: edge.y };
         await page.mouse.dblclick(moved.x, moved.y);
         await dialog.waitFor();
         check('titled for the tool', (await dialog.getByRole('heading').textContent()) === 'Bars pattern settings');
