@@ -5,9 +5,13 @@ const SCRIPT = `//@version=6
 indicator("Daily EMA on hourly", overlay=true)
 plot(request.security(syminfo.tickerid, "D", ta.ema(close, 10)), "Daily EMA 10", color=color.orange, linewidth=2)`;
 
+const DECLARED = `//@version=6
+indicator("Daily SMA", overlay=true, timeframe="D", timeframe_gaps=false)
+plot(ta.sma(close, 5), "Daily SMA 5", color=color.orange, linewidth=2)`;
+
 export const pineSecurity: Scenario = {
   name: 'pine-security',
-  description: 'Binance 1h chart on the fake upstream with a Pine script plotting request.security(syminfo.tickerid, "D", ta.ema(close, 10)): the script loads the same symbol\'s daily bars (one /api/history request for 1d) and the line steps once a day, at the day\'s last bar',
+  description: 'Binance 1h chart on the fake upstream with a Pine script plotting request.security(syminfo.tickerid, "D", ta.ema(close, 10)): the script loads the same symbol\'s daily bars (one /api/history request for 1d) and the line steps once a day, at the day\'s last bar; then the script is replaced by indicator(timeframe="D", timeframe_gaps=false) plotting ta.sma(close, 5), which runs on daily bars and steps the same way',
   viewports: ['desktop'],
   async run(ctx) {
     const { page } = ctx;
@@ -41,5 +45,18 @@ export const pineSecurity: Scenario = {
       if (daily.filter((u) => Number(new URL(u).searchParams.get('bars')) > 1).length !== 1) throw new Error(`the daily range was fetched more than once: ${daily.join(' ; ')}`);
     });
     await ctx.screenshot('daily-ema');
+    await ctx.step('replace the script with one that declares the daily timeframe', async () => {
+      await showSideSection(page, 'Indicators', false);
+      await page.getByRole('button', { name: /^Edit .* source$/ }).click();
+      await pane.waitFor();
+      await page.locator('.pine-pane .pine-editor .cm-content').click();
+      await page.keyboard.press('Control+A');
+      await page.keyboard.insertText(DECLARED);
+      await page.locator('.pine-error').waitFor({ state: 'detached' });
+      await page.getByRole('button', { name: 'Close Pine editor' }).click();
+      await pane.waitFor({ state: 'detached' });
+      await page.waitForTimeout(1500);
+    });
+    await ctx.screenshot('declared-timeframe');
   },
 };

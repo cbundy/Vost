@@ -32,6 +32,10 @@ A script can ask for the same symbol at another timeframe with `request.security
 
 ![A daily EMA plotted on an hourly chart steps once a day](../evidence/pine-security/pine-security-daily-ema-desktop.png)
 
+An indicator can also declare its own timeframe, as in TradingView: `indicator("Daily SMA", overlay=true, timeframe="D", timeframe_gaps=false)` runs the whole script on daily bars and shows its values on the chart's bars. Each daily value shows on the last chart bar of its day (the day still in progress shows its value so far, never its final close); with `timeframe_gaps=false` it holds until the next day's value, with the default `true` it shows only on that one bar. A timeframe lower than the chart's, a seconds timeframe or one the data source cannot give stops the script with a message naming both timeframes.
+
+![A daily SMA from a declared timeframe steps once a day on an hourly chart](../evidence/pine-security/pine-security-declared-timeframe-desktop.png)
+
 Two limits: the time zone is always UTC (right for crypto, not for Yahoo stocks), and the tick size is estimated from the prices on the chart, not taken from the exchange.
 
 ## Shapes in a script's own pane
