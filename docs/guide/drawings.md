@@ -129,6 +129,14 @@ Right-click empty chart for **Add alert at** the price, **Paste** (off while not
 
 ![The empty chart menu](../evidence/drawing-manage/drawing-manage-empty-menu-desktop.png)
 
+### Floating toolbar
+
+With the cursor tool, select one drawing and a small toolbar floats above it (below it when there is no room above, always inside the chart) and follows it as you pan, zoom, drag the price scale or resize the chart. It has a colour swatch row (plus a custom colour), a width list and a line style list, each only for the settings the tool has; then **Settings**, **Lock** (pressed while locked), **Clone**, **Delete** and **More**, which holds the same items as the right-click menu. Each quick pick is one undo step and also works on a locked drawing. The toolbar hides while you drag, while the settings dialog or a text editor is open, with Hide all drawings on, and when two or more drawings are selected. Pressing it never draws, drags or pans the chart.
+
+![The floating toolbar with its colour popover](../evidence/drawing-toolbar/drawing-toolbar-colour-desktop.png)
+
+![The More menu of the toolbar](../evidence/drawing-toolbar/drawing-toolbar-more-desktop.png)
+
 ### Object tree
 
 The **Object tree** button in the side rail (the stacked-layers icon, after Indicators; on a narrow screen it is one of the drawer's section buttons) lists every drawing of the active chart, top-most first. Switching the active chart, its symbol or its data changes the list; with no drawings it says "No drawings on this chart".

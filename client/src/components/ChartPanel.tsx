@@ -31,6 +31,7 @@ import { selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
+import { DrawingToolbar } from './DrawingToolbar';
 import { DrawingSettingsDialog } from './DrawingSettingsDialog';
 import { IconPicker } from './IconPicker';
 import { isGlyphKind } from '../lib/iconSets/types';
@@ -591,6 +592,9 @@ export function ChartPanel({
           width={drawings.editor.width}
           onTab={drawings.editor.onTab}
         />
+      )}
+      {drawings.toolbar && !drawings.settings && !drawings.editor && (
+        <DrawingToolbar model={drawings.toolbar} actions={drawings.actions} onStyle={drawings.setStyleField} />
       )}
       {drawings.picker && isGlyphKind(drawings.picker) && <IconPicker key={drawings.picker} kind={drawings.picker} onPick={drawings.choosePick} onClose={drawings.closePicker} />}
       {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}
