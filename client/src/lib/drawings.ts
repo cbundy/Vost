@@ -119,7 +119,10 @@ export function previewPatch(s: DrawingsState, id: string, patch: DrawingPatch):
     drawings: s.drawings.map((d) => {
       if (d.id !== id) return d;
       let next: Drawing = patch.anchors ? { ...d, anchors: patch.anchors } : d;
-      if (patch.text !== undefined) next = { ...next, text: patch.text };
+      if (patch.text !== undefined) {
+        const { text: _old, ...rest } = next;
+        next = patch.text ? { ...rest, text: patch.text } : rest;
+      }
       if ('style' in patch) next = withStyle(next, patch.style && Object.keys(patch.style).length ? patch.style : undefined);
       return next;
     }),
@@ -276,6 +279,7 @@ function sanitizeDrawing(
   textTools: ReadonlySet<string>,
   transient: ReadonlySet<string>,
   paneTools: ReadonlySet<string>,
+  captionTools: ReadonlySet<string>,
 ): Drawing | null {
   if (!isPlain(raw)) return null;
   if (typeof raw.id !== 'string' || !raw.id || typeof raw.tool !== 'string') return null;
@@ -298,6 +302,10 @@ function sanitizeDrawing(
   if (rawLocked === true) out.locked = true;
   const name = typeof rawName === 'string' ? cleanName(rawName) : '';
   if (name) out.name = name;
+  if (captionTools.has(raw.tool)) {
+    const label = typeof rawText === 'string' ? cleanText(rawText) : '';
+    return label ? { ...out, text: label } : out;
+  }
   if (!textTools.has(raw.tool)) return out;
   const text = typeof rawText === 'string' ? cleanText(rawText) : '';
   if (!text) return null;
@@ -311,6 +319,7 @@ export function parseStore(
   textTools: ReadonlySet<string> = NO_TOOLS,
   transient: ReadonlySet<string> = NO_TOOLS,
   paneTools: ReadonlySet<string> = NO_TOOLS,
+  captionTools: ReadonlySet<string> = NO_TOOLS,
 ): DrawingStore {
   const none: DrawingStore = { sources: {}, newer: false };
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return none;
@@ -324,7 +333,7 @@ export function parseStore(
     const seen = new Set<string>();
     const ok: Drawing[] = [];
     for (const item of list) {
-      const d = sanitizeDrawing(item, counts, textTools, transient, paneTools);
+      const d = sanitizeDrawing(item, counts, textTools, transient, paneTools, captionTools);
       if (d && !seen.has(d.id)) {
         seen.add(d.id);
         ok.push(d);
@@ -341,9 +350,10 @@ export function loadDrawings(
   textTools: ReadonlySet<string> = NO_TOOLS,
   transient: ReadonlySet<string> = NO_TOOLS,
   paneTools: ReadonlySet<string> = NO_TOOLS,
+  captionTools: ReadonlySet<string> = NO_TOOLS,
 ): DrawingStore {
   const v2 = loadJson<unknown>(STORAGE_KEY, null);
-  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient, paneTools);
+  return parseStore(v2 ?? loadJson<unknown>(LEGACY_KEY_V1, null), counts, textTools, transient, paneTools, captionTools);
 }
 
 /** Writes the sources. Only call after the user changed something (so a newer payload is never overwritten by a load). */
