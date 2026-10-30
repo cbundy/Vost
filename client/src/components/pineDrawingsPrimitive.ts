@@ -13,22 +13,30 @@ import type {
 import { timeToLogical, type Pt } from '../lib/drawingGeometry';
 import { drawingPriceRange } from '../lib/pine/drawingObjects';
 import { lineDash } from '../lib/drawingStyle';
-import { boxRect, boxTextLines, linefillPolygon, lineSpan, polylinePoints } from '../lib/pine/drawingGeometry';
+import { boxRect, boxTextLines, linefillPolygon, lineSpan, polylinePoints, type PxRect } from '../lib/pine/drawingGeometry';
+import { labelHit } from '../lib/pine/labelGeometry';
 import type { PineBox, PineDrawings, PineLine, PinePolyline } from '../lib/pine/types';
 import { arrowHead } from './chart/tools/lineTool';
+import { paintLabel } from './pineLabelPaint';
+import { paintTable } from './pineTablePaint';
 
 type Ctx = CanvasRenderingContext2D;
 
 /**
- * The line, box, polyline and linefill objects of a Pine script in one pane. Read-only: it never answers a hit
- * test, so a click or hover passes through to the chart. Times are placed on the chart's own bar times, so the
- * objects stay on their bars when older history loads.
+ * The line, box, polyline, linefill, label and table objects of a Pine script in one pane. Read-only: it never
+ * answers a hit test, so a click or hover passes through to the chart; a label or table cell with a tooltip shows
+ * it while the pointer is over it (see {@link setHover}). Times are placed on the chart's own bar times, so the
+ * objects stay on their bars when older history loads; a table is pinned to the pane and does not move with the
+ * time scale.
  */
 export class PineDrawingsPrimitive implements ISeriesPrimitive<Time> {
   private chart: IChartApiBase<Time> | null = null;
   private series: ISeriesApi<SeriesType> | null = null;
   private requestUpdate: (() => void) | null = null;
   private data: PineDrawings | null = null;
+  /** The areas of the last paint that have a tooltip, bottom to top. */
+  private tips: { rect: PxRect; text: string }[] = [];
+  private hover: { point: Pt; text: string } | null = null;
   private readonly view: IPrimitivePaneView;
 
   /**
@@ -63,6 +71,35 @@ export class PineDrawingsPrimitive implements ISeriesPrimitive<Time> {
     this.requestUpdate?.();
   }
 
+  /**
+   * The pointer in pane pixels, null when it left the pane. Repaints only when a tooltip shows, moves or goes
+   * away.
+   */
+  setHover(point: Pt | null): void {
+    let text = '';
+    if (point) {
+      for (let i = this.tips.length - 1; i >= 0 && !text; i--) {
+        const t = this.tips[i];
+        if (labelHit({ bounds: t.rect }, point)) text = t.text;
+      }
+    }
+    const next = point && text ? { point, text } : null;
+    const prev = this.hover;
+    this.hover = next;
+    if (next || prev) this.requestUpdate?.();
+  }
+
+  /** Hands the primitive a crosshair move: the pointer counts only when it is in this primitive's own pane. */
+  crosshairMoved(paneIndex: number | undefined, point: Pt | undefined): void {
+    let own: number | undefined;
+    try {
+      own = this.series?.getPane().paneIndex();
+    } catch {
+      own = undefined; // the series is gone with its pane
+    }
+    this.setHover(point && paneIndex !== undefined && paneIndex === own ? point : null);
+  }
+
   paneViews(): readonly IPrimitivePaneView[] {
     return [this.view];
   }
@@ -82,9 +119,9 @@ export class PineDrawingsPrimitive implements ISeriesPrimitive<Time> {
     const { chart, series, data } = this;
     if (!chart || !series || !data) return;
     const times = this.getTimes();
-    if (times.length === 0) return;
     const scale = chart.timeScale();
     const pt = (time: number, price: number): Pt | null => {
+      if (times.length === 0) return null;
       const x = scale.logicalToCoordinate(timeToLogical(times, time) as never);
       const y = series.priceToCoordinate(price);
       return x === null || y === null ? null : { x, y };
@@ -108,7 +145,46 @@ export class PineDrawingsPrimitive implements ISeriesPrimitive<Time> {
       const s = span(l);
       if (l.color && a && b && s) paintLine(ctx, l, s, a, b);
     }
+    const tips: { rect: PxRect; text: string }[] = [];
+    for (const l of data.labels) {
+      const at = pt(l.time, l.price);
+      if (!at) continue;
+      const layout = paintLabel(ctx, l, at);
+      if (l.tooltip) tips.push({ rect: layout.bounds, text: l.tooltip });
+    }
+    // Tables go on top of every other object.
+    for (const t of data.tables) {
+      const layout = paintTable(ctx, t, width, height);
+      for (const b of layout.cells) {
+        if (!b.cell.tooltip) continue;
+        const x0 = layout.origin.x + b.x;
+        const y0 = layout.origin.y + b.y;
+        tips.push({ rect: { x0, y0, x1: x0 + b.w, y1: y0 + b.h }, text: b.cell.tooltip });
+      }
+    }
+    this.tips = tips;
+    if (this.hover) paintTooltip(ctx, this.hover.point, this.hover.text, width, height);
   }
+}
+
+function paintTooltip(ctx: Ctx, at: Pt, text: string, width: number, height: number): void {
+  const size = 12;
+  const pad = 6;
+  const lines = text.split('\n');
+  ctx.font = `${size}px sans-serif`;
+  const w = Math.max(...lines.map((s) => ctx.measureText(s).width)) + 2 * pad;
+  const h = lines.length * size * 1.3 + 2 * pad;
+  const x = Math.max(0, Math.min(at.x + 12, width - w));
+  const y = Math.max(0, Math.min(at.y + 14, height - h));
+  ctx.fillStyle = '#1e222d';
+  ctx.strokeStyle = '#4c525e';
+  ctx.lineWidth = 1;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.fillStyle = '#d1d4dc';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  lines.forEach((s, i) => ctx.fillText(s, x + pad, y + pad + size * 1.3 * (i + 0.5)));
 }
 
 function fillPoly(ctx: Ctx, pts: readonly Pt[], color: string): void {

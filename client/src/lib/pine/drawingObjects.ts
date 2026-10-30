@@ -5,9 +5,14 @@ import type {
   PineDrawings,
   PineDrawingStyle,
   PineExtend,
+  PineLabel,
+  PineLabelYloc,
   PineLine,
   PineLinefill,
   PinePolyline,
+  PineTable,
+  PineTableCell,
+  PineTablePosition,
 } from './types';
 
 /** The colour Pine uses when a colour argument is the empty string. */
@@ -19,6 +24,10 @@ function colour(v: unknown): string | null {
   const s = String(v);
   return s === '' ? PINE_DEFAULT_COLOR : s;
 }
+
+/** `label.new`'s default colour (color.blue) and text colour (color.white) in the Pine v6 reference. */
+export const PINE_LABEL_COLOR = '#2962FF';
+export const PINE_LABEL_TEXT_COLOR = '#FFFFFF';
 
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 
@@ -62,12 +71,54 @@ function entries(plots: Record<string, any>, kind: string): { pane: PineDrawingP
   return out;
 }
 
+const TABLE_POSITIONS: readonly PineTablePosition[] = [
+  'top_left', 'top_center', 'top_right', 'middle_left', 'middle_center', 'middle_right', 'bottom_left', 'bottom_center', 'bottom_right',
+];
+
+/** A table colour: the empty string and na are both "none" (transparent). */
+const tableColour = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v));
+
+const halign = (v: unknown): 'left' | 'center' | 'right' => (v === 'left' || v === 'right' ? v : 'center');
+
+function mapCell(c: any): PineTableCell | null {
+  if (!c) return null;
+  const fmt = String(c.text_formatting ?? '');
+  return {
+    text: String(c.text ?? ''),
+    textColor: tableColour(c.text_color),
+    bgColor: tableColour(c.bgcolor),
+    textSize: textSize(c.text_size),
+    halign: halign(c.text_halign),
+    valign: c.text_valign === 'top' || c.text_valign === 'bottom' ? c.text_valign : 'center',
+    widthPct: Math.max(0, num(c.width, 0)),
+    heightPct: Math.max(0, num(c.height, 0)),
+    tooltip: String(c.tooltip ?? ''),
+    bold: /bold/.test(fmt),
+    italic: /italic/.test(fmt),
+    monospace: /monospace/.test(String(c.text_font_family ?? '')),
+    hidden: c._merged === true,
+  };
+}
+
+/** The bars a label can sit on: their highs and lows, aligned with the run's times. */
+export interface PineBarRange {
+  high: number;
+  low: number;
+}
+
 /**
- * Maps the line, box, polyline and linefill objects PineTS leaves in `ctx.plots` to plain data: times in
- * unix seconds (a bar index past either end of the data lands that many bars outside it), colours,
- * styles and extend normalised. Labels and tables are not mapped here.
+ * Maps the line, box, polyline, linefill, label and table objects PineTS leaves in `ctx.plots` to plain data:
+ * times in unix seconds (a bar index past either end of the data lands that many bars outside it), colours,
+ * styles and extend normalised. A label on `abovebar` / `belowbar` takes its bar's high / low from `bars`
+ * (aligned with `times`) and falls back to its own price past the data. PineTS files every table under an overlay
+ * key, so a table's pane is the script's own (`scriptOverlay`) unless the table is `force_overlay`.
  */
-export function mapDrawings(plots: Record<string, any>, times: readonly number[]): PineDrawings | undefined {
+export function mapDrawings(
+  plots: Record<string, any>,
+  times: readonly number[],
+  bars: readonly PineBarRange[] = [],
+  scriptOverlay?: boolean,
+): PineDrawings | undefined {
   const atIndex = (i: number) => logicalToTime(times, i);
   const place = (xloc: unknown, v: number) => (xloc === 'bt' ? v / 1000 : atIndex(v));
 
@@ -142,8 +193,59 @@ export function mapDrawings(plots: Record<string, any>, times: readonly number[]
     }),
   );
 
-  if (lines.length + boxes.length + polylines.length + linefills.length === 0) return undefined;
-  return { lines, boxes, polylines, linefills };
+  const indexOfTime = new Map(times.map((t, i) => [t, i]));
+  const labels = entries(plots, 'labels').flatMap(({ pane, items }) =>
+    items.map((o): PineLabel => {
+      const time = place(o.xloc, o.x);
+      const yloc: PineLabelYloc = o.yloc === 'ab' ? 'abovebar' : o.yloc === 'bl' ? 'belowbar' : 'price';
+      const bar = bars[indexOfTime.get(time) ?? -1];
+      const price = yloc === 'abovebar' && bar ? bar.high : yloc === 'belowbar' && bar ? bar.low : num(o.y, 0);
+      const fmt = String(o.text_formatting ?? '');
+      return {
+        pane,
+        time,
+        price,
+        yloc,
+        text: String(o.text ?? ''),
+        style: String(o.style ?? 'style_label_down').replace(/^style_/, ''),
+        color: o.color === '' ? PINE_LABEL_COLOR : colour(o.color),
+        textColor: o.textcolor === '' ? PINE_LABEL_TEXT_COLOR : colour(o.textcolor),
+        textSize: textSize(o.size),
+        textAlign: halign(o.textalign),
+        tooltip: String(o.tooltip ?? ''),
+        bold: /bold/.test(fmt),
+        italic: /italic/.test(fmt),
+        monospace: /monospace/.test(String(o.text_font_family ?? '')),
+      };
+    }),
+  );
+
+  // PineTS has no separate overlay key for tables: the table's own force_overlay or the script's overlay decides its pane.
+  const tables = entries(plots, 'tables').flatMap(({ pane, items }) =>
+    items.map(
+      (o): PineTable => ({
+        pane: o.force_overlay === true || (scriptOverlay ?? pane === 'price') ? 'price' : 'separate',
+        position: TABLE_POSITIONS.includes(o.position) ? o.position : 'top_right',
+        columns: num(o.columns, 0),
+        rows: num(o.rows, 0),
+        bgColor: tableColour(o.bgcolor),
+        frameColor: tableColour(o.frame_color),
+        frameWidth: num(o.frame_width, 0),
+        borderColor: tableColour(o.border_color),
+        borderWidth: num(o.border_width, 0),
+        cells: (Array.isArray(o.cells) ? o.cells : []).map((row: any) => (Array.isArray(row) ? row.map(mapCell) : [])),
+        merges: (Array.isArray(o.merges) ? o.merges : []).map((m: any) => ({
+          startCol: num(m.startCol, 0),
+          startRow: num(m.startRow, 0),
+          endCol: num(m.endCol, 0),
+          endRow: num(m.endRow, 0),
+        })),
+      }),
+    ),
+  );
+
+  if (lines.length + boxes.length + polylines.length + linefills.length + labels.length + tables.length === 0) return undefined;
+  return { lines, boxes, polylines, linefills, labels, tables };
 }
 
 /** The part of a script's drawings that is painted in one pane, null when there is none. */
@@ -154,16 +256,20 @@ export function drawingsOfPane(d: PineDrawings | undefined, pane: PineDrawingPan
     boxes: d.boxes.filter((o) => o.pane === pane),
     polylines: d.polylines.filter((o) => o.pane === pane),
     linefills: d.linefills.filter((o) => o.pane === pane),
+    labels: d.labels.filter((o) => o.pane === pane),
+    tables: d.tables.filter((o) => o.pane === pane),
   };
-  return out.lines.length + out.boxes.length + out.polylines.length + out.linefills.length === 0 ? null : out;
+  const count = out.lines.length + out.boxes.length + out.polylines.length + out.linefills.length + out.labels.length + out.tables.length;
+  return count === 0 ? null : out;
 }
 
-/** The lowest and highest price any object touches, null when there are none. */
+/** The lowest and highest price any object touches (a table has none), null when there are none. */
 export function drawingPriceRange(d: PineDrawings): { min: number; max: number } | null {
   const prices = [
     ...d.lines.flatMap((l) => [l.price1, l.price2]),
     ...d.boxes.flatMap((b) => [b.top, b.bottom]),
     ...d.polylines.flatMap((p) => p.points.map((q) => q.price)),
+    ...d.labels.map((l) => l.price),
   ];
   return prices.length === 0 ? null : { min: Math.min(...prices), max: Math.max(...prices) };
 }
