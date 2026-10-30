@@ -372,3 +372,65 @@ describe('runPine market context', () => {
     expect(r.plots[0].values[4]).toBe(3600 * 1000 - 1);
   });
 });
+
+describe('runPine candle, bar, barcolor and arrow plots', () => {
+  const run = async (src: string) => {
+    const r = await runPine(`//@version=5\n${src}`, candles);
+    if (!r.ok) throw new Error(r.error.message);
+    return r;
+  };
+
+  it('plotcandle: kind candle, ohlc 1:1 with the candles, per-bar colors', async () => {
+    const r = await run(
+      'indicator("c", overlay=false)\nplotcandle(open, high, low, na(close[1]) ? na : close, title="C", color=close > open ? color.green : color.red, wickcolor=color.gray, bordercolor=color.blue)',
+    );
+    const p = r.plots[0];
+    expect(p.kind).toBe('candle');
+    expect(p.pane).toBe('separate');
+    expect(p.ohlc).toHaveLength(candles.length);
+    expect(p.ohlc![0]).toBeNull(); // na close on the first bar
+    const c = candles[5];
+    expect(p.ohlc![5]).toEqual([c.open, c.high, c.low, c.close]);
+    expect(p.values[5]).toBe(c.close);
+    expect(p.values[0]).toBeNull();
+    expect(new Set(p.colors!.filter((x) => x !== null)).size).toBeGreaterThan(1);
+    expect(p.wickColors![5]).toBeTruthy();
+    expect(p.borderColors![5]).toBeTruthy();
+  });
+
+  it('plotbar: kind bar', async () => {
+    const r = await run('indicator("b", overlay=true)\nplotbar(open, high, low, close, title="B", color=color.orange)');
+    expect(r.plots[0].kind).toBe('bar');
+    expect(r.plots[0].pane).toBe('price');
+    expect(r.plots[0].ohlc![3]).toEqual([candles[3].open, candles[3].high, candles[3].low, candles[3].close]);
+  });
+
+  it('barcolor: kind barcolor with colors where the condition holds', async () => {
+    const r = await run('indicator("bc", overlay=true)\nbarcolor(close > open ? color.blue : na)');
+    const p = r.plots[0];
+    expect(p.kind).toBe('barcolor');
+    candles.forEach((c, i) => {
+      if (c.close > c.open) {
+        expect(p.values[i]).toBe(1);
+        expect(p.colors?.[i] ?? p.color).toBeTruthy();
+      } else {
+        expect(p.values[i]).toBeNull();
+      }
+    });
+  });
+
+  it('plotarrow: kind plotarrow with signed numbers; plotshape(arrowup) stays plotshape', async () => {
+    const r = await run(
+      'indicator("a", overlay=true)\nplotarrow(close - open, title="A", colorup=color.green, colordown=color.red, maxheight=50)\nplotshape(close > open, title="S", style=shape.arrowup)',
+    );
+    expect(r.plots.map((p) => p.kind)).toEqual(['plotarrow', 'plotshape']);
+    const p = r.plots[0];
+    expect(p.maxHeight).toBe(50);
+    expect(p.minHeight).toBe(5);
+    candles.forEach((c, i) => {
+      if (c.close !== c.open) expect(p.values[i]).toBeCloseTo(c.close - c.open, 6);
+    });
+    expect(p.values.some((v) => v !== null && v > 0)).toBe(true);
+    expect(p.values.some((v) => v !== null && v < 0)).toBe(true);
+  });
+});

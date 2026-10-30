@@ -1,4 +1,6 @@
 import {
+  BarSeries,
+  CandlestickSeries,
   HistogramSeries,
   LineSeries,
   LineStyle,
@@ -19,7 +21,8 @@ import { PineFillPrimitive } from './pineFillPrimitive';
 import { runFitsVisible } from '../lib/replay';
 import type { PineRunState } from '../state/chart';
 
-type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
+type PineSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'> | ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'>;
+type ValueSeries = ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
 
 interface BuiltFill {
   itemId: string;
@@ -34,9 +37,17 @@ interface Built {
 
 const toData = (d: PineSeriesDesc) =>
   d.data.map((p) =>
-    p.value === undefined
+    p.value === undefined || ((d.type === 'candle' || d.type === 'bar') && !p.ohlc)
       ? { time: p.time as UTCTimestamp }
-      : d.type === 'histogram'
+      : p.ohlc
+        ? {
+            time: p.time as UTCTimestamp,
+            open: p.ohlc[0], high: p.ohlc[1], low: p.ohlc[2], close: p.ohlc[3],
+            ...(p.color && { color: p.color }),
+            ...(p.wickColor && { wickColor: p.wickColor }),
+            ...(p.borderColor && { borderColor: p.borderColor }),
+          }
+        : d.type === 'histogram'
         ? { time: p.time as UTCTimestamp, value: p.value, color: p.color ?? d.color }
         : { time: p.time as UTCTimestamp, value: p.value, ...(p.color && { color: p.color }) },
   );
@@ -196,7 +207,12 @@ export function usePineSeries(
           paneIndex = sepPane;
         }
         let series: PineSeries;
-        if (d.type === 'histogram') {
+        if (d.type === 'candle' || d.type === 'bar') {
+          const common = { priceLineVisible: false, lastValueVisible: false, priceScaleId: 'right' };
+          series = d.type === 'candle'
+            ? chart.addSeries(CandlestickSeries, { ...common, upColor: d.color, downColor: d.color, borderVisible: true, wickVisible: true }, paneIndex)
+            : chart.addSeries(BarSeries, { ...common, upColor: d.color, downColor: d.color }, paneIndex);
+        } else if (d.type === 'histogram') {
           const scaleId = d.band ? `pine_band_${it.id}` : d.pane === 'price' ? `pine_hist_${it.id}` : 'right';
           series = chart.addSeries(
             HistogramSeries,
@@ -265,7 +281,9 @@ export function usePineSeries(
         sizePanes(chart, paneState.current, [{ id: it.id, paneIndex: sepPane }]);
         const entries: PaneReg['entries'] = [];
         it.model.series.forEach((d, k) => {
-          if (d.pane === 'separate' && !d.hline && !d.band) entries.push({ title: d.title, color: d.color, series: mine[k].series });
+          if (d.pane === 'separate' && !d.hline && !d.band && d.type !== 'candle' && d.type !== 'bar') {
+            entries.push({ title: d.title, color: d.color, series: mine[k].series as ValueSeries });
+          }
         });
         paneState.current.panes.set(it.id, { id: it.id, source: 'pine', paneIndex: sepPane, name: it.name, params: it.params, entries });
       }

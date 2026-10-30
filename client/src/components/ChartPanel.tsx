@@ -31,6 +31,7 @@ import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
 import { canPageOlder, selectDataCandles } from '../state/chart';
 import { usePineSeries } from './usePineSeries';
+import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -54,13 +55,15 @@ const RIGHT_OFFSET = 3;
 const UP = UP_COLOR;
 const DOWN = DOWN_COLOR;
 
-function toCandleData(c: { time: number; open: number; high: number; low: number; close: number }) {
+function toCandleData(c: { time: number; open: number; high: number; low: number; close: number }, barColors?: Map<number, string>) {
+  const color = barColors?.get(c.time);
   return {
     time: c.time as UTCTimestamp,
     open: c.open,
     high: c.high,
     low: c.low,
     close: c.close,
+    ...(color && { color, wickColor: color, borderColor: color }),
   };
 }
 
@@ -299,6 +302,13 @@ export function ChartPanel({
   }, [chartApi, indicators]);
 
   usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff, paneStateRef);
+  /* barcolor() of the visible Pine scripts: kept as the same map while its content is unchanged. */
+  const mergedBarColors = useMemo(() => mergeBarColors(indicators, pineRuns, replayCutoff), [indicators, pineRuns, replayCutoff]);
+  const barColorsRef = useRef(mergedBarColors);
+  if (!sameBarColors(barColorsRef.current, mergedBarColors)) barColorsRef.current = mergedBarColors;
+  const barColors = barColorsRef.current;
+  /** The colors the candle series was last sent. */
+  const sentBarColorsRef = useRef<Map<number, string>>(barColors);
   const narrow = useMediaQuery('(max-width: 600px)');
   /* The crosshair lines follow the cursor kind (the price and time labels stay in every kind). */
   const cursorKind = useStore((s) => s.cursorKind);
@@ -341,14 +351,15 @@ export function ChartPanel({
     const prepended = !dataChanged && !incremental && prev != null && prev.length > 0 && candles[0].time < prev[0].time;
 
     if (dataChanged) {
-      candleSeries.setData(candles.map(toCandleData));
+      candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
       lastDataKeyRef.current = dataKey;
       lastLeftEdgeRef.current = null; // the fit below is not a scroll back: do not page for it
       chart.timeScale().fitContent();
-    } else if (incremental) {
-      candleSeries.update(toCandleData(candles[candles.length - 1]));
+    } else if (incremental && sentBarColorsRef.current === barColors) {
+      candleSeries.update(toCandleData(candles[candles.length - 1], barColors));
     } else {
-      candleSeries.setData(candles.map(toCandleData));
+      // Also when only the bar colors changed since the last send: the update path would recolor one bar.
+      candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
     }
 
     if (dataChanged || indChanged || !incremental) {
@@ -382,9 +393,20 @@ export function ChartPanel({
       if (r && r.from < HISTORY_PREFETCH_BARS) void chartStore.getState().loadOlder(); // still near the left edge: the next page
     }
 
+    sentBarColorsRef.current = barColors;
     updateLegend(candles[candles.length - 1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartApi, candles, dataKey, indicators]);
+
+  /* Only the bar colors changed (new run, script hidden or removed, replay cutoff): re-send the bars, keep the view. */
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    if (!chartApi || !candleSeries || candles.length === 0) return;
+    if (sentBarColorsRef.current === barColors) return;
+    sentBarColorsRef.current = barColors;
+    candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartApi, barColors]);
 
   /* Scrolling or zooming back to within a page's reach of the first loaded bar asks for the next older page. */
   useEffect(() => {

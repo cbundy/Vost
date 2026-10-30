@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { candlesFromCsvText } from '../csv';
 import { buildPineChart, cssColor, separatePosition } from './chartSeries';
+import { DOWN_COLOR, UP_COLOR } from '../theme';
 import { runPine } from './runtime';
 import type { PineResult } from './types';
 
@@ -151,5 +152,79 @@ describe('buildPineChart fills', () => {
     const m = buildPineChart({ ...r, plots }, candles, '#123456');
     expect(m.fills).toEqual([]);
     expect(m.series.map((s) => s.title)).toEqual(['RSI', 'Upper']);
+  });
+});
+
+describe('buildPineChart candles, bars, bar colors and arrows', () => {
+  it('custom candles: a candle series in the separate pane with per-bar colors', async () => {
+    const { m } = await model('custom-candles');
+    expect(m.series).toHaveLength(1);
+    const s = m.series[0];
+    expect([s.type, s.pane]).toEqual(['candle', 'separate']);
+    expect(s.data).toHaveLength(candles.length);
+    const p = s.data[3];
+    const c = candles[3];
+    expect(p.ohlc).toEqual([c.open, c.high, c.low, c.close]);
+    expect(p.value).toBe(c.close);
+    expect(new Set(s.data.map((d) => d.color)).size).toBe(2);
+    expect(p.wickColor).toBeTruthy();
+    expect(p.borderColor).toBeTruthy();
+    expect(p.borderColor).not.toBe(p.color);
+  });
+
+  it('custom candles: arrows sit in the script pane, up at the bottom, down at the top, lime/maroon', async () => {
+    const { m } = await model('custom-candles');
+    const up = m.markers.filter((k) => k.shape === 'arrowUp');
+    const down = m.markers.filter((k) => k.shape === 'arrowDown');
+    expect(up.length).toBeGreaterThan(0);
+    expect(down.length).toBeGreaterThan(0);
+    expect(m.markers.every((k) => k.pane === 'separate')).toBe(true);
+    expect(up.every((k) => k.panePosition === 'atPriceBottom')).toBe(true);
+    expect(down.every((k) => k.panePosition === 'atPriceTop')).toBe(true);
+    const byTime = new Map(candles.map((c) => [c.time, c]));
+    for (const k of up) expect(byTime.get(k.time)!.close).toBeGreaterThan(byTime.get(k.time)!.open);
+    for (const k of down) expect(byTime.get(k.time)!.close).toBeLessThan(byTime.get(k.time)!.open);
+    // size grows with the magnitude of the value
+    const size = (k: (typeof m.markers)[number]) => Math.abs(byTime.get(k.time)!.close - byTime.get(k.time)!.open);
+    const all = [...up, ...down].sort((a, b) => size(a) - size(b));
+    expect(all[all.length - 1].size).toBeGreaterThan(all[0].size);
+    expect(all[all.length - 1].size).toBeCloseTo(2, 5); // maxheight 100 at the peak
+  });
+
+  it('bar colors: a bar series and arrows on the price pane, barColors only where the condition holds', async () => {
+    const { m } = await model('bar-colors');
+    const s = m.series.find((d) => d.type === 'bar')!;
+    expect(s.pane).toBe('price');
+    expect(s.data[0]).toEqual({ time: candles[0].time }); // sma warm-up is a gap
+    expect(s.data[candles.length - 1].ohlc).toHaveLength(4);
+    const expected = candles.filter((c) => c.close > c.open).map((c) => c.time);
+    expect([...m.barColors.keys()]).toEqual(expected);
+    expect(expected.length).toBeGreaterThan(0);
+    expect(expected.length).toBeLessThan(candles.length);
+    expect([...m.barColors.values()].every((v) => v === m.barColors.get(expected[0]))).toBe(true);
+    expect(m.barColors.get(expected[0])).toMatch(/^(#|rgba?\()/);
+    expect(m.markers.every((k) => k.pane === 'price')).toBe(true);
+    expect(m.markers.filter((k) => k.shape === 'arrowUp').every((k) => k.position === 'belowBar')).toBe(true);
+    expect(m.markers.filter((k) => k.shape === 'arrowDown').every((k) => k.position === 'aboveBar')).toBe(true);
+  });
+
+  it('plotarrow without colors uses the theme up/down colors; zero draws nothing', async () => {
+    const r = await runPine('//@version=5\nindicator("a", overlay=true)\nplotarrow(close - close[1])', candles);
+    if (!r.ok) throw new Error(r.error.message);
+    const m = buildPineChart(r, candles, '#123456');
+    const flat = candles.filter((c, i) => i > 0 && c.close === candles[i - 1].close).length;
+    expect(m.markers.length).toBe(candles.length - 1 - flat);
+    expect(m.markers.find((k) => k.shape === 'arrowUp')!.color).toBe(UP_COLOR);
+    expect(m.markers.find((k) => k.shape === 'arrowDown')!.color).toBe(DOWN_COLOR);
+  });
+
+  it('cssColor turns #RRGGBBAA into rgba in barColors', () => {
+    const plot = { name: 'b', kind: 'barcolor' as const, values: [1], color: '#2962FF80', style: 'barcolor', pane: 'price' as const };
+    const m = buildPineChart(
+      { ok: true, kind: 'indicator', declaration: { title: 't', overlay: true }, inputs: [], plots: [plot], trades: [], position: [] },
+      [candles[0]],
+      '#000',
+    );
+    expect(m.barColors.get(candles[0].time)).toBe('rgba(41,98,255,0.502)');
   });
 });

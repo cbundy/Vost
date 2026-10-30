@@ -11,12 +11,17 @@ export interface PineSeriesPoint {
   /** Absent for na: a whitespace point (gap), never a zero. */
   value?: number;
   color?: string;
+  /** candle/bar series: [open, high, low, close]; `value` is then the close. */
+  ohlc?: [number, number, number, number];
+  /** candle series: wick and border colors (CSS), defaulting to the body color. */
+  wickColor?: string;
+  borderColor?: string;
 }
 
 export interface PineSeriesDesc {
   key: string;
   title: string;
-  type: 'line' | 'histogram';
+  type: 'line' | 'histogram' | 'candle' | 'bar';
   pane: 'price' | 'separate';
   color: string;
   lineWidth: number;
@@ -66,6 +71,8 @@ export interface PineChartModel {
   fills: PineFillDesc[];
   /** Each mark carries its pane: shapes follow their plot, trade marks are on the price pane. */
   markers: PineMarkerDesc[];
+  /** barcolor(): candle time -> CSS color for the main candles. An na bar is left out. */
+  barColors: Map<number, string>;
 }
 
 const UP = UP_COLOR;
@@ -122,6 +129,7 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
   const series: PineSeriesDesc[] = [];
   const markers: PineMarkerDesc[] = [];
   const fills: PineFillDesc[] = [];
+  const barColors = new Map<number, string>();
   const keyOf = (idx: number) => `${idx}_${result.plots[idx].name}`;
 
   result.plots.forEach((plot, idx) => {
@@ -147,6 +155,56 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
         data: candles.map((c, i) =>
           plot.values[i] ? { time: c.time, value: 1, color: cssColor(plot.colors?.[i], color) } : { time: c.time },
         ),
+      });
+      return;
+    }
+    if (plot.kind === 'barcolor') {
+      candles.forEach((c, i) => {
+        const col = plot.colors?.[i] ?? plot.color;
+        if (plot.values[i] && col) barColors.set(c.time, cssColor(col, col));
+      });
+      return;
+    }
+    if (plot.kind === 'candle' || plot.kind === 'bar') {
+      series.push({
+        key, title: plot.name, type: plot.kind, pane, color, lineWidth: 1,
+        data: candles.map((c, i) => {
+          const o = plot.ohlc?.[i];
+          if (!o) return { time: c.time };
+          const body = cssColor(plot.colors?.[i], color);
+          return {
+            time: c.time,
+            value: o[3],
+            ohlc: o,
+            color: body,
+            ...(plot.kind === 'candle' && {
+              wickColor: cssColor(plot.wickColors?.[i], body),
+              borderColor: cssColor(plot.borderColors?.[i], body),
+            }),
+          };
+        }),
+      });
+      return;
+    }
+    if (plot.kind === 'plotarrow') {
+      const peak = Math.max(0, ...plot.values.map((v) => (v === null || !Number.isFinite(v) ? 0 : Math.abs(v))));
+      const lo = plot.minHeight ?? 5;
+      const hi = plot.maxHeight ?? 100;
+      candles.forEach((c, i) => {
+        const v = plot.values[i];
+        if (v === null || v === undefined || !Number.isFinite(v) || v === 0) return;
+        const up = v > 0;
+        const h = lo + ((hi - lo) * Math.abs(v)) / peak;
+        const loc = up ? 'BelowBar' : 'AboveBar';
+        markers.push({
+          time: c.time,
+          pane,
+          position: location(loc),
+          ...separatePosition(loc),
+          shape: up ? 'arrowUp' : 'arrowDown',
+          color: plot.colors?.[i] ? cssColor(plot.colors[i], up ? UP : DOWN) : up ? UP : DOWN,
+          size: 0.5 + (1.5 * h) / 100,
+        });
       });
       return;
     }
@@ -209,5 +267,5 @@ export function buildPineChart(result: PineResult, candles: Candle[], fallbackCo
     }
   }
   markers.sort((a, b) => a.time - b.time);
-  return { series, fills, markers };
+  return { series, fills, markers, barColors };
 }
