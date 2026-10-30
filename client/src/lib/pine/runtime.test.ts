@@ -286,6 +286,16 @@ describe('runPine fill', () => {
     expect(grad.plots.map((p) => p.kind)).toEqual(['plot', 'plot']);
   });
 
+  it('drops a fill whose plot cannot be resolved', async () => {
+    const r = await runPine(
+      '//@version=6\nindicator("u", overlay=true)\np1 = plot(close, "__x")\np2 = plot(open)\nfill(p1, p2, color.red)\n',
+      candles,
+    );
+    if (!r.ok) throw new Error(r.error.message);
+    expect(r.plots.some((p) => p.kind === 'fill')).toBe(false);
+    expect(r.plots.length).toBeGreaterThan(0);
+  });
+
   it('drops a fill joining plots in different panes', async () => {
     const r = await runPine(
       '//@version=6\nindicator("x", overlay=false)\np1 = plot(close, force_overlay=true)\np2 = plot(ta.rsi(close, 14))\nfill(p1, p2, color.red)\n',
