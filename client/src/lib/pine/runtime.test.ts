@@ -705,6 +705,73 @@ if barstate.islast
   });
 });
 
+describe('runPine labels and tables', () => {
+  const times = candles.map((c) => c.time);
+  const last = candles.length - 1;
+  const draw = async (src: string, opts?: Parameters<typeof runPine>[3]) => {
+    const r = await runPine(src, candles, {}, opts);
+    if (!r.ok) throw new Error(r.error.message);
+    return r;
+  };
+
+  it('gives the labels the script left, in order, with the text after set_text and without the deleted one', async () => {
+    // The fixture makes ten labels and deletes one.
+    const { labels } = (await draw(fixture('labels'))).drawings!;
+    expect(labels.map((l) => l.text)).toEqual(['Down', 'Up', 'Above', 'Below', 'Price', 'Two\nlines', 'At time', 'Hover me', 'edited']);
+    expect(labels.every((l) => l.pane === 'price')).toBe(true);
+  });
+
+  it('resolves the position, style, colours and size of each label', async () => {
+    const { labels } = (await draw(fixture('labels'))).drawings!;
+    const by = (text: string) => labels.find((l) => l.text === text)!;
+    expect(by('Price')).toMatchObject({ style: 'circle', yloc: 'price', color: '#9C27B0', textColor: '#FFFFFF', textSize: 12, time: times[last - 44] });
+    expect(by('Price').price).toBeCloseTo(candles[last].close * 0.97, 6);
+    expect(by('Up')).toMatchObject({ style: 'label_up', yloc: 'price', textSize: 16, price: candles[last].low });
+    expect(by('Above')).toMatchObject({ style: 'triangledown', textSize: 10 });
+    // abovebar takes the high of its bar, belowbar the low
+    expect(by('Above')).toMatchObject({ yloc: 'abovebar', time: times[last - 60], price: candles[last - 60].high });
+    expect(by('Below')).toMatchObject({ style: 'arrowup', yloc: 'belowbar', price: candles[last - 52].low });
+    expect(by('Two\nlines')).toMatchObject({ style: 'label_down', yloc: 'abovebar', textAlign: 'left', time: times[last - 36], price: candles[last - 36].high });
+    expect(by('edited')).toMatchObject({ style: 'label_up', yloc: 'belowbar', time: times[last - 12], price: candles[last - 12].low });
+    // a bar_time label lands on its bar
+    expect(by('At time')).toMatchObject({ style: 'label_left', time: times[last - 28], price: candles[last].high });
+    expect(by('Hover me').tooltip).toBe('The tooltip text');
+  });
+
+  it('keeps the newest max_labels_count labels', async () => {
+    const r = await draw(`//@version=6
+indicator("Limit", overlay=true, max_labels_count=3)
+label.new(bar_index, close, str.tostring(bar_index))`);
+    expect(r.drawings!.labels.map((l) => l.text)).toEqual([last - 2, last - 1, last].map(String));
+    expect(r.drawings!.labels.map((l) => l.time)).toEqual([last - 2, last - 1, last].map((i) => times[i]));
+  });
+
+  it('gives a table with its position, sizes, colours, cell text, tooltip and one merge', async () => {
+    const [t] = (await draw(fixture('labels'))).drawings!.tables;
+    expect(t).toMatchObject({ pane: 'price', position: 'top_right', columns: 3, rows: 3, frameWidth: 2, borderWidth: 1, borderColor: '#FFFFFF' });
+    expect(t.bgColor).toBe('#787B86CC');
+    expect(t.merges).toEqual([{ startCol: 0, startRow: 0, endCol: 2, endRow: 0 }]);
+    expect(t.cells[0][0]).toMatchObject({ text: 'Header', bgColor: '#311B92', textColor: '#FFFFFF', hidden: false });
+    expect(t.cells[0][1]!.hidden).toBe(true);
+    expect(t.cells[1][0]).toMatchObject({ text: 'Open', halign: 'left', bgColor: null });
+    expect(t.cells[1][1]).toMatchObject({ textSize: 10, textColor: '#FDD835' });
+    expect(t.cells[1][2]!.tooltip).toBe('A cell tooltip');
+    expect(t.cells[2][1]!.bgColor).toMatch(/^#[0-9A-F]{6}[0-9A-F]{2}$/);
+  });
+
+  it('puts the table and plain label of an overlay=false script in its pane and a force_overlay label on the candles', async () => {
+    const d = (await draw(fixture('labels-pane'))).drawings!;
+    expect(d.tables.map((t) => [t.pane, t.position])).toEqual([['separate', 'bottom_left']]);
+    expect(d.labels.map((l) => [l.text, l.pane])).toEqual([['In the pane', 'separate'], ['On the candles', 'price']]);
+  });
+
+  it('gives the same labels and tables in a paged run', async () => {
+    const single = await draw(fixture('labels'));
+    const paged = await draw(fixture('labels'), { onProgress: () => {} });
+    expect(paged.drawings).toEqual(single.drawings);
+  });
+});
+
 describe('runPine input types', () => {
   const echo = [
     '//@version=6',

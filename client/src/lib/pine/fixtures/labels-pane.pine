@@ -1,0 +1,12 @@
+//@version=6
+indicator("Labels in a pane", overlay=false)
+
+// A table and a label in the script's own pane, and one label forced onto the candles.
+if barstate.islast
+    var t = table.new(position.bottom_left, 2, 2, bgcolor=color.new(color.gray, 30), frame_color=color.white, frame_width=1)
+    table.cell(t, 0, 0, "Pane", text_color=color.white)
+    table.cell(t, 1, 0, "table", text_color=color.yellow)
+    table.cell(t, 0, 1, "Bars", text_color=color.white)
+    table.cell(t, 1, 1, str.tostring(bar_index), text_color=color.lime)
+    label.new(bar_index - 20, 50, "In the pane", style=label.style_label_down, color=color.teal, textcolor=color.white)
+    label.new(bar_index - 10, high, "On the candles", force_overlay=true, style=label.style_label_down, color=color.red, textcolor=color.white)

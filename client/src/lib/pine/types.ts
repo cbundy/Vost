@@ -186,11 +186,89 @@ export interface PineLinefill {
   color: string | null;
 }
 
+/** A label's y location: at its price, or a gap above the bar's high / below the bar's low. */
+export type PineLabelYloc = 'price' | 'abovebar' | 'belowbar';
+
+/** A `label` object. `price` is already the bar's high or low for `abovebar` / `belowbar` when the time is a bar of the run. */
+export interface PineLabel {
+  pane: PineDrawingPane;
+  time: number;
+  price: number;
+  yloc: PineLabelYloc;
+  text: string;
+  /** The Pine style name without its `style_` prefix, e.g. `label_down`, `circle`, `none`. */
+  style: string;
+  color: string | null;
+  textColor: string | null;
+  /** Text size in px. */
+  textSize: number;
+  textAlign: 'left' | 'center' | 'right';
+  tooltip: string;
+  bold: boolean;
+  italic: boolean;
+  monospace: boolean;
+}
+
+export type PineTablePosition =
+  | 'top_left'
+  | 'top_center'
+  | 'top_right'
+  | 'middle_left'
+  | 'middle_center'
+  | 'middle_right'
+  | 'bottom_left'
+  | 'bottom_center'
+  | 'bottom_right';
+
+export interface PineTableCell {
+  text: string;
+  textColor: string | null;
+  /** null: transparent, the table's background shows. */
+  bgColor: string | null;
+  /** Text size in px. */
+  textSize: number;
+  halign: 'left' | 'center' | 'right';
+  valign: 'top' | 'center' | 'bottom';
+  /** Width and height as a percent of the pane; 0 sizes the cell to its text. */
+  widthPct: number;
+  heightPct: number;
+  tooltip: string;
+  bold: boolean;
+  italic: boolean;
+  monospace: boolean;
+  /** A cell merged into another: not drawn. */
+  hidden: boolean;
+}
+
+export interface PineTableMerge {
+  startCol: number;
+  startRow: number;
+  endCol: number;
+  endRow: number;
+}
+
+/** A `table` object; `cells` is row-major and holds null for a cell the script never set. */
+export interface PineTable {
+  pane: PineDrawingPane;
+  position: PineTablePosition;
+  columns: number;
+  rows: number;
+  bgColor: string | null;
+  frameColor: string | null;
+  frameWidth: number;
+  borderColor: string | null;
+  borderWidth: number;
+  cells: (PineTableCell | null)[][];
+  merges: PineTableMerge[];
+}
+
 export interface PineDrawings {
   lines: PineLine[];
   boxes: PineBox[];
   polylines: PinePolyline[];
   linefills: PineLinefill[];
+  labels: PineLabel[];
+  tables: PineTable[];
 }
 
 export interface PineError {

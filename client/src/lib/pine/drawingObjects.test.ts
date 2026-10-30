@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawingsOfPane, mapDrawings } from './drawingObjects';
+import { drawingPriceRange, drawingsOfPane, mapDrawings, PINE_LABEL_COLOR, PINE_LABEL_TEXT_COLOR } from './drawingObjects';
 
 const times = [1000, 2000, 3000, 4000];
 const plot = (value: unknown[], overlay = true) => ({ options: { overlay }, data: [{ time: 0, value }] });
@@ -101,5 +101,97 @@ describe('mapDrawings', () => {
     expect(drawingsOfPane(d, 'price')!.lines).toHaveLength(1);
     expect(drawingsOfPane(d, 'separate')!.lines).toHaveLength(1);
     expect(drawingsOfPane({ ...d, lines: d.lines.slice(0, 1) }, 'price')).toBeNull();
+  });
+});
+
+const bars = [{ high: 11, low: 9 }, { high: 12, low: 10 }, { high: 13, low: 11 }, { high: 14, low: 12 }];
+const lbl = (o: Record<string, unknown> = {}) => ({
+  id: 1, x: 1, y: 5, text: 'Hi', xloc: 'bi', yloc: 'pr', color: '#FF0000', style: 'style_label_down', textcolor: '#FFFFFF', size: 'normal',
+  textalign: 'center', tooltip: '', text_font_family: 'default', text_formatting: 'none', force_overlay: false, _deleted: false, ...o,
+});
+const tbl = (o: Record<string, unknown> = {}) => ({
+  id: 0, position: 'top_right', columns: 2, rows: 1, bgcolor: '#11223344', frame_color: '', frame_width: 0, border_color: '#FFFFFF', border_width: 1,
+  force_overlay: false, _deleted: false, cells: [[null, { text: 'a', text_color: '#000000', bgcolor: '', text_size: 'small', text_halign: 'left', text_valign: 'top', width: 20, height: 0, tooltip: 't', text_font_family: 'monospace', text_formatting: 'bold_italic', _merged: false, _merge_parent: null }]],
+  merges: [{ startCol: 0, startRow: 0, endCol: 1, endRow: 0 }], ...o,
+});
+
+describe('mapDrawings labels', () => {
+  it('places a bar_time label in seconds and a bar-index label on its bar, past the data too', () => {
+    const d = mapDrawings({ __labels__: plot([lbl({ xloc: 'bt', x: 2500000 }), lbl({ x: 2 }), lbl({ x: 6 })]) }, times, bars)!;
+    expect(d.labels.map((l) => l.time)).toEqual([2500, 3000, 7000]);
+  });
+
+  it('takes the bar high or low for abovebar and belowbar, and its own price past the data', () => {
+    const d = mapDrawings(
+      { __labels__: plot([lbl({ yloc: 'ab', x: 1 }), lbl({ yloc: 'bl', x: 1 }), lbl({ yloc: 'pr', x: 1 }), lbl({ yloc: 'ab', x: 9, y: 77 }), lbl({ yloc: 'bl', xloc: 'bt', x: 3000000 })]) },
+      times,
+      bars,
+    )!;
+    expect(d.labels.map((l) => [l.yloc, l.price])).toEqual([['abovebar', 12], ['belowbar', 10], ['price', 5], ['abovebar', 77], ['belowbar', 11]]);
+    const noBars = mapDrawings({ __labels__: plot([lbl({ yloc: 'ab', x: 1 })]) }, times)!;
+    expect(noBars.labels[0].price).toBe(5);
+  });
+
+  it('turns empty colours into the Pine defaults, keeps na, and reads sizes, alignment and font', () => {
+    const d = mapDrawings(
+      { __labels__: plot([lbl({ color: '', textcolor: '' }), lbl({ color: null, textcolor: null, size: 'large', textalign: 'left', text_formatting: 'bold_italic', text_font_family: 'monospace', tooltip: 'tip', style: 'style_circle' })]) },
+      times,
+    )!;
+    expect([d.labels[0].color, d.labels[0].textColor]).toEqual([PINE_LABEL_COLOR, PINE_LABEL_TEXT_COLOR]);
+    expect([PINE_LABEL_COLOR, PINE_LABEL_TEXT_COLOR]).toEqual(['#2962FF', '#FFFFFF']);
+    expect(d.labels[1]).toMatchObject({ color: null, textColor: null, textSize: 16, textAlign: 'left', bold: true, italic: true, monospace: true, tooltip: 'tip', style: 'circle' });
+  });
+
+  it('drops a deleted label and puts an overlay-key label in the price pane', () => {
+    const d = mapDrawings({ __labels__: plot([lbl(), lbl({ _deleted: true })], false), __labels_overlay__: plot([lbl()], true) }, times)!;
+    expect(d.labels.map((l) => l.pane)).toEqual(['separate', 'price']);
+  });
+});
+
+describe('mapDrawings tables', () => {
+  it('maps cells (null stays null, bgcolor empty is transparent), merges and the table colours', () => {
+    const d = mapDrawings({ __tables__: plot([tbl()]) }, times)!;
+    const t = d.tables[0];
+    expect(t).toMatchObject({ position: 'top_right', columns: 2, rows: 1, bgColor: '#11223344', frameColor: null, borderColor: '#FFFFFF', borderWidth: 1 });
+    expect(t.cells[0][0]).toBeNull();
+    expect(t.cells[0][1]).toEqual({
+      text: 'a', textColor: '#000000', bgColor: null, textSize: 10, halign: 'left', valign: 'top', widthPct: 20, heightPct: 0, tooltip: 't',
+      bold: true, italic: true, monospace: true, hidden: false,
+    });
+    expect(t.merges).toEqual([{ startCol: 0, startRow: 0, endCol: 1, endRow: 0 }]);
+  });
+
+  it('marks a merged-away cell hidden', () => {
+    const t = tbl({ cells: [[{ text: '', _merged: true }]] });
+    expect(mapDrawings({ __tables__: plot([t]) }, times)!.tables[0].cells[0][0]!.hidden).toBe(true);
+  });
+
+  it('puts a table in the price pane when force_overlay, else in the script pane by its key or declaration', () => {
+    const d = mapDrawings({ __tables__: plot([tbl({ force_overlay: true }), tbl()], false) }, times)!;
+    expect(d.tables.map((t) => t.pane)).toEqual(['price', 'separate']);
+    // PineTS files every table under the overlay key: the script's own overlay then decides
+    const e = mapDrawings({ __tables__: plot([tbl()], true) }, times, [], false)!;
+    expect(e.tables[0].pane).toBe('separate');
+    expect(mapDrawings({ __tables__: plot([tbl()], true) }, times, [], true)!.tables[0].pane).toBe('price');
+  });
+
+  it('gives drawings for a script with only a table, or only labels, and drops a deleted table', () => {
+    expect(mapDrawings({ __tables__: plot([tbl()]) }, times)).toBeDefined();
+    expect(mapDrawings({ __labels__: plot([lbl()]) }, times)).toBeDefined();
+    expect(mapDrawings({ __tables__: plot([tbl({ _deleted: true })]) }, times)).toBeUndefined();
+  });
+});
+
+describe('labels and tables by pane and price range', () => {
+  it('splits labels and tables by pane and counts a pane holding only a table', () => {
+    const d = mapDrawings({ __labels__: plot([lbl()], false), __tables__: plot([tbl({ force_overlay: true })], false) }, times)!;
+    expect(drawingsOfPane(d, 'separate')).toMatchObject({ labels: [{ text: 'Hi' }], tables: [] });
+    expect(drawingsOfPane(d, 'price')).toMatchObject({ labels: [], tables: [{ position: 'top_right' }] });
+  });
+
+  it('scales a pane to its label prices and ignores tables', () => {
+    const d = mapDrawings({ __labels__: plot([lbl({ y: 3 }), lbl({ y: 8 })]), __tables__: plot([tbl()]) }, times)!;
+    expect(drawingPriceRange(d)).toEqual({ min: 3, max: 8 });
+    expect(drawingPriceRange({ ...d, labels: [] })).toBeNull();
   });
 });
