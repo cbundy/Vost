@@ -6,7 +6,7 @@
 import { Indicator, type IImportResolver, type ImportResolverFn } from 'pinets';
 import type { Candle } from '../../types';
 import { mapDrawings } from './drawingObjects';
-import { checkDeclaredTimeframe, readDeclaredTimeframe, remapToChart, wrapProvider } from './declaredTimeframe';
+import { checkDeclaredTimeframe, declaredCalculation, declaresTimeframe, readDeclaredTimeframe, remapToChart, wrapProvider } from './declaredTimeframe';
 import { CurrencyRates, runWithRates } from './currencyRate';
 import { createMarketProvider } from './market';
 import { defaultMarketFeed, type MarketFeed } from './marketFeed';
@@ -15,6 +15,7 @@ import { createServerResolver, libraryMessage, missingLibraryPath } from './libr
 import { mapMessages, takeLogs } from './messages';
 import { detectPineVersion, legacyMessage } from './version';
 import type {
+  PineCalculation,
   PineDrawings,
   PineInput,
   PineInputValue,
@@ -264,6 +265,8 @@ export interface PineRunOptions {
   market?: PineMarket;
   /** Where the chart's symbol at another timeframe comes from. The default is the realm's shared feed (provider registry plus cache). */
   feed?: MarketFeed;
+  /** The user's Calculation overrides; ignored for a script that does not declare `timeframe`. */
+  calculation?: PineCalculation;
 }
 
 const drawingsField = (drawings: PineDrawings | undefined) => (drawings ? { drawings } : {});
@@ -286,7 +289,8 @@ export async function runPine(
     const metas = indicator.getInputsMeta();
     const { provider, ticker, timeframe, endTime } = createMarketProvider(candles, opts.market, opts.feed);
     // An indicator that declares a higher timeframe runs on that timeframe's bars; its plots are mapped back onto the chart afterwards.
-    const declared = readDeclaredTimeframe(indicator, timeframe);
+    const supportsTimeframe = declaresTimeframe(source);
+    const declared = readDeclaredTimeframe(indicator, timeframe, supportsTimeframe, opts.calculation);
     const problem = declared ? checkDeclaredTimeframe(declared, timeframe, opts.market) : null;
     if (problem) return { ok: false, error: { message: problem } };
     const wrapped = declared ? wrapProvider(provider, ticker, declared, timeframe) : null;
@@ -340,6 +344,7 @@ export async function runPine(
       position: isStrategy ? positionSeries(trades, candles.length) : [],
       ...(isStrategy && { strategyConfig: mapStrategyConfig(decl, ctx.strategy) }),
       messages: mapMessages(ctx, takeLogs(ctx)),
+      ...(supportsTimeframe && { calculation: declaredCalculation(indicator) }),
       ...drawingsField(mapDrawings(ctx.plots ?? {}, mapped?.times ?? candles.map((c) => c.time), candles, overlay)),
     };
   } catch (err) {

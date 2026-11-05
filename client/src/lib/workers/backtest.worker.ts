@@ -11,19 +11,19 @@ import type { WalkForwardOutput } from '../backtest/walkForward';
 import { runAnyBacktest } from '../backtest/runner';
 import type { BacktestConfig, BacktestResult, BacktestStage, Trade } from '../backtest/types';
 import { runPine } from '../pine/runtime';
-import type { PineInputValue, PineMarket, PineRunOutcome } from '../pine/types';
+import type { PineCalculation, PineInputValue, PineMarket, PineRunOutcome } from '../pine/types';
 
 export type WorkerRequest =
   | { id: string; type: 'run'; candles: Candle[]; config: BacktestConfig }
   | { id: string; type: 'optimize'; candles: Candle[]; config: BacktestConfig; optimize: OptimizeConfig }
-  | { id: string; type: 'pine'; source: string; candles: Candle[]; inputs?: Record<string, PineInputValue>; market?: PineMarket }
+  | { id: string; type: 'pine'; source: string; candles: Candle[]; inputs?: Record<string, PineInputValue>; market?: PineMarket; calculation?: PineCalculation }
   | { id: string; type: 'montecarlo'; trades: Trade[]; initialCapital: number; options: MonteCarloOptions };
 
 /** Request body without the correlation id (used by workerCall). */
 export type WorkerRequestBody =
   | { type: 'run'; candles: Candle[]; config: BacktestConfig }
   | { type: 'optimize'; candles: Candle[]; config: BacktestConfig; optimize: OptimizeConfig }
-  | { type: 'pine'; source: string; candles: Candle[]; inputs?: Record<string, PineInputValue>; market?: PineMarket }
+  | { type: 'pine'; source: string; candles: Candle[]; inputs?: Record<string, PineInputValue>; market?: PineMarket; calculation?: PineCalculation }
   | { type: 'montecarlo'; trades: Trade[]; initialCapital: number; options: MonteCarloOptions };
 
 export type WorkerResponse =
@@ -40,7 +40,7 @@ ctx.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   const msg = ev.data;
   if (msg.type === 'pine') {
     // Async: runPine never rejects, but guard anyway so the caller always gets a reply.
-    runPine(msg.source, msg.candles, msg.inputs, { market: msg.market })
+    runPine(msg.source, msg.candles, msg.inputs, { market: msg.market, calculation: msg.calculation })
       .then((outcome) => ctx.postMessage({ id: msg.id, type: 'pineResult', outcome } satisfies WorkerResponse))
       .catch((err) =>
         ctx.postMessage({

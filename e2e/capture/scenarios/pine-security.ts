@@ -9,13 +9,17 @@ const DECLARED = `//@version=6
 indicator("Daily SMA", overlay=true, timeframe="D", timeframe_gaps=false)
 plot(ta.sma(close, 5), "Daily SMA 5", color=color.orange, linewidth=2)`;
 
+const CALCULATION = `//@version=6
+indicator("EMA", overlay=true, timeframe="", timeframe_gaps=true)
+plot(ta.ema(close, 10), "EMA 10", color=color.orange, linewidth=2)`;
+
 const OTHER_SCRIPT = `//@version=6
 indicator("Bybit ETHUSDT on a Binance BTCUSDT chart", overlay=false)
 plot(request.security("BYBIT:ETHUSDT", "", close), "Bybit ETHUSDT close", color=color.orange, linewidth=2)`;
 
 export const pineSecurity: Scenario = {
   name: 'pine-security',
-  description: 'Binance 1h chart on the fake upstream with a Pine script plotting request.security(syminfo.tickerid, "D", ta.ema(close, 10)): the script loads the same symbol\'s daily bars (one /api/history request for 1d) and the line steps once a day, at the day\'s last bar; then the script is replaced by indicator(timeframe="D", timeframe_gaps=false) plotting ta.sma(close, 5), which runs on daily bars and steps the same way; a third script reads BYBIT:ETHUSDT on the same chart, which asks the fake upstream for Bybit history',
+  description: 'Binance 1h chart on the fake upstream with a Pine script plotting request.security(syminfo.tickerid, "D", ta.ema(close, 10)): the script loads the same symbol\'s daily bars (one /api/history request for 1d) and the line steps once a day, at the day\'s last bar; then the script is replaced by indicator(timeframe="D", timeframe_gaps=false) plotting ta.sma(close, 5), which runs on daily bars and steps the same way; a third script reads BYBIT:ETHUSDT on the same chart, which asks the fake upstream for Bybit history; last, an EMA declaring timeframe="" shows the Pine pane Calculation section, set to the daily timeframe without waiting for closes and then to 15m (checking the app asked for 15m bars)',
   viewports: ['desktop'],
   async run(ctx) {
     const { page } = ctx;
@@ -72,5 +76,29 @@ export const pineSecurity: Scenario = {
       if (bybit.length < 1) throw new Error('the script did not ask Bybit for ETHUSDT');
     });
     await ctx.screenshot('other-symbol');
+    await ctx.step('put an EMA that declares timeframe on the chart and open its Calculation settings', async () => {
+      await showSideSection(page, 'Indicators', false);
+      await page.getByRole('button', { name: /^Edit .* source$/ }).click();
+      await pane.waitFor();
+      await page.locator('.pine-pane .pine-editor .cm-content').click();
+      await page.keyboard.press('Control+A');
+      await page.keyboard.insertText(CALCULATION);
+      await page.locator('.pine-error').waitFor({ state: 'detached' });
+      await pane.getByRole('region', { name: 'Calculation' }).waitFor();
+    });
+    await ctx.step('Calculation: daily timeframe, not waiting for closes', async () => {
+      const calc = pane.getByRole('region', { name: 'Calculation' });
+      await calc.getByLabel('Timeframe', { exact: true }).selectOption('D');
+      await calc.getByLabel('Wait for timeframe closes').uncheck();
+      await page.waitForTimeout(1500);
+    });
+    await ctx.screenshot('calculation-higher');
+    await ctx.step('Calculation: 15m timeframe asks the app for 15m bars', async () => {
+      await pane.getByRole('region', { name: 'Calculation' }).getByLabel('Timeframe', { exact: true }).selectOption('15');
+      await page.waitForTimeout(1500);
+      const low = ctx.requests.filter((u) => u.includes('/api/history?') && new URL(u).searchParams.get('timeframe') === '15m');
+      if (low.length < 1) throw new Error('the Calculation timeframe did not ask for 15m bars');
+    });
+    await ctx.screenshot('calculation-lower');
   },
 };
