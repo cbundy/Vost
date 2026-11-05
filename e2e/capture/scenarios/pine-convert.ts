@@ -29,8 +29,8 @@ export const pineConvert: Scenario = {
       await page.getByRole('button', { name: 'Convert to v6' }).click();
       await page.locator('.pine-convert-note').waitFor();
       // the conversion is a draft: it leaves the editor untouched until it is added to the chart
-      await page.locator('.pine-error').waitFor({ state: 'detached' });
       await addToChart(page);
+      await page.locator('.pine-error').waitFor({ state: 'detached' });
       await page.locator('.pine-entry .indicator-params').waitFor();
     });
     await ctx.screenshot('converted');

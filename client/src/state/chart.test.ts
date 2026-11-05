@@ -99,10 +99,25 @@ describe('pine indicators', () => {
   const OTHER = '//@version=6\nindicator("Other title")\nplot(close)\n';
 
   it('keeps editor text as a draft without running, and clears it when it equals the source', async () => {
+    const runs: string[] = [];
+    class CountingWorker {
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage(req: { id: string; source: string; candles: Candle[]; inputs: Record<string, unknown> }) {
+        runs.push(req.source);
+        void import('../lib/pine/runtime').then(async ({ runPine }) => {
+          const outcome = await runPine(req.source, req.candles, req.inputs as never);
+          this.onmessage?.({ data: { id: req.id, type: 'pineResult', outcome } } as MessageEvent);
+        });
+      }
+    }
+    vi.stubGlobal('Worker', CountingWorker);
     const { useStore } = await setup();
     chartOf(useStore).getState().addIndicator('pine');
     const id = pineId(useStore);
     const run = await settle(useStore, id);
+    const before = runs.length;
+    expect(before).toBeGreaterThan(0);
     const source = chartOf(useStore).getState().indicators.find((i) => i.id === id)!.source;
     chartOf(useStore).getState().setPineDraft(id, OTHER);
     const spec = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
@@ -111,6 +126,7 @@ describe('pine indicators', () => {
     expect(chartOf(useStore).getState().pineRuns[id]).toBe(run);
     await new Promise((r) => setTimeout(r, 100));
     expect(chartOf(useStore).getState().pineRuns[id]).toBe(run);
+    expect(runs).toHaveLength(before);
     chartOf(useStore).getState().setPineDraft(id, source!);
     expect('draft' in chartOf(useStore).getState().indicators.find((i) => i.id === id)!).toBe(false);
   });
@@ -145,6 +161,13 @@ describe('pine indicators', () => {
       const pine = chartOf(fresh).getState().indicators.find((i) => i.id === id)!;
       expect(pine.draft).toBe(OTHER);
       expect(pine.source).toContain('EMA cross');
+      // prefs saved without a draft load with no draft
+      chartOf(fresh).getState().setPineDraft(id, pine.source!);
+      vi.advanceTimersByTime(1000);
+      vi.resetModules();
+      const again = track((await import('./store')).useStore);
+      again.getState().init();
+      expect('draft' in chartOf(again).getState().indicators.find((i) => i.id === id)!).toBe(false);
     } finally {
       vi.useRealTimers();
     }
