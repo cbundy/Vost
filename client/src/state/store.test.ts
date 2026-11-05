@@ -302,6 +302,34 @@ describe('init with saved prefs', () => {
   });
 });
 
+describe('barCountdown setting', () => {
+  async function fresh(saved?: unknown) {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    if (saved !== undefined) {
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, barCountdown: saved }));
+    }
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore;
+  }
+
+  it('defaults to on; false loads off; invalid values load on', async () => {
+    expect((await fresh()).getState().barCountdown).toBe(true);
+    expect((await fresh(false)).getState().barCountdown).toBe(false);
+    for (const bad of ['x', 1, null]) expect((await fresh(bad)).getState().barCountdown).toBe(true);
+  });
+
+  it('setBarCountdown saves to prefs.v1', async () => {
+    const useStore = await fresh();
+    useStore.getState().setBarCountdown(false);
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).barCountdown).toBe(false);
+  });
+});
+
 describe('historyLoading setting', () => {
   async function fresh(saved?: unknown) {
     vi.resetModules();
@@ -532,6 +560,7 @@ describe('chart registry and flat prefs', () => {
     favoritesBarPos: { x: 120, y: 44 },
     buildTimeframes: true,
     historyLoading: 'all',
+    barCountdown: false,
     pineHigherBars: 'finished',
     customTimeframes: ['2h'],
   });
