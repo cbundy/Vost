@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { INDICATOR_META, type IndicatorKind } from '../lib/indicatorCompute';
 import { downloadFile, candlesToCsv, sanitizeFileName } from '../lib/export';
 import { fmtNum, fmtTime } from '../lib/format';
+import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
 import { ObjectTree } from './ObjectTree';
 import { SymbolCard } from './SymbolCard';
 import { Watchlist } from './Watchlist';
@@ -38,6 +39,8 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
   const addIndicator = useChart((s) => s.addIndicator);
   const openPineEditor = useStore((s) => s.openPineEditor);
   const removeIndicator = useChart((s) => s.removeIndicator);
+  /** The indicator whose settings dialog is open (one at a time). */
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   const updateIndicator = useChart((s) => s.updateIndicator);
   const section = useStore((s) => s.sidePanel);
   const setSidePanel = useStore((s) => s.setSidePanel);
@@ -223,6 +226,9 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
                     Edit
                   </button>
                 )}
+                <button className="ghost icon" title="Settings" aria-label={`Settings ${name}`} onClick={() => setSettingsId(spec.id)}>
+                  ⚙
+                </button>
                 <button
                   className="ghost icon"
                   title={spec.visible ? 'Hide' : 'Show'}
@@ -257,6 +263,8 @@ export function Sidebar({ onImportCsv, drawer }: { onImportCsv: () => void; draw
             </div>
           );
         })}
+
+        {settingsId && indicators.some((i) => i.id === settingsId) && <IndicatorSettingsDialog id={settingsId} onClose={() => setSettingsId(null)} />}
 
         <AddIndicator
           onAdd={(kind) => {

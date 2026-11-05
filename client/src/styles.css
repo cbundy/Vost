@@ -4241,3 +4241,32 @@ table.data-table th.sortable .sort-btn:focus-visible {
 .settings-radio-hint {
   display: block;
 }
+
+.ind-defaults {
+  position: relative;
+}
+
+.ind-defaults-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.ind-defaults-menu button {
+  text-align: left;
+  border-color: transparent;
+  background: transparent;
+}
+
+.ind-defaults-menu button:hover {
+  background: var(--panel-3);
+}

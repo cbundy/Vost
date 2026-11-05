@@ -506,6 +506,7 @@ describe('chart registry and flat prefs', () => {
     drawingStayMode: true,
     drawingsHidden: true,
     drawingDefaults: { trendLine: { width: 3 } },
+    indicatorDefaults: { ema: { params: { length: 55 }, hideOn: ['minutes'] } },
     drawingFavorites: ['ray', 'eraser'],
     drawingLastTool: { lines: 'ray', cursors: 'cursor.dot' },
     glyphArmed: { emoji: '1f600' },

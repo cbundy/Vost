@@ -12,13 +12,31 @@ The one-line legend at the top of the chart shows the symbol, the open, high, lo
 
 ## Indicators
 
-Open **Indicators** in the side panel and pick **Add indicator...**: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD, or a Pine script ([Pine Script](pine.md)), which is named by the title in its code. Each row has a colour swatch, a show and hide button and a remove button, and its parameters (such as the period) edit live. RSI and MACD get their own panes under the chart, and so does a Pine script that is not drawn on the price.
+Open **Indicators** in the side panel and pick **Add indicator...**: SMA, EMA, Bollinger Bands, VWAP, Volume, RSI, MACD, or a Pine script ([Pine Script](pine.md)), which is named by the title in its code. Each row has a colour swatch, a gear (**Settings**) button, a show and hide button and a remove button, and its parameters (such as the period) edit live. RSI and MACD get their own panes under the chart, and so does a Pine script that is not drawn on the price.
 
 Each of those panes has a small legend at its top-left with the indicator's name and its parameters (for example `RSI 14` or `MACD 12 26 9`; a Pine script shows its title and its input values), then the value of each plot in the plot's colour. The values follow the crosshair; with the crosshair off the chart they show the last bar, and a bar where a plot has no value shows `-`. The pane's price scale carries a label for each plot's last value and for fixed levels such as the RSI 30 and 70 lines or a Pine `hline`.
 
 A new pane opens at a modest height, so the candles keep most of the chart. Drag the line between two panes to resize them: the size you set stays when you add, remove or hide other indicators or edit a Pine script.
 
 ![RSI, MACD and a Pine script in their own panes with legends and values at the crosshair](../evidence/chart-panes/chart-panes-crosshair-desktop.png)
+
+### Indicator settings
+
+The gear opens a dialog titled with the indicator's short name (for example **EMA**, or a Pine script's title). It has two tabs, and every change shows on the chart at once; the row's own fields and show and hide button stay in step with it.
+
+- **Inputs** has one field per parameter of a built-in indicator; a value outside the allowed range, or text that is not a number, is refused in place with a message. A Pine script shows its inputs (and its Calculation settings when it declares a timeframe) once it has run.
+- **Visibility** has one checkbox per timeframe kind (Seconds, Minutes, Hours, Days, Weeks, Months), all on by default. An indicator turned off for the chart's current kind is not drawn at all: no lines, no pane and legend, no bar colours. It comes back when you move to a kind that is on.
+- **Defaults** (bottom left) has **Reset settings**, which brings the inputs and visibility back to your saved default or the built-in values (for a Pine script it clears the input and calculation overrides and shows it on every timeframe), and **Save as default** for built-in indicators, which makes new indicators of that kind start from these settings.
+
+**OK** keeps the changes; **Cancel**, Escape and the close button put the indicator back as it was when you opened the dialog.
+
+![The EMA settings dialog with its length changed and the chart updated](../evidence/indicator-settings/indicator-settings-inputs-desktop.png)
+
+![The Visibility tab with Minutes off](../evidence/indicator-settings/indicator-settings-visibility-desktop.png)
+
+![An RSI hidden on minutes: its pane is gone and the Pine pane stays](../evidence/indicator-settings/indicator-settings-rsi-hidden-desktop.png)
+
+![The Defaults menu with Reset settings and Save as default](../evidence/indicator-settings/indicator-settings-defaults-desktop.png)
 
 ## Quick ranges and the Range picker
 
