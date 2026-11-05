@@ -1,0 +1,940 @@
+{
+  "cryptoCap": {
+    "source": "CoinGecko /api/v3/coins/markets (vs_currency=usd, order=market_cap_desc, first 100), mapped to Binance USDT pairs (/api/v3/exchangeInfo, TRADING)",
+    "date": "2026-11-05",
+    "entries": [
+      {
+        "symbol": "BTCUSDT",
+        "name": "Bitcoin",
+        "rank": 1,
+        "marketCap": 1545085438047,
+        "binance": "BTCUSDT"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "name": "Ethereum",
+        "rank": 2,
+        "marketCap": 278216024480,
+        "binance": "ETHUSDT"
+      },
+      {
+        "symbol": "BNBUSDT",
+        "name": "BNB",
+        "rank": 4,
+        "marketCap": 91339898304,
+        "binance": "BNBUSDT"
+      },
+      {
+        "symbol": "XRPUSDT",
+        "name": "XRP",
+        "rank": 5,
+        "marketCap": 79566980601,
+        "binance": "XRPUSDT"
+      },
+      {
+        "symbol": "SOLUSDT",
+        "name": "Solana",
+        "rank": 7,
+        "marketCap": 53802338974,
+        "binance": "SOLUSDT"
+      },
+      {
+        "symbol": "TRXUSDT",
+        "name": "TRON",
+        "rank": 8,
+        "marketCap": 30108852198,
+        "binance": "TRXUSDT"
+      },
+      {
+        "symbol": "ZECUSDT",
+        "name": "Zcash",
+        "rank": 10,
+        "marketCap": 21699882123,
+        "binance": "ZECUSDT"
+      },
+      {
+        "symbol": "HYPEUSDT",
+        "name": "Hyperliquid",
+        "rank": 11,
+        "marketCap": 19169150285,
+        "binance": "HYPEUSDT"
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "name": "Dogecoin",
+        "rank": 13,
+        "marketCap": 11378483828,
+        "binance": "DOGEUSDT"
+      },
+      {
+        "symbol": "LINKUSDT",
+        "name": "Chainlink",
+        "rank": 17,
+        "marketCap": 8364390125,
+        "binance": "LINKUSDT"
+      },
+      {
+        "symbol": "ADAUSDT",
+        "name": "Cardano",
+        "rank": 18,
+        "marketCap": 6953217181,
+        "binance": "ADAUSDT"
+      },
+      {
+        "symbol": "BCHUSDT",
+        "name": "Bitcoin Cash",
+        "rank": 19,
+        "marketCap": 5672839809,
+        "binance": "BCHUSDT"
+      },
+      {
+        "symbol": "XLMUSDT",
+        "name": "Stellar",
+        "rank": 20,
+        "marketCap": 5520528396,
+        "binance": "XLMUSDT"
+      },
+      {
+        "symbol": "NEARUSDT",
+        "name": "NEAR Protocol",
+        "rank": 21,
+        "marketCap": 4980500197,
+        "binance": "NEARUSDT"
+      },
+      {
+        "symbol": "UNIUSDT",
+        "name": "Uniswap",
+        "rank": 24,
+        "marketCap": 4227218034,
+        "binance": "UNIUSDT"
+      },
+      {
+        "symbol": "LTCUSDT",
+        "name": "Litecoin",
+        "rank": 26,
+        "marketCap": 4074021415,
+        "binance": "LTCUSDT"
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "name": "Avalanche",
+        "rank": 28,
+        "marketCap": 3713508129,
+        "binance": "AVAXUSDT"
+      },
+      {
+        "symbol": "SUIUSDT",
+        "name": "Sui",
+        "rank": 30,
+        "marketCap": 3577084793,
+        "binance": "SUIUSDT"
+      },
+      {
+        "symbol": "GRAMUSDT",
+        "name": "Gram (prev. Toncoin)",
+        "rank": 32,
+        "marketCap": 3170120549,
+        "binance": "GRAMUSDT"
+      },
+      {
+        "symbol": "HBARUSDT",
+        "name": "Hedera",
+        "rank": 33,
+        "marketCap": 3043264799,
+        "binance": "HBARUSDT"
+      },
+      {
+        "symbol": "QNTUSDT",
+        "name": "Quant",
+        "rank": 34,
+        "marketCap": 2834767999,
+        "binance": "QNTUSDT"
+      },
+      {
+        "symbol": "SHIBUSDT",
+        "name": "Shiba Inu",
+        "rank": 37,
+        "marketCap": 2686832718,
+        "binance": "SHIBUSDT"
+      },
+      {
+        "symbol": "TAOUSDT",
+        "name": "Bittensor",
+        "rank": 39,
+        "marketCap": 2584608960,
+        "binance": "TAOUSDT"
+      }
+    ],
+    "excluded": [
+      {
+        "symbol": "USDT",
+        "reason": "stablecoin or pegged to a fiat currency or gold (Tether, market cap rank 3)"
+      },
+      {
+        "symbol": "USDC",
+        "reason": "stablecoin or pegged to a fiat currency or gold (USDC, market cap rank 6)"
+      },
+      {
+        "symbol": "USDS",
+        "reason": "stablecoin or pegged to a fiat currency or gold (USDS, market cap rank 14)"
+      },
+      {
+        "symbol": "DAI",
+        "reason": "stablecoin or pegged to a fiat currency or gold (Dai, market cap rank 22)"
+      },
+      {
+        "symbol": "USDE",
+        "reason": "stablecoin or pegged to a fiat currency or gold (Ethena USDe, market cap rank 23)"
+      },
+      {
+        "symbol": "USD1",
+        "reason": "stablecoin or pegged to a fiat currency or gold (USD1, market cap rank 29)"
+      },
+      {
+        "symbol": "XAUT",
+        "reason": "stablecoin or pegged to a fiat currency or gold (Tether Gold, market cap rank 31)"
+      },
+      {
+        "symbol": "USDG",
+        "reason": "stablecoin or pegged to a fiat currency or gold (Global Dollar, market cap rank 35)"
+      },
+      {
+        "symbol": "PYUSD",
+        "reason": "stablecoin or pegged to a fiat currency or gold (PayPal USD, market cap rank 36)"
+      },
+      {
+        "symbol": "RLUSD",
+        "reason": "stablecoin or pegged to a fiat currency or gold (Ripple USD, market cap rank 38)"
+      }
+    ],
+    "skipped": [
+      {
+        "symbol": "FIGR_HELOC",
+        "reason": "no TRADING FIGR_HELOCUSDT pair on Binance (Figure Heloc, market cap rank 9)"
+      },
+      {
+        "symbol": "XMR",
+        "reason": "no TRADING XMRUSDT pair on Binance (Monero, market cap rank 12)"
+      },
+      {
+        "symbol": "WBT",
+        "reason": "no TRADING WBTUSDT pair on Binance (WhiteBIT Coin, market cap rank 15)"
+      },
+      {
+        "symbol": "LEO",
+        "reason": "no TRADING LEOUSDT pair on Binance (LEO Token, market cap rank 16)"
+      },
+      {
+        "symbol": "RAIN",
+        "reason": "no TRADING RAINUSDT pair on Binance (Rain, market cap rank 25)"
+      },
+      {
+        "symbol": "CC",
+        "reason": "no TRADING CCUSDT pair on Binance (Canton, market cap rank 27)"
+      },
+      {
+        "symbol": "CRO",
+        "reason": "no TRADING CROUSDT pair on Binance (Cronos, market cap rank 40)"
+      }
+    ]
+  },
+  "cryptoVolume": {
+    "source": "Binance /api/v3/ticker/24hr, USDT pairs ranked by 24h quote volume",
+    "date": "2026-11-05",
+    "entries": [
+      {
+        "symbol": "BTCUSDT",
+        "rank": 1,
+        "volume": 1848189301,
+        "binance": "BTCUSDT"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "rank": 2,
+        "volume": 747608675,
+        "binance": "ETHUSDT"
+      },
+      {
+        "symbol": "SOLUSDT",
+        "rank": 3,
+        "volume": 234398442,
+        "binance": "SOLUSDT"
+      },
+      {
+        "symbol": "ZECUSDT",
+        "rank": 4,
+        "volume": 183324631,
+        "binance": "ZECUSDT"
+      },
+      {
+        "symbol": "XRPUSDT",
+        "rank": 5,
+        "volume": 127061367,
+        "binance": "XRPUSDT"
+      },
+      {
+        "symbol": "BNBUSDT",
+        "rank": 6,
+        "volume": 114059105,
+        "binance": "BNBUSDT"
+      },
+      {
+        "symbol": "UNIUSDT",
+        "rank": 7,
+        "volume": 92923055,
+        "binance": "UNIUSDT"
+      },
+      {
+        "symbol": "NEARUSDT",
+        "rank": 8,
+        "volume": 82712531,
+        "binance": "NEARUSDT"
+      },
+      {
+        "symbol": "PEPEUSDT",
+        "rank": 9,
+        "volume": 60245529,
+        "binance": "PEPEUSDT"
+      },
+      {
+        "symbol": "HYPEUSDT",
+        "rank": 10,
+        "volume": 57905568,
+        "binance": "HYPEUSDT"
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "rank": 11,
+        "volume": 48746091,
+        "binance": "DOGEUSDT"
+      },
+      {
+        "symbol": "SUIUSDT",
+        "rank": 12,
+        "volume": 46214516,
+        "binance": "SUIUSDT"
+      },
+      {
+        "symbol": "TRUMPUSDT",
+        "rank": 13,
+        "volume": 42364909,
+        "binance": "TRUMPUSDT"
+      },
+      {
+        "symbol": "ENAUSDT",
+        "rank": 14,
+        "volume": 32334448,
+        "binance": "ENAUSDT"
+      },
+      {
+        "symbol": "WLDUSDT",
+        "rank": 15,
+        "volume": 28729964,
+        "binance": "WLDUSDT"
+      },
+      {
+        "symbol": "TRXUSDT",
+        "rank": 16,
+        "volume": 25974623,
+        "binance": "TRXUSDT"
+      },
+      {
+        "symbol": "LINKUSDT",
+        "rank": 17,
+        "volume": 25369602,
+        "binance": "LINKUSDT"
+      },
+      {
+        "symbol": "INJUSDT",
+        "rank": 18,
+        "volume": 19904543,
+        "binance": "INJUSDT"
+      },
+      {
+        "symbol": "ADAUSDT",
+        "rank": 19,
+        "volume": 19767088,
+        "binance": "ADAUSDT"
+      },
+      {
+        "symbol": "AAVEUSDT",
+        "rank": 20,
+        "volume": 19574777,
+        "binance": "AAVEUSDT"
+      },
+      {
+        "symbol": "PUMPUSDT",
+        "rank": 21,
+        "volume": 17532956,
+        "binance": "PUMPUSDT"
+      },
+      {
+        "symbol": "LTCUSDT",
+        "rank": 22,
+        "volume": 15016024,
+        "binance": "LTCUSDT"
+      },
+      {
+        "symbol": "TAOUSDT",
+        "rank": 23,
+        "volume": 14396495,
+        "binance": "TAOUSDT"
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "rank": 24,
+        "volume": 13659563,
+        "binance": "AVAXUSDT"
+      },
+      {
+        "symbol": "WLFIUSDT",
+        "rank": 25,
+        "volume": 12753140,
+        "binance": "WLFIUSDT"
+      },
+      {
+        "symbol": "ONDOUSDT",
+        "rank": 26,
+        "volume": 11859778,
+        "binance": "ONDOUSDT"
+      },
+      {
+        "symbol": "BCHUSDT",
+        "rank": 27,
+        "volume": 11787282,
+        "binance": "BCHUSDT"
+      },
+      {
+        "symbol": "XLMUSDT",
+        "rank": 28,
+        "volume": 11243462,
+        "binance": "XLMUSDT"
+      },
+      {
+        "symbol": "QNTUSDT",
+        "rank": 29,
+        "volume": 10935302,
+        "binance": "QNTUSDT"
+      },
+      {
+        "symbol": "ASTERUSDT",
+        "rank": 30,
+        "volume": 10812432,
+        "binance": "ASTERUSDT"
+      }
+    ],
+    "excluded": [
+      {
+        "symbol": "USDC",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "USD1",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "RLUSD",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "XAUT",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "SNDKB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "SOXLB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "U",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "CRCLB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "FDUSD",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "SPCXB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "RWUSD",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "MUB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "MSTRB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "NVDAB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "XUSD",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "KORUB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "PAXG",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "EUR",
+        "reason": "stablecoin or pegged to a fiat currency or gold"
+      },
+      {
+        "symbol": "GOOGLB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "SKHYB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "INTCB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "QQQB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      },
+      {
+        "symbol": "SNXXB",
+        "reason": "tokenized stock or ETF (a \"B\" pair whose root is a stock or fund ticker, not a coin)"
+      }
+    ]
+  },
+  "stocksCap": {
+    "source": "companiesmarketcap.com, largest companies in the USA by market cap (US-listed; tickers as Yahoo writes them)",
+    "date": "2026-11-05",
+    "entries": [
+      {
+        "symbol": "AAPL",
+        "name": "Apple",
+        "rank": 1,
+        "marketCap": 5044701757440
+      },
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA",
+        "rank": 2,
+        "marketCap": 4532874510336
+      },
+      {
+        "symbol": "MSFT",
+        "name": "Microsoft",
+        "rank": 3,
+        "marketCap": 4038030262272
+      },
+      {
+        "symbol": "GOOG",
+        "name": "Alphabet (Google)",
+        "rank": 4,
+        "marketCap": 3492971020288
+      },
+      {
+        "symbol": "AMZN",
+        "name": "Amazon",
+        "rank": 5,
+        "marketCap": 2817693057024
+      },
+      {
+        "symbol": "SPCX",
+        "name": "SpaceX",
+        "rank": 6,
+        "marketCap": 1715424198656
+      },
+      {
+        "symbol": "META",
+        "name": "Meta Platforms (Facebook)",
+        "rank": 7,
+        "marketCap": 1566111432704
+      },
+      {
+        "symbol": "AVGO",
+        "name": "Broadcom",
+        "rank": 8,
+        "marketCap": 1460635303936
+      },
+      {
+        "symbol": "TSLA",
+        "name": "Tesla",
+        "rank": 9,
+        "marketCap": 1389997326336
+      },
+      {
+        "symbol": "LLY",
+        "name": "Eli Lilly",
+        "rank": 10,
+        "marketCap": 1250864398336
+      },
+      {
+        "symbol": "BRK-B",
+        "name": "Berkshire Hathaway",
+        "rank": 11,
+        "marketCap": 1243998584832
+      },
+      {
+        "symbol": "WMT",
+        "name": "Walmart",
+        "rank": 12,
+        "marketCap": 1025833435136
+      },
+      {
+        "symbol": "JPM",
+        "name": "JPMorgan Chase",
+        "rank": 13,
+        "marketCap": 908351242240
+      },
+      {
+        "symbol": "MU",
+        "name": "Micron Technology",
+        "rank": 14,
+        "marketCap": 805648007168
+      },
+      {
+        "symbol": "V",
+        "name": "Visa",
+        "rank": 15,
+        "marketCap": 803476275200
+      },
+      {
+        "symbol": "AMD",
+        "name": "AMD",
+        "rank": 16,
+        "marketCap": 702301798400
+      },
+      {
+        "symbol": "XOM",
+        "name": "Exxon Mobil",
+        "rank": 17,
+        "marketCap": 695283089408
+      },
+      {
+        "symbol": "JNJ",
+        "name": "Johnson & Johnson",
+        "rank": 18,
+        "marketCap": 664387518464
+      },
+      {
+        "symbol": "MA",
+        "name": "Mastercard",
+        "rank": 19,
+        "marketCap": 578530639872
+      },
+      {
+        "symbol": "ABBV",
+        "name": "AbbVie",
+        "rank": 20,
+        "marketCap": 519794065408
+      },
+      {
+        "symbol": "COST",
+        "name": "Costco",
+        "rank": 21,
+        "marketCap": 472874385408
+      },
+      {
+        "symbol": "CVX",
+        "name": "Chevron",
+        "rank": 22,
+        "marketCap": 427444600832
+      },
+      {
+        "symbol": "KO",
+        "name": "Coca-Cola",
+        "rank": 23,
+        "marketCap": 412208267264
+      },
+      {
+        "symbol": "PG",
+        "name": "Procter & Gamble",
+        "rank": 24,
+        "marketCap": 387498541056
+      },
+      {
+        "symbol": "CSCO",
+        "name": "Cisco",
+        "rank": 25,
+        "marketCap": 386886041600
+      },
+      {
+        "symbol": "PLTR",
+        "name": "Palantir",
+        "rank": 26,
+        "marketCap": 380405678080
+      },
+      {
+        "symbol": "MRK",
+        "name": "Merck",
+        "rank": 27,
+        "marketCap": 370433490944
+      },
+      {
+        "symbol": "UNH",
+        "name": "UnitedHealth",
+        "rank": 28,
+        "marketCap": 362987683840
+      },
+      {
+        "symbol": "ORCL",
+        "name": "Oracle",
+        "rank": 29,
+        "marketCap": 360765587456
+      },
+      {
+        "symbol": "HD",
+        "name": "Home Depot",
+        "rank": 30,
+        "marketCap": 351805308928
+      }
+    ]
+  },
+  "stocksVolume": {
+    "source": "Yahoo Finance screener \"most_actives\" (US equities, the 100 most traded that day), ranked by 3-month average daily volume",
+    "date": "2026-11-05",
+    "note": "The screener only lists the day's most active names, so a steady high-volume stock that was quiet that day can be missing.",
+    "entries": [
+      {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "rank": 1,
+        "volume": 113170456
+      },
+      {
+        "symbol": "INTC",
+        "name": "Intel Corporation",
+        "rank": 2,
+        "volume": 111770006
+      },
+      {
+        "symbol": "SPCX",
+        "name": "Space Exploration Technologies ",
+        "rank": 3,
+        "volume": 101273221
+      },
+      {
+        "symbol": "NU",
+        "name": "Nu Holdings Ltd.",
+        "rank": 4,
+        "volume": 80545723
+      },
+      {
+        "symbol": "NOK",
+        "name": "Nokia Corporation Sponsored",
+        "rank": 5,
+        "volume": 77900904
+      },
+      {
+        "symbol": "AAL",
+        "name": "American Airlines Group, Inc.",
+        "rank": 6,
+        "volume": 63450006
+      },
+      {
+        "symbol": "ONDS",
+        "name": "Ondas Inc",
+        "rank": 7,
+        "volume": 59780962
+      },
+      {
+        "symbol": "GRAB",
+        "name": "Grab Holdings Limited",
+        "rank": 8,
+        "volume": 59479470
+      },
+      {
+        "symbol": "SOFI",
+        "name": "SoFi Technologies, Inc.",
+        "rank": 9,
+        "volume": 48091040
+      },
+      {
+        "symbol": "IREN",
+        "name": "IREN LIMITED",
+        "rank": 10,
+        "volume": 46239046
+      },
+      {
+        "symbol": "F",
+        "name": "Ford Motor Company",
+        "rank": 11,
+        "volume": 43884148
+      },
+      {
+        "symbol": "BBD",
+        "name": "Banco Bradesco Sa",
+        "rank": 12,
+        "volume": 43794815
+      },
+      {
+        "symbol": "MARA",
+        "name": "MARA Holdings, Inc.",
+        "rank": 13,
+        "volume": 43227417
+      },
+      {
+        "symbol": "SMCI",
+        "name": "Super Micro Computer, Inc.",
+        "rank": 14,
+        "volume": 43220089
+      },
+      {
+        "symbol": "RIG",
+        "name": "Transocean Ltd (Switzerland)",
+        "rank": 15,
+        "volume": 42899529
+      },
+      {
+        "symbol": "T",
+        "name": "AT&T Inc.",
+        "rank": 16,
+        "volume": 42359448
+      },
+      {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "rank": 17,
+        "volume": 42257173
+      },
+      {
+        "symbol": "CIFR",
+        "name": "Cipher Digital Inc.",
+        "rank": 18,
+        "volume": 41382765
+      },
+      {
+        "symbol": "PCG",
+        "name": "Pacific Gas & Electric Co.",
+        "rank": 19,
+        "volume": 39796035
+      },
+      {
+        "symbol": "CRWV",
+        "name": "CoreWeave, Inc.",
+        "rank": 20,
+        "volume": 39505976
+      },
+      {
+        "symbol": "AMZN",
+        "name": "Amazon.com, Inc.",
+        "rank": 21,
+        "volume": 37723882
+      },
+      {
+        "symbol": "SNAP",
+        "name": "Snap Inc.",
+        "rank": 22,
+        "volume": 37229751
+      },
+      {
+        "symbol": "BMNR",
+        "name": "BitMine Immersion Technologies,",
+        "rank": 23,
+        "volume": 36976357
+      },
+      {
+        "symbol": "TSLA",
+        "name": "Tesla, Inc.",
+        "rank": 24,
+        "volume": 36963582
+      },
+      {
+        "symbol": "BAC",
+        "name": "Bank of America Corporation",
+        "rank": 25,
+        "volume": 36698559
+      },
+      {
+        "symbol": "CDE",
+        "name": "Coeur Mining, Inc.",
+        "rank": 26,
+        "volume": 36619154
+      },
+      {
+        "symbol": "NFLX",
+        "name": "Netflix, Inc.",
+        "rank": 27,
+        "volume": 36152523
+      },
+      {
+        "symbol": "WULF",
+        "name": "TeraWulf Inc.",
+        "rank": 28,
+        "volume": 34943685
+      },
+      {
+        "symbol": "HL",
+        "name": "Hecla Mining Company",
+        "rank": 29,
+        "volume": 34614418
+      },
+      {
+        "symbol": "RKT",
+        "name": "Rocket Companies, Inc.",
+        "rank": 30,
+        "volume": 34553779
+      }
+    ]
+  },
+  "indices": {
+    "source": "Fixed list of major tradable indices, via Yahoo Finance",
+    "date": "2026-11-05",
+    "entries": [
+      {
+        "symbol": "^GSPC",
+        "name": "S&P 500"
+      },
+      {
+        "symbol": "^NDX",
+        "name": "Nasdaq 100"
+      },
+      {
+        "symbol": "^DJI",
+        "name": "Dow Jones Industrial Average"
+      },
+      {
+        "symbol": "^RUT",
+        "name": "Russell 2000"
+      },
+      {
+        "symbol": "^FTSE",
+        "name": "FTSE 100"
+      },
+      {
+        "symbol": "^GDAXI",
+        "name": "DAX"
+      },
+      {
+        "symbol": "^FCHI",
+        "name": "CAC 40"
+      },
+      {
+        "symbol": "^N225",
+        "name": "Nikkei 225"
+      },
+      {
+        "symbol": "^HSI",
+        "name": "Hang Seng"
+      },
+      {
+        "symbol": "^STOXX50E",
+        "name": "Euro Stoxx 50"
+      }
+    ]
+  }
+}

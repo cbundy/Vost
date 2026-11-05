@@ -136,3 +136,5 @@ Pick **Pine Script** in the Backtest panel to backtest a Pine v6 `strategy()` sc
 ## Strategy maker (research)
 
 A study of a small, local, trainable (non-LLM) tool that would recommend indicators and settings from entries and exits the user highlights is in [spikes/strategy-maker/README.md](spikes/strategy-maker/README.md). The first part is built: the optional `/strategy-maker` page, which loads candles on a chart of its own and is kept apart from the rest of the app (see [the guide page](guide/strategy-maker.md)). The recommending itself is not built yet.
+
+A second study, [spikes/strategy-search/README.md](spikes/strategy-search/README.md), swept the six built-in families over the top crypto, stocks and indices on every timeframe for strategies that hit 75% at R:R 1 or 50% at R:R 4, and checked what survives on unseen data and against shuffled-return copies.

@@ -1,0 +1,115 @@
+Strategy search report (issue 409). Targets: A = hit >= 75% and R:R >= 1, B = hit >= 50% and R:R >= 4.
+"met" = target reached on the first 70% of bars with >= 30 trades; "held" = same target on the last 30% with >= 10 trades.
+Combinations per series: 32076 (1782 signal sets x 18 exits). $1000 start, 2% risked at the stop, fees 10 bps and slippage 5 bps per side.
+
+By group (real data)
+key               series  tooShort      combos    metA    metB   heldA   heldB  series w/ held
+crypto-cap           207        49     5741604       4     101       0       0               0
+crypto-volume        270        66     7377480       4     104       0       0               0
+indices               80        22     2566080      31     151       6       3               2
+stocks-cap           240        65     7569936      83     702       0     227               4
+stocks-volume        240        79     7185024      14     533       0     226               3
+
+Distinct market-timeframe series: 817 of 1037 (the lists overlap)
+
+By timeframe (distinct series)
+key               series  tooShort      combos    metA    metB   heldA   heldB  series w/ held
+1m                    98         1     3111372       0       0       0       0               0
+5m                    98         0     3143448       0       0       0       0               0
+15m                   98        19     3143448       0       0       0       0               0
+30m                   98        65     3143448       0       0       0       0               0
+1h                    98         0     3143448       9       0       0       0               0
+4h                    33         1     1058508       0       0       0       0               0
+1d                    98         9     3015144      32     207       0       1               1
+1w                    98        45     2758536      85     796       6     230               6
+1M                    98        86     1700028       0       0       0       0               0
+
+Total (distinct series)
+key               series  tooShort      combos    metA    metB   heldA   heldB  series w/ held
+all                  817       226    24217380     126    1003       6     231               7
+
+Met and held results by family and direction (distinct series)
+key                         met     held   held %
+bollinger long               35        0      0.0
+donchian long                63        1      1.6
+ema_cross long              143        7      4.9
+ema_cross short               1        0      0.0
+macd_cross long             506      205     40.5
+rsi_reversion long           51        0      0.0
+rsi_reversion short           1        0      0.0
+sma_cross long              328       24      7.3
+sma_cross short               1        0      0.0
+
+Markets with the most held results (top 15)
+  NVDA          221 held
+  ^GSPC           8 held
+  AAPL            4 held
+  MSFT            1 held
+  MU              1 held
+  NFLX            1 held
+  ^NDX            1 held
+
+By market kind (distinct series)
+key               series  tooShort      combos    metA    metB   heldA   heldB  series w/ held
+crypto               297        73     8083152       4     104       0       0               0
+indices               80        22     2566080      31     151       6       3               2
+stocks               440       131    13568148      91     748       0     228               5
+
+Held results: 237 (237 also ended the last 30% above $1000)
+Position size the 2% risk needed, as a multiple of equity: held results median 0.06x, max 0.67x; all met results median 0.09x, max 0.94x
+Held results needing more than 1x equity (more than the app's backtester can place): 0 of 237
+
+Top 25 held results by final equity on the last 30%
+  indices ^GSPC 1w ema_cross long [fast=4 slow=42] stop 2.97% tp 14.85% | sel 30 trades hit 60.0 rr 4.30 $3396 | test 13 trades hit 53.8 rr 4.08 $1582 dd 6% | size 0.7x
+  stocks-cap NVDA 1w ema_cross long [fast=8 slow=10] stop 18.1% tp 90.5% | sel 32 trades hit 50.0 rr 4.37 $1822 | test 13 trades hit 53.8 rr 6.89 $1565 dd 4% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=8 slow=36 signal=13] stop 18.1% tp 90.5% | sel 35 trades hit 54.3 rr 5.09 $2168 | test 13 trades hit 69.2 rr 5.16 $1529 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=16 slow=28 signal=9] stop 18.1% tp 90.5% | sel 32 trades hit 56.3 rr 4.13 $1867 | test 12 trades hit 58.3 rr 7.92 $1513 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=18 slow=24 signal=9] stop 18.1% tp 90.5% | sel 32 trades hit 50.0 rr 4.57 $1809 | test 12 trades hit 58.3 rr 7.92 $1513 dd 2% | size 0.1x
+  indices ^GSPC 1w sma_cross long [fast=4 slow=34] stop 5.94% tp 29.7% | sel 38 trades hit 55.3 rr 4.08 $2316 | test 14 trades hit 57.1 rr 4.59 $1508 dd 2% | size 0.3x
+  stocks-cap NVDA 1w macd_cross long [fast=14 slow=28 signal=9] stop 18.1% tp 90.5% | sel 35 trades hit 51.4 rr 5.09 $1970 | test 12 trades hit 58.3 rr 7.36 $1504 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=14 slow=40 signal=9] stop 18.1% tp 90.5% | sel 32 trades hit 59.4 rr 4.43 $2058 | test 13 trades hit 61.5 rr 6.19 $1503 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=12 slow=24 signal=13] stop 18.1% tp 90.5% | sel 31 trades hit 51.6 rr 5.41 $1967 | test 12 trades hit 58.3 rr 7.16 $1502 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=18 slow=28 signal=9] stop 18.1% tp 90.5% | sel 31 trades hit 58.1 rr 5.15 $2101 | test 12 trades hit 58.3 rr 7.73 $1497 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=18 slow=20 signal=9] stop 18.1% tp 90.5% | sel 35 trades hit 51.4 rr 4.56 $1838 | test 13 trades hit 53.8 rr 7.95 $1496 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=8 slow=40 signal=13] stop 18.1% tp 90.5% | sel 34 trades hit 55.9 rr 4.09 $1864 | test 12 trades hit 58.3 rr 7.35 $1495 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=20 slow=32 signal=5] stop 18.1% tp 90.5% | sel 37 trades hit 56.8 rr 4.22 $2065 | test 13 trades hit 61.5 rr 6.14 $1494 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=10 slow=36 signal=13] stop 18.1% tp 90.5% | sel 30 trades hit 60.0 rr 5.05 $2100 | test 12 trades hit 58.3 rr 6.96 $1491 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=20 slow=28 signal=9] stop 18.1% tp 90.5% | sel 30 trades hit 60.0 rr 4.98 $2097 | test 12 trades hit 58.3 rr 7.11 $1489 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=20 slow=28 signal=5] stop 18.1% tp 90.5% | sel 39 trades hit 51.3 rr 4.08 $1916 | test 15 trades hit 53.3 rr 7.34 $1482 dd 3% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=6 slow=40 signal=13] stop 18.1% tp 90.5% | sel 37 trades hit 54.1 rr 4.01 $1965 | test 16 trades hit 56.3 rr 6.44 $1477 dd 3% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=10 slow=24 signal=13] stop 18.1% tp 90.5% | sel 35 trades hit 54.3 rr 4.07 $1852 | test 14 trades hit 57.1 rr 6.68 $1471 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=12 slow=28 signal=9] stop 18.1% tp 90.5% | sel 36 trades hit 55.6 rr 4.08 $1855 | test 15 trades hit 60.0 rr 5.12 $1464 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=16 slow=36 signal=5] stop 18.1% tp 90.5% | sel 39 trades hit 53.8 rr 4.70 $2186 | test 16 trades hit 50.0 rr 6.16 $1452 dd 3% | size 0.1x
+  stocks-cap NVDA 1w sma_cross long [fast=2 slow=26] stop 18.1% tp 90.5% | sel 34 trades hit 50.0 rr 4.22 $1698 | test 13 trades hit 53.8 rr 5.54 $1447 dd 2% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=20 slow=24 signal=5] stop 18.1% tp 90.5% | sel 41 trades hit 56.1 rr 4.18 $1915 | test 16 trades hit 56.3 rr 5.74 $1441 dd 3% | size 0.1x
+  stocks-cap NVDA 1w sma_cross long [fast=4 slow=14] stop 18.1% tp 90.5% | sel 38 trades hit 50.0 rr 4.70 $1966 | test 16 trades hit 50.0 rr 4.74 $1440 dd 4% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=18 slow=28 signal=5] stop 18.1% tp 90.5% | sel 40 trades hit 52.5 rr 4.16 $1921 | test 16 trades hit 56.3 rr 5.68 $1434 dd 3% | size 0.1x
+  stocks-cap NVDA 1w macd_cross long [fast=10 slow=32 signal=9] stop 18.1% tp 90.5% | sel 38 trades hit 52.6 rr 4.32 $1822 | test 17 trades hit 52.9 rr 4.95 $1428 dd 2% | size 0.1x
+
+Series with at least one held result: 7 of 817
+  ^GSPC      1w  2966 bars: held A 5, held B 3 (of 74 met)
+  ^NDX       1w  2145 bars: held A 1, held B 0 (of 49 met)
+  AAPL       1w  2396 bars: held A 0, held B 4 (of 69 met)
+  MSFT       1w  2122 bars: held A 0, held B 1 (of 23 met)
+  MU         1w  2215 bars: held A 0, held B 1 (of 23 met)
+  NVDA       1w  1451 bars: held A 0, held B 221 (of 366 met)
+  NFLX       1d  6153 bars: held A 0, held B 1 (of 7 met)
+Trades on the last 30% in held results: median 13, max 34
+
+Every held result for target A (hit >= 75% and R:R >= 1)
+  ^GSPC 1w sma_cross long [fast=22 slow=30] stop 11.9% tp 17.85% | sel 37 trades hit 78.4 rr 1.39 | test 12 trades hit 75.0 rr 1.27 $1148
+  ^GSPC 1w sma_cross long [fast=26 slow=34] stop 11.9% tp 11.9% | sel 30 trades hit 80.0 rr 1.27 | test 13 trades hit 76.9 rr 1.49 $1121
+  ^GSPC 1w sma_cross long [fast=26 slow=34] stop 11.9% tp 17.85% | sel 30 trades hit 76.7 rr 1.68 | test 13 trades hit 76.9 rr 2.10 $1188
+  ^GSPC 1w sma_cross long [fast=28 slow=34] stop 5.94% tp 5.94% | sel 35 trades hit 82.9 rr 1.02 | test 13 trades hit 76.9 rr 1.25 $1154
+  ^GSPC 1w sma_cross long [fast=28 slow=34] stop 5.94% tp 8.91% | sel 35 trades hit 80.0 rr 1.64 | test 13 trades hit 76.9 rr 1.67 $1229
+  ^NDX 1w donchian long [entry=10 exit=10] stop 7.91% tp 7.91% | sel 30 trades hit 80.0 rr 1.12 | test 13 trades hit 76.9 rr 1.05 $1146
+
+Too short for 30 selection-part trades in any combination: 226 of 817 distinct series; by timeframe: 15m 19, 1M 86, 1d 9, 1m 1, 1w 45, 30m 65, 4h 1
+Bars per timeframe (median over series): 1m 2482, 5m 1795, 15m 599, 30m 300, 1h 3493, 4h 13281, 1d 4339, 1w 901, 1M 208
+
+Chance baseline (shuffled-return copies of a seeded sample of the same series)
+  baseline series: 652 (markets: 78); real counterparts found: 652
+  shuffled         series  652 | met A     71 B    506 | held A     0 B    21 | series with held    5 (0.8%) | per series: met 0.88, held 0.032
+  real, same series series  652 | met A     94 B    879 | held A     6 B   226 | series with held    5 (0.8%) | per series: met 1.49, held 0.356
+  real, all series series  817 | met A    126 B   1003 | held A     6 B   231 | series with held    7 (0.9%) | per series: met 1.38, held 0.290
+  shuffled by timeframe: 1m held 0 of 78 series, 5m held 0 of 78 series, 15m held 0 of 78 series, 30m held 0 of 78 series, 1h held 0 of 78 series, 4h held 0 of 28 series, 1d held 4 of 78 series, 1w held 17 of 78 series, 1M held 0 of 78 series
