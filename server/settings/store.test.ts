@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -73,5 +73,51 @@ describe('createDocStore', () => {
     expect(await store.writable).toBe(true);
     await chmod(dir, 0o555);
     expect(await store.writable).toBe(false);
+  });
+
+  describe('putMany', () => {
+    it('writes every document', async () => {
+      const store = createDocStore({ dir, log: () => undefined });
+      await store.put('a', 1);
+      await store.putMany([['a', 2], ['b', 3]]);
+      expect(await store.list()).toEqual({ a: 2, b: 3 });
+      expect((await readdir(dir)).sort()).toEqual(['a.json', 'b.json']);
+    });
+
+    it('writes none when a temp file cannot be written, and leaves no temp behind', async () => {
+      let calls = 0;
+      const store = createDocStore({
+        dir,
+        log: () => undefined,
+        writeFile: async (file, text) => {
+          calls += 1;
+          if (calls === 3) throw new Error('disk full');
+          await writeFile(file, text);
+        },
+      });
+      await store.put('a', 'old');
+      calls = 0;
+      await expect(store.putMany([['a', 'new'], ['b', 1], ['c', 2]])).rejects.toThrow('disk full');
+      expect(await store.list()).toEqual({ a: 'old' });
+      expect(await readdir(dir)).toEqual(['a.json']);
+    });
+
+    it('puts back what it replaced when a rename fails', async () => {
+      const store = createDocStore({ dir, log: () => undefined });
+      await store.put('a', 'old');
+      // A non-empty folder where the third file belongs: its rename fails after two succeeded.
+      await mkdir(path.join(dir, 'c.json'));
+      await writeFile(path.join(dir, 'c.json', 'x'), '');
+      await expect(store.putMany([['a', 'new'], ['b', 1], ['c', 2]])).rejects.toThrow();
+      expect(await readFile(path.join(dir, 'a.json'), 'utf8')).toBe('"old"');
+      expect((await readdir(dir)).sort()).toEqual(['a.json', 'c.json']);
+    });
+
+    it('refuses a bad name or a non-JSON value before writing anything', async () => {
+      const store = createDocStore({ dir, log: () => undefined });
+      await expect(store.putMany([['a', 1], ['bad/name', 2]])).rejects.toThrow('Invalid document name');
+      await expect(store.putMany([['a', 1], ['b', undefined]])).rejects.toThrow('not JSON');
+      expect(await readdir(dir)).toEqual([]);
+    });
   });
 });

@@ -62,7 +62,7 @@ const LONG_TASK_LIMIT_MS = 200;
 
 export const strategyMaker: Scenario = {
   name: 'strategy-maker',
-  description: 'Strategy maker page (/strategy-maker): empty, a demo market, a CSV file, marking trades, finding a strategy in the background (progress, cancel, results, closest match, found trades on the chart); then the saved model, the Sets panel, the out-of-date notice, Retrain, export and import (a conflict kept as mine, a refused file); the actions bar on a result (Open in Backtest, Copy settings, Copy as Pine strategy, the Copied state and the by-hand textarea), then the main app opened on the hand-off address, its Strategy maker link and an unreadable address; proves it opens no live stream, no long task over 200 ms during a run, and the main app never requests its chunk',
+  description: 'Strategy maker page (/strategy-maker), its data kept on the server: empty, a demo market, a CSV file, marking trades, finding a strategy in the background (progress, cancel, results, closest match, found trades on the chart); then the saved model, the Sets panel, the out-of-date notice, Retrain, export and import (a conflict kept as mine, a refused file); the older browser database moved to the server once, and a brand-new browser on the same server showing the same sets and model; the actions bar on a result (Open in Backtest, Copy settings, Copy as Pine strategy, the Copied state and the by-hand textarea), then the main app opened on the hand-off address, its Strategy maker link and an unreadable address; proves it opens no live stream, no long task over 200 ms during a run, and the main app never requests its chunk',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -177,23 +177,9 @@ export const strategyMaker: Scenario = {
     const big = bigSet();
     const find = page.getByRole('button', { name: 'Find a strategy' });
     const cancel = page.getByRole('button', { name: 'Cancel' });
-    await ctx.step(`seed ${big.trades.length} marked trades on ${BIG_BARS} bars into the page's database and open the file`, async () => {
+    await ctx.step(`seed ${big.trades.length} marked trades on ${BIG_BARS} bars on the server and open the file`, async () => {
       if (big.trades.length < 30) throw new Error(`only ${big.trades.length} trades`);
-      await page.evaluate(
-        ({ candles, trades, name }) =>
-          new Promise<void>((resolve, reject) => {
-            const req = indexedDB.open('vost-strategy-maker');
-            req.onerror = () => reject(req.error);
-            req.onsuccess = () => {
-              const db = req.result;
-              const tx = db.transaction('highlightSets', 'readwrite');
-              tx.objectStore('highlightSets').put({ id: `csv|${name}`, version: 1, source: { kind: 'csv', name }, trades, candles, updatedAt: Date.now() });
-              tx.oncomplete = () => (db.close(), resolve());
-              tx.onerror = () => reject(tx.error);
-            };
-          }),
-        { candles: big.candles, trades: big.trades, name: BIG_NAME },
-      );
+      await ctx.strategyMaker.putSet({ id: `csv|${BIG_NAME}`, version: 1, source: { kind: 'csv', name: BIG_NAME }, trades: big.trades, candles: big.candles, updatedAt: Date.now() } as { id: string });
       await page.reload();
       await page.getByRole('heading', { name: 'Strategy maker' }).waitFor();
       await page.getByLabel('CSV file').setInputFiles({ name: BIG_NAME, mimeType: 'text/csv', buffer: Buffer.from(big.csv) });
@@ -379,17 +365,11 @@ export const strategyMaker: Scenario = {
       if (!file.model) throw new Error('the model was not exported');
       await ctx.writeText('export', `${file.sets.map((x) => `${x.id}: ${x.trades.length} trades`).join('\n')}\nmodel: yes\n`);
     });
-    await ctx.step('with the database cleared, importing the file brings the sets and the model back, once', async () => {
-      await page.evaluate(
-        () =>
-          new Promise<void>((resolve) => {
-            const q = indexedDB.deleteDatabase('vost-strategy-maker');
-            q.onsuccess = q.onerror = q.onblocked = () => resolve();
-          }),
-      );
+    await ctx.step('with the sets, the form and the model removed from the server, importing the file brings the sets and the model back, once', async () => {
+      await ctx.strategyMaker.reset();
       await page.reload();
       await page.getByRole('heading', { name: 'Sets' }).waitFor();
-      if ((await setRows.count()) !== 0) throw new Error('the database was not cleared');
+      if ((await setRows.count()) !== 0) throw new Error('the server data was not cleared');
       await importInput.setInputFiles({ name: 'vost-strategy-maker.json', mimeType: 'application/json', buffer: Buffer.from(exported) });
       await page.getByText(/^Imported \d+ new sets?/).waitFor({ timeout: 30_000 });
       await page.getByRole('heading', { name: 'Saved model' }).waitFor();
@@ -424,6 +404,56 @@ export const strategyMaker: Scenario = {
     });
     await page.getByRole('heading', { name: 'Sets' }).scrollIntoViewIfNeeded();
     await ctx.screenshot('import-refused');
+    await ctx.step('the browser database of an older version is moved to the server once, then gone', async () => {
+      await page.goto('/strategy-maker');
+      await page.getByRole('heading', { name: 'Sets' }).waitFor();
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            const req = indexedDB.open('vost-strategy-maker', 2);
+            req.onupgradeneeded = () => {
+              req.result.createObjectStore('highlightSets', { keyPath: 'id' });
+              req.result.createObjectStore('settings', { keyPath: 'id' });
+            };
+            req.onerror = () => reject(req.error);
+            req.onsuccess = () => {
+              const db = req.result;
+              const tx = db.transaction('highlightSets', 'readwrite');
+              const t0 = 1_700_000_000;
+              const trades = Array.from({ length: 3 }, (_, i) => ({ side: 'long', entryTime: t0 + i * 7200, exitTime: t0 + i * 7200 + 3600 }));
+              tx.objectStore('highlightSets').put({ id: 'csv|older.csv', version: 1, source: { kind: 'csv', name: 'older.csv' }, trades, candles: [], updatedAt: Date.now() });
+              tx.oncomplete = () => (db.close(), resolve());
+              tx.onerror = () => reject(tx.error);
+            };
+          }),
+      );
+      await page.reload();
+      await page.getByText(/^Moved 1 set from this browser to the server/).waitFor();
+      await page.waitForFunction((n) => document.querySelectorAll('.sm-set-list li').length === n, setCount + 1);
+      const left = await page.evaluate(async () => (await indexedDB.databases()).map((d) => d.name));
+      if (left.includes('vost-strategy-maker')) throw new Error('the browser database is still there');
+      if (!(await ctx.strategyMaker.setIds()).includes('csv|older.csv')) throw new Error('the server does not hold the moved set');
+    });
+    await page.getByRole('heading', { name: 'Sets' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('moved');
+    await ctx.step('a brand-new browser on the same server shows the same sets and the saved model', async () => {
+      const browser = page.context().browser();
+      if (!browser) throw new Error('no browser');
+      const fresh = await browser.newContext({ viewport: page.viewportSize() ?? undefined, baseURL: new URL(page.url()).origin });
+      try {
+        const other = await fresh.newPage();
+        await other.goto('/strategy-maker');
+        await other.getByRole('heading', { name: 'Saved model' }).waitFor();
+        await other.waitForFunction((n) => document.querySelectorAll('.sm-set-list li').length === n, setCount + 1);
+        await other.getByRole('button', { name: `Open ${BIG_NAME}` }).waitFor();
+        const dbs = await other.evaluate(async () => (await indexedDB.databases()).map((d) => d.name));
+        if (dbs.includes('vost-strategy-maker')) throw new Error('the new browser made a database');
+        await other.getByRole('heading', { name: 'Sets' }).scrollIntoViewIfNeeded();
+        await ctx.screenshot('fresh-browser', other);
+      } finally {
+        await fresh.close();
+      }
+    });
     await ctx.step('no horizontal page scroll', async () => {
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (over > 0) throw new Error(`page scrolls horizontally by ${over}px at ${viewport}`);

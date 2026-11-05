@@ -13,7 +13,7 @@ interface ModelProps {
   onRetrain: () => void;
 }
 
-/** The model kept in this browser, with a notice when new or changed marks have made it out of date. */
+/** The model kept on the Vost server, with a notice when new or changed marks have made it out of date. */
 export function SavedModel({ result, insights, freshness, running, shownBelow, onRetrain }: ModelProps) {
   const stale = freshness && !freshness.upToDate;
   return (
@@ -44,7 +44,7 @@ interface ConflictProps {
   onCancel: () => void;
 }
 
-/** One row per set that differs between this browser and the imported file. */
+/** One row per set that differs between yours and the imported file. */
 export function ImportConflicts({ conflicts, choices, name, onChoose, onApply, onCancel }: ConflictProps) {
   return (
     <section className="sm-conflicts" aria-label="Import conflicts">
