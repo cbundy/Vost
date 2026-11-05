@@ -16,7 +16,7 @@ import {
   type Side,
   type Tool,
 } from './brush';
-import { openStore, setId, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
+import { openStore, setId, whyNotSaved, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
 import { buildExport, EXPORT_FILE, parseExchange, planImport, setsToWrite, setStamp, type ImportPlan } from './exchange';
 import { SetsPanel, type SetRow } from './SetsPanel';
 import { ImportConflicts, SavedModel } from './SavedModel';
@@ -66,6 +66,13 @@ export default function StrategyMakerPage() {
   const [source, setSource] = useState<SetSource | null>(null);
   const [focus, setFocus] = useState<FocusRequest | null>(null);
   const [storeState, setStoreState] = useState<'pending' | 'ok' | 'none'>('pending');
+  /** Why marks are not being saved, once `storeState` is 'none'. */
+  const [storeWhy, setStoreWhy] = useState(whyNotSaved(null));
+  /** A write failed: the page then says why, and the brush keeps working. */
+  const storeFailed = useCallback((e: unknown) => {
+    setStoreWhy(whyNotSaved(e));
+    setStoreState('none');
+  }, []);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [sources, setSources] = useState<Record<string, SetSource>>({});
   const [form, setForm] = useState<FindForm>(defaultForm);
@@ -99,7 +106,8 @@ export default function StrategyMakerPage() {
     }
   }, []);
 
-  const flush = useCallback(() => {
+  /** Writes the pending marks now; `leaving` sends them as the page goes away (a small body goes out as a keepalive request). */
+  const flush = useCallback((leaving = false) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     const p = pending.current;
@@ -118,16 +126,24 @@ export default function StrategyMakerPage() {
       ...(p.source.kind === 'csv' ? { candles: p.candles } : {}),
     };
     setCounts((c) => ({ ...c, [id]: p.trades.length }));
-    lastWrite.current = (p.trades.length || p.source.kind === 'csv' ? st.put(rec) : st.delete(id)).then(
+    lastWrite.current = (p.trades.length || p.source.kind === 'csv' ? st.put(rec, { keepalive: leaving }) : st.delete(id, { keepalive: leaving })).then(
       () => void refreshSaved(),
-      () => setStoreState('none'),
+      storeFailed,
     );
-  }, [refreshSaved]);
+  }, [refreshSaved, storeFailed]);
 
   useEffect(() => {
     document.title = 'Strategy maker - Vost';
     let gone = false;
-    storeReady.current = openStore().then(async (st) => {
+    const onHide = () => flush(true);
+    window.addEventListener('pagehide', onHide);
+    storeReady.current = openStore({
+      onMoved: (m) =>
+        setNote({
+          error: false,
+          text: `Moved ${m.sets} set${m.sets === 1 ? '' : 's'} from this browser to the server.${m.files.length ? ` What the server already held differently was kept aside in ${m.files.join(', ')} in its data folder.` : ''}`,
+        }),
+    }).then(async (st) => {
       if (gone) return st?.close();
       store.current = st;
       setStoreState(st ? 'ok' : 'none');
@@ -153,6 +169,7 @@ export default function StrategyMakerPage() {
     });
     return () => {
       gone = true;
+      window.removeEventListener('pagehide', onHide);
       if (inputsTimer.current) clearTimeout(inputsTimer.current);
       abort.current?.abort();
       flush();
@@ -167,7 +184,7 @@ export default function StrategyMakerPage() {
     pending.current = { source, trades: [...history.present], candles: candlesRef.current };
     setSources((m) => (m[setId(source)] ? m : { ...m, [setId(source)]: source }));
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, SAVE_DELAY_MS);
+    timer.current = setTimeout(() => flush(), SAVE_DELAY_MS);
   }, [history.present, source, flush]);
 
   // The form is kept in the page's own database a moment after each change, once the saved one has been read.
@@ -346,8 +363,8 @@ export default function StrategyMakerPage() {
     try {
       const set = await store.current?.get(sid);
       if (set) await store.current?.put({ ...set, name });
-    } catch {
-      setStoreState('none');
+    } catch (e) {
+      storeFailed(e);
     }
     await refreshSaved();
   };
@@ -369,8 +386,8 @@ export default function StrategyMakerPage() {
     await lastWrite.current;
     try {
       await store.current?.delete(sid);
-    } catch {
-      setStoreState('none');
+    } catch (e) {
+      storeFailed(e);
     }
     await refreshSaved();
   };
@@ -379,7 +396,7 @@ export default function StrategyMakerPage() {
     setNote(null);
     await storeReady.current;
     const st = store.current;
-    if (!st) return setNote({ error: true, text: 'Saving is not available in this browser, so there is nothing to export.' });
+    if (!st) return setNote({ error: true, text: `${storeWhy}, so there is nothing to export.` });
     flush();
     await lastWrite.current;
     try {
@@ -428,7 +445,7 @@ export default function StrategyMakerPage() {
     if (!parsed.ok) return setNote({ error: true, text: `Nothing was imported. ${parsed.error}` });
     await storeReady.current;
     const st = store.current;
-    if (!st) return setNote({ error: true, text: 'Saving is not available in this browser, so nothing can be imported.' });
+    if (!st) return setNote({ error: true, text: `${storeWhy}, so nothing can be imported.` });
     flush();
     await lastWrite.current;
     try {
@@ -483,7 +500,7 @@ export default function StrategyMakerPage() {
     <div className="sm-page">
       <header className="sm-head">
         <h1>Strategy maker</h1>
-        <p>Pick a market, a saved dataset or a CSV file to look at its candles. Everything stays in this browser.</p>
+        <p>Pick a market, a saved dataset or a CSV file to look at its candles. Your marks and the saved model are kept on the Vost server.</p>
       </header>
       <section className="sm-picker" aria-label="Data">
         <div className="sm-group">
@@ -574,7 +591,7 @@ export default function StrategyMakerPage() {
               </div>
             </div>
             {storeState === 'none' && (
-              <p className="sm-note sm-warn">Saving is not available in this browser, so your marks will not be kept after you leave the page.</p>
+              <p className="sm-note sm-warn">{storeWhy}, so your marks will not be kept after you leave the page.</p>
             )}
             {find.found.length > 0 && (
               <div className="sm-legend" aria-label="Legend">

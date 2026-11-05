@@ -1,14 +1,15 @@
-/** The strategy maker's own IndexedDB store of highlight sets, one record per chart source. */
+/**
+ * The strategy maker's store of highlight sets, its find form and its trained model. They live on the
+ * Vost server (`/api/strategy-maker`), so every browser on the same server sees them; data an older
+ * version kept in the browser's own IndexedDB is moved there once (see migrate.ts).
+ */
 import type { Candle } from '../../../shared/market.ts';
 import type { HighlightTrade } from './brush';
 import type { TrainResult } from './engine';
+import { migrateBrowserData, type MoveNotice } from './migrate';
 
-export const DB_NAME = 'vost-strategy-maker';
-export const SETS = 'highlightSets';
-export const SETTINGS = 'settings';
 export const INPUTS_ID = 'find-inputs';
 export const MODEL_ID = 'model';
-export const DB_VERSION = 2;
 
 export type SetSource =
   | { kind: 'provider'; provider: string; symbol: string; timeframe: string }
@@ -64,102 +65,109 @@ export interface ModelRecord {
   trainedOn: Array<{ id: string; trades: number; stamp: string }>;
 }
 
+/** Options of a write. */
+export interface WriteOptions {
+  /** The page is going away: send it as a `keepalive` request when the body is small enough for the browser to allow that. */
+  keepalive?: boolean;
+}
+
 export interface Store {
   getModel(): Promise<ModelRecord | undefined>;
   putModel(record: ModelRecord): Promise<void>;
-  /** Writes the sets and the model in one transaction: all of it or none of it. */
+  /** Writes the sets and the model: all of it or none of it. */
   importAll(sets: HighlightSet[], model: ModelRecord | null): Promise<void>;
   getInputs(): Promise<FindInputsRecord | undefined>;
   putInputs(form: FindForm): Promise<void>;
   get(id: string): Promise<HighlightSet | undefined>;
-  put(set: HighlightSet): Promise<void>;
-  delete(id: string): Promise<void>;
+  put(set: HighlightSet, opts?: WriteOptions): Promise<void>;
+  delete(id: string, opts?: WriteOptions): Promise<void>;
   list(): Promise<HighlightSet[]>;
   close(): void;
 }
 
-const done = <T>(req: IDBRequest<T>): Promise<T> =>
-  new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+/** A request the server refused or failed; `message` is the server's own reason when it gave one. */
+export class StoreError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'StoreError';
+  }
+}
 
-const txDone = (tx: IDBTransaction): Promise<void> =>
-  new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error);
-  });
+export const UNREACHABLE = 'the Vost server cannot be reached';
+/** Why a write failed, for the page: the server's reason for a refusal, else that the server is out of reach. */
+export const whyNotSaved = (e: unknown): string => `Marks are not saved: ${e instanceof StoreError && e.status === 503 ? e.message : UNREACHABLE}`;
 
-/** Opens the store; null when IndexedDB is missing or fails to open (the marks then live for the session only). */
-export async function openStore(): Promise<Store | null> {
-  let db: IDBDatabase;
+const API = '/api/strategy-maker';
+const JSON_HEADERS = { 'content-type': 'application/json' };
+/** The browser caps the bodies of `keepalive` requests at 64 KB. */
+export const KEEPALIVE_LIMIT = 64 * 1024;
+
+export interface StoreResponse {
+  status: number;
+  json: () => Promise<unknown>;
+}
+/** `fetch`, narrowed to what the store needs; tests inject their own. */
+export type StoreTransport = (url: string, init: RequestInit) => Promise<StoreResponse>;
+
+export interface OpenOptions {
+  transport?: StoreTransport;
+  /** Called once when data the browser held was moved to the server. */
+  onMoved?: (notice: MoveNotice) => void;
+}
+
+/**
+ * Opens the store: first moves any data the browser still holds to the server, then checks the server
+ * answers. Null when it cannot be reached (a fetch that throws, or a 5xx): the marks then live for the
+ * session only.
+ */
+export async function openStore(opts: OpenOptions = {}): Promise<Store | null> {
+  const transport: StoreTransport = opts.transport ?? ((url, init) => fetch(url, init));
   try {
-    if (typeof indexedDB === 'undefined') return null;
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    // Each store is created only when missing, so a version 1 database keeps its highlight sets.
-    req.onupgradeneeded = () => {
-      const names = req.result.objectStoreNames;
-      if (!names.contains(SETS)) req.result.createObjectStore(SETS, { keyPath: 'id' });
-      if (!names.contains(SETTINGS)) req.result.createObjectStore(SETTINGS, { keyPath: 'id' });
-    };
-    req.onblocked = () => undefined;
-    db = await done(req);
+    const moved = await migrateBrowserData(transport);
+    if (moved) opts.onMoved?.(moved);
+    const probe = await transport(`${API}/inputs`, { method: 'GET' });
+    if (probe.status >= 500) return null;
   } catch {
     return null;
   }
-  db.onversionchange = () => db.close();
-  const os = (mode: IDBTransactionMode) => {
-    const tx = db.transaction(SETS, mode);
-    return { tx, store: tx.objectStore(SETS) };
-  };
-  const settings = (mode: IDBTransactionMode) => {
-    const tx = db.transaction(SETTINGS, mode);
-    return { tx, store: tx.objectStore(SETTINGS) };
-  };
-  return {
-    getModel: () => done(settings('readonly').store.get(MODEL_ID) as IDBRequest<ModelRecord | undefined>),
-    putModel: async (record) => {
-      const { tx, store } = settings('readwrite');
-      store.put(record);
-      await txDone(tx);
-    },
-    importAll: async (sets, model) => {
-      const tx = db.transaction([SETS, SETTINGS], 'readwrite');
-      const finished = txDone(tx);
-      finished.catch(() => undefined);
+
+  async function call(method: string, path: string, body?: unknown, keepalive = false): Promise<StoreResponse> {
+    const text = body === undefined ? undefined : JSON.stringify(body);
+    // The server wants a JSON content type on every write, a DELETE included.
+    const init: RequestInit = { method, ...(method === 'GET' ? {} : { headers: JSON_HEADERS }), ...(text === undefined ? {} : { body: text }) };
+    if (keepalive && (text?.length ?? 0) <= KEEPALIVE_LIMIT) init.keepalive = true;
+    const res = await transport(`${API}/${path}`, init);
+    if (res.status >= 400 && !(res.status === 404 && method !== 'PUT')) {
+      let reason = `The server answered ${res.status}`;
       try {
-        const setsStore = tx.objectStore(SETS);
-        for (const set of sets) setsStore.put(set);
-        if (model) tx.objectStore(SETTINGS).put(model);
-      } catch (e) {
-        try {
-          tx.abort();
-        } catch {
-          /* already finished */
-        }
-        throw e;
+        const err = (await res.json()) as { error?: unknown };
+        if (typeof err?.error === 'string') reason = err.error;
+      } catch {
+        /* no JSON reason */
       }
-      await finished;
-    },
-    getInputs: () => done(settings('readonly').store.get(INPUTS_ID) as IDBRequest<FindInputsRecord | undefined>),
-    putInputs: async (form) => {
-      const { tx, store } = settings('readwrite');
-      store.put({ id: INPUTS_ID, version: 1, form } satisfies FindInputsRecord);
-      await txDone(tx);
-    },
-    get: (id) => done(os('readonly').store.get(id) as IDBRequest<HighlightSet | undefined>),
-    put: async (set) => {
-      const { tx, store } = os('readwrite');
-      store.put(set);
-      await txDone(tx);
-    },
-    delete: async (id) => {
-      const { tx, store } = os('readwrite');
-      store.delete(id);
-      await txDone(tx);
-    },
-    list: () => done(os('readonly').store.getAll() as IDBRequest<HighlightSet[]>),
-    close: () => db.close(),
+      throw new StoreError(res.status, reason);
+    }
+    return res;
+  }
+  const read = async <T>(path: string): Promise<T | undefined> => {
+    const res = await call('GET', path);
+    return res.status === 404 ? undefined : ((await res.json()) as T);
+  };
+  const setPath = (id: string) => `sets/${encodeURIComponent(id)}`;
+
+  return {
+    getModel: () => read<ModelRecord>('model'),
+    putModel: async (record) => void (await call('PUT', 'model', record)),
+    importAll: async (sets, model) => void (await call('POST', 'import', { sets, model })),
+    getInputs: () => read<FindInputsRecord>('inputs'),
+    putInputs: async (form) => void (await call('PUT', 'inputs', { id: INPUTS_ID, version: 1, form } satisfies FindInputsRecord)),
+    get: (id) => read<HighlightSet>(setPath(id)),
+    put: async (set, o) => void (await call('PUT', setPath(set.id), set, o?.keepalive)),
+    delete: async (id, o) => void (await call('DELETE', setPath(id), undefined, o?.keepalive)),
+    list: async () => ((await read<{ sets: HighlightSet[] }>('sets'))?.sets ?? []),
+    close: () => undefined,
   };
 }

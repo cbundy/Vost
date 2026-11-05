@@ -33,6 +33,15 @@ export interface ScenarioContext {
     get(name: string): Promise<unknown>;
     put(name: string, value: unknown): Promise<void>;
   };
+  /** The server's strategy maker data (marked trades, find form, trained model). */
+  strategyMaker: {
+    /** Stores a set of marked trades. */
+    putSet(set: { id: string }): Promise<void>;
+    /** The ids of the stored sets. */
+    setIds(): Promise<string[]>;
+    /** Deletes every set, the find form and the model. */
+    reset(): Promise<void>;
+  };
 }
 
 export interface Scenario {
@@ -102,6 +111,8 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
   // Every run starts from the same server state: no document is left from an earlier run, and the prefs are seeded.
   await settings.reset();
   await settings.put('prefs.v1', { providerId: 'demo', symbol: 'DEMO', timeframe: '1d' });
+  const strategyMaker = strategyMakerClient(baseUrl);
+  await strategyMaker.reset();
   const page = await context.newPage();
   const written: string[] = [];
 
@@ -126,6 +137,7 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
     upstream,
     requests,
     settings,
+    strategyMaker,
     async writeText(name, text) {
       const file = path.join(outDir, `${[scenario.name, name, viewport].join('-')}.txt`);
       await writeFile(file, text);
@@ -183,6 +195,29 @@ export function settingsClient(baseUrl: string) {
       if (!res.ok) throw new Error(`GET /api/settings answered ${res.status}`);
       const { values } = (await res.json()) as { values: Record<string, unknown> };
       for (const name of Object.keys(values)) await write('DELETE', name);
+    },
+  };
+}
+
+/** Talks to `/api/strategy-maker` of the server under test. */
+export function strategyMakerClient(baseUrl: string) {
+  const url = (rest: string) => `${baseUrl}/api/strategy-maker/${rest}`;
+  const write = async (method: string, rest: string, body?: unknown) => {
+    const res = await fetch(url(rest), { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    if (!res.ok && !(method === 'DELETE' && res.status === 404)) throw new Error(`${method} /api/strategy-maker/${rest} answered ${res.status}`);
+  };
+  const setIds = async (): Promise<string[]> => {
+    const res = await fetch(url('sets'));
+    if (!res.ok) throw new Error(`GET /api/strategy-maker/sets answered ${res.status}`);
+    return ((await res.json()) as { sets: Array<{ id: string }> }).sets.map((x) => x.id);
+  };
+  return {
+    putSet: (set: { id: string }) => write('PUT', `sets/${encodeURIComponent(set.id)}`, set),
+    setIds,
+    async reset(): Promise<void> {
+      for (const id of await setIds()) await write('DELETE', `sets/${encodeURIComponent(id)}`);
+      await write('DELETE', 'inputs');
+      await write('DELETE', 'model');
     },
   };
 }

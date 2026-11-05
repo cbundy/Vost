@@ -20,6 +20,11 @@ export interface DocStore {
   put(name: string, value: unknown): Promise<void>;
   /** Stores a document only when none exists, atomically with other writes; false when one does. */
   putIfAbsent(name: string, value: unknown): Promise<boolean>;
+  /**
+   * Stores several documents all or none: every temp file is written first and the renames start only
+   * when all of them succeeded; a failure removes the temps and puts back any file already replaced.
+   */
+  putMany(entries: Array<[name: string, value: unknown]>): Promise<void>;
   /** Removes a document; false when there was none. */
   remove(name: string): Promise<boolean>;
   /** Whether the folder can be written (checked now). */
@@ -30,10 +35,13 @@ export interface DocStoreDeps {
   dir: string;
   now?: () => number;
   log?: (line: string) => void;
+  /** Test seam: writes a temp file (default `fs.writeFile`). */
+  writeFile?: (file: string, text: string) => Promise<void>;
 }
 
 export function createDocStore(deps: DocStoreDeps): DocStore {
   const now = deps.now ?? Date.now;
+  const writeText = deps.writeFile ?? ((file: string, text: string) => writeFile(file, text));
   const log = deps.log ?? ((line: string) => console.log(line));
   let queue: Promise<unknown> = Promise.resolve();
   let seq = 0;
@@ -79,10 +87,45 @@ export function createDocStore(deps: DocStoreDeps): DocStore {
     await mkdir(deps.dir, { recursive: true });
     const tmp = `${file}.tmp-${process.pid}-${seq++}`;
     try {
-      await writeFile(tmp, text);
+      await writeText(tmp, text);
       await rename(tmp, file);
     } catch (err) {
       await unlink(tmp).catch(() => undefined);
+      throw err;
+    }
+  }
+
+  async function writeAll(entries: Array<[string, unknown]>): Promise<void> {
+    const items = entries.map(([name, value]) => {
+      const file = fileOf(name);
+      const text = JSON.stringify(value);
+      if (text === undefined) throw new Error('Value is not JSON');
+      return { file, text, tmp: `${file}.tmp-${process.pid}-${seq++}` };
+    });
+    if (items.length === 0) return;
+    await mkdir(deps.dir, { recursive: true });
+    const dropTemps = () => Promise.all(items.map((i) => unlink(i.tmp).catch(() => undefined)));
+    try {
+      for (const i of items) await writeText(i.tmp, i.text);
+    } catch (err) {
+      await dropTemps();
+      throw err;
+    }
+    // What each file holds now, to put back if a later rename fails.
+    const before = await Promise.all(items.map((i) => readFile(i.file, 'utf8').catch(() => null)));
+    let renamed = 0;
+    try {
+      for (const i of items) {
+        await rename(i.tmp, i.file);
+        renamed += 1;
+      }
+    } catch (err) {
+      await dropTemps();
+      for (let k = 0; k < renamed; k += 1) {
+        const old = before[k];
+        if (old === null) await unlink(items[k].file).catch(() => undefined);
+        else await writeFile(items[k].file, old).catch(() => undefined);
+      }
       throw err;
     }
   }
@@ -115,6 +158,10 @@ export function createDocStore(deps: DocStoreDeps): DocStore {
     async put(name, value) {
       fileOf(name);
       return serial(() => write(name, value));
+    },
+    async putMany(entries) {
+      for (const [name] of entries) fileOf(name);
+      return serial(() => writeAll(entries));
     },
     async putIfAbsent(name, value) {
       fileOf(name);

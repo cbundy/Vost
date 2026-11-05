@@ -96,7 +96,7 @@ export function SetsPanel({ rows, openId, busy, onOpen, onRename, onDelete, onEx
             e.target.value = '';
           }} />
         </label>
-        <span className="sm-note">Export saves every set and the model as one file; Import merges such a file into this browser.</span>
+        <span className="sm-note">Export saves every set and the model as one file; Import merges such a file into your sets.</span>
       </div>
     </section>
   );

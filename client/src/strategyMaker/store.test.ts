@@ -1,6 +1,20 @@
 import 'fake-indexeddb/auto';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DB_NAME, MODEL_ID, openStore, setId, SETS, SETTINGS, type FindForm, type HighlightSet, type ModelRecord, type Store } from './store';
+import { describe, expect, it } from 'vitest';
+import { DB_NAME } from './migrate';
+import {
+  KEEPALIVE_LIMIT,
+  MODEL_ID,
+  openStore,
+  setId,
+  StoreError,
+  whyNotSaved,
+  type FindForm,
+  type HighlightSet,
+  type ModelRecord,
+  type Store,
+  type StoreResponse,
+  type StoreTransport,
+} from './store';
 import type { TrainResult } from './engine';
 
 const trade = { side: 'long' as const, entryTime: 100, exitTime: 400 };
@@ -14,22 +28,49 @@ const mk = (source: HighlightSet['source'], extra: Partial<HighlightSet> = {}): 
   ...extra,
 });
 
-const opened: Store[] = [];
+const res = (status: number, body?: unknown): StoreResponse => ({ status, json: async () => body });
 
-afterEach(async () => {
-  for (const s of opened.splice(0)) s.close();
-  vi.unstubAllGlobals();
-  await new Promise<void>((r) => {
-    const q = indexedDB.deleteDatabase(DB_NAME);
-    q.onsuccess = q.onerror = q.onblocked = () => r();
-  });
-});
+interface Call {
+  method: string;
+  url: string;
+  init: RequestInit;
+}
 
-async function open(): Promise<Store> {
-  const s = await openStore();
-  if (!s) throw new Error('store should open');
-  opened.push(s);
-  return s;
+/** A server that keeps what it is sent, as the real one does, and records every request. */
+function fakeServer(): { transport: StoreTransport; calls: Call[]; sets: Map<string, unknown>; docs: Map<string, unknown>; fail: { status: number; error?: string } | null; setFail(f: { status: number; error?: string } | null): void } {
+  const sets = new Map<string, unknown>();
+  const docs = new Map<string, unknown>();
+  const calls: Call[] = [];
+  const state = {
+    fail: null as { status: number; error?: string } | null,
+  };
+  const transport: StoreTransport = async (url, init) => {
+    const method = init.method ?? 'GET';
+    calls.push({ method, url, init });
+    const rest = url.replace('/api/strategy-maker/', '');
+    const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+    if (method !== 'GET' && state.fail) return res(state.fail.status, { error: state.fail.error ?? 'no' });
+    if (method !== 'GET' && !(init.headers as Record<string, string> | undefined)?.['content-type']) return res(415, { error: 'json' });
+    if (rest === 'sets') return res(200, { sets: [...sets.values()] });
+    if (rest === 'import') {
+      for (const s of body.sets) sets.set(s.id, s);
+      if (body.model) docs.set('model', body.model);
+      return res(204);
+    }
+    const setMatch = /^sets\/(.*)$/.exec(rest);
+    const [map, key] = setMatch ? [sets, decodeURIComponent(setMatch[1]!)] : [docs, rest];
+    if (method === 'GET') return map.has(key) ? res(200, map.get(key)) : res(404, { error: 'none' });
+    if (method === 'PUT') return map.set(key, body), res(204);
+    if (method === 'DELETE') return map.delete(key) ? res(204) : res(404, { error: 'none' });
+    return res(405);
+  };
+  return { transport, calls, sets, docs, get fail() { return state.fail; }, setFail: (f) => void (state.fail = f) };
+}
+
+async function open(server = fakeServer()): Promise<{ store: Store; server: ReturnType<typeof fakeServer> }> {
+  const store = await openStore({ transport: server.transport });
+  if (!store) throw new Error('store should open');
+  return { store, server };
 }
 
 describe('setId', () => {
@@ -40,9 +81,9 @@ describe('setId', () => {
   });
 });
 
-describe('store', () => {
+describe('server-backed store', () => {
   it('saves and loads by source, and updates in place', async () => {
-    const s = await open();
+    const { store: s } = await open();
     await s.put(mk(provSource));
     expect((await s.get(setId(provSource)))?.trades).toEqual([trade]);
     await s.put(mk(provSource, { trades: [], updatedAt: 2 }));
@@ -51,46 +92,31 @@ describe('store', () => {
     expect(got?.updatedAt).toBe(2);
     expect(await s.list()).toHaveLength(1);
   });
+
   it('lists every set and deletes one', async () => {
-    const s = await open();
+    const { store: s } = await open();
     await s.put(mk(provSource));
     await s.put(mk({ kind: 'library', datasetId: 'd1' }));
     expect(await s.list()).toHaveLength(2);
     await s.delete(setId(provSource));
     expect((await s.list()).map((x) => x.source.kind)).toEqual(['library']);
     expect(await s.get(setId(provSource))).toBeUndefined();
+    await expect(s.delete(setId(provSource))).resolves.toBeUndefined();
   });
-  it('keeps the candles of a csv set', async () => {
-    const s = await open();
+
+  it('encodes the id in the path and keeps the candles of a csv set', async () => {
+    const { store: s, server } = await open();
     const candles = [{ time: 1, open: 1, high: 2, low: 0, close: 1, volume: 3 }];
-    await s.put(mk({ kind: 'csv', name: 'a.csv' }, { candles }));
-    expect((await s.get(setId({ kind: 'csv', name: 'a.csv' })))?.candles).toEqual(candles);
+    const src = { kind: 'csv' as const, name: 'a b/c|d.csv' };
+    await s.put(mk(src, { candles }));
+    expect(server.calls.at(-1)!.url).toBe(`/api/strategy-maker/sets/${encodeURIComponent('csv|a b/c|d.csv')}`);
+    expect((await s.get(setId(src)))?.candles).toEqual(candles);
   });
-  it('survives opening again (a reload)', async () => {
-    await (await open()).put(mk(provSource));
-    expect((await (await open()).get(setId(provSource)))?.trades).toEqual([trade]);
-  });
-  it('gives null, not a throw, when indexedDB.open throws', async () => {
-    vi.stubGlobal('indexedDB', {
-      open: () => {
-        throw new Error('blocked');
-      },
-    });
-    expect(await openStore()).toBeNull();
-  });
-  it('gives null when the open request errors', async () => {
-    vi.stubGlobal('indexedDB', {
-      open: () => {
-        const req: Record<string, unknown> = { error: new Error('denied') };
-        queueMicrotask(() => (req.onerror as () => void)());
-        return req;
-      },
-    });
-    expect(await openStore()).toBeNull();
-  });
-  it('gives null when indexedDB is missing', async () => {
-    vi.stubGlobal('indexedDB', undefined);
-    expect(await openStore()).toBeNull();
+
+  it('sees what another browser saved (a new store on the same server)', async () => {
+    const server = fakeServer();
+    await (await open(server)).store.put(mk(provSource));
+    expect((await (await open(server)).store.get(setId(provSource)))?.trades).toEqual([trade]);
   });
 
   const form: FindForm = {
@@ -106,39 +132,12 @@ describe('store', () => {
     setIds: null,
   };
   it('round-trips the find inputs, and has none at first', async () => {
-    const s = await open();
+    const { store: s } = await open();
     expect(await s.getInputs()).toBeUndefined();
     await s.putInputs(form);
     await s.putInputs({ ...form, minRR: '2', setIds: ['csv|a.csv'] });
     expect(await s.getInputs()).toEqual({ id: 'find-inputs', version: 1, form: { ...form, minRR: '2', setIds: ['csv|a.csv'] } });
     expect(await s.list()).toEqual([]);
-  });
-  it('opens a version 1 database at version 2 with its sets intact and an empty settings store', async () => {
-    const v1 = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(SETS, { keyPath: 'id' });
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-    expect([...v1.objectStoreNames]).toEqual([SETS]);
-    const tx = v1.transaction(SETS, 'readwrite');
-    tx.objectStore(SETS).put(mk(provSource));
-    await new Promise<void>((r) => (tx.oncomplete = () => r()));
-    v1.close();
-    const s = await open();
-    expect((await s.list()).map((x) => x.id)).toEqual([setId(provSource)]);
-    expect(await s.getInputs()).toBeUndefined();
-    await s.putInputs(form);
-    expect((await s.getInputs())?.form).toEqual(form);
-    const names = await new Promise<string[]>((resolve) => {
-      const req = indexedDB.open(DB_NAME);
-      req.onsuccess = () => {
-        const n = [...req.result.objectStoreNames];
-        req.result.close();
-        resolve(n);
-      };
-    });
-    expect(names.sort()).toEqual([SETS, SETTINGS].sort());
   });
 
   const record = (stamp = 'abc'): ModelRecord => ({
@@ -148,48 +147,99 @@ describe('store', () => {
     trainedOn: [{ id: setId(provSource), trades: 1, stamp }],
   });
   it('round-trips the model record, and has none at first', async () => {
-    const s = await open();
+    const { store: s } = await open();
     expect(await s.getModel()).toBeUndefined();
     await s.putModel(record());
     await s.putModel(record('def'));
     expect(await s.getModel()).toEqual(record('def'));
-    // the find inputs share the settings store and are untouched
     expect(await s.getInputs()).toBeUndefined();
   });
-  it('importAll writes the sets and the model together', async () => {
-    const s = await open();
+
+  it('importAll sends the sets and the model in one request', async () => {
+    const { store: s, server } = await open();
     await s.importAll([mk(provSource), mk({ kind: 'library', datasetId: 'd1' })], record());
+    expect(server.calls.filter((c) => c.url.endsWith('/import'))).toHaveLength(1);
     expect((await s.list()).map((x) => x.id).sort()).toEqual([setId(provSource), 'library|d1'].sort());
     expect(await s.getModel()).toEqual(record());
     await s.importAll([], null);
     expect(await s.getModel()).toEqual(record());
   });
-  it('a failed importAll leaves both stores as they were', async () => {
-    const s = await open();
+
+  it('a refused importAll rejects and leaves everything as it was', async () => {
+    const { store: s, server } = await open();
     await s.put(mk(provSource, { updatedAt: 1 }));
     await s.putModel(record('old'));
-    const broken = { ...record('new'), result: { fn: () => 1 } } as unknown as ModelRecord;
-    await expect(s.importAll([mk(provSource, { updatedAt: 9 }), mk({ kind: 'library', datasetId: 'd1' })], broken)).rejects.toThrow();
+    server.setFail({ status: 503, error: 'Check VOST_DATA_DIR' });
+    await expect(s.importAll([mk(provSource, { updatedAt: 9 })], record('new'))).rejects.toThrow('Check VOST_DATA_DIR');
+    server.setFail(null);
     expect((await s.list()).map((x) => [x.id, x.updatedAt])).toEqual([[setId(provSource), 1]]);
-    expect((await s.getModel())?.trainedOn[0].stamp).toBe('old');
+    expect((await s.getModel())?.trainedOn[0]!.stamp).toBe('old');
   });
+
   it('a rename keeps the id', async () => {
-    const s = await open();
+    const { store: s } = await open();
     await s.put(mk(provSource));
     const got = await s.get(setId(provSource));
     await s.put({ ...(got as HighlightSet), name: 'My BTC' });
     const after = await s.list();
     expect(after).toHaveLength(1);
-    expect(after[0].id).toBe(setId(provSource));
-    expect(after[0].name).toBe('My BTC');
+    expect(after[0]!.id).toBe(setId(provSource));
+    expect(after[0]!.name).toBe('My BTC');
   });
-  it('a version 2 database without a model opens and works', async () => {
-    const first = await open();
-    await first.put(mk(provSource));
-    first.close();
-    opened.pop();
-    const again = await open();
-    expect(await again.getModel()).toBeUndefined();
-    expect(await again.list()).toHaveLength(1);
+
+  it('a delete carries the JSON content type the server requires', async () => {
+    const { store: s, server } = await open();
+    await s.put(mk(provSource));
+    await expect(s.delete(setId(provSource))).resolves.toBeUndefined();
+    expect(server.sets.size).toBe(0);
+  });
+
+  it('close is a no-op', async () => {
+    const { store: s } = await open();
+    s.close();
+    expect(await s.list()).toEqual([]);
+  });
+});
+
+describe('keepalive writes', () => {
+  it('uses keepalive for a small body and a normal request for a big one', async () => {
+    const { store: s, server } = await open();
+    await s.put(mk(provSource), { keepalive: true });
+    expect(server.calls.at(-1)!.init.keepalive).toBe(true);
+    await s.put(mk(provSource), {});
+    expect(server.calls.at(-1)!.init.keepalive).toBeUndefined();
+    const big = mk({ kind: 'csv', name: 'big.csv' }, { candles: Array.from({ length: 2000 }, (_, i) => ({ time: i, open: 1, high: 2, low: 0, close: 1, volume: 3 })) });
+    expect(JSON.stringify(big).length).toBeGreaterThan(KEEPALIVE_LIMIT);
+    await s.put(big, { keepalive: true });
+    expect(server.calls.at(-1)!.init.keepalive).toBeUndefined();
+    await s.delete(setId(provSource), { keepalive: true });
+    expect(server.calls.at(-1)!.init.keepalive).toBe(true);
+  });
+});
+
+describe('openStore without a reachable server', () => {
+  it('gives null when the transport throws', async () => {
+    const transport: StoreTransport = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    expect(await openStore({ transport })).toBeNull();
+  });
+  it('gives null on a 5xx from the probe, and a store on a 404', async () => {
+    expect(await openStore({ transport: async () => res(502) })).toBeNull();
+    expect(await openStore({ transport: async () => res(404) })).not.toBeNull();
+  });
+  it('does not touch the browser database when there is none', async () => {
+    const before = await indexedDB.databases();
+    await open();
+    expect(await indexedDB.databases()).toEqual(before);
+    expect((await indexedDB.databases()).some((d) => d.name === DB_NAME)).toBe(false);
+  });
+});
+
+describe('whyNotSaved', () => {
+  it('names the server reason for a 503 and otherwise that the server cannot be reached', () => {
+    expect(whyNotSaved(new StoreError(503, 'Check VOST_DATA_DIR'))).toBe('Marks are not saved: Check VOST_DATA_DIR');
+    expect(whyNotSaved(new StoreError(400, 'bad'))).toBe('Marks are not saved: the Vost server cannot be reached');
+    expect(whyNotSaved(new TypeError('Failed to fetch'))).toBe('Marks are not saved: the Vost server cannot be reached');
   });
 });

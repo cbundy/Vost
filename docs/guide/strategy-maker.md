@@ -1,6 +1,6 @@
 # Strategy maker
 
-The strategy maker is an optional page at `/strategy-maker` (type it after your Vost address). It is a small tool for working out strategies from candles: you pick candles, mark the trades you would have taken, and it looks for a built-in strategy that behaves like your marks. Everything stays in this browser, and the main chart app is not started: the page opens no live stream and does no alert polling. The main app never loads the page's code.
+The strategy maker is an optional page at `/strategy-maker` (type it after your Vost address). It is a small tool for working out strategies from candles: you pick candles, mark the trades you would have taken, and it looks for a built-in strategy that behaves like your marks. What you mark and the model it trains are kept on the Vost server (so any browser on the same server shows them), and the main chart app is not started: the page opens no live stream and does no alert polling. The main app never loads the page's code.
 
 ![The empty strategy maker page](../evidence/strategy-maker/strategy-maker-empty-desktop.png)
 
@@ -34,7 +34,7 @@ The list beside the chart (below it on a narrow screen) shows each trade with it
 
 ![A trade erased](../evidence/strategy-maker/strategy-maker-erased-narrow.png)
 
-Marks are saved in this browser a moment after each change and come back when you open the same chart again (the same market and timeframe, saved dataset or CSV file name). Undo history is not kept. If the browser cannot store them, the page says so and the brush still works until you leave.
+Marks are saved on the Vost server a moment after each change (and when you leave or hide the page) and come back when you open the same chart again (the same market and timeframe, saved dataset or CSV file name). Undo history is not kept. If the server cannot be reached or cannot save them, the page says "Marks are not saved" with the reason, and the brush still works until you leave.
 
 ![The marks found again after a reload](../evidence/strategy-maker/strategy-maker-restored-desktop.png)
 
@@ -48,7 +48,7 @@ Below the chart, **Find a strategy** turns your marks into a recommendation. Fil
 - **Targets**: an optional minimum R:R (average win over average loss), minimum hit rate and maximum drawdown. An empty target is not applied.
 - **Train on**: which saved sets of marks to learn from. It starts as the chart you have open, or all of them when none is open.
 
-A number that cannot be used is flagged under its field and switches Find off. With fewer than 30 marked trades in the chosen sets, Find stays off and the form says how many more trades are needed. Your choices are kept in this browser and are there when you come back.
+A number that cannot be used is flagged under its field and switches Find off. With fewer than 30 marked trades in the chosen sets, Find stays off and the form says how many more trades are needed. Your choices are kept on the server and are there when you come back, in any browser.
 
 ![The form with too few trades](../evidence/strategy-maker/strategy-maker-find-needs-more-desktop.png)
 
@@ -90,7 +90,7 @@ Under the ranked settings, an actions bar acts on the row you clicked, or on the
 
 The more charts you mark, the more the model has to learn from. Each chart you mark is its own **set**, and **Train on** picks which sets a run learns from.
 
-- **Saved model**: after a Find or a Retrain the model is kept in this browser. When you open the page again its rules, importance and held-out report show under **Saved model**, with no run.
+- **Saved model**: after a Find or a Retrain the model is kept on the server. When you open the page again its rules, importance and held-out report show under **Saved model**, with no run.
 - **Out of date and Retrain**: when you mark or change trades on a chosen set, add a set to **Train on** or take one out, the page says "Model out of date" and why, and offers **Retrain**. Retrain learns from the chosen sets only, with the same progress and **Cancel** as Find, and clears the notice. When the model is up to date, **Find** reuses it and goes straight to the search, so it starts faster; when it is not, Find trains again first, so its results never come from an out-of-date model.
 - **Sets**: one row per saved set with its name, trade count and when it last changed. **Open** loads that market, saved dataset or CSV file on the chart, **Rename** gives it a name of your own (it is still the same set), and **Delete** asks first and removes the set and its marks.
 - **Export and Import**: **Export** saves every set (a CSV set with its candles) and the model as one file, `vost-strategy-maker.json`, to move to another machine. **Import** reads such a file and checks all of it before it writes anything: a file that is not a Strategy maker export, has another version or has a malformed set or model is refused with the reason. Sets you do not have are added. Sets that are the same are left alone, so importing a file twice changes nothing. A set that differs from yours is listed with **Keep mine** and **Use imported** (Cancel writes nothing); then everything is written at once. A model in the file replaces the saved one and shows as out of date unless its sets match yours. A saved dataset from another machine that is not in this library is listed and skipped at Find with "no longer in the library".
@@ -98,6 +98,12 @@ The more charts you mark, the more the model has to learn from. Each chart you m
 ![The saved model after a reload](../evidence/strategy-maker/strategy-maker-saved-model-desktop.png)
 
 ![The Sets panel](../evidence/strategy-maker/strategy-maker-sets-panel-desktop.png)
+
+- **Kept on the server, moved once**: the sets, the find form and the model live in the Vost server's data folder, so a brand-new browser on the same server shows the same sets and the saved model. Versions before this kept them in the browser's own database; the first time you open the page the server adopts what it lacks and the browser's copy is deleted, once the server has confirmed it holds everything. The page says "Moved N sets from this browser to the server". A set the server already held differently stays as it is on the server, and the browser's version is kept in `strategy-maker-imported-<ms>.json` in the data folder (the page names the file). If the server cannot be reached the move waits for the next visit.
+
+![Moved from the browser to the server](../evidence/strategy-maker/strategy-maker-moved-desktop.png)
+
+![A brand-new browser shows the same sets](../evidence/strategy-maker/strategy-maker-fresh-browser-desktop.png)
 
 ![One more mark makes the model out of date](../evidence/strategy-maker/strategy-maker-model-out-of-date-desktop.png)
 

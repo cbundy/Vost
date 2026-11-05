@@ -15,7 +15,8 @@
  *                         exchanges (default 60; 0 turns them off)
  *   VOST_DATA_DIR  folder for the files the server writes: alerts.json,
  *                  pine-libraries.json, the settings/ folder (one file per
- *                  setting), the images/ folder (drawing pictures) and the candle store (default <repo>/data; /data in the Docker image)
+ *                  setting), the strategy-maker/ folder (marked trades, find form and
+ *                  trained model of the strategy maker), the images/ folder (drawing pictures) and the candle store (default <repo>/data; /data in the Docker image)
  *   VOST_ALERT_POLL  seconds between price polls for alerts on providers
  *                    without a live feed (default 60; minimum 10)
  *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
@@ -46,6 +47,7 @@ import { createImageStore } from './images/store.ts';
 import { handleImages, isImagesPath } from './images/route.ts';
 import { handleSettings, isSettingsPath } from './settings/route.ts';
 import { createDocStore } from './settings/store.ts';
+import { handleStrategyMaker, isStrategyMakerPath } from './strategyMaker/route.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
 import { describeRecord, readRecordConfig, recordedFilter } from './candles/recordConfig.ts';
@@ -226,6 +228,10 @@ const settingsCount = Object.keys(await settings.list()).length;
 
 const images = await createImageStore({ dir: path.join(DATA_DIR, 'images'), log: (line) => console.log(line) });
 const imagesDeps = { store: images, settings, log: (line: string) => console.log(line) };
+const strategyMakerDir = path.join(DATA_DIR, 'strategy-maker');
+const strategyMaker = createDocStore({ dir: strategyMakerDir, log: (line) => console.log(line) });
+const strategyMakerDeps = { store: strategyMaker, archiveDir: DATA_DIR, log: (line: string) => console.log(line) };
+const strategyMakerCount = Object.keys(await strategyMaker.list()).filter((name) => name.startsWith('set-')).length;
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -238,6 +244,9 @@ const server = http.createServer(async (req, res) => {
 
   // Pictures are same-origin only as well.
   if (isImagesPath(url.pathname)) return void handleImages(req, res, url, imagesDeps);
+
+  // The strategy maker's data is same-origin only too.
+  if (isStrategyMakerPath(url.pathname)) return void handleStrategyMaker(req, res, url, strategyMakerDeps);
 
   // Pine libraries: reads get the usual CORS grant, writes are same-origin only.
   if (isPineLibrariesPath(url.pathname)) return void handlePineLibraries(req, res, url, pineLibraries, (line) => console.log(line));
@@ -288,6 +297,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → pine libraries: /api/pine/libraries (${pineLibraries.count} stored in ${DATA_DIR})`);
   console.log(`  → settings: /api/settings (${settingsCount} stored in ${path.join(DATA_DIR, 'settings')})`);
   console.log(`  → pictures: /api/images (${images.stats().count} stored in ${path.join(DATA_DIR, 'images')})`);
+  console.log(`  → strategy maker: /api/strategy-maker (${strategyMakerCount} sets stored in ${strategyMakerDir})`);
   console.log(`  → candle store: ${`${candles.on ? 'on' : 'off'} (${candles.file})`}`);
   console.log(`  → ${describeRecord(recordConfig, candles.on)}`);
   console.log('');
