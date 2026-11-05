@@ -86,7 +86,7 @@ Switching to another symbol on the same timeframe keeps the dates and zoom you w
 
 ## Live candles
 
-Charts open live on their own for providers that support it: the **Live** dot in the top bar streams new candles (green when live, amber while connecting, red on an error, grey when off; hover it for the state in words). Turning Live off sticks for that chart through symbol, timeframe and provider changes until you turn it back on, and picking a chart range pauses it until you clear the range. The server keeps one exchange connection per feed and shares it between tabs, reconnects by itself and backfills the bars a drop missed. Live works on built timeframes too ([Timeframes](timeframes.md)). When live fails, the error goes to the inbox.
+Charts open live on their own for providers that support it: the **Live** dot in the top bar streams new candles (green when live, amber while connecting, red on an error, grey when off; hover it for the state in words). Turning Live off sticks for that chart through symbol, timeframe and provider changes until you turn it back on, and picking a chart range pauses it until you clear the range. The server keeps one exchange connection per feed and shares it between tabs, reconnects by itself and backfills the bars a drop missed. Live works on built timeframes too ([Timeframes](timeframes.md)). When live fails, the error goes to the inbox. See [how often data updates](data.md#how-often-data-updates).
 
 ## Connection light
 

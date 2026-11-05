@@ -48,6 +48,21 @@ Things to know with the setting on:
 
 A probe on live data is in `docs/spikes/built-timeframes/`: Binance 4h, 1w and 1M built from lower bars equal the native ones exactly.
 
+## Update rates
+
+Checked 2026-11-05 against each provider's public docs. This is how often the exchange pushes an update on the live stream Vost uses. Vost adds no throttling, batching or delay between an exchange frame and the browser event: each frame is forwarded as an SSE `kline` event at once. The server sends a `: ping` keepalive to each browser stream every 15 s.
+
+| Provider | Push rate of the stream Vost uses | Source |
+|---|---|---|
+| Binance | `<symbol>@kline_<interval>`: every 2000 ms (1000 ms for `1s`), per the docs | [Kline streams](https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams) |
+| Bybit | `kline.<interval>.<symbol>`: push frequency 1-60 s, per the docs (the page does not give a spot-specific rate) | [Kline](https://bybit-exchange.github.io/docs/v5/websocket/public/kline) |
+| OKX | `candle<bar>`: not confirmed; the page could not be read in full on the check date | [Candlesticks channel](https://www.okx.com/docs-v5/en/#order-book-trading-market-data-ws-candlesticks-channel) |
+| Kraken | v2 `ohlc`: an update on each trade event, no fixed interval, per the docs | [ohlc](https://docs.kraken.com/api/docs/websocket-v2/ohlc) |
+| Coinbase | `matches`: a message per trade (the docs describe it as "a trade occurred between two orders" and say messages can be dropped); Vost builds the candle itself | [Channels](https://docs.cdp.coinbase.com/exchange/websocket-feed/channels) |
+| Hyperliquid | `candle`: not documented | [Subscriptions](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions) |
+
+Yahoo Finance and the Demo provider have no live stream.
+
 ## Summary
 
 | Source | Assets | Key | Live / websocket | Max candles per request | Browser CORS (checked) | Supported today |
