@@ -3,6 +3,7 @@
  * is drawn on a chart and what Reset brings back. Everything read from storage goes through the sanitisers here.
  */
 import { INDICATOR_META, type IndicatorDefault, type IndicatorKind, type IndicatorSpec } from './indicatorCompute';
+import { sanitizeIndicatorStyle } from './plotStyle';
 import { TIMEFRAME_KINDS, timeframeKind, type TimeframeKind } from './drawingStyle';
 
 /** The known timeframe kinds in `raw`, once each, in their usual order; anything else is dropped. */
@@ -11,13 +12,14 @@ export function sanitizeHideOn(raw: unknown): TimeframeKind[] {
   return TIMEFRAME_KINDS.filter((k) => raw.includes(k));
 }
 
-/** `raw` as a spec list whose `hideOn` fields are clean (an empty or bad one is removed). Anything else is kept as it is. */
+/** `raw` as a spec list whose `hideOn` and `style` fields are clean (an empty or bad one is removed). Anything else is kept as it is. */
 export function sanitizeIndicatorSpecs<T>(raw: T[]): T[] {
   return raw.map((s) => {
-    if (typeof s !== 'object' || s === null || !('hideOn' in s)) return s;
-    const { hideOn, ...rest } = s as Record<string, unknown>;
+    if (typeof s !== 'object' || s === null || !('hideOn' in s || 'style' in s)) return s;
+    const { hideOn, style, ...rest } = s as Record<string, unknown>;
     const clean = sanitizeHideOn(hideOn);
-    return (clean.length > 0 ? { ...rest, hideOn: clean } : rest) as T;
+    const cleanStyle = sanitizeIndicatorStyle(style);
+    return { ...rest, ...(clean.length > 0 && { hideOn: clean }), ...(cleanStyle && { style: cleanStyle }) } as T;
   });
 }
 
@@ -26,7 +28,7 @@ const isKind = (k: string): k is IndicatorKind => Object.prototype.hasOwnPropert
 /** One saved default; null when it holds nothing usable. Params are finite, inside the meta range and only the kind's own. */
 function sanitizeOne(kind: IndicatorKind, raw: unknown): IndicatorDefault | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || kind === 'pine') return null;
-  const r = raw as { params?: unknown; hideOn?: unknown };
+  const r = raw as { params?: unknown; hideOn?: unknown; style?: unknown };
   const params: Record<string, number> = {};
   const given = typeof r.params === 'object' && r.params !== null ? (r.params as Record<string, unknown>) : {};
   for (const p of INDICATOR_META[kind].params) {
@@ -37,7 +39,8 @@ function sanitizeOne(kind: IndicatorKind, raw: unknown): IndicatorDefault | null
     }
     params[p.key] = Math.min(p.max ?? Infinity, Math.max(p.min ?? -Infinity, p.type === 'int' ? Math.round(v) : v));
   }
-  return { params, hideOn: sanitizeHideOn(r.hideOn) };
+  const style = sanitizeIndicatorStyle(r.style);
+  return { params, hideOn: sanitizeHideOn(r.hideOn), ...(style && { style }) };
 }
 
 /** The saved per-kind defaults read from prefs: known built-in kinds only, each cleaned. */
@@ -69,13 +72,14 @@ export function indicatorDrawn(spec: Pick<IndicatorSpec, 'visible' | 'hideOn'>, 
  * Pine script's inputs and calculation overrides are cleared and it is shown on every timeframe.
  */
 export function resetIndicator(spec: IndicatorSpec, saved: IndicatorDefault | null | undefined): IndicatorSpec {
-  const { hideOn: _h, calculation: _c, ...rest } = spec;
+  const { hideOn: _h, calculation: _c, style: _s, ...rest } = spec;
   void _h;
   void _c;
+  void _s;
   if (spec.kind === 'pine') return { ...rest, inputs: {} };
   const params = { ...Object.fromEntries(INDICATOR_META[spec.kind].params.map((p) => [p.key, p.default])), ...(saved?.params ?? {}) };
   const hideOn = saved?.hideOn ?? [];
-  return { ...rest, params, ...(hideOn.length > 0 && { hideOn: [...hideOn] }) };
+  return { ...rest, params, ...(hideOn.length > 0 && { hideOn: [...hideOn] }), ...(saved?.style && { style: structuredClone(saved.style) }) };
 }
 
 const SHORT_NAME: Partial<Record<IndicatorKind, string>> = { sma: 'SMA', ema: 'EMA', bb: 'BB' };

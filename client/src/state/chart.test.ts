@@ -1779,6 +1779,57 @@ describe('replay', () => {
     expect(chartOf(useStore).getState().indicators.find((i) => i.id === id)).toEqual(opening);
   });
 
+  it('a style patch persists through prefs, Cancel puts the opening style back, and it never schedules a Pine run', async () => {
+    vi.resetModules();
+    stubStorage();
+    const { useStore } = await import('./store');
+    track(useStore);
+    const c = chartOf(useStore).getState();
+    const id = c.addIndicator('ema');
+    const find = () => chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    const opening = find();
+    expect('style' in opening).toBe(false);
+    const style = { plots: { ema_EMA: { plotType: 'step' as const, color: '#ff0000' } }, precision: 2 };
+    c.updateIndicator(id, { style });
+    expect(find().style).toEqual(style);
+    useStore.getState().flushPersist();
+    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    expect(saved.indicators.find((i: { id: string }) => i.id === id).style).toEqual(style);
+    vi.resetModules();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const fresh = track((await import('./store')).useStore);
+    fresh.getState().init();
+    expect(chartOf(fresh).getState().indicators.find((i) => i.id === id)?.style).toEqual(style);
+    c.updateIndicator(id, { style: { precision: 2 } });
+    expect(find().style).toEqual({ precision: 2 });
+    c.updateIndicator(id, { style: {} });
+    expect('style' in find()).toBe(false);
+    c.updateIndicator(id, { style });
+    c.restoreIndicator(id, opening);
+    expect(find()).toEqual(opening);
+    expect('style' in find()).toBe(false);
+  });
+
+  it('a style patch on a Pine script does not rerun it', async () => {
+    vi.resetModules();
+    stubStorage();
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const candles = candlesFromCsvText(readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8')).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    chartOf(useStore).setState({ candles });
+    const c = chartOf(useStore).getState();
+    const id = c.addIndicator('pine');
+    await vi.waitFor(() => { const r = chartOf(useStore).getState().pineRuns[id]; expect(r && !r.running && r.result).toBeTruthy(); }, { timeout: 20000 });
+    const before = chartOf(useStore).getState().pineRuns[id];
+    c.updateIndicator(id, { style: { plots: { '0_Fast': { visible: false } } } });
+    const after = chartOf(useStore).getState().pineRuns[id];
+    expect(after).toBe(before);
+    expect(after.running).toBe(false);
+  });
+
   it('restoreIndicator removes Pine input overrides added since and reruns the script', async () => {
     vi.resetModules();
     stubStorage();

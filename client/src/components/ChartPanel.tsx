@@ -1,11 +1,13 @@
 import { DOWN_COLOR, UP_COLOR, chartTheme, theme } from '../lib/theme';
 import {
+  AreaSeries,
   CandlestickSeries,
   ColorType,
   CrosshairMode,
   HistogramSeries,
   LineSeries,
   LineStyle,
+  LineType,
   createChart,
   createSeriesMarkers,
   type IChartApi,
@@ -26,14 +28,15 @@ import { ChartContextMenu } from './ChartContextMenu';
 import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
 import { newPaneState, releasePanes, sizePanes, usePaneLegends, type OverlayReg, type PaneReg, type PaneState } from './usePaneLegends';
-import { INDICATOR_META, computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
+import { INDICATOR_META, computeIndicator, hexToRgba, type ComputedSeries, type IndicatorSpec } from '../lib/indicatorCompute';
+import { seriesFormat, styledBuiltin, withOpacity, type StyledBuiltin } from '../lib/plotStyle';
 import { indicatorDrawn } from '../lib/indicatorSettings';
 import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
 import { canPageOlder, selectDataCandles } from '../state/chart';
 import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
 import { PaneLegendActions, PriceLegendRows } from './IndicatorLegend';
-import { priceLegendRows } from '../lib/paneLegend';
+import { builtinParams, priceLegendRows } from '../lib/paneLegend';
 import { usePineSeries } from './usePineSeries';
 import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
@@ -53,11 +56,12 @@ import { useChart, useChartStore } from '../state/chartContext';
 import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
 
 type IndEntry = {
-  series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'>;
+  series: ISeriesApi<'Line'> | ISeriesApi<'Histogram'> | ISeriesApi<'Area'>;
   kind: ComputedSeries['kind'];
 };
 
 const RIGHT_OFFSET = 3;
+const LINE_STYLE = { solid: LineStyle.Solid, dashed: LineStyle.Dashed, dotted: LineStyle.Dotted } as const;
 const UP = UP_COLOR;
 const DOWN = DOWN_COLOR;
 
@@ -73,10 +77,17 @@ function toCandleData(c: { time: number; open: number; high: number; low: number
   };
 }
 
-function mapIndicatorPoint(cs: ComputedSeries, point: { time: number; value: number; color?: string }) {
+function mapIndicatorPoint(st: StyledBuiltin, point: { time: number; value?: number; color?: string }) {
   const time = point.time as UTCTimestamp;
-  if (cs.kind === 'histogram') return { time, value: point.value, color: point.color ?? cs.color };
+  if (point.value === undefined) return { time };
+  if (st.type === 'histogram') return { time, value: point.value, color: point.color ?? st.color };
   return { time, value: point.value };
+}
+
+/** The series of `spec` as drawn under its style; the bar times are only read when a style is set. */
+function styledSeries(spec: IndicatorSpec, candles: ReadonlyArray<{ time: number }>) {
+  const times = spec.style ? candles.map((c) => c.time) : [];
+  return computeIndicator(spec, candles as never).map((cs) => ({ cs, st: styledBuiltin(cs, spec.style, times) }));
 }
 
 export function ChartPanel({
@@ -259,36 +270,60 @@ export function ChartPanel({
       }
       const legendEntries: PaneReg['entries'] = [];
       const overlayEntries: OverlayReg['entries'] = [];
+      const candleTimes = spec.style ? chartStore.getState().candles.map((c) => c.time) : [];
       for (const cs of computed) {
-        const common = {
-          priceLineVisible: false,
-          lastValueVisible: cs.pane !== 'volume',
-          crosshairMarkerVisible: false,
-          lineWidth: (cs.lineWidth ?? 2) as LineWidth,
-          lineStyle: cs.dashed ? LineStyle.Dashed : LineStyle.Solid,
-        };
-        if (cs.kind === 'histogram') {
-          const series = chart.addSeries(
+        const st = styledBuiltin(cs, spec.style, candleTimes);
+        if (!st.visible) continue;
+        const fmt = seriesFormat(spec.style, cs.pane !== 'volume');
+        const priceLine = { priceLineVisible: st.priceLine, ...(st.priceLine && { priceLineColor: st.color }) };
+        let series: IndEntry['series'];
+        if (st.type === 'histogram') {
+          series = chart.addSeries(
             HistogramSeries,
             {
-              color: cs.color,
-              priceFormat: { type: cs.pane === 'volume' ? 'volume' : 'price' },
+              color: st.color,
+              priceFormat: fmt.priceFormat ?? { type: cs.pane === 'volume' ? 'volume' : 'price' },
               priceScaleId: cs.pane === 'volume' ? 'volume' : 'right',
-              lastValueVisible: cs.pane !== 'volume',
-              priceLineVisible: false,
+              lastValueVisible: fmt.lastValueVisible,
+              ...priceLine,
             },
             paneIndex,
           );
           if (cs.pane === 'volume') {
             chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
           }
-          indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: 'histogram' });
-          if (cs.pane === 'sub') legendEntries.push({ title: cs.title, color: cs.color, series });
-          else overlayEntries.push({ title: cs.title, color: cs.color, series, compact: cs.pane === 'volume' });
+        } else if (st.type === 'area') {
+          series = chart.addSeries(
+            AreaSeries,
+            {
+              lineColor: st.color,
+              topColor: withOpacity(st.color, 35),
+              bottomColor: withOpacity(st.color, 0),
+              lineWidth: st.width as LineWidth,
+              lineStyle: LINE_STYLE[st.lineStyle],
+              ...(fmt.priceFormat && { priceFormat: fmt.priceFormat }),
+              lastValueVisible: fmt.lastValueVisible,
+              crosshairMarkerVisible: false,
+              priceScaleId: 'right',
+              ...priceLine,
+            },
+            paneIndex,
+          );
         } else {
-          const series = chart.addSeries(
+          series = chart.addSeries(
             LineSeries,
-            { color: cs.color, ...common, priceScaleId: 'right' },
+            {
+              color: st.color,
+              lineWidth: st.width as LineWidth,
+              lineStyle: LINE_STYLE[st.lineStyle],
+              ...(st.type === 'step' && { lineType: LineType.WithSteps }),
+              ...(st.type === 'circles' && { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: st.width + 1 }),
+              ...(fmt.priceFormat && { priceFormat: fmt.priceFormat }),
+              lastValueVisible: fmt.lastValueVisible,
+              crosshairMarkerVisible: false,
+              priceScaleId: 'right',
+              ...priceLine,
+            },
             paneIndex,
           );
           for (const pl of cs.priceLines ?? []) {
@@ -301,28 +336,36 @@ export function ChartPanel({
               title: '',
             });
           }
-          indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: 'line' });
-          if (cs.pane === 'sub') legendEntries.push({ title: cs.title, color: cs.color, series });
-          else overlayEntries.push({ title: cs.title, color: cs.color, series });
         }
+        indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: cs.kind });
+        const entry = { title: cs.title, color: st.color, series: series as never, ...(cs.pane === 'volume' && { compact: true }) };
+        if (cs.pane === 'sub') legendEntries.push(entry);
+        else overlayEntries.push(entry);
       }
+      // The status line's values can be turned off: the row keeps its name and buttons.
+      const valuesOn = spec.style?.valuesInStatusLine !== false;
+      const precision = spec.style?.precision;
+      const shownOverlay = valuesOn ? overlayEntries : [];
+      const shownLegend = valuesOn ? legendEntries : [];
       if (overlayEntries.length > 0) {
         // One plot: the row's name already says what it is.
         paneStateRef.current.overlays.set(spec.id, {
           id: spec.id,
           source: 'builtin',
-          entries: overlayEntries.length === 1 ? [{ ...overlayEntries[0], title: '' }] : overlayEntries,
+          precision,
+          entries: shownOverlay.length === 1 ? [{ ...shownOverlay[0], title: '' }] : shownOverlay,
         });
       }
-      if (paneIndex > 0 && legendEntries.length > 0) {
+      if (paneIndex > 0) {
         paneStateRef.current.panes.set(spec.id, {
           id: spec.id,
           source: 'builtin',
           paneIndex,
           name: INDICATOR_META[spec.kind].name,
-          params: INDICATOR_META[spec.kind].params.map((p) => String(spec.params[p.key])),
+          params: builtinParams(spec),
+          precision,
           // One plot: the name already says what it is.
-          entries: legendEntries.length === 1 ? [{ ...legendEntries[0], title: '' }] : legendEntries,
+          entries: shownLegend.length === 1 ? [{ ...shownLegend[0], title: '' }] : shownLegend,
         });
       }
     }
@@ -498,23 +541,21 @@ export function ChartPanel({
 
     if (dataChanged || indChanged || !incremental) {
       for (const spec of drawn) {
-        for (const cs of computeIndicator(spec, candles)) {
+        for (const { cs, st } of styledSeries(spec, candles)) {
           const entry = indMapRef.current.get(`${spec.id}|${cs.key}`);
           if (!entry) continue;
-          const data = cs.data.map((p) => mapIndicatorPoint(cs, p));
-          if (entry.kind === 'histogram') (entry.series as ISeriesApi<'Histogram'>).setData(data as never);
-          else (entry.series as ISeriesApi<'Line'>).setData(data as never);
+          const data = st.data.map((p) => mapIndicatorPoint(st, p));
+          (entry.series as ISeriesApi<'Line'>).setData(data as never);
         }
       }
       lastIndicatorsRef.current = drawn;
     } else {
       for (const spec of drawn) {
-        for (const cs of computeIndicator(spec, candles)) {
+        for (const { cs, st } of styledSeries(spec, candles)) {
           const entry = indMapRef.current.get(`${spec.id}|${cs.key}`);
-          if (!entry || cs.data.length === 0) continue;
-          const point = mapIndicatorPoint(cs, cs.data[cs.data.length - 1]);
-          if (entry.kind === 'histogram') (entry.series as ISeriesApi<'Histogram'>).update(point as never);
-          else (entry.series as ISeriesApi<'Line'>).update(point as never);
+          if (!entry || st.data.length === 0) continue;
+          const point = mapIndicatorPoint(st, st.data[st.data.length - 1]);
+          (entry.series as ISeriesApi<'Line'>).update(point as never);
         }
       }
     }

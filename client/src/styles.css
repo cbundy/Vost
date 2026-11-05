@@ -4440,3 +4440,90 @@ table.data-table th.sortable .sort-btn:focus-visible {
 .ind-defaults-menu button:hover {
   background: var(--panel-3);
 }
+
+/* the Style tab of the indicator settings */
+.ind-plot {
+  position: relative;
+  flex-wrap: wrap;
+}
+.ind-plot-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.ind-plot-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.ind-color {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px;
+}
+.ind-color .dt-chip {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--border-3);
+}
+.ind-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ind-pop {
+  flex-basis: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+}
+.ind-pop.dt-list {
+  gap: 0;
+  padding: 4px;
+}
+.ind-pop .dt-swatches {
+  margin-bottom: 0;
+}
+.ind-pop .dt-list button,
+.ind-pop.dt-list button {
+  padding: 4px 8px;
+}
+.ind-opacity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ind-opacity-value {
+  min-width: 36px;
+  text-align: right;
+}
+.ind-choices {
+  display: inline-flex;
+  gap: 4px;
+}
+.ind-choice {
+  min-width: 28px;
+  padding: 2px 6px;
+}
+.ind-choice[aria-checked='true'] {
+  background: var(--panel-3);
+  border-color: var(--accent);
+}
+.ds-section {
+  margin: 14px 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

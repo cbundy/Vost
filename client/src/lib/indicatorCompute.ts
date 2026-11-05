@@ -6,6 +6,7 @@ import { bollinger, ema, macd, rsi, sma, vwap, type MacdResult } from './indicat
 import type { Candle } from '../types';
 import type { PineCalculation, PineInputValue } from './pine/types';
 import type { TimeframeKind } from './drawingStyle';
+import type { IndicatorStyle } from './plotStyle';
 
 export type IndicatorKind = 'sma' | 'ema' | 'bb' | 'vwap' | 'volume' | 'rsi' | 'macd' | 'pine';
 
@@ -128,6 +129,8 @@ export interface IndicatorSpec {
   calculation?: PineCalculation;
   /** The timeframe kinds this indicator is hidden on. Absent or empty = drawn on every kind. */
   hideOn?: TimeframeKind[];
+  /** The Style tab's settings. Absent = every plot drawn as it always was. */
+  style?: IndicatorStyle;
 }
 
 let indicatorCounter = 0;
@@ -136,6 +139,7 @@ let indicatorCounter = 0;
 export interface IndicatorDefault {
   params: Record<string, number>;
   hideOn: TimeframeKind[];
+  style?: IndicatorStyle;
 }
 
 export function defaultIndicator(kind: IndicatorKind, saved?: IndicatorDefault | null): IndicatorSpec {
@@ -145,6 +149,7 @@ export function defaultIndicator(kind: IndicatorKind, saved?: IndicatorDefault |
     kind,
     params: { ...Object.fromEntries(meta.params.map((p) => [p.key, p.default])), ...(saved?.params ?? {}) },
     ...(saved && saved.hideOn.length > 0 && { hideOn: [...saved.hideOn] }),
+    ...(saved?.style && { style: structuredClone(saved.style) }),
     color: PALETTE[indicatorCounter % PALETTE.length],
     visible: true,
     ...(kind === 'pine' && { source: DEFAULT_PINE_SOURCE, inputs: {} }),

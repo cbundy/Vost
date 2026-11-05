@@ -25,6 +25,7 @@ import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput, PineMarket } from '../lib/pine/types';
 import type { IndicatorDefault, IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
+import { tidy } from '../lib/plotStyle';
 import type { MessageSeverity } from '../lib/messages';
 import type { PineCalculation, PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
 import { type Source } from '../../../shared/timeframes.ts';
@@ -271,7 +272,7 @@ export interface ChartState {
   /** Adds an indicator and returns its id. */
   addIndicator(kind: IndicatorKind): string;
   removeIndicator(id: string): void;
-  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source' | 'hideOn'>> & { inputs?: Record<string, PineInputValue>; calculation?: PineCalculation }): void;
+  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source' | 'hideOn' | 'style'>> & { inputs?: Record<string, PineInputValue>; calculation?: PineCalculation }): void;
   /** Replaces a whole indicator spec (the settings dialog's Cancel and Reset); Pine reruns when what it computes from differs. */
   restoreIndicator(id: string, spec: IndicatorSpec): void;
   /** Pine: keeps edited editor text as a draft (no run); cleared when it equals the applied source. */
@@ -319,10 +320,21 @@ export type ChartStore = StoreApi<ChartState>;
 
 /** A spec with an empty `hideOn` list stored as no list at all. */
 function withoutEmptyHideOn(spec: IndicatorSpec): IndicatorSpec {
-  if (!spec.hideOn || spec.hideOn.length > 0) return spec;
-  const { hideOn: _unused, ...rest } = spec;
-  void _unused;
-  return rest;
+  let out = spec;
+  if (out.hideOn && out.hideOn.length === 0) {
+    const { hideOn: _unused, ...rest } = out;
+    void _unused;
+    out = rest;
+  }
+  if ('style' in out) {
+    const style = tidy(out.style);
+    if (!style) {
+      const { style: _s, ...rest } = out;
+      void _s;
+      out = rest;
+    } else if (style !== out.style) out = { ...out, style };
+  }
+  return out;
 }
 
 export function createChartStore(id: string, initial: ChartInitial, env: ChartEnv): ChartStore {

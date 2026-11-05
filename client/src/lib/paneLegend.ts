@@ -1,13 +1,14 @@
 import { fmtCompact, fmtPrice } from './format';
 import { escapeHtml } from './legend';
 import { INDICATOR_META, indicatorTitle, type IndicatorSpec } from './indicatorCompute';
-import { indicatorDrawn } from './indicatorSettings';
+import { indicatorDrawn, indicatorShortName } from './indicatorSettings';
 import { pineIndicatorName } from './pine/title';
 import type { PineRunState } from '../state/chart';
 
 /** A legend value as shown: `-` for na, the compact form for volumes. */
-export function legendValueText(value: number | null | undefined, compact = false): string {
+export function legendValueText(value: number | null | undefined, compact = false, precision?: number): string {
   if (value == null || !Number.isFinite(value)) return '-';
+  if (precision !== undefined) return value.toLocaleString('en-US', { minimumFractionDigits: precision, maximumFractionDigits: precision });
   return compact ? fmtCompact(value) : fmtPrice(value);
 }
 
@@ -24,6 +25,8 @@ export interface PaneLegendModel {
   /** Parameter or input values, shown after the name. */
   params: string[];
   entries: PaneLegendEntry[];
+  /** Decimals of every value; absent = the default format. */
+  precision?: number;
 }
 
 /** Markup for the legend of one indicator sub pane: its name and parameters, then each plot's value in its colour. */
@@ -32,7 +35,7 @@ export function paneLegendHtml(m: PaneLegendModel): string {
   const entries = m.entries
     .map((e) => {
       const title = e.title ? `<span class="pane-legend-plot">${escapeHtml(e.title)}</span> ` : '';
-      const value = legendValueText(e.value);
+      const value = legendValueText(e.value, false, m.precision);
       return `<span class="pane-legend-entry" style="color:${escapeHtml(e.color)}">${title}<b>${escapeHtml(value)}</b></span>`;
     })
     .join(' ');
@@ -53,12 +56,17 @@ export interface LegendRow {
 }
 
 /** A Pine script's input values, in declaration order, as its legend shows them. */
-export function pineInputParams(spec: Pick<IndicatorSpec, 'inputs'>, run: PineRunState | undefined): string[] {
-  if (!run?.result) return [];
+export function pineInputParams(spec: Pick<IndicatorSpec, 'inputs' | 'style'>, run: PineRunState | undefined): string[] {
+  if (!run?.result || spec.style?.inputsInStatusLine === false) return [];
   return run.result.inputs.flatMap((inp) => {
     const v = spec.inputs?.[inp.name] ?? inp.defval;
     return v == null ? [] : [String(v)];
   });
+}
+
+/** A built-in indicator's parameter values as its legend shows them: none when its inputs are off in the status line. */
+export function builtinParams(spec: IndicatorSpec): string[] {
+  return spec.style?.inputsInStatusLine === false ? [] : INDICATOR_META[spec.kind].params.map((p) => String(spec.params[p.key]));
 }
 
 const isSubKind = (spec: IndicatorSpec) => spec.kind === 'rsi' || spec.kind === 'macd';
@@ -99,13 +107,15 @@ export function priceLegendRows(
         id: spec.id,
         kind: 'builtin',
         name: INDICATOR_META[spec.kind].name,
-        params: INDICATOR_META[spec.kind].params.map((p) => String(spec.params[p.key])),
+        params: builtinParams(spec),
         hidden,
         pending: false,
       });
       continue;
     }
-    rows.push({ id: spec.id, kind: 'builtin', name: indicatorTitle(spec), params: [], hidden, pending: false });
+    // With the inputs off the row is named without them ("EMA", not "EMA 20").
+    const name = spec.style?.inputsInStatusLine === false ? indicatorShortName(spec.kind, '') : indicatorTitle(spec);
+    rows.push({ id: spec.id, kind: 'builtin', name, params: [], hidden, pending: false });
   }
   return rows;
 }

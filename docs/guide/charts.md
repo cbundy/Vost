@@ -38,15 +38,26 @@ Only the rows themselves take clicks: dragging the chart, drawing and zooming wo
 
 ### Indicator settings
 
-The gear opens a dialog titled with the indicator's short name (for example **EMA**, or a Pine script's title). It has two tabs, and every change shows on the chart at once; the row's own fields and show and hide button stay in step with it.
+The gear opens a dialog titled with the indicator's short name (for example **EMA**, or a Pine script's title). It has three tabs, and every change shows on the chart at once; the row's own fields and show and hide button stay in step with it.
 
 - **Inputs** has one field per parameter of a built-in indicator; a value outside the allowed range, or text that is not a number, is refused in place with a message. A Pine script shows its inputs (and its Calculation settings when it declares a timeframe) once it has run.
+- **Style** has one row per plot of the indicator (a Pine script's `plot()` lines and `hline`s, once it has run; candle and bar plots, `bgcolor` bands, fills, markers and drawings have no row). Each row has a checkbox that turns the plot off (a hidden Pine plot still lets a `fill` between plots draw), a colour button, a plot type (Line, Line with breaks, Step line, Histogram, Area or Circles) and a **Price line** switch. The colour button opens swatches, a custom colour, **Opacity**, and for line-drawn types the **Thickness** and **Line style**. A colour you pick replaces per-bar colours (the MACD histogram, Volume, a Pine script's conditional colours); an opacity alone fades them. **Output values** sets the **Precision** (Default, or 0 to 8 decimals, on the price scale and in the legend), whether the plots' **Labels on price scale** show and whether the **Values in status line** show; **Input values** sets whether the **Inputs in status line** show (off, an EMA's row reads "EMA" instead of "EMA 20"). A style never reruns a Pine script.
 - **Visibility** has one checkbox per timeframe kind (Seconds, Minutes, Hours, Days, Weeks, Months), all on by default. An indicator turned off for the chart's current kind is not drawn at all: no lines, no pane and legend, no bar colours. It comes back when you move to a kind that is on.
-- **Defaults** (bottom left) has **Reset settings**, which brings the inputs and visibility back to your saved default or the built-in values (for a Pine script it clears the input and calculation overrides and shows it on every timeframe), and **Save as default** for built-in indicators, which makes new indicators of that kind start from these settings.
+- **Defaults** (bottom left) has **Reset settings**, which brings the inputs, style and visibility back to your saved default or the built-in values (for a Pine script it clears the input, calculation and style overrides and shows it on every timeframe), and **Save as default** for built-in indicators, which makes new indicators of that kind start from these settings, style included.
 
 **OK** keeps the changes; **Cancel**, Escape and the close button put the indicator back as it was when you opened the dialog.
 
 ![The EMA settings dialog with its length changed and the chart updated](../evidence/indicator-settings/indicator-settings-inputs-desktop.png)
+
+![The Style tab of an EMA with its colour popover open](../evidence/indicator-settings/indicator-settings-style-color-desktop.png)
+
+![The plot type list of the EMA](../evidence/indicator-settings/indicator-settings-style-types-desktop.png)
+
+![The EMA drawn as circles](../evidence/indicator-settings/indicator-settings-style-circles-desktop.png)
+
+![A Bollinger Bands row with its Upper band turned off](../evidence/indicator-settings/indicator-settings-style-bb-desktop.png)
+
+![A Pine plot restyled to a red, thick, dashed line](../evidence/indicator-settings/indicator-settings-style-pine-desktop.png)
 
 ![The Visibility tab with Minutes off](../evidence/indicator-settings/indicator-settings-visibility-desktop.png)
 

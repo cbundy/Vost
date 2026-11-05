@@ -36,7 +36,7 @@ async function count(page: Page, emaColor: string): Promise<Counts> {
 export const indicatorSettings: Scenario = {
   name: 'indicator-settings',
   description:
-    'Indicator settings: the gear button in the side panel opens a dialog with Inputs and Visibility tabs; a length edit shows on the chart and in the row, an out-of-range value is refused, Minutes off removes the EMA on a minute chart and it returns on an hour chart, an RSI hidden on minutes drops its pane while a Pine sub pane stays in place, Cancel and Escape restore, Save as default styles a new EMA and Reset settings goes back; desktop and 360 px',
+    'Indicator settings: the gear button in the side panel opens a dialog with Inputs, Style and Visibility tabs; the Style tab restyles each plot (colour popover, plot types, step line, circles, precision, status line values and inputs, a BB band off, a Pine plot in red, thick and dashed) and Cancel restores; a length edit shows on the chart and in the row, an out-of-range value is refused, Minutes off removes the EMA on a minute chart and it returns on an hour chart, an RSI hidden on minutes drops its pane while a Pine sub pane stays in place, Cancel and Escape restore, Save as default styles a new EMA and Reset settings goes back; desktop and 360 px',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -85,6 +85,11 @@ export const indicatorSettings: Scenario = {
         check('the dialog fits 360 px', !!d && d.x >= 0 && d.x + d.width <= 360, `x=${d?.x} width=${d?.width}`);
         check('nothing overflows sideways', await dlg.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
         await ctx.screenshot('inputs');
+        await dlg.getByRole('tab', { name: 'Style' }).click();
+        await ctx.screenshot('style');
+        await dlg.getByRole('button', { name: 'EMA colour' }).click();
+        check('the colour popover fits 360 px', await dlg.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
+        await ctx.screenshot('style-color');
         await dlg.getByRole('tab', { name: 'Visibility' }).click();
         await ctx.screenshot('visibility');
         await dlg.getByRole('button', { name: 'Defaults ▾' }).click();
@@ -126,7 +131,7 @@ export const indicatorSettings: Scenario = {
       await dlg.waitFor();
       check('titled EMA', (await dlg.getByRole('heading').textContent()) === 'EMA');
       const tabs = await dlg.getByRole('tab').allTextContents();
-      check('tabs Inputs, Visibility', tabs.join(',') === 'Inputs,Visibility', tabs.join(','));
+      check('tabs Inputs, Style, Visibility', tabs.join(',') === 'Inputs,Style,Visibility', tabs.join(','));
     });
 
     await ctx.step('a length edit shows on the chart and in the row; an out-of-range value is refused', async () => {
@@ -160,6 +165,60 @@ export const indicatorSettings: Scenario = {
       await dlg.waitFor({ state: 'detached' });
       const w = await row('Exponential moving average').getByLabel('Length').inputValue();
       check('Escape put it back (200)', w === '200', w);
+    });
+
+    const legendRows = () => page.locator('.legend-row').evaluateAll((els) => els.map((e) => (e.textContent ?? '').replace(/\s+/g, ' ').trim()));
+    const emaRow = (rows: string[]) => rows.find((r) => /^EMA/.test(r)) ?? '';
+    await ctx.step('the Style tab: colour popover, plot types, precision and the status line', async () => {
+      await gear('Exponential moving average').click();
+      await dlg.getByRole('tab', { name: 'Style' }).click();
+      check('one row for the EMA plot', (await dlg.locator('.ind-plot').count()) === 1);
+      const baseline = (await counts('EMA before styling')).emaPixels;
+      const baseRow = emaRow(await legendRows());
+      log.push(`legend row before: ${baseRow}`);
+      await ctx.screenshot('style');
+      await dlg.getByRole('button', { name: 'EMA colour' }).click();
+      check('the popover has swatches, Opacity, Thickness and Line style', (await dlg.locator('.dt-swatch').count()) === 6 && (await dlg.getByLabel('EMA opacity').count()) === 1 && (await dlg.getByRole('radiogroup', { name: 'EMA thickness' }).count()) === 1 && (await dlg.getByRole('radiogroup', { name: 'EMA line style' }).count()) === 1);
+      await ctx.screenshot('style-color');
+      await dlg.getByRole('button', { name: 'EMA colour' }).click();
+      await dlg.getByRole('button', { name: 'EMA plot type' }).click();
+      check('six plot types', (await dlg.getByRole('listbox', { name: 'EMA plot type' }).getByRole('option').count()) === 6);
+      await ctx.screenshot('style-types');
+      await dlg.getByRole('listbox', { name: 'EMA plot type' }).getByRole('option', { name: 'Step line' }).click();
+      const step = (await counts('EMA as a step line')).emaPixels;
+      check('the step line is drawn', step > 0 && step !== baseline, `${baseline} -> ${step}`);
+      await ctx.screenshot('style-step');
+      await dlg.getByRole('button', { name: 'EMA plot type' }).click();
+      await dlg.getByRole('listbox', { name: 'EMA plot type' }).getByRole('option', { name: 'Circles' }).click();
+      const circles = (await counts('EMA as circles')).emaPixels;
+      check('circles are drawn', circles > 0 && circles !== step, `${step} -> ${circles}`);
+      await ctx.screenshot('style-circles');
+      await dlg.getByLabel('Precision').selectOption('4');
+      await page.waitForTimeout(500);
+      const precise = emaRow(await legendRows());
+      log.push(`legend row at precision 4: ${precise}`);
+      check('the legend value has four decimals', /\d\.\d{4}(?!\d)/.test(precise.replace(/^EMA \d+/, '')), precise);
+      await ctx.screenshot('style-precision');
+      await dlg.getByLabel('Values in status line').uncheck();
+      await page.waitForTimeout(400);
+      const noValues = emaRow(await legendRows());
+      log.push(`legend row without values: ${noValues}`);
+      check('the row keeps its name but shows no value', /^EMA/.test(noValues) && !/\d\.\d/.test(noValues), noValues);
+      await dlg.getByLabel('Inputs in status line').uncheck();
+      await page.waitForTimeout(400);
+      const noInputs = emaRow(await legendRows());
+      log.push(`legend row without inputs: ${noInputs}`);
+      check('the row is named EMA, without its length', /^EMA(?! \d)/.test(noInputs), noInputs);
+      await ctx.screenshot('style-status-line');
+      await dlg.getByLabel('EMA', { exact: true }).uncheck();
+      const gone = (await counts('EMA plot turned off')).emaPixels;
+      check('a plot turned off draws nothing', gone === 0, String(gone));
+      await dlg.getByRole('button', { name: 'Cancel' }).click();
+      await dlg.waitFor({ state: 'detached' });
+      const back = (await counts('after Cancel')).emaPixels;
+      check('Cancel brought the original EMA back', back === baseline, `${baseline} -> ${back}`);
+      check('and its legend row', emaRow(await legendRows()) === baseRow, emaRow(await legendRows()));
+      await ctx.screenshot('style-cancelled');
     });
 
     await ctx.step('Minutes off hides the EMA on a minute chart and it returns on an hour chart', async () => {
@@ -235,6 +294,42 @@ export const indicatorSettings: Scenario = {
       check('no Save as default for Pine', (await page.getByRole('menuitem', { name: 'Save as default' }).count()) === 0);
       await ctx.screenshot('pine');
       await page.keyboard.press('Escape');
+    });
+
+    await ctx.step('a Bollinger band turned off and a Pine plot restyled', async () => {
+      await page.locator('#add-indicator-select').selectOption('bb');
+      await page.getByRole('button', { name: /^Settings Bollinger/ }).click();
+      await dlg.getByRole('tab', { name: 'Style' }).click();
+      check('rows Upper, Middle, Lower', (await dlg.locator('.ind-plot-name').allTextContents()).join(',') === 'Upper,Middle,Lower');
+      const bbRow = async () => (await legendRows()).find((r) => /^BB/.test(r)) ?? '';
+      check('values before', ((await bbRow()).match(/\d/g) ?? []).length > 0);
+      await dlg.getByLabel('Upper', { exact: true }).uncheck();
+      await page.waitForTimeout(400);
+      const row2 = await bbRow();
+      log.push(`BB legend row without Upper: ${row2}`);
+      check('the legend lists no Upper plot', !/Upper/.test(row2) && /Middle/.test(row2) && /Lower/.test(row2), row2);
+      await ctx.screenshot('style-bb');
+      await dlg.getByRole('button', { name: 'Cancel' }).click();
+      await dlg.waitFor({ state: 'detached' });
+
+      await gear('Momentum pair').click();
+      await dlg.getByRole('tab', { name: 'Style' }).click();
+      check('rows Fast, Slow and the Zero hline', (await dlg.locator('.ind-plot-name').allTextContents()).join(',') === 'Fast,Slow,Zero');
+      check('the hline has no plot type', (await dlg.getByRole('button', { name: 'Zero plot type' }).count()) === 0);
+      const pineColor = () => page.locator('.pane-legend-entry').first().evaluate((el) => getComputedStyle(el).color);
+      const before = await pineColor();
+      await dlg.getByRole('button', { name: 'Fast colour' }).click();
+      await dlg.getByLabel('Custom Fast colour').fill('#ff0000');
+      await dlg.getByRole('radio', { name: '3', exact: true }).click();
+      await dlg.getByRole('radio', { name: 'Dashed' }).click();
+      await page.waitForTimeout(500);
+      const after = await pineColor();
+      log.push(`Fast colour ${before} -> ${after}`);
+      check('the legend shows the plot in red', after === 'rgb(255, 0, 0)' && after !== before, after);
+      await ctx.screenshot('style-pine');
+      await dlg.getByRole('button', { name: 'Cancel' }).click();
+      await dlg.waitFor({ state: 'detached' });
+      check('Cancel put the colour back', (await pineColor()) === before);
     });
 
     await ctx.writeText('checks', log.join('\n') + '\n');

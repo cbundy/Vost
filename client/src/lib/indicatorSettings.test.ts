@@ -91,3 +91,45 @@ describe('indicatorShortName', () => {
     expect([indicatorShortName('ema', 'x'), indicatorShortName('rsi', 'x'), indicatorShortName('pine', 'My script')]).toEqual(['EMA', 'RSI', 'My script']);
   });
 });
+
+describe('indicator style', () => {
+  const garbage = { plots: { ema_EMA: { color: 'red', opacity: 150, width: 9, plotType: 'bars' }, bad: 'x' }, precision: 12, labelsOnScale: 3 };
+
+  it('sanitizeIndicatorSpecs cleans a garbage style and removes an empty one', () => {
+    const out = sanitizeIndicatorSpecs<Record<string, unknown>>([
+      { id: 'a', style: garbage },
+      { id: 'b', style: { plots: {} } },
+      { id: 'c', style: 'x' },
+      { id: 'd', style: { plots: { k: { color: '#AABBCC', lineStyle: 'dotted' } }, valuesInStatusLine: false } },
+    ]);
+    expect(out).toEqual([
+      { id: 'a', style: { plots: { ema_EMA: { opacity: 100, width: 4 } }, precision: 8 } },
+      { id: 'b' },
+      { id: 'c' },
+      { id: 'd', style: { plots: { k: { color: '#aabbcc', lineStyle: 'dotted' } }, valuesInStatusLine: false } },
+    ]);
+  });
+
+  it('resetIndicator restores the saved default style, or removes it', () => {
+    const styled = { ...defaultIndicator('ema'), style: { precision: 2 } };
+    const saved = { params: { length: 9 }, hideOn: [], style: { labelsOnScale: false } };
+    expect(resetIndicator(styled, saved).style).toEqual({ labelsOnScale: false });
+    expect(resetIndicator(styled, saved).style).not.toBe(saved.style);
+    expect('style' in resetIndicator(styled, null)).toBe(false);
+    expect('style' in resetIndicator(styled, { params: {}, hideOn: [] })).toBe(false);
+    const pine = { ...defaultIndicator('pine'), style: { precision: 2 } };
+    expect('style' in resetIndicator(pine, undefined)).toBe(false);
+  });
+
+  it('Save as default round-trips the style, and defaultIndicator copies it', () => {
+    const style = { plots: { ema_EMA: { visible: false } }, precision: 3 };
+    const clean = sanitizeIndicatorDefaults({ ema: { params: { length: 12 }, hideOn: [], style } });
+    expect(clean.ema.style).toEqual(style);
+    expect(cleanIndicatorDefault('ema', { params: {}, hideOn: [], style: { precision: 99 } })?.style).toEqual({ precision: 8 });
+    expect('style' in (cleanIndicatorDefault('ema', { params: {}, hideOn: [], style: {} }) ?? {})).toBe(false);
+    const fresh = defaultIndicator('ema', clean.ema);
+    expect(fresh.style).toEqual(style);
+    expect(fresh.style).not.toBe(clean.ema.style);
+    expect('style' in defaultIndicator('ema', { params: {}, hideOn: [] })).toBe(false);
+  });
+});
