@@ -1654,11 +1654,13 @@ describe('replay', () => {
     const rsiId = chartOf(fresh).getState().addIndicator('rsi');
     const rsi = chartOf(fresh).getState().indicators.find((i) => i.id === rsiId)!;
     expect(rsi.hideOn).toBeUndefined();
+    fresh.getState().flushPersist(); // nothing pending that could write over the prefs the next load seeds
 
     const again = await load({ indicatorDefaults: JSON.parse(localStorage.getItem('vost.prefs.v1')!).indicatorDefaults });
     expect(again.getState().indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
     again.getState().setIndicatorDefault('ema', null);
     expect(again.getState().indicatorDefaults).toEqual({});
+    again.getState().flushPersist();
     for (const bad of ['x', 5, [], null, { ghost: { params: {} }, ema: 'x', sma: [], rsi: { params: { length: 'a' }, hideOn: 'minutes' } }]) {
       const d = (await load({ indicatorDefaults: bad })).getState().indicatorDefaults;
       expect(Object.keys(d).filter((k) => k !== 'rsi'), JSON.stringify(bad)).toEqual([]);
