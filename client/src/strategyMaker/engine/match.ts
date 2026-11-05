@@ -28,20 +28,27 @@ export interface SeriesMarks {
   used: number;
 }
 
+/** A highlighted trade that passed the checks, as bars. */
+export interface UsedTrade {
+  /** Index of the trade in its series' list. */
+  index: number;
+  side: 'long' | 'short';
+  entry: number;
+  exit: number;
+}
+
 /**
- * Maps one series' highlighted trades to bars. A trade outside the series, with an exit before its entry, or on a
- * side the search direction does not cover is added to `skipped` with the reason.
+ * The per-trade checks shared by the search and the model. A trade outside the series, with an exit before its
+ * entry, or on a side the direction does not cover is added to `skipped` with the reason; the rest come back as bars.
  */
-export function marksFromTrades(
+export function usedTrades(
   candles: Candle[],
   trades: HighlightTrade[],
   seriesIndex: number,
   direction: SearchDirection,
   skipped: SkippedTrade[],
-): SeriesMarks {
-  const entries: number[] = [];
-  const exits: number[] = [];
-  let used = 0;
+): UsedTrade[] {
+  const out: UsedTrade[] = [];
   const first = candles[0]?.time;
   const last = candles[candles.length - 1]?.time;
   trades.forEach((t, index) => {
@@ -52,13 +59,23 @@ export function marksFromTrades(
     if (t.exitTime < t.entryTime) return skip('exit is before entry');
     if (first == null || last == null || t.entryTime < first || t.exitTime > last) return skip('outside the series (no bars at its times)');
     if (direction !== 'both' && t.side !== direction) return skip(`${t.side} trade, but the search direction is ${direction}`);
-    entries.push(barAtOrBefore(candles, t.entryTime));
-    exits.push(barAtOrBefore(candles, t.exitTime));
-    used++;
+    out.push({ index, side: t.side, entry: barAtOrBefore(candles, t.entryTime), exit: barAtOrBefore(candles, t.exitTime) });
   });
-  entries.sort((a, b) => a - b);
-  exits.sort((a, b) => a - b);
-  return { marks: { entries, exits }, used };
+  return out;
+}
+
+/** Maps one series' highlighted trades to bars (see `usedTrades` for what is skipped). */
+export function marksFromTrades(
+  candles: Candle[],
+  trades: HighlightTrade[],
+  seriesIndex: number,
+  direction: SearchDirection,
+  skipped: SkippedTrade[],
+): SeriesMarks {
+  const used = usedTrades(candles, trades, seriesIndex, direction, skipped);
+  const entries = used.map((t) => t.entry).sort((a, b) => a - b);
+  const exits = used.map((t) => t.exit).sort((a, b) => a - b);
+  return { marks: { entries, exits }, used: used.length };
 }
 
 /** Marks below `bar`. */
