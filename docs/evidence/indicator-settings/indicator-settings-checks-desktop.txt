@@ -1,0 +1,30 @@
+baseline on 1d: panes=4 legends=2 emaPixels=1843 [RSI 14 44.00 | Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   baseline: RSI and Pine legends, the EMA drawn
+ok   gear title is Settings
+ok   titled EMA
+ok   tabs Inputs, Visibility - Inputs,Visibility
+before length edit: panes=4 legends=2 emaPixels=1843 [RSI 14 44.00 | Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   the row follows the dialog - 20
+after length 20: panes=4 legends=2 emaPixels=2124 [RSI 14 44.00 | Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   the chart redrew the EMA - 1843 -> 2124
+ok   0 is refused in place - Enter a number from 1 to 2000.
+ok   the row keeps 20
+ok   the row follows
+ok   Cancel put the opening length back (200) - 200
+ok   Escape put it back (200) - 200
+ok   six kinds, all on
+EMA hidden on 1m: panes=4 legends=2 emaPixels=0 [RSI 14 44.00 | Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   the EMA is gone on minutes
+EMA on 1h: panes=4 legends=2 emaPixels=2865 [RSI 14 44.00 | Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   the EMA is back on hours
+RSI hidden on minutes, on 1d: panes=4 legends=2 emaPixels=2865 [RSI 14 44.00 | Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   on days: all panes, 2 legends
+on 1m: panes=3 legends=1 emaPixels=0 [Momentum pair 10 Fast -0.3448 Slow -0.1783]
+ok   on minutes: one pane fewer, 1 legend, the Pine pane left - Momentum pair 10 Fast -0.3448 Slow -0.1783
+back on 1d: panes=4 legends=2 emaPixels=2757 [Momentum pair 10 Fast -0.3448 Slow -0.1783 | RSI 14 44.00]
+ok   back on days: all panes
+ok   a new EMA starts from the saved length (20) - 20
+ok   and hides on minutes
+ok   Reset goes to the saved default (20)
+ok   the default is stored in the prefs - {"ema":{"params":{"length":20},"hideOn":["minutes"]}}
+ok   no Save as default for Pine

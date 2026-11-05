@@ -1631,6 +1631,101 @@ describe('replay', () => {
     expect([bad.getState().drawingMagnetStrength, bad.getState().drawingsLocked, bad.getState().drawingStayMode]).toEqual(['weak', false, false]);
   });
 
+  it('indicator defaults: persisted per built-in kind, bad entries load as nothing, a new indicator starts from one', async () => {
+    const load = async (prefs: Record<string, unknown>) => {
+      vi.resetModules();
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const st = track((await import('./store')).useStore);
+      st.getState().init();
+      return st;
+    };
+    const fresh = await load({});
+    expect(fresh.getState().indicatorDefaults).toEqual({});
+    fresh.getState().setIndicatorDefault('ema', { params: { length: 9999, bogus: 1 }, hideOn: ['minutes', 'nope' as never] });
+    fresh.getState().setIndicatorDefault('pine', { params: {}, hideOn: [] });
+    expect(fresh.getState().indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
+    fresh.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
+
+    const id = chartOf(fresh).getState().addIndicator('ema');
+    const spec = chartOf(fresh).getState().indicators.find((i) => i.id === id)!;
+    expect([spec.params, spec.hideOn]).toEqual([{ length: 2000 }, ['minutes']]);
+    const rsiId = chartOf(fresh).getState().addIndicator('rsi');
+    const rsi = chartOf(fresh).getState().indicators.find((i) => i.id === rsiId)!;
+    expect(rsi.hideOn).toBeUndefined();
+
+    const again = await load({ indicatorDefaults: JSON.parse(localStorage.getItem('vost.prefs.v1')!).indicatorDefaults });
+    expect(again.getState().indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
+    again.getState().setIndicatorDefault('ema', null);
+    expect(again.getState().indicatorDefaults).toEqual({});
+    for (const bad of ['x', 5, [], null, { ghost: { params: {} }, ema: 'x', sma: [], rsi: { params: { length: 'a' }, hideOn: 'minutes' } }]) {
+      const d = (await load({ indicatorDefaults: bad })).getState().indicatorDefaults;
+      expect(Object.keys(d).filter((k) => k !== 'rsi'), JSON.stringify(bad)).toEqual([]);
+    }
+  });
+
+  it('indicators read from prefs: a bad hideOn is cleaned, a spec without one loads as before', async () => {
+    vi.resetModules();
+    const base = { color: '#111111', visible: true, params: { length: 5 } };
+    localStorage.setItem(
+      'vost.prefs.v1',
+      JSON.stringify({
+        providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100,
+        indicators: [{ id: 'a', kind: 'sma', ...base }, { id: 'b', kind: 'ema', ...base, hideOn: ['days', 'x', 3] }, { id: 'c', kind: 'rsi', ...base, hideOn: 'days' }],
+      }),
+    );
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    const st = track((await import('./store')).useStore);
+    st.getState().init();
+    const ind = chartOf(st).getState().indicators;
+    expect(ind[0]).toEqual({ id: 'a', kind: 'sma', ...base });
+    expect(ind[1].hideOn).toEqual(['days']);
+    expect('hideOn' in ind[2]).toBe(false);
+  });
+
+  it('updateIndicator keeps hideOn and params; restoreIndicator puts the opening spec back', async () => {
+    vi.resetModules();
+    stubStorage();
+    const { useStore } = await import('./store');
+    track(useStore);
+    const c = chartOf(useStore).getState();
+    const id = c.addIndicator('ema');
+    const opening = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    c.updateIndicator(id, { hideOn: ['minutes', 'hours'], params: { length: 12 } });
+    const edited = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    expect([edited.hideOn, edited.params]).toEqual([['minutes', 'hours'], { length: 12 }]);
+    c.updateIndicator(id, { hideOn: [] });
+    expect('hideOn' in chartOf(useStore).getState().indicators.find((i) => i.id === id)!).toBe(false);
+    c.restoreIndicator(id, opening);
+    expect(chartOf(useStore).getState().indicators.find((i) => i.id === id)).toEqual(opening);
+  });
+
+  it('restoreIndicator removes Pine input overrides added since and reruns the script', async () => {
+    vi.resetModules();
+    stubStorage();
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const { candlesFromCsvText } = await import('../lib/csv');
+    const candles = candlesFromCsvText(readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8')).candles;
+    const { useStore } = await import('./store');
+    track(useStore);
+    chartOf(useStore).setState({ candles });
+    const c = chartOf(useStore).getState();
+    const id = c.addIndicator('pine');
+    const settled = () => vi.waitFor(() => { const r = chartOf(useStore).getState().pineRuns[id]; expect(r && !r.running && r.result).toBeTruthy(); }, { timeout: 20000 });
+    await settled();
+    const opening = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    c.updateIndicator(id, { inputs: { Fast: 3 }, calculation: { gaps: false } });
+    await vi.waitFor(() => expect(chartOf(useStore).getState().pineRuns[id].result?.plots[0].values[4]).not.toBeNull(), { timeout: 20000 });
+    await settled();
+    c.restoreIndicator(id, opening);
+    const back = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    expect(back.inputs).toEqual({});
+    expect(back.calculation).toBeUndefined();
+    await vi.waitFor(() => expect(chartOf(useStore).getState().pineRuns[id].result?.plots[0].values[4]).toBeNull(), { timeout: 20000 });
+  });
+
   it('drawing defaults: persisted per tool, bad or unknown entries load as nothing', async () => {
     const load = async (prefs: Record<string, unknown>) => {
       vi.resetModules();
