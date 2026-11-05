@@ -1,0 +1,6 @@
+ok   trend line stored - trendLine
+ok   buttons hidden
+ok   A lit
+ok   L dark
+ok   log saved
+ok   buttons hidden after a tap elsewhere

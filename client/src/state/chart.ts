@@ -7,6 +7,7 @@
  * Heavy computations run in a dedicated Web Worker (see ./worker).
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import { DEFAULT_PRICE_SCALE_MODE, type PriceScaleModeId } from '../lib/priceScaleMode';
 import { applyKline, mergeCandles } from '../lib/applyKline';
 import { MAX_BARS, intervalSeconds, parseInterval } from '../../../shared/market.ts';
 import type { Candle, Dataset, Interval } from '../types';
@@ -116,6 +117,7 @@ export interface ChartInitial {
   btConfig: BacktestConfig;
   showTrades: boolean;
   btRange: TimeRange;
+  priceScaleMode: PriceScaleModeId;
 }
 
 export function defaultChartInitial(): ChartInitial {
@@ -131,6 +133,7 @@ export function defaultChartInitial(): ChartInitial {
     btConfig: defaultBacktestConfig(),
     showTrades: true,
     btRange: { from: null, to: null },
+    priceScaleMode: DEFAULT_PRICE_SCALE_MODE,
   };
 }
 
@@ -168,6 +171,8 @@ export interface ChartState {
   bars: number;
   indicators: IndicatorSpec[];
   showTrades: boolean;
+  /** How the main pane's price scale maps prices (persisted per chart). */
+  priceScaleMode: PriceScaleModeId;
   /** Pine run state by indicator id (not persisted). */
   pineRuns: Record<string, PineRunState>;
   selectedPineId: string | null;
@@ -282,6 +287,7 @@ export interface ChartState {
   /** Re-runs every Pine indicator (a setting that changes what a run sees). */
   rerunPine(): void;
   setShowTrades(v: boolean): void;
+  setPriceScaleMode(mode: PriceScaleModeId): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
   /**
@@ -982,6 +988,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
 
     setShowTrades(v) {
       set({ showTrades: v });
+      env.onPrefsChange();
+    },
+
+    setPriceScaleMode(mode) {
+      set({ priceScaleMode: mode });
       env.onPrefsChange();
     },
 

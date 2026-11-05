@@ -140,6 +140,25 @@ describe('chart layouts in the app store', () => {
     expect(again.getState().charts[c].getState().indicators).toHaveLength(indicatorCount);
   });
 
+  it('each chart keeps its own price scale mode through layout.v1, and a linear chart writes no key', async () => {
+    vi.useFakeTimers();
+    const app = await fresh();
+    app.getState().init();
+    app.getState().setArrangement('stacks-1-2');
+    const [a, b, c] = app.getState().chartOrder;
+    app.getState().charts[b].getState().setPriceScaleMode('percent');
+    app.getState().charts[c].getState().setPriceScaleMode('log');
+    vi.advanceTimersByTime(1000);
+    const layout = stored('layout.v1');
+    expect('priceScaleMode' in layout.charts[0]).toBe(false);
+    expect(layout.charts.map((x: { priceScaleMode?: string }) => x.priceScaleMode)).toEqual([undefined, 'percent', 'log']);
+
+    const again = await fresh();
+    again.getState().init();
+    const modes = [a, b, c].map((id) => again.getState().charts[id].getState().priceScaleMode);
+    expect(modes).toEqual(['linear', 'percent', 'log']);
+  });
+
   it('a saved layout wins over prefs.v1 for the charts; the app-wide prefs still come from prefs.v1', async () => {
     seedRaw('prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR', sidebarWidth: 333 }));
     seedRaw('layout.v1',

@@ -268,6 +268,8 @@ export interface LayoutChartRecord {
   btConfig: unknown;
   showTrades: boolean;
   btRange?: unknown;
+  /** Written only when not linear, so layouts saved before it existed compare equal. */
+  priceScaleMode?: unknown;
 }
 
 /** The record `layout.v1` holds, and each named layout keeps as its snapshot. */

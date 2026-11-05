@@ -17,6 +17,7 @@ import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import type { SyncChange } from '../lib/layoutSync';
 import { sanitizeTimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
+import { sanitizePriceScaleMode } from '../lib/priceScaleMode';
 import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
 import {
   DEFAULT_ARRANGEMENT_ID,
@@ -75,6 +76,7 @@ interface Prefs {
   showTrades: boolean;
   timeZone?: string;
   btRange?: TimeRange;
+  priceScaleMode?: unknown;
   sidebarWidth?: number;
   pineWidth?: number;
   dockHeight?: number;
@@ -98,6 +100,7 @@ interface Prefs {
   buildTimeframes?: boolean;
   historyLoading?: HistoryLoading;
   barCountdown?: boolean;
+  highLowLabels?: boolean;
   pineHigherBars?: 'forming' | 'finished';
   customTimeframes?: Interval[];
 }
@@ -135,6 +138,7 @@ function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
     btConfig: { ...defaultPrefs.btConfig, ...(p.btConfig ?? {}) },
     showTrades: p.showTrades ?? true,
     btRange: sanitizeTimeRange(p.btRange),
+    priceScaleMode: sanitizePriceScaleMode(p.priceScaleMode),
   };
 }
 
@@ -159,6 +163,7 @@ export function layoutSnapshot(s: Pick<AppState, 'arrangementId' | 'activeChartI
         btConfig: c.btConfig,
         showTrades: c.showTrades,
         btRange: c.btRange,
+        ...(c.priceScaleMode === 'linear' ? {} : { priceScaleMode: c.priceScaleMode }),
       };
     }),
     sizes: s.layoutSizes,
@@ -210,6 +215,8 @@ export interface AppState {
   historyLoading: HistoryLoading;
   /** Show the time left in the last bar under the last price. */
   barCountdown: boolean;
+  /** Show High and Low labels on the price scale for the bars on screen. */
+  highLowLabels: boolean;
   /** Pine: whether the live bar sees the forming higher-timeframe bar or only finished ones. */
   pineHigherBars: 'forming' | 'finished';
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
@@ -288,6 +295,7 @@ export interface AppState {
   setBuildTimeframes(v: boolean): void;
   setHistoryLoading(v: HistoryLoading): void;
   setBarCountdown(v: boolean): void;
+  setHighLowLabels(v: boolean): void;
   setPineHigherBars(v: 'forming' | 'finished'): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
   addCustomTimeframe(iv: Interval): void;
@@ -352,6 +360,7 @@ export const useStore = create<AppState>()((set, get) => {
       showTrades: c.showTrades,
       timeZone: s.timeZone,
       btRange: c.btRange,
+      priceScaleMode: c.priceScaleMode,
       sidebarWidth: s.sidebarWidth,
       pineWidth: s.pineWidth,
       dockHeight: s.dockHeight,
@@ -373,6 +382,7 @@ export const useStore = create<AppState>()((set, get) => {
       buildTimeframes: s.buildTimeframes,
       historyLoading: s.historyLoading,
       barCountdown: s.barCountdown,
+      highLowLabels: s.highLowLabels,
       pineHigherBars: s.pineHigherBars,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
@@ -572,6 +582,7 @@ export const useStore = create<AppState>()((set, get) => {
     buildTimeframes: false,
     historyLoading: 'scroll',
     barCountdown: true,
+    highLowLabels: true,
     pineHigherBars: 'forming',
     customTimeframes: [],
     charts: firstCharts,
@@ -680,6 +691,7 @@ export const useStore = create<AppState>()((set, get) => {
         buildTimeframes: prefs.buildTimeframes === true,
         historyLoading: prefs.historyLoading === 'all' ? 'all' : 'scroll',
         barCountdown: prefs.barCountdown !== false,
+        highLowLabels: prefs.highLowLabels !== false,
         pineHigherBars: prefs.pineHigherBars === 'finished' ? 'finished' : 'forming',
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
@@ -834,6 +846,11 @@ export const useStore = create<AppState>()((set, get) => {
 
     setBarCountdown(v) {
       set({ barCountdown: v !== false });
+      persistPrefs();
+    },
+
+    setHighLowLabels(v) {
+      set({ highLowLabels: v !== false });
       persistPrefs();
     },
 

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject 
 import type { ISeriesApi } from 'lightweight-charts';
 import { subscribeClipboard } from '../lib/drawingClipboard';
 import { drawingMenuItems } from './chart/drawingMenuItems';
+import { PRICE_SCALE_MODES, type PriceScaleModeId } from '../lib/priceScaleMode';
 import type { DrawingActions, DrawingInfo } from './chart/useDrawingActions';
 
 interface Menu {
@@ -25,6 +26,10 @@ export function ChartContextMenu({
   enabled,
   onAddAlert,
   drawings,
+  priceScaleMode,
+  onPriceScaleMode,
+  autoScale,
+  onAutoScale,
 }: {
   containerRef: RefObject<HTMLDivElement | null>;
   seriesRef: RefObject<ISeriesApi<'Candlestick'> | null>;
@@ -32,6 +37,11 @@ export function ChartContextMenu({
   enabled: boolean;
   onAddAlert: (level: number) => void;
   drawings: DrawingActions;
+  /** The main price scale: its mode and whether it fits the data. */
+  priceScaleMode: PriceScaleModeId;
+  onPriceScaleMode: (m: PriceScaleModeId) => void;
+  autoScale: boolean;
+  onAutoScale: (on: boolean) => void;
 }) {
   const [menu, setMenu] = useState<Menu | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -183,6 +193,24 @@ export function ChartContextMenu({
         onClick={run(() => actions.current.removeAll())}
       >
         Remove drawings
+      </button>
+      <div className="chart-context-menu-sep" role="separator" />
+      <div className="chart-context-menu-group" id="chart-context-menu-price-scale">
+        Price scale
+      </div>
+      {PRICE_SCALE_MODES.map((m) => (
+        <button key={m.id} role="menuitemradio" aria-checked={priceScaleMode === m.id} onClick={run(() => onPriceScaleMode(m.id))}>
+          <span className="menu-check" aria-hidden="true">
+            {priceScaleMode === m.id ? '\u2713' : ''}
+          </span>
+          {m.label}
+        </button>
+      ))}
+      <button role="menuitemcheckbox" aria-checked={autoScale} onClick={run(() => onAutoScale(!autoScale))}>
+        <span className="menu-check" aria-hidden="true">
+          {autoScale ? '\u2713' : ''}
+        </span>
+        Auto (fits data to screen)
       </button>
     </div>
   );

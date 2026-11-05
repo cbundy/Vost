@@ -1,0 +1,40 @@
+ok   trend line stored - trendLine
+ok   buttons hidden
+ok   A lit
+ok   L dark
+ok   still shown over the button
+ok   hidden after leaving
+ok   log saved
+ok   L lit
+ok   linear saved
+ok   L dark
+ok   A dark after the drag
+ok   A lit again
+ok   four modes listed
+ok   Linear checked first
+ok   Auto is a checkbox, on
+ok   Logarithmic saved
+ok   trend line price unchanged in storage
+ok   four modes listed
+ok   Linear checked first
+ok   Auto is a checkbox, on
+ok   Percent saved
+ok   trend line price unchanged in storage
+ok   four modes listed
+ok   Linear checked first
+ok   Auto is a checkbox, on
+ok   Indexed to 100 saved
+ok   trend line price unchanged in storage
+ok   log: ray stored
+ok   log: stored 65.75 vs alert price 65.77
+ok   percent: ray stored
+ok   percent: stored 65.89 vs alert price 65.91
+ok   indexed: ray stored
+ok   indexed: stored 65.89 vs alert price 65.91
+ok   linear: ray stored
+ok   linear: stored 65.89 vs alert price 65.91
+ok   A dark after Auto off
+ok   A lit after Reset view
+ok   mode kept after Reset view
+ok   percent after reload
+ok   Percent checked
