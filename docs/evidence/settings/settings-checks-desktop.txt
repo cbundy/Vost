@@ -4,3 +4,4 @@ Escape closes the popup: true
 gear inside viewport at desktop (with Bars menu): true (right 1430 of 1440, scrollWidth 1440)
 vost.prefs.v1 historyLoading: all
 new /api/history requests after the switch: 1
+vost.prefs.v1 pineHigherBars: finished

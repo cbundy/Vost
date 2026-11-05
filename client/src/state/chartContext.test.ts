@@ -10,6 +10,7 @@ const env: ChartEnv = {
   timeZone: () => 'UTC',
   buildTimeframes: () => false,
   historyLoading: () => 'scroll',
+  pineHigherBars: () => 'forming',
   datasets: () => [],
   addDataset: () => {},
   removeDataset: () => {},

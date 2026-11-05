@@ -62,6 +62,7 @@ function setup(opts: { total?: number; mode?: HistoryLoading; build?: boolean } 
     timeZone: () => 'UTC',
     buildTimeframes: () => opts.build === true,
     historyLoading: () => mode,
+    pineHigherBars: () => 'forming',
     datasets: () => [],
     addDataset: () => {},
     removeDataset: () => {},

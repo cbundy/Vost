@@ -58,7 +58,7 @@ export const chartHistory: Scenario = {
       if (held === 0) throw new Error('no older page was requested');
       await page.waitForTimeout(500);
     });
-    const loaded = async () => ((await page.getByText(/[\d,]+ bars · /).first().innerText()).match(/([\d,]+) bars/)?.[1] ?? '?');
+    const loaded = async () => ((await page.getByText(/[\d,]+ bars( loaded)? · /).first().innerText()).match(/([\d,]+) bars/)?.[1] ?? '?');
     const barsBefore = await loaded();
     const before = { mid: await barTimeAt(page, 0.5), right: await barTimeAt(page, 0.9) };
     await ctx.screenshot('before');

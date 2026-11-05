@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const settings: Scenario = {
   name: 'settings',
-  description: 'The gear at the right end of the top bar opens the Settings popup; picking "Load all bars at once" saves the setting, reloads the chart and shows the Bars menu',
+  description: 'The gear at the right end of the top bar opens the Settings popup; picking "Load all bars at once" saves the setting, reloads the chart and shows the Bars menu; the Pine scripts section offers "Only finished bars (no repaint)", which is saved and still checked after reopening',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -75,6 +75,24 @@ export const settings: Scenario = {
       if (saved !== 'all') throw new Error(`saved ${saved}`);
       if (history().length <= before) throw new Error('no new history request after the switch');
     });
+    await ctx.step('the Pine scripts section defaults to following the forming bar, and picking Only finished bars saves it', async () => {
+      await page.keyboard.press('Escape');
+      await gear.click();
+      await dialog.getByRole('heading', { name: 'Pine scripts' }).waitFor();
+      if (!(await dialog.getByLabel(/Follow the forming bar/).isChecked())) throw new Error('forming is not checked');
+      await ctx.screenshot('pine-default');
+      await dialog.getByLabel(/Only finished bars/).check();
+      await page.waitForTimeout(300);
+      await dialog.getByTitle('Close (Esc)').click();
+      await dialog.waitFor({ state: 'detached' });
+      await gear.click();
+      await dialog.waitFor();
+      if (!(await dialog.getByLabel(/Only finished bars/).isChecked())) throw new Error('finished is not still checked after reopening');
+      await ctx.screenshot('pine-finished');
+    });
+    const savedPine = await page.evaluate(() => JSON.parse(localStorage.getItem('vost.prefs.v1') ?? '{}').pineHigherBars);
+    notes.push(`vost.prefs.v1 pineHigherBars: ${savedPine}`);
+    if (savedPine !== 'finished') throw new Error(`pineHigherBars saved ${savedPine}`);
     await ctx.writeText('checks', [...notes, ''].join('\n'));
   },
 };
