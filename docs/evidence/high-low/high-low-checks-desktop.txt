@@ -1,0 +1,2 @@
+zoomed: price-axis pixels changed: true
+off: price-axis pixels changed: true
