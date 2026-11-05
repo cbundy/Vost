@@ -4,18 +4,22 @@ import type { Candle, Timeframe } from '../../../shared/market.ts';
 import { getProvider } from '../lib/providers';
 import type { Dataset } from '../types';
 import { loadFromDataset, loadFromProvider } from './data';
-import type { Candidate } from './engine';
+import type { Candidate, TrainResult } from './engine';
 import { createEngineClient, type EngineClient } from './engineClient';
 import { candidateKey } from './Results';
-import { runFind, sourceLabel, type FindInputs, type FindResult, type FoundTrade, type Loaders } from './run';
+import { runFind, runRetrain, sourceLabel, tooFewMessage, type FindInputs, type FindResult, type FoundTrade, type Loaders } from './run';
 import type { HighlightSet } from './store';
 import type { RunState } from './TargetsForm';
+import type { FindStage } from './run';
 
 const IDLE: RunState = { running: false, pct: 0, stage: 'Loading data', onPage: false };
 
 const isAbort = (e: unknown): boolean => e instanceof Error && e.name === 'AbortError';
 
-export function useFind(bars: number, library: Dataset[]) {
+/** Called with each model a run trained (not one it reused) and the sets it was trained on, in training order. */
+export type OnTrained = (model: TrainResult, usedSets: HighlightSet[]) => void;
+
+export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained) {
   const [run, setRun] = useState<RunState>(IDLE);
   const [result, setResult] = useState<FindResult | null>(null);
   const [error, setError] = useState('');
@@ -26,6 +30,8 @@ export function useFind(bars: number, library: Dataset[]) {
   const token = useRef(0);
   const libraryRef = useRef(library);
   libraryRef.current = library;
+  const trainedRef = useRef(onTrained);
+  trainedRef.current = onTrained;
   const getClient = (): EngineClient => (client.current ??= createEngineClient());
 
   useEffect(
@@ -43,53 +49,95 @@ export function useFind(bars: number, library: Dataset[]) {
     setFound([]);
   }, []);
 
+  const loadersFor = useCallback(
+    (): Loaders => ({
+      provider: (s, signal) => loadFromProvider(getProvider(s.provider), { symbol: s.symbol, timeframe: s.timeframe as Timeframe, bars }, signal),
+      library: (id) => {
+        const d = libraryRef.current.find((x) => x.id === id);
+        return d ? loadFromDataset(d) : { ok: false, error: 'This dataset is no longer in the library.' };
+      },
+    }),
+    [bars],
+  );
+  const label = (s: HighlightSet['source']): string => sourceLabel(s, (id) => libraryRef.current.find((d) => d.id === id)?.name);
+
+  const begin = (): AbortController => {
+    ctl.current?.abort();
+    const mine = new AbortController();
+    ctl.current = mine;
+    setError('');
+    setRun({ ...IDLE, running: true });
+    return mine;
+  };
+  const end = (mine: AbortController): void => {
+    if (ctl.current === mine) {
+      ctl.current = null;
+      setRun(IDLE);
+    }
+  };
+  const track =
+    (onProgress?: (pct: number, stage: FindStage) => void) =>
+    (pct: number, stage: FindStage, onPage: boolean): void => {
+      onProgress?.(pct, stage);
+      setRun((s) => (s.onPage === onPage ? s : { ...s, onPage }));
+    };
+
+  /** `model` is a model that is up to date for `sets` (in its training order): the run then skips training. */
   const start = useCallback(
-    async (sets: HighlightSet[], inputs: FindInputs) => {
-      ctl.current?.abort();
-      const mine = new AbortController();
-      ctl.current = mine;
-      setError('');
-      setRun({ ...IDLE, running: true });
-      const loaders: Loaders = {
-        provider: (s, signal) =>
-          loadFromProvider(getProvider(s.provider), { symbol: s.symbol, timeframe: s.timeframe as Timeframe, bars }, signal),
-        library: (id) => {
-          const d = libraryRef.current.find((x) => x.id === id);
-          return d ? loadFromDataset(d) : { ok: false, error: 'This dataset is no longer in the library.' };
-        },
-      };
-      const label = (s: HighlightSet['source']): string => sourceLabel(s, (id) => libraryRef.current.find((d) => d.id === id)?.name);
+    async (sets: HighlightSet[], inputs: FindInputs, model?: TrainResult) => {
+      const mine = begin();
+      const loaders = loadersFor();
       try {
         const r = await runFind({
           sets,
           inputs,
           loaders,
           label,
+          model,
           signal: mine.signal,
-          engine: (series, inp, signal, onProgress) =>
-            getClient().find(series, inp, {
-              signal,
-              onProgress: (pct, stage, onPage) => {
-                onProgress?.(pct, stage);
-                setRun((s) => (s.onPage === onPage ? s : { ...s, onPage }));
-              },
-            }),
+          engine: (series, inp, signal, onProgress, trained) =>
+            getClient().find(series, inp, { signal, model: trained, onProgress: track(onProgress) }),
           onProgress: (pct, stage) => setRun((s) => (s.running ? { ...s, pct: Math.max(s.pct, pct), stage } : s)),
         });
         if (mine.signal.aborted) return;
         clearSelection();
         setResult(r);
+        if (r.outcome.kind === 'ok' && !r.reused) trainedRef.current?.(r.outcome.model, r.usedSets);
       } catch (e) {
         if (mine.signal.aborted || isAbort(e)) return;
         setError(`The search stopped: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
-        if (ctl.current === mine) {
-          ctl.current = null;
-          setRun(IDLE);
-        }
+        end(mine);
       }
     },
-    [bars, clearSelection],
+    [loadersFor, clearSelection],
+  );
+
+  /** Trains again on `sets` only, with the same progress and cancel as a find. */
+  const retrain = useCallback(
+    async (sets: HighlightSet[]) => {
+      const mine = begin();
+      try {
+        const r = await runRetrain({
+          sets,
+          loaders: loadersFor(),
+          label,
+          signal: mine.signal,
+          trainer: (series, signal, onProgress) => getClient().train(series, { signal, onProgress: track(onProgress) }),
+          onProgress: (pct, stage) => setRun((s) => (s.running ? { ...s, pct: Math.max(s.pct, pct), stage } : s)),
+        });
+        if (mine.signal.aborted) return;
+        if (r.outcome.kind === 'trained') trainedRef.current?.(r.outcome.model, r.usedSets);
+        else if (r.outcome.kind === 'too-few') setError(tooFewMessage(r.outcome.have, r.outcome.need));
+        else setError(r.outcome.reason);
+      } catch (e) {
+        if (mine.signal.aborted || isAbort(e)) return;
+        setError(`The training stopped: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        end(mine);
+      }
+    },
+    [loadersFor],
   );
 
   /** Stops the run; the page shows what it showed before Find was pressed. */
@@ -120,5 +168,5 @@ export function useFind(bars: number, library: Dataset[]) {
     [result],
   );
 
-  return { run, result, error, selected, found, start, cancel, select, clearSelection };
+  return { run, result, error, selected, found, start, retrain, cancel, select, clearSelection };
 }

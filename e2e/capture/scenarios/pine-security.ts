@@ -1,5 +1,6 @@
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { setPineSource } from '../pine-editor.ts';
 
 const SCRIPT = `//@version=6
 indicator("Daily EMA on hourly", overlay=true)
@@ -35,9 +36,7 @@ export const pineSecurity: Scenario = {
       await showSideSection(page, 'Indicators', false);
       await page.locator('#add-indicator-select').selectOption('pine');
       await pane.waitFor();
-      await page.locator('.pine-pane .pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      await page.keyboard.insertText(SCRIPT);
+      await setPineSource(page, SCRIPT);
       await page.locator('.pine-error').waitFor({ state: 'detached' });
       await page.getByRole('button', { name: 'Close Pine editor' }).click();
       await pane.waitFor({ state: 'detached' });
@@ -61,9 +60,7 @@ export const pineSecurity: Scenario = {
         await showSideSection(page, 'Indicators', false);
         await page.getByRole('button', { name: /^Edit .* source$/ }).click();
         await pane.waitFor();
-        await page.locator('.pine-pane .pine-editor .cm-content').click();
-        await page.keyboard.press('Control+A');
-        await page.keyboard.insertText(script);
+        await setPineSource(page, script);
         await page.locator('.pine-error').waitFor({ state: 'detached' });
         await page.getByRole('button', { name: 'Close Pine editor' }).click();
         await pane.waitFor({ state: 'detached' });

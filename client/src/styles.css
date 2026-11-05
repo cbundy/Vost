@@ -2359,6 +2359,13 @@ a:hover {
 .pine-log-error .pine-log-level, .pine-log-error { color: var(--red); }
 .pine-log-warning .pine-msg-time, .pine-log-error .pine-msg-time { color: var(--muted-2); }
 
+.pine-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .pine-status {
   display: flex;
   justify-content: space-between;

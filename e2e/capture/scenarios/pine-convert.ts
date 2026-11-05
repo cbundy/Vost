@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { addToChart, setPineSource } from '../pine-editor.ts';
 
 const legacy = readFileSync(new URL('../../../client/src/lib/pine/fixtures/legacy-wavetrend.pine', import.meta.url), 'utf8');
 
@@ -20,16 +21,15 @@ export const pineConvert: Scenario = {
       await page.locator('.pine-pane .pine-editor .cm-content').waitFor();
     });
     await ctx.step('paste the old script', async () => {
-      await page.locator('.pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      // insertText avoids closeBrackets mangling typed text
-      await page.keyboard.insertText(legacy);
+      await setPineSource(page, legacy);
       await page.locator('.pine-error').waitFor();
     });
     await ctx.screenshot('legacy');
     await ctx.step('convert to v6', async () => {
       await page.getByRole('button', { name: 'Convert to v6' }).click();
       await page.locator('.pine-convert-note').waitFor();
+      // the conversion is a draft: it leaves the editor untouched until it is added to the chart
+      await addToChart(page);
       await page.locator('.pine-error').waitFor({ state: 'detached' });
       await page.locator('.pine-entry .indicator-params').waitFor();
     });

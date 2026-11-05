@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Page } from 'playwright';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { setPineSource } from '../pine-editor.ts';
 
 const fixture = readFileSync(new URL('../../../client/src/lib/pine/fixtures/pane-legend.pine', import.meta.url), 'utf8');
 
@@ -72,9 +73,7 @@ export const chartPanes: Scenario = {
       await pane.waitFor();
       await page.locator('.pine-pane .pine-editor .cm-content').waitFor();
       if (narrow) await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
-      await page.locator('.pine-pane .pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      await page.keyboard.insertText(fixture);
+      await setPineSource(page, fixture);
       await page.locator('.pine-error').waitFor({ state: 'detached' });
       await page.getByRole('button', { name: 'Close Pine editor' }).click();
       await pane.waitFor({ state: 'detached' });

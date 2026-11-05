@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { setPineSource } from '../pine-editor.ts';
 
 const fixture = (name: string) =>
   readFileSync(new URL(`../../../client/src/lib/pine/fixtures/${name}.pine`, import.meta.url), 'utf8');
@@ -14,10 +15,7 @@ export const pineDrawings: Scenario = {
     const narrow = viewport === 'narrow';
     const pane = page.getByRole(narrow ? 'dialog' : 'region', { name: 'Pine editor' });
     const setSource = async (text: string) => {
-      await page.locator('.pine-pane .pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      // insertText avoids closeBrackets mangling typed text
-      await page.keyboard.insertText(text);
+      await setPineSource(page, text);
       await page.locator('.pine-error').waitFor({ state: 'detached' });
     };
     const closeEditor = async () => {

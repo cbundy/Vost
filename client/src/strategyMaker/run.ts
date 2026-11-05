@@ -32,6 +32,12 @@ export type EngineOutcome =
   | { kind: 'too-few'; have: number; need: number }
   | { kind: 'refused'; reason: string };
 
+/** What training alone gives (Retrain). */
+export type TrainedOutcome =
+  | { kind: 'trained'; model: TrainResult }
+  | { kind: 'too-few'; have: number; need: number }
+  | { kind: 'refused'; reason: string };
+
 export interface FoundTrade {
   side: 'long' | 'short';
   entryTime: number;
@@ -52,6 +58,10 @@ export interface FindResult {
   /** The label of each series that was loaded, in the order of the engine's skipped-trade indexes. */
   seriesLabels: string[];
   skippedSets: SkippedSet[];
+  /** The sets whose candles loaded, in the order of `seriesLabels` (what the model was trained on, or reused for). */
+  usedSets: HighlightSet[];
+  /** True when the run used the model it was given instead of training. */
+  reused: boolean;
 }
 
 export type Progress = (pct: number, stage: FindStage) => void;
@@ -82,8 +92,9 @@ export async function loadSeries(
   sets: HighlightSet[],
   loaders: Loaders,
   opts: { signal?: AbortSignal; label?: (s: SetSource) => string; onProgress?: (done: number, total: number) => void } = {},
-): Promise<{ series: SeriesInput[]; labels: string[]; skipped: SkippedSet[] }> {
+): Promise<{ series: SeriesInput[]; labels: string[]; skipped: SkippedSet[]; used: HighlightSet[] }> {
   const series: SeriesInput[] = [];
+  const used: HighlightSet[] = [];
   const labels: string[] = [];
   const skipped: SkippedSet[] = [];
   for (let i = 0; i < sets.length; i++) {
@@ -103,23 +114,42 @@ export async function loadSeries(
     if (loaded.ok) {
       series.push({ candles: loaded.candles, trades: set.trades });
       labels.push(label);
+      used.push(set);
     } else {
       skipped.push({ label, reason: loaded.error });
     }
     opts.onProgress?.(i + 1, sets.length);
   }
-  return { series, labels, skipped };
+  return { series, labels, skipped, used };
 }
 
-/** Training, then the search narrowed by the model, then the search's validation. Rejects with an AbortError on abort. */
-export async function runEngine(series: SeriesInput[], inputs: FindInputs, signal?: AbortSignal, onProgress?: Progress): Promise<EngineOutcome> {
+/** Training alone, for Retrain. Rejects with an AbortError on abort. */
+export async function runTrain(series: SeriesInput[], signal?: AbortSignal, onProgress?: Progress): Promise<TrainedOutcome> {
+  if (signal?.aborted) throw abortError();
+  const model = await trainModel({ series, signal, onProgress: (p) => onProgress?.(Math.min(1, p), 'Training') });
+  if (model.kind === 'ok') return { kind: 'trained', model };
+  if (model.kind === 'too-few') return { kind: 'too-few', have: model.have, need: model.need };
+  return { kind: 'refused', reason: model.reason };
+}
+
+/**
+ * Training, then the search narrowed by the model, then the search's validation. Rejects with an AbortError on abort.
+ * With `trained` (a model that is up to date for these series, in the order it was trained on) training is skipped.
+ */
+export async function runEngine(
+  series: SeriesInput[],
+  inputs: FindInputs,
+  signal?: AbortSignal,
+  onProgress?: Progress,
+  trained?: TrainResult,
+): Promise<EngineOutcome> {
   if (signal?.aborted) throw abortError();
   let last = 0;
   const report = (pct: number, stage: FindStage): void => {
     last = Math.max(last, Math.min(1, pct));
     onProgress?.(last, stage);
   };
-  const model = await trainModel({ series, signal, onProgress: (p) => report(0.35 * p, 'Training') });
+  const model = trained ?? (await trainModel({ series, signal, onProgress: (p) => report(0.35 * p, 'Training') }));
   if (model.kind === 'too-few') return { kind: 'too-few', have: model.have, need: model.need };
   if (model.kind === 'refused') return { kind: 'refused', reason: model.reason };
 
@@ -145,7 +175,14 @@ export async function runEngine(series: SeriesInput[], inputs: FindInputs, signa
   return { kind: 'ok', model, search };
 }
 
-export type EngineRunner = (series: SeriesInput[], inputs: FindInputs, signal?: AbortSignal, onProgress?: Progress) => Promise<EngineOutcome>;
+export type EngineRunner = (
+  series: SeriesInput[],
+  inputs: FindInputs,
+  signal?: AbortSignal,
+  onProgress?: Progress,
+  trained?: TrainResult,
+) => Promise<EngineOutcome>;
+export type TrainRunner = (series: SeriesInput[], signal?: AbortSignal, onProgress?: Progress) => Promise<TrainedOutcome>;
 
 const LOAD_SHARE = 0.05;
 
@@ -155,6 +192,8 @@ export async function runFind(args: {
   inputs: FindInputs;
   loaders: Loaders;
   engine?: EngineRunner;
+  /** A model that is up to date for `sets` (in its training order): the run then starts at the search. */
+  model?: TrainResult;
   label?: (s: SetSource) => string;
   signal?: AbortSignal;
   onProgress?: Progress;
@@ -172,11 +211,43 @@ export async function runFind(args: {
     label: args.label,
     onProgress: (done, total) => report(LOAD_SHARE * (done / total), 'Loading data'),
   });
-  const base = { inputs, seriesLabels: loaded.labels, skippedSets: loaded.skipped };
+  // A set that would not load changes the series the model was trained on, so the model is then not reused.
+  const reuse = args.model && loaded.skipped.length === 0 ? args.model : undefined;
+  const base = { inputs, seriesLabels: loaded.labels, skippedSets: loaded.skipped, usedSets: loaded.used, reused: !!reuse };
   if (loaded.series.length === 0) {
     return { ...base, outcome: { kind: 'refused', reason: 'None of the chosen sets could be loaded, so there is nothing to learn from.' } };
   }
-  const outcome = await engine(loaded.series, inputs, signal, (pct, stage) => report(LOAD_SHARE + (1 - LOAD_SHARE) * pct, stage));
+  const outcome = await engine(loaded.series, inputs, signal, (pct, stage) => report(LOAD_SHARE + (1 - LOAD_SHARE) * pct, stage), reuse);
+  return { ...base, outcome };
+}
+
+/** Loads the chosen sets and trains on them, without a search. `trainer` is the worker's `train` on the page. */
+export async function runRetrain(args: {
+  sets: HighlightSet[];
+  loaders: Loaders;
+  trainer?: TrainRunner;
+  label?: (s: SetSource) => string;
+  signal?: AbortSignal;
+  onProgress?: Progress;
+}): Promise<{ outcome: TrainedOutcome; usedSets: HighlightSet[]; skippedSets: SkippedSet[] }> {
+  const { sets, loaders, signal, onProgress } = args;
+  const trainer = args.trainer ?? runTrain;
+  let last = 0;
+  const report = (pct: number, stage: FindStage): void => {
+    last = Math.max(last, pct);
+    onProgress?.(last, stage);
+  };
+  report(0, 'Loading data');
+  const loaded = await loadSeries(sets, loaders, {
+    signal,
+    label: args.label,
+    onProgress: (done, total) => report(LOAD_SHARE * (done / total), 'Loading data'),
+  });
+  const base = { usedSets: loaded.used, skippedSets: loaded.skipped };
+  if (loaded.series.length === 0) {
+    return { ...base, outcome: { kind: 'refused', reason: 'None of the chosen sets could be loaded, so there is nothing to learn from.' } };
+  }
+  const outcome = await trainer(loaded.series, signal, (pct, stage) => report(LOAD_SHARE + (1 - LOAD_SHARE) * pct, stage));
   return { ...base, outcome };
 }
 

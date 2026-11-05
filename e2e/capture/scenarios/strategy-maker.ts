@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import type { Scenario } from '../scenario.ts';
 
 const CSV = 'time,open,high,low,close,volume\n' +
@@ -61,7 +62,7 @@ const LONG_TASK_LIMIT_MS = 200;
 
 export const strategyMaker: Scenario = {
   name: 'strategy-maker',
-  description: 'Strategy maker page (/strategy-maker): empty, a demo market, a CSV file, marking trades, finding a strategy in the background (progress, cancel, results, closest match, found trades on the chart); proves it opens no live stream, no long task over 200 ms during a run, and the main app never requests its chunk',
+  description: 'Strategy maker page (/strategy-maker): empty, a demo market, a CSV file, marking trades, finding a strategy in the background (progress, cancel, results, closest match, found trades on the chart); then the saved model, the Sets panel, the out-of-date notice, Retrain, export and import (a conflict kept as mine, a refused file); proves it opens no live stream, no long task over 200 ms during a run, and the main app never requests its chunk',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -159,7 +160,7 @@ export const strategyMaker: Scenario = {
     });
     await ctx.screenshot('restored');
     await ctx.step('load a CSV file', async () => {
-      await page.locator('input[type=file]').setInputFiles({ name: 'sample.csv', mimeType: 'text/csv', buffer: Buffer.from(CSV) });
+      await page.getByLabel('CSV file').setInputFiles({ name: 'sample.csv', mimeType: 'text/csv', buffer: Buffer.from(CSV) });
       await page.getByText('sample.csv - 120 candles').waitFor();
     });
     await ctx.screenshot('csv');
@@ -170,7 +171,7 @@ export const strategyMaker: Scenario = {
     await page.getByRole('heading', { name: 'Find a strategy' }).scrollIntoViewIfNeeded();
     await ctx.screenshot('find-needs-more');
     await ctx.step('a bad file shows a message, not a crash', async () => {
-      await page.locator('input[type=file]').setInputFiles({ name: 'bad.csv', mimeType: 'text/csv', buffer: Buffer.from('hello') });
+      await page.getByLabel('CSV file').setInputFiles({ name: 'bad.csv', mimeType: 'text/csv', buffer: Buffer.from('hello') });
       await page.getByRole('alert').waitFor();
     });
     const big = bigSet();
@@ -195,7 +196,7 @@ export const strategyMaker: Scenario = {
       );
       await page.reload();
       await page.getByRole('heading', { name: 'Strategy maker' }).waitFor();
-      await page.locator('input[type=file]').setInputFiles({ name: BIG_NAME, mimeType: 'text/csv', buffer: Buffer.from(big.csv) });
+      await page.getByLabel('CSV file').setInputFiles({ name: BIG_NAME, mimeType: 'text/csv', buffer: Buffer.from(big.csv) });
       await page.getByText(`${BIG_NAME} - ${BIG_BARS} candles`).waitFor({ timeout: 30_000 });
       await page.waitForFunction((n) => document.querySelectorAll('.sm-row').length >= n, Math.min(big.trades.length, 30));
       await page.getByRole('heading', { name: 'Find a strategy' }).waitFor();
@@ -272,6 +273,111 @@ export const strategyMaker: Scenario = {
       await page.locator('.sm-pick[aria-pressed=true]').click();
       await page.getByText('Found trades').waitFor({ state: 'detached' });
     });
+    const trainOn = page.getByRole('group', { name: 'Train on' });
+    const setRows = page.locator('.sm-set-list li');
+    const importInput = page.getByLabel('Import', { exact: true });
+    const outOfDate = page.getByText('Model out of date.');
+    await ctx.step('after a reload the saved model shows its rules with no run, and is up to date', async () => {
+      await page.reload();
+      await page.getByRole('heading', { name: 'Saved model' }).waitFor();
+      await page.getByRole('heading', { name: 'What explains your trades' }).waitFor();
+      if (await page.getByRole('region', { name: 'Results' }).count()) throw new Error('a reload showed results');
+      // Training on the big file alone, as the model was.
+      await trainOn.getByRole('checkbox').first().waitFor();
+      for (const box of await trainOn.getByRole('checkbox').all()) {
+        const mine = (await box.locator('xpath=..').textContent())?.includes(BIG_NAME);
+        if (!mine && (await box.isChecked())) await box.uncheck();
+      }
+      await page.getByText('Up to date with your marks').waitFor();
+      if (await outOfDate.count()) throw new Error('an untouched model is out of date');
+    });
+    await page.getByRole('heading', { name: 'Saved model' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('saved-model');
+    let setCount = 0;
+    await ctx.step('the Sets panel lists the saved sets and opens one on the chart', async () => {
+      await page.getByRole('heading', { name: 'Sets' }).waitFor();
+      setCount = await setRows.count();
+      if (setCount < 2) throw new Error(`only ${setCount} sets listed`);
+      await page.getByRole('button', { name: `Open ${BIG_NAME}` }).click();
+      await page.getByText(`${BIG_NAME} - ${BIG_BARS} candles`).waitFor({ timeout: 30_000 });
+    });
+    await page.getByRole('heading', { name: 'Sets' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('sets-panel');
+    await ctx.step('one more marked trade makes the model out of date, with a Retrain button', async () => {
+      await page.getByRole('button', { name: 'Brush long' }).click();
+      await drag(0.45, 0.5);
+      await page.keyboard.press('Escape');
+      await outOfDate.waitFor();
+      await page.getByRole('button', { name: 'Retrain' }).waitFor();
+    });
+    await page.getByRole('heading', { name: 'Saved model' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('model-out-of-date');
+    await ctx.step('Retrain trains again and the notice goes', async () => {
+      await page.getByRole('button', { name: 'Retrain' }).click();
+      await page.getByRole('status').getByText(/Training/).waitFor();
+      await outOfDate.waitFor({ state: 'detached', timeout: RUN_LIMIT_MS });
+      await page.getByText('Up to date with your marks').waitFor();
+    });
+    await page.getByRole('heading', { name: 'Saved model' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('retrained');
+    let exported = '';
+    await ctx.step('Export downloads vost-strategy-maker.json, version 1, with the sets and the model', async () => {
+      await page.waitForTimeout(900);
+      const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export' }).click()]);
+      if (download.suggestedFilename() !== 'vost-strategy-maker.json') throw new Error(`file name: ${download.suggestedFilename()}`);
+      const path = await download.path();
+      exported = await readFile(path, 'utf8');
+      const file = JSON.parse(exported) as { format: string; version: number; sets: Array<{ id: string; trades: unknown[] }>; model: unknown };
+      if (file.format !== 'vost-strategy-maker' || file.version !== 1) throw new Error(`format ${file.format} version ${file.version}`);
+      if (file.sets.length !== setCount) throw new Error(`${file.sets.length} sets exported, ${setCount} listed`);
+      if (!file.model) throw new Error('the model was not exported');
+      await ctx.writeText('export', `${file.sets.map((x) => `${x.id}: ${x.trades.length} trades`).join('\n')}\nmodel: yes\n`);
+    });
+    await ctx.step('with the database cleared, importing the file brings the sets and the model back, once', async () => {
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            const q = indexedDB.deleteDatabase('vost-strategy-maker');
+            q.onsuccess = q.onerror = q.onblocked = () => resolve();
+          }),
+      );
+      await page.reload();
+      await page.getByRole('heading', { name: 'Sets' }).waitFor();
+      if ((await setRows.count()) !== 0) throw new Error('the database was not cleared');
+      await importInput.setInputFiles({ name: 'vost-strategy-maker.json', mimeType: 'application/json', buffer: Buffer.from(exported) });
+      await page.getByText(/^Imported \d+ new sets?/).waitFor({ timeout: 30_000 });
+      await page.getByRole('heading', { name: 'Saved model' }).waitFor();
+      await page.getByRole('heading', { name: 'What explains your trades' }).waitFor();
+      if ((await setRows.count()) !== setCount) throw new Error(`${await setRows.count()} sets after the import, ${setCount} before`);
+    });
+    await page.getByRole('heading', { name: 'Sets' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('imported');
+    await ctx.step('a set changed here and in the file is a conflict; Keep mine writes nothing over it', async () => {
+      await page.getByRole('button', { name: `Open ${BIG_NAME}` }).click();
+      await page.getByText(`${BIG_NAME} - ${BIG_BARS} candles`).waitFor({ timeout: 30_000 });
+      await page.getByRole('button', { name: 'Brush long' }).click();
+      await drag(0.3, 0.35);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(900);
+      const before = await page.locator('.sm-count strong').textContent();
+      await importInput.setInputFiles({ name: 'vost-strategy-maker.json', mimeType: 'application/json', buffer: Buffer.from(exported) });
+      await page.getByRole('heading', { name: 'These sets differ from the file' }).waitFor({ timeout: 30_000 });
+      await page.getByRole('heading', { name: 'These sets differ from the file' }).scrollIntoViewIfNeeded();
+      await ctx.screenshot('import-conflict');
+      await page.getByLabel('Keep mine').check();
+      await page.getByRole('button', { name: 'Apply import' }).click();
+      await page.getByText(/kept 1 of yours/).waitFor();
+      if ((await page.locator('.sm-count strong').textContent()) !== before) throw new Error('Keep mine changed the marks');
+      if ((await setRows.count()) !== setCount) throw new Error('the import duplicated or lost a set');
+    });
+    await ctx.step('a file with version 2 is refused, with the reason, and writes nothing', async () => {
+      const bad = JSON.stringify({ format: 'vost-strategy-maker', version: 2, exportedAt: new Date().toISOString(), sets: [], model: null });
+      await importInput.setInputFiles({ name: 'future.json', mimeType: 'application/json', buffer: Buffer.from(bad) });
+      await page.getByRole('alert').filter({ hasText: 'version 2' }).waitFor();
+      if ((await setRows.count()) !== setCount) throw new Error('a refused file changed the sets');
+    });
+    await page.getByRole('heading', { name: 'Sets' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('import-refused');
     await ctx.step('no horizontal page scroll', async () => {
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (over > 0) throw new Error(`page scrolls horizontally by ${over}px at ${viewport}`);

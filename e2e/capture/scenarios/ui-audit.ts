@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Locator, Page } from 'playwright';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { addToChart } from '../pine-editor.ts';
 
 /**
  * The UI audit (docs/spikes/ui-audit/README.md). It drives every pane, records what it sees and writes the
@@ -542,6 +543,7 @@ export const uiAudit: Scenario = {
         await page.locator('.pine-editor .cm-content').click();
         await page.keyboard.press('Control+End');
         await page.keyboard.type('\nplot(1 +');
+        await addToChart(page);
         await page.locator('.pine-error').waitFor();
       });
       await scan('pine pane');

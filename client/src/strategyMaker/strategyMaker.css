@@ -220,6 +220,9 @@
   border-top: 1px solid var(--border);
 }
 .sm-find h2,
+.sm-sets h2,
+.sm-saved h2,
+.sm-conflicts h3,
 .sm-res-block h3 {
   margin: 0 0 6px;
   font-size: 13px;
@@ -382,4 +385,70 @@
 }
 .sm-limits {
   color: var(--muted);
+}
+
+.sm-sets,
+.sm-saved,
+.sm-conflicts {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.sm-set-list,
+.sm-conflicts ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sm-set-list li,
+.sm-conflicts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sm-set-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sm-set-actions,
+.sm-set-exchange,
+.sm-conflict-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.sm-set-exchange {
+  margin-top: 10px;
+}
+.sm-import {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sm-import input {
+  max-width: 220px;
+}
+.sm-stale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+}
+.sm-stale p {
+  margin: 0;
+  overflow-wrap: anywhere;
 }

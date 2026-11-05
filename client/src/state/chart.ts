@@ -272,6 +272,10 @@ export interface ChartState {
   updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source' | 'hideOn'>> & { inputs?: Record<string, PineInputValue>; calculation?: PineCalculation }): void;
   /** Replaces a whole indicator spec (the settings dialog's Cancel and Reset); Pine reruns when what it computes from differs. */
   restoreIndicator(id: string, spec: IndicatorSpec): void;
+  /** Pine: keeps edited editor text as a draft (no run); cleared when it equals the applied source. */
+  setPineDraft(id: string, text: string): void;
+  /** Pine: puts the draft on the chart as the source and runs it once. No-op without a draft. */
+  applyPineDraft(id: string): void;
   setShowTrades(v: boolean): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
@@ -927,6 +931,32 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       env.onPrefsChange();
       const same = (a: object | undefined, b: object | undefined) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
       if (next.kind === 'pine' && (next.source !== before.source || !same(next.inputs, before.inputs) || !same(next.calculation, before.calculation) || next.visible !== before.visible)) schedulePine(id);
+    },
+
+    setPineDraft(id, text) {
+      set({
+        indicators: get().indicators.map((i) => {
+          if (i.id !== id || i.kind !== 'pine') return i;
+          const { draft: _drop, ...rest } = i;
+          return text === (i.source ?? '') ? rest : { ...rest, draft: text };
+        }),
+      });
+      env.onPrefsChange();
+    },
+
+    applyPineDraft(id) {
+      const cur = get().indicators.find((i) => i.id === id);
+      if (!cur || cur.kind !== 'pine' || cur.draft === undefined) return;
+      const draft = cur.draft;
+      set({
+        indicators: get().indicators.map((i) => {
+          if (i.id !== id) return i;
+          const { draft: _drop, ...rest } = i;
+          return { ...rest, source: draft };
+        }),
+      });
+      env.onPrefsChange();
+      schedulePine(id);
     },
 
     setShowTrades(v) {

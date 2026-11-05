@@ -1,6 +1,6 @@
 import { editorTheme } from '../lib/theme';
 import { useEffect, useRef } from 'react';
-import { ChangeSet, Compartment, EditorState, type Extension } from '@codemirror/state';
+import { ChangeSet, Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language';
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from '@codemirror/autocomplete';
@@ -70,17 +70,21 @@ interface Props {
   compareEpoch?: string | number;
   /** Called instead of `onChange` when the user pastes or drops text over the document, so the page can treat it as a replacement. */
   onReplace?: (value: string) => void;
+  /** Called on Ctrl/Cmd+Enter (which then inserts no blank line). */
+  onSubmit?: () => void;
 }
 
 // Loaded on first use so the diff library stays out of the chart app's main bundle.
 const loadMerge = (): Promise<MergeLib> => import('@codemirror/merge');
 
 /** CodeMirror 6 editor for Pine Script with highlighting, autocomplete and inline error markers. */
-export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200, onCursor, compareTo, compareEpoch, onReplace }: Props) {
+export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', minHeight = 200, onCursor, compareTo, compareEpoch, onReplace, onSubmit }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
   const onCursorRef = useRef(onCursor);
   onCursorRef.current = onCursor;
   const sizing = useRef(new Compartment());
@@ -134,6 +138,18 @@ export function PineEditor({ value, onChange, error, ariaLabel = 'Pine source', 
           pineLanguage,
           syntaxHighlighting(highlight),
           autocompletion({ override: [pineCompletions] }),
+          Prec.high(
+            keymap.of([
+              {
+                key: 'Mod-Enter',
+                run: () => {
+                  if (!onSubmitRef.current) return false;
+                  onSubmitRef.current();
+                  return true;
+                },
+              },
+            ]),
+          ),
           keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, ...completionKeymap, indentWithTab]),
           theme,
           sizing.current.of(EditorView.theme({ '.cm-scroller': { minHeight: `${minHeight}px` } })),

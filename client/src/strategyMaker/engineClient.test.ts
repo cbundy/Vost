@@ -73,6 +73,54 @@ describe('without a Worker (the page runs the engine)', () => {
   });
 });
 
+describe('train', () => {
+  const series = [{ candles: [], trades: [] }];
+
+  it('on the page, trains alone and reports a Training stage only', async () => {
+    const candles = synth(4000, 7);
+    const client = createEngineClient({ makeWorker: () => null });
+    const stages = new Set<string>();
+    const out = await client.train([{ candles, trades: highlights(candles, 3) }], { onProgress: (_p, s) => stages.add(s) });
+    expect(out.kind).toBe('trained');
+    expect([...stages]).toEqual(['Training']);
+    client.dispose();
+  }, 60_000);
+
+  it('on the page, cancel rejects with an AbortError', async () => {
+    const candles = synth(4000, 7);
+    const client = createEngineClient({ makeWorker: () => null });
+    const ctl = new AbortController();
+    const run = client.train([{ candles, trades: highlights(candles, 3) }], { signal: ctl.signal, onProgress: () => ctl.abort() });
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    client.dispose();
+  }, 60_000);
+
+  it('sends a train request, and its cancel, to the worker', async () => {
+    const w = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => w });
+    const ok = client.train(series);
+    expect(w.sent[0]).toMatchObject({ v: 1, type: 'train', series });
+    w.reply({ v: 1, id: w.sent[0].id, type: 'result', outcome: { kind: 'too-few', have: 0, need: 30 } });
+    await expect(ok).resolves.toEqual({ kind: 'too-few', have: 0, need: 30 });
+    const ctl = new AbortController();
+    const run = client.train(series, { signal: ctl.signal });
+    const id = w.sent[1].id;
+    ctl.abort();
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    expect(w.sent[2]).toEqual({ v: 1, id, type: 'cancel' });
+  });
+
+  it('a find carries the model it is given, and none otherwise', () => {
+    const w = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => w });
+    const model = { kind: 'ok' } as never;
+    void client.find(series, inputs, { model }).catch(() => undefined);
+    void client.find(series, inputs).catch(() => undefined);
+    expect(w.sent.filter((m) => m.type === 'find').map((m) => 'model' in m)).toEqual([true, false]);
+    expect(w.sent[0]).toMatchObject({ model });
+  });
+});
+
 describe('with a worker', () => {
   const series = [{ candles: [], trades: [] }];
 

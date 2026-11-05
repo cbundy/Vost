@@ -1,6 +1,7 @@
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
 import { CLOSED_LIB_PATH, CLOSED_LIB_SOURCE } from '../../fake-upstream/pine-libraries.ts';
+import { setPineSource } from '../pine-editor.ts';
 
 const fetchedScript = `//@version=6
 indicator("Open library demo", overlay=true)
@@ -24,10 +25,7 @@ export const pineLibraries: Scenario = {
     const { page, viewport } = ctx;
     const narrow = viewport === 'narrow';
     const setSource = async (text: string) => {
-      await page.locator('.pine-pane .pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      // insertText avoids closeBrackets mangling typed text
-      await page.keyboard.insertText(text);
+      await setPineSource(page, text);
     };
     const dialog = page.locator('.modal', { has: page.getByRole('heading', { name: 'Pine libraries' }) });
 

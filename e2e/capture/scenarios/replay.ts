@@ -1,5 +1,6 @@
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { setPineSource } from '../pine-editor.ts';
 
 export const replay: Scenario = {
   name: 'replay',
@@ -18,9 +19,7 @@ export const replay: Scenario = {
       await showSideSection(page, 'Indicators', narrow);
       await page.locator('#add-indicator-select').selectOption('pine');
       await page.locator('.pine-pane .pine-editor .cm-content').waitFor();
-      await page.locator('.pine-editor .cm-content').click();
-      await page.keyboard.press('Control+a');
-      await page.keyboard.type('//@version=5\nindicator("RSI", overlay=false)\nplot(ta.rsi(close, 14))\n');
+      await setPineSource(page, '//@version=5\nindicator("RSI", overlay=false)\nplot(ta.rsi(close, 14))\n');
       await page.getByRole('button', { name: 'Close Pine editor' }).click();
       if (narrow) await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
       await page.waitForTimeout(1200);
