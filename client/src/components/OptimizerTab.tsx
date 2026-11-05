@@ -4,8 +4,7 @@ import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
 import { useStore } from '../state/store';
-import { belowHistoryCap } from '../lib/historyPaging';
-import { runNeedsHistoryOf, selectBars } from '../state/chart';
+import { atHistoryLimitOf, runNeedsHistoryOf, selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 import { progressLabel } from './BacktestProgress';
 import { OptimizerResults } from './OptimizerResults';
@@ -22,7 +21,7 @@ export function OptimizerTab() {
   const optProgress = useChart((s) => s.optProgress);
   const optStage = useChart((s) => s.optStage);
   const needsHistory = useChart((s) => runNeedsHistoryOf(s, s.btRange));
-  const atLimit = useChart((s) => !belowHistoryCap(s.candles.length));
+  const atLimit = useChart(atHistoryLimitOf);
   const loadedBars = useChart((s) => s.candles.length);
   const optResult = useChart((s) => s.optResult);
   const candles = useChart(selectBars);

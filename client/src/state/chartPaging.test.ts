@@ -15,7 +15,7 @@ vi.mock('./worker', async (orig) => {
   };
 });
 import { progressLabel } from '../components/BacktestProgress';
-import { canPageOlder, runNeedsHistoryOf, createChartStore, defaultChartInitial, type ChartEnv } from './chart';
+import { atHistoryLimitOf, canPageOlder, runNeedsHistoryOf, createChartStore, defaultChartInitial, type ChartEnv } from './chart';
 import type { HistoryRequest } from '../lib/providers/http';
 
 const H = 3600;
@@ -497,10 +497,13 @@ describe('runs that need older history', () => {
       for (const patch of [{ activeDatasetId: 'd1' }, { chartRange: { from: T0, to: T0 + H } }, { replay: { source: [] } }] as never[]) {
         t.store.setState(patch);
         expect(runNeedsHistoryOf(t.store.getState(), { from: null, to: null })).toBe(false);
+        expect(atHistoryLimitOf(t.store.getState())).toBe(false);
+        await t.store.getState().runBacktest();
+        await t.store.getState().runOptimizer();
         t.store.setState({ activeDatasetId: null, chartRange: null, replay: null } as never);
       }
-      expect(t.requests).toHaveLength(n);
-      expect(sent).toHaveLength(0);
+      expect(t.requests).toHaveLength(n); // no history request
+      expect(sent).toHaveLength(6); // each patch ran the backtest and the optimizer on the series as it is
     });
 
     it('progressLabel names the loaded bar count', () => {

@@ -14,8 +14,7 @@ import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange, timeRangeErrorText } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
 import { useStore } from '../state/store';
-import { belowHistoryCap } from '../lib/historyPaging';
-import { runNeedsHistoryOf, selectBars } from '../state/chart';
+import { atHistoryLimitOf, runNeedsHistoryOf, selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 
 export function BacktestTab() {
@@ -38,7 +37,7 @@ export function BacktestTab() {
   const isPine = !!strategy.pine;
 
   const needsHistory = useChart((s) => runNeedsHistoryOf(s, btRange));
-  const atLimit = useChart((s) => !belowHistoryCap(s.candles.length));
+  const atLimit = useChart(atHistoryLimitOf);
   const range = describeTimeRange(candles, btRange);
   const hasData = candles.length >= 3;
   const rangeSet = btRange.from != null || btRange.to != null;

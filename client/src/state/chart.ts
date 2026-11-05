@@ -771,7 +771,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           env.pushMessage(
             provider.name,
             'warning',
-            `Older bars for ${symbol} ${timeframe} could not be loaded (${err instanceof Error ? err.message : String(err)}). Scroll back again to retry.`,
+            `Older bars for ${symbol} ${timeframe} could not be loaded (${err instanceof Error ? err.message : String(err)}).${opts?.run ? '' : ' Scroll back again to retry.'}`,
           );
           return 'error';
         } finally {
@@ -1145,7 +1145,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         );
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
         const ms = Math.round(performance.now() - t0);
-        const atLimit = btRange.from == null && !belowHistoryCap(get().candles.length);
+        const atLimit = btRange.from == null && atHistoryLimitOf(get());
         set({ btResult: msg.result, btRunning: false, btProgress: 0, btStage: null });
         env.pushToast(
           'success',
@@ -1382,6 +1382,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
 /** Whether older pages may still come for this chart: scroll mode, a live series (no dataset, chart range or replay) and no history start yet. */
 export function canPageOlder(s: ChartState, mode: HistoryLoading): boolean {
   return mode === 'scroll' && !s.historyStart && s.activeDatasetId == null && s.chartRange == null && s.replay == null && s.candles.length > 0;
+}
+
+/** Whether the history cap stopped the paging: a live series (no dataset, chart range or replay) at the bar cap. */
+export function atHistoryLimitOf(s: ChartState): boolean {
+  return s.activeDatasetId == null && s.chartRange == null && s.replay == null && !belowHistoryCap(s.candles.length);
 }
 
 /** Whether a run over `range` must first load history: a live series that can page older and is below the cap, with From open or before the first loaded bar. */
