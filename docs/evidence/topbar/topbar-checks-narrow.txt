@@ -1,0 +1,27 @@
+ok   no .topbar-range
+ok   no Build in the bar
+ok   no Bars in the bar
+ok   no Load in the bar
+ok   Chart data button has aria-haspopup=dialog
+ok   Chart data button title is the range text
+ok   expanded
+ok   range ends with bars
+ok   Build is inside
+ok   Load is inside
+ok   no Bars in scroll mode
+ok   pop-up inside the viewport
+ok   pop-up still open
+ok   Load enabled again
+ok   focus on the button
+ok   closed
+ok   Bars appears in the pop-up
+ok   pop-up inside the viewport with Bars
+ok   live title in words
+ok   live dot has no text
+ok   live dot is green
+ok   off title in words
+ok   off dot is the grey one
+ok   More has no Timeframes or Bars rows (LAYOUT, PROVIDER, RANGE, LIVE, REPLAY)
+ok   More has the Live row
+ok   Demo has no Build
+ok   Demo range ends with bars

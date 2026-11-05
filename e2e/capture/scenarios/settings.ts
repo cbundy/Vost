@@ -1,3 +1,4 @@
+import { openChartData, closeChartData } from '../topbar.ts';
 import type { Scenario } from '../scenario.ts';
 
 export const settings: Scenario = {
@@ -60,13 +61,13 @@ export const settings: Scenario = {
       await dialog.waitFor({ state: 'detached' });
     });
     await ctx.step('the Bars menu is shown', async () => {
-      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await openChartData(page);
       await page.getByLabel('Number of bars', { exact: true }).waitFor({ state: 'visible' });
     });
     await ctx.step('the gear is still inside the viewport with the Bars menu', async () => {
-      await page.keyboard.press('Escape');
+      await closeChartData(page);
       await inViewport('with Bars menu');
-      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await openChartData(page);
     });
     await ctx.screenshot('all');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('vost.prefs.v1') ?? '{}').historyLoading);

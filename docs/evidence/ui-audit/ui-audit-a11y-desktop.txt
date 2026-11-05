@@ -1,149 +1,149 @@
 Inbox modal: focus moved into the dialog on open=false (active=button), dialog has an accessible name=false, aria-modal="true"
-Inbox modal: Tab leaves the dialog after 1 presses; focus now on button "Pine Editor" focus-ring=yes border=rgb(59, 130, 246) box=1071,6 113x28
+Inbox modal: Tab leaves the dialog after 1 presses; focus now on button "Pine Editor" focus-ring=yes border=rgb(59, 130, 246) box=1282,6 40x28
 Inbox closed with Esc: focus returns to the opener=yes
 status popover: closes with Esc=yes
 Tab walk (140 stops from the page start):
-first stop inside the bottom dock or its splitter: 12
-   1  select "Provider" focus-ring=yes border=rgb(47, 47, 54) box=90,6 128x28
-   2  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(47, 47, 54) box=226,6 150x28
-   3  button "Add DEMO to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=653,81 22x28
-   4  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=653,117 22x28
-   5  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=653,153 22x28
-   6  select "Timeframe" focus-ring=yes border=rgb(47, 47, 54) box=384,6 67x28
-   7  select "Number of bars" focus-ring=yes border=rgb(57, 118, 218) box=459,6 94x28
-   8  button "Load" focus-ring=yes border=rgb(47, 111, 224) box=813,6 74x28
-   9  button "Replay the chart bar by bar from a bar you pick" focus-ring=yes border=rgb(47, 47, 54) box=895,6 82x28
-  10  button "Connections: 9 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=985,6 42x28
-  11  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=1035,6 28x28
-  12  button "Pine Editor" focus-ring=yes border=rgb(47, 47, 54) box=1071,6 113x28
-  13  button "Alerts" focus-ring=yes border=rgba(0, 0, 0, 0) box=1192,6 28x28
-  14  button "Import OHLCV CSV — works fully offline" focus-ring=yes border=rgb(47, 47, 54) box=1228,6 111x28
-  15  a "Star Vost on GitHub" focus-ring=yes border=rgb(47, 47, 54) box=1347,6 83x28
-  16  button "Cursor" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,49 34x32
-  17  button "Trend line" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,85 34x32
-  18  button "Horizontal line" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,121 34x32
-  19  button "Ray" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,157 34x32
-  20  button "Rectangle" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,193 34x32
-  21  button "Fibonacci retracement" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,229 34x32
-  22  button "Text" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,265 34x32
-  23  button "Measure" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,301 34x32
-  24  button "Magnet" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,350 34x32
-  25  button "Hide all drawings" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,386 34x32
-  26  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=50,494 35x19
-  27  button "Show the last 5 days" focus-ring=yes border=rgba(0, 0, 0, 0) box=81,556 33x22
-  28  button "Show the last month" focus-ring=yes border=rgba(0, 0, 0, 0) box=116,556 34x22
-  29  button "Show the last 3 months" focus-ring=yes border=rgba(0, 0, 0, 0) box=152,556 34x22
-  30  button "Show the last 6 months" focus-ring=yes border=rgba(0, 0, 0, 0) box=188,556 34x22
-  31  button "Show the year to date" focus-ring=yes border=rgba(0, 0, 0, 0) box=224,556 40x22
-  32  button "Show the last year" focus-ring=yes border=rgba(0, 0, 0, 0) box=266,556 31x22
-  33  button "Show the last 5 years" focus-ring=yes border=rgba(0, 0, 0, 0) box=299,556 31x22
-  34  button "Show all loaded bars" focus-ring=yes border=rgba(0, 0, 0, 0) box=332,556 31x22
-  35  button "Show a time window of the chart" focus-ring=yes border=rgb(47, 47, 54) box=968,556 74x22
-  36  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=1050,555 80x24
-  37  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=1002,53 27x26
-  38  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=1033,53 26x26
-  39  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=1063,53 28x26
-  40  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=1094,53 28x26
-  41  div "Resize sidebar" focus-ring=yes border=rgb(232, 232, 237) box=1133,41 6x539
-  42  button "Add current symbol" focus-ring=yes border=rgba(0, 0, 0, 0) box=1275,51 25x23
-  43  button "Add section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1302,51 22x23
-  44  button "Export list as JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,51 25x23
-  45  button "Import list from JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,51 25x23
-  46  select "Watchlist" focus-ring=NO border=rgb(47, 47, 54) box=1149,82 90x30
-  47  button "New list" focus-ring=yes border=rgba(0, 0, 0, 0) box=1247,84 30x26
-  48  button "Rename list" focus-ring=yes border=rgba(0, 0, 0, 0) box=1285,84 28x26
-  49  button "Duplicate list" focus-ring=yes border=rgba(0, 0, 0, 0) box=1321,84 26x26
-  50  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,172 25x23
-  51  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,172 25x23
-  52  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,333 25x23
-  53  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,333 25x23
-  54  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,230 25x23
-  55  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,230 25x23
-  56  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,391 25x23
-  57  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,391 25x23
-  58  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,230 25x23
-  59  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,230 25x23
-  60  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,391 25x23
-  61  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,391 25x23
-  62  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,230 25x23
-  63  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,230 25x23
-  64  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,329 25x23
-  65  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,329 25x23
-  66  button "Watchlist" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,49 32x30
-  67  button "Data and library" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,83 32x30
-  68  button "Indicators" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,117 32x30
-  69  div "Resize bottom panel" focus-ring=yes border=rgb(232, 232, 237) box=0,581 1440x6
-  70  button#dock-tab-backtest "⚙ Backtest" focus-ring=yes border=rgb(232, 232, 237) box=8,583 103x37
-  71  button#dock-tab-optimizer "⛭ Optimizer" focus-ring=yes border=rgb(155, 155, 166) box=113,583 109x38
-  72  button#dock-tab-results "📊 Results" focus-ring=yes border=rgb(155, 155, 166) box=224,583 98x37
-  73  button "Collapse" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,589 27x26
-  74  select "SMA crossoverEMA crossoverMA" focus-ring=NO border=rgb(47, 47, 54) box=16,654 460x30
-  75  input "" focus-ring=NO border=rgb(47, 47, 54) box=490,656 223x28
-  76  input "" focus-ring=NO border=rgb(47, 47, 54) box=727,656 223x28
-  77  select "Long onlyShort onlyBoth" focus-ring=NO border=rgb(47, 47, 54) box=964,654 223x30
-  78  input "" focus-ring=NO border=rgb(47, 47, 54) box=1201,656 223x28
-  79  input "" focus-ring=NO border=rgb(47, 47, 54) box=16,713 223x28
-  80  input "" focus-ring=NO border=rgb(47, 47, 54) box=253,713 223x28
-  81  input "" focus-ring=NO border=rgb(47, 47, 54) box=490,713 223x28
-  82  input "" focus-ring=NO border=rgb(47, 47, 54) box=727,713 223x28
-  83  input "" focus-ring=NO border=rgb(47, 47, 54) box=964,713 223x28
-  84  select "DisabledEnabled" focus-ring=NO border=rgb(47, 47, 54) box=1201,711 223x30
-  85  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
-  86  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
-  87  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
-  88  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
-  89  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
-  90  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
-  91  input "Time range From" focus-ring=NO border=rgb(133, 133, 133) box=16,794 200x22
-  92  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
-  93  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
-  94  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
-  95  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
-  96  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
-  97  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
-  98  input "Time range To" focus-ring=NO border=rgb(133, 133, 133) box=230,794 200x22
-  99  button "▶ Run backtest" focus-ring=yes border=rgb(47, 111, 224) box=16,828 142x28
-  100  body
-  101  select "Provider" focus-ring=yes border=rgb(47, 47, 54) box=90,6 128x28
-  102  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(47, 47, 54) box=226,6 150x28
-  103  button "Add DEMO to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=653,81 22x28
-  104  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=653,117 22x28
-  105  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=653,153 22x28
-  106  select "Timeframe" focus-ring=yes border=rgb(47, 47, 54) box=384,6 67x28
-  107  select "Number of bars" focus-ring=yes border=rgb(47, 47, 54) box=459,6 94x28
-  108  button "Load" focus-ring=yes border=rgb(47, 111, 224) box=813,6 74x28
-  109  button "Replay the chart bar by bar from a bar you pick" focus-ring=yes border=rgb(47, 47, 54) box=895,6 82x28
-  110  button "Connections: 9 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=985,6 42x28
-  111  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=1035,6 28x28
-  112  button "Pine Editor" focus-ring=yes border=rgb(47, 47, 54) box=1071,6 113x28
-  113  button "Alerts" focus-ring=yes border=rgba(0, 0, 0, 0) box=1192,6 28x28
-  114  button "Import OHLCV CSV — works fully offline" focus-ring=yes border=rgb(47, 47, 54) box=1228,6 111x28
-  115  a "Star Vost on GitHub" focus-ring=yes border=rgb(47, 47, 54) box=1347,6 83x28
-  116  button "Cursor" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,49 34x32
-  117  button "Trend line" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,85 34x32
-  118  button "Horizontal line" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,121 34x32
-  119  button "Ray" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,157 34x32
-  120  button "Rectangle" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,193 34x32
-  121  button "Fibonacci retracement" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,229 34x32
-  122  button "Text" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,265 34x32
-  123  button "Measure" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,301 34x32
-  124  button "Magnet" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,350 34x32
-  125  button "Hide all drawings" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,386 34x32
-  126  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=50,494 35x19
-  127  button "Show the last 5 days" focus-ring=yes border=rgba(0, 0, 0, 0) box=81,556 33x22
-  128  button "Show the last month" focus-ring=yes border=rgba(0, 0, 0, 0) box=116,556 34x22
-  129  button "Show the last 3 months" focus-ring=yes border=rgba(0, 0, 0, 0) box=152,556 34x22
-  130  button "Show the last 6 months" focus-ring=yes border=rgba(0, 0, 0, 0) box=188,556 34x22
-  131  button "Show the year to date" focus-ring=yes border=rgba(0, 0, 0, 0) box=224,556 40x22
-  132  button "Show the last year" focus-ring=yes border=rgba(0, 0, 0, 0) box=266,556 31x22
-  133  button "Show the last 5 years" focus-ring=yes border=rgba(0, 0, 0, 0) box=299,556 31x22
-  134  button "Show all loaded bars" focus-ring=yes border=rgba(0, 0, 0, 0) box=332,556 31x22
-  135  button "Show a time window of the chart" focus-ring=yes border=rgb(47, 47, 54) box=968,556 74x22
-  136  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=1050,555 80x24
-  137  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=1002,53 27x26
-  138  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=1033,53 26x26
-  139  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=1063,53 28x26
-  140  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=1094,53 28x26
+first stop inside the bottom dock or its splitter: 13
+   1  button "Select layout" focus-ring=yes border=rgba(0, 0, 0, 0) box=10,6 28x28
+   2  button "Layout: Unnamed" focus-ring=yes border=rgba(0, 0, 0, 0) box=46,6 96x28
+   3  select "Provider" focus-ring=yes border=rgb(55, 106, 189) box=243,6 149x28
+   4  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(47, 47, 54) box=400,6 150x28
+   5  button "Add DEMO to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=827,81 22x28
+   6  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=827,117 22x28
+   7  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=827,153 22x28
+   8  select "Timeframe" focus-ring=yes border=rgb(47, 47, 54) box=558,6 126x28
+   9  button "Chart data" focus-ring=yes border=rgba(0, 0, 0, 0) box=692,6 36x28
+  10  button "Replay the chart bar by bar from a bar you pick" focus-ring=yes border=rgb(47, 47, 54) box=736,6 82x28
+  11  button "Connections: 14 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=826,6 50x28
+  12  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=1246,6 28x28
+  13  button "Pine Editor" focus-ring=yes border=rgb(47, 47, 54) box=1282,6 40x28
+  14  button "Alerts" focus-ring=yes border=rgba(0, 0, 0, 0) box=1330,6 28x28
+  15  button "More" focus-ring=yes border=rgba(0, 0, 0, 0) box=1366,6 28x28
+  16  button "Settings" focus-ring=yes border=rgba(0, 0, 0, 0) box=1402,6 28x28
+  17  button "Cross" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,49 34x32
+  18  button "Open Cursors tools" focus-ring=yes border=rgb(232, 232, 237) box=25,67 12x14
+  19  button "Trend line" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,85 34x32
+  20  button "Open Lines tools" focus-ring=yes border=rgb(232, 232, 237) box=25,103 12x14
+  21  button "Fibonacci retracement" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,121 34x32
+  22  button "Open Fibonacci and Gann tools" focus-ring=yes border=rgb(232, 232, 237) box=25,139 12x14
+  23  button "XABCD pattern" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,157 34x32
+  24  button "Open Patterns tools" focus-ring=yes border=rgb(232, 232, 237) box=25,175 12x14
+  25  button "Long position" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,193 34x32
+  26  button "Open Forecasting and measurers tools" focus-ring=yes border=rgb(232, 232, 237) box=25,211 12x14
+  27  button "Brush" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,229 34x32
+  28  button "Open Shapes tools" focus-ring=yes border=rgb(232, 232, 237) box=25,247 12x14
+  29  button "Text" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,265 34x32
+  30  button "Open Annotations tools" focus-ring=yes border=rgb(232, 232, 237) box=25,283 12x14
+  31  button "Icons" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,301 34x32
+  32  button "Open Icons tools" focus-ring=yes border=rgb(232, 232, 237) box=25,319 12x14
+  33  button "Magnet" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,350 34x32
+  34  button "Open Magnet modes" focus-ring=yes border=rgb(232, 232, 237) box=25,368 12x14
+  35  button "Stay in drawing mode" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,386 34x32
+  36  button "Lock all drawings" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,422 34x32
+  37  button "Hide all drawings" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,458 34x32
+  38  a#tv-attr-logo "Charting by TradingView" focus-ring=yes border=rgb(96, 165, 250) box=50,494 35x19
+  39  button "Show the last 5 days" focus-ring=yes border=rgba(0, 0, 0, 0) box=81,556 33x22
+  40  button "Show the last month" focus-ring=yes border=rgba(0, 0, 0, 0) box=116,556 34x22
+  41  button "Show the last 3 months" focus-ring=yes border=rgba(0, 0, 0, 0) box=152,556 34x22
+  42  button "Show the last 6 months" focus-ring=yes border=rgba(0, 0, 0, 0) box=188,556 34x22
+  43  button "Show the year to date" focus-ring=yes border=rgba(0, 0, 0, 0) box=224,556 40x22
+  44  button "Show the last year" focus-ring=yes border=rgba(0, 0, 0, 0) box=266,556 31x22
+  45  button "Show the last 5 years" focus-ring=yes border=rgba(0, 0, 0, 0) box=299,556 31x22
+  46  button "Show all loaded bars" focus-ring=yes border=rgba(0, 0, 0, 0) box=332,556 31x22
+  47  button "Show a time window of the chart" focus-ring=yes border=rgb(47, 47, 54) box=968,556 74x22
+  48  button "Time zone: UTC" focus-ring=yes border=rgba(0, 0, 0, 0) box=1050,555 80x24
+  49  button "Reset view" focus-ring=yes border=rgba(0, 0, 0, 0) box=1002,53 27x26
+  50  button "Screenshot (PNG)" focus-ring=yes border=rgba(0, 0, 0, 0) box=1033,53 26x26
+  51  button "Export candles as CSV" focus-ring=yes border=rgba(0, 0, 0, 0) box=1063,53 28x26
+  52  button "Hide backtest trades" focus-ring=yes border=rgba(0, 0, 0, 0) box=1094,53 28x26
+  53  div "Resize sidebar" focus-ring=yes border=rgb(232, 232, 237) box=1133,41 6x539
+  54  button "Add current symbol" focus-ring=yes border=rgba(0, 0, 0, 0) box=1275,51 25x23
+  55  button "Add section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1302,51 22x23
+  56  button "Export list as JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,51 25x23
+  57  button "Import list from JSON" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,51 25x23
+  58  select "Watchlist" focus-ring=NO border=rgb(47, 47, 54) box=1149,82 90x30
+  59  button "New list" focus-ring=yes border=rgba(0, 0, 0, 0) box=1247,84 30x26
+  60  button "Rename list" focus-ring=yes border=rgba(0, 0, 0, 0) box=1285,84 28x26
+  61  button "Duplicate list" focus-ring=yes border=rgba(0, 0, 0, 0) box=1321,84 26x26
+  62  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,172 25x23
+  63  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,172 25x23
+  64  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,333 25x23
+  65  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,333 25x23
+  66  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,230 25x23
+  67  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,230 25x23
+  68  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,391 25x23
+  69  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,391 25x23
+  70  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,230 25x23
+  71  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,230 25x23
+  72  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,391 25x23
+  73  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,391 25x23
+  74  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,230 25x23
+  75  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,230 25x23
+  76  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,391 25x23
+  77  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,391 25x23
+  78  button "Rename section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1326,329 25x23
+  79  button "Remove section" focus-ring=yes border=rgba(0, 0, 0, 0) box=1353,329 25x23
+  80  button "Watchlist" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,49 32x30
+  81  button "Data and library" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,83 32x30
+  82  button "Indicators" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,117 32x30
+  83  button "Object tree" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,151 32x30
+  84  div "Resize bottom panel" focus-ring=yes border=rgb(232, 232, 237) box=0,581 1440x6
+  85  button#dock-tab-backtest "⚙ Backtest" focus-ring=yes border=rgb(232, 232, 237) box=8,583 103x37
+  86  button#dock-tab-optimizer "⛭ Optimizer" focus-ring=yes border=rgb(155, 155, 166) box=113,583 109x38
+  87  button#dock-tab-results "📊 Results" focus-ring=yes border=rgb(155, 155, 166) box=224,583 98x37
+  88  button "Collapse" focus-ring=yes border=rgba(0, 0, 0, 0) box=1405,589 27x26
+  89  select "SMA crossoverEMA crossoverMA" focus-ring=NO border=rgb(47, 47, 54) box=16,654 357x30
+  90  a "Find a strategy from trades you mark on a chart" focus-ring=yes border=rgb(96, 165, 250) box=383,664 93x20
+  91  input "" focus-ring=NO border=rgb(47, 47, 54) box=490,656 223x28
+  92  input "" focus-ring=NO border=rgb(47, 47, 54) box=727,656 223x28
+  93  select "Long onlyShort onlyBoth" focus-ring=NO border=rgb(47, 47, 54) box=964,654 223x30
+  94  input "" focus-ring=NO border=rgb(47, 47, 54) box=1201,656 223x28
+  95  input "" focus-ring=NO border=rgb(47, 47, 54) box=16,713 223x28
+  96  input "" focus-ring=NO border=rgb(47, 47, 54) box=253,713 223x28
+  97  input "" focus-ring=NO border=rgb(47, 47, 54) box=490,713 223x28
+  98  input "" focus-ring=NO border=rgb(47, 47, 54) box=727,713 223x28
+  99  input "" focus-ring=NO border=rgb(47, 47, 54) box=964,713 223x28
+  100  select "DisabledEnabled" focus-ring=NO border=rgb(47, 47, 54) box=1201,711 223x30
+  101  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  102  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  103  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  104  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  105  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  106  input "Time range From" focus-ring=yes border=rgb(59, 130, 246) box=16,794 200x22
+  107  input "Time range From" focus-ring=NO border=rgb(133, 133, 133) box=16,794 200x22
+  108  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  109  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  110  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  111  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  112  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  113  input "Time range To" focus-ring=yes border=rgb(59, 130, 246) box=230,794 200x22
+  114  input "Time range To" focus-ring=NO border=rgb(133, 133, 133) box=230,794 200x22
+  115  button "▶ Run backtest" focus-ring=yes border=rgb(47, 111, 224) box=16,828 142x28
+  116  body
+  117  button "Select layout" focus-ring=yes border=rgba(0, 0, 0, 0) box=10,6 28x28
+  118  button "Layout: Unnamed" focus-ring=yes border=rgba(0, 0, 0, 0) box=46,6 96x28
+  119  select "Provider" focus-ring=yes border=rgb(47, 47, 54) box=243,6 149x28
+  120  input "Type a symbol and press Enter to load" focus-ring=NO border=rgb(47, 47, 54) box=400,6 150x28
+  121  button "Add DEMO to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=827,81 22x28
+  122  button "Add DEMO-BEAR to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=827,117 22x28
+  123  button "Add DEMO-CHOP to watchlist" focus-ring=yes border=rgb(47, 47, 54) box=827,153 22x28
+  124  select "Timeframe" focus-ring=yes border=rgb(47, 47, 54) box=558,6 126x28
+  125  button "Chart data" focus-ring=yes border=rgba(0, 0, 0, 0) box=692,6 36x28
+  126  button "Replay the chart bar by bar from a bar you pick" focus-ring=yes border=rgb(47, 47, 54) box=736,6 82x28
+  127  button "Connections: 14 problems" focus-ring=yes border=rgba(0, 0, 0, 0) box=826,6 50x28
+  128  button "Inbox" focus-ring=yes border=rgba(0, 0, 0, 0) box=1246,6 28x28
+  129  button "Pine Editor" focus-ring=yes border=rgb(47, 47, 54) box=1282,6 40x28
+  130  button "Alerts" focus-ring=yes border=rgba(0, 0, 0, 0) box=1330,6 28x28
+  131  button "More" focus-ring=yes border=rgba(0, 0, 0, 0) box=1366,6 28x28
+  132  button "Settings" focus-ring=yes border=rgba(0, 0, 0, 0) box=1402,6 28x28
+  133  button "Cross" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,49 34x32
+  134  button "Open Cursors tools" focus-ring=yes border=rgb(232, 232, 237) box=25,67 12x14
+  135  button "Trend line" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,85 34x32
+  136  button "Open Lines tools" focus-ring=yes border=rgb(232, 232, 237) box=25,103 12x14
+  137  button "Fibonacci retracement" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,121 34x32
+  138  button "Open Fibonacci and Gann tools" focus-ring=yes border=rgb(232, 232, 237) box=25,139 12x14
+  139  button "XABCD pattern" focus-ring=yes border=rgba(0, 0, 0, 0) box=3,157 34x32
+  140  button "Open Patterns tools" focus-ring=yes border=rgb(232, 232, 237) box=25,175 12x14
 stops without a visible focus ring: 16 of 140
 controls without a proper accessible name:
   - select "Timeframe" is named only by its title attribute

@@ -1,72 +1,111 @@
-98 requests; slow (> 1000 ms): 0; failed or status >= 400: 13
+123 requests; slow (> 1000 ms): 0; failed or status >= 400: 41
 
 failed or status >= 400 (action, status, failure, url):
-  [live on #1] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
-  [live on #2] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
-  [live on #3] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
-  [live on (final)] - net::ERR_ABORTED GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
+  [provider binance] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [provider coinbase] - net::ERR_ABORTED GET /api/live?sub=coinbase%3A1h%3Anative%3ABTC-USD
+  [provider kraken] - net::ERR_ABORTED GET /api/live?sub=kraken%3A1h%3Anative%3AXBTUSD
+  [provider bybit] - net::ERR_ABORTED GET /api/live?sub=bybit%3A1h%3Anative%3ABTCUSDT
+  [provider okx] - net::ERR_ABORTED GET /api/live?sub=okx%3A1h%3Anative%3ABTC-USDT
+  [provider hyperliquid-perps] - net::ERR_ABORTED GET /api/live?sub=hyperliquid-perps%3A1h%3Anative%3ABTC
+  [provider hyperliquid-spot] - net::ERR_ABORTED GET /api/live?sub=hyperliquid-spot%3A1h%3Anative%3AHYPE%2FUSDC
+  [provider binance] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [symbol ETHUSDT] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3AETHUSDT
+  [symbol SOLUSDT] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ASOLUSDT
+  [unknown symbol enter] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3AZZZZNOPE
+  [symbol restore] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m] - net::ERR_ABORTED GET /api/live?sub=binance%3A15m%3Anative%3ABTCUSDT
+  [rapid timeframes 5m>15m>5m>15m>5m>1h] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [rapid providers] - net::ERR_ABORTED GET /api/live?sub=coinbase%3A1h%3Anative%3ABTC-USD
+  [rapid providers] - net::ERR_ABORTED GET /api/live?sub=kraken%3A1h%3Anative%3AXBTUSD
+  [rapid providers] - net::ERR_ABORTED GET /api/live?sub=okx%3A1h%3Anative%3ABTC-USDT
+  [rapid providers] - net::ERR_ABORTED GET /api/live?sub=bybit%3A1h%3Anative%3ABTCUSDT
+  [rapid providers] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [live on #1] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [live on #2] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [live on #3] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [live on (final)] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [timeframe while live] - net::ERR_ABORTED GET /api/live?sub=binance%3A15m%3Anative%3ABTCUSDT
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5
   [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
   [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
   [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
   [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
   [pine remove] - net::ERR_ABORTED GET /api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
-  [load with the upstream down] 502  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
-  [switch provider with the upstream down] 502  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=kraken&symbol=ETHUSD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/history?provider=kraken&symbol=SOLUSD&timeframe=1d&bars=5
+  [pine remove] - net::ERR_ABORTED GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+  [load with the upstream down] 502  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000
+  [switch provider with the upstream down] 502  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=1000
   [search with the upstream down] 502  GET /api/search?provider=kraken&q=XBTUSD
   [search with the upstream down] 502  GET /api/search?provider=kraken&q=ETH
 
 slowest 12 (ms, action, url):
-    426 ms  [slow history] /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
-     66 ms  [startup] /assets/index-CAVRzMsA.js
-     56 ms  [pine remove] /assets/index-CAVRzMsA.js
-     49 ms  [pine remove] /assets/index-CAVRzMsA.js
-     49 ms  [slow history] /assets/index-CVdPwwU4.css
-     48 ms  [slow history] /assets/index-CAVRzMsA.js
-     47 ms  [startup] /api/status
-     43 ms  [backtest] /assets/backtest.worker-BCrNRwDO.js
-     33 ms  [provider okx] /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=5000
-     32 ms  [pine remove] /api/history?provider=kraken&symbol=XDGUSD&timeframe=1d&bars=5
-     27 ms  [pine remove] /api/history?provider=bybit&symbol=BTCUSDT&timeframe=1d&bars=5
+    450 ms  [slow history] /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=1000
+     68 ms  [slow history] /assets/index-DK6hVepU.js
+     67 ms  [pine remove] /assets/index-DK6hVepU.js
+     65 ms  [pine remove] /assets/index-DK6hVepU.js
+     57 ms  [startup] /assets/index-DK6hVepU.js
+     57 ms  [backtest] /assets/backtest.worker-DGK80dYo.js
+     48 ms  [optimizer] /assets/backtest.worker-DGK80dYo.js
+     39 ms  [startup] /api/status
      27 ms  [slow history] /api/status
+     24 ms  [pine remove] /api/status
+     21 ms  [pine remove] /api/status
+     20 ms  [rapid providers] /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=1000
 
 identical /api requests (excluding /api/live) inside one user action:
-  rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
-  rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
-  rapid timeframes 5m>15m>5m>15m>5m>1h: 3x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=5m&bars=5000
-  rapid timeframes 5m>15m>5m>15m>5m>1h: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
+  rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000
+  rapid timeframes 1d>1h>15m>5m>1m>1h>4h>15m: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=1000
+  rapid timeframes 5m>15m>5m>15m>5m>1h: 3x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=5m&bars=1000
+  rapid timeframes 5m>15m>5m>15m>5m>1h: 2x GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=1000
 
 count per distinct request (time bounds masked):
     4  GET /
-    4  GET /assets/index-CAVRzMsA.js
-    4  GET /assets/index-CVdPwwU4.css
+    4  GET /assets/index-DK6hVepU.js
+    4  GET /assets/index-BeVczzDb.css
     6  GET /api/status
     4  GET /api/alerts/events
     4  GET /api/alerts
     1  GET /api/providers
-   12  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=5000
-    2  GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1h&bars=5000
-    4  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=5000
-    2  GET /api/history?provider=bybit&symbol=BTCUSDT&timeframe=1h&bars=5000
-    2  GET /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=5000
-    1  GET /api/history?provider=yahoo&symbol=AAPL&timeframe=1d&bars=5000
-    1  GET /api/history?provider=stooq&symbol=aapl.us&timeframe=1d&bars=5000
+   12  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000
+   10  GET /api/live?sub=binance%3A1h%3Anative%3ABTCUSDT
+    2  GET /api/history?provider=coinbase&symbol=BTC-USD&timeframe=1h&bars=1000
+    2  GET /api/live?sub=coinbase%3A1h%3Anative%3ABTC-USD
+    4  GET /api/history?provider=kraken&symbol=XBTUSD&timeframe=1h&bars=1000
+    3  GET /api/live?sub=kraken%3A1h%3Anative%3AXBTUSD
+    2  GET /api/history?provider=bybit&symbol=BTCUSDT&timeframe=1h&bars=1000
+    2  GET /api/live?sub=bybit%3A1h%3Anative%3ABTCUSDT
+    2  GET /api/history?provider=okx&symbol=BTC-USDT&timeframe=1h&bars=1000
+    2  GET /api/live?sub=okx%3A1h%3Anative%3ABTC-USDT
+    1  GET /api/history?provider=hyperliquid-perps&symbol=BTC&timeframe=1h&bars=1000
+    1  GET /api/live?sub=hyperliquid-perps%3A1h%3Anative%3ABTC
+    1  GET /api/history?provider=hyperliquid-spot&symbol=HYPE%2FUSDC&timeframe=1h&bars=1000
+    1  GET /api/live?sub=hyperliquid-spot%3A1h%3Anative%3AHYPE%2FUSDC
+    1  GET /api/history?provider=yahoo&symbol=AAPL&timeframe=1d&bars=1000
     1  GET /api/symbols?provider=binance
     3  GET /api/search?provider=binance&q=BTCUSDT
     1  GET /api/search?provider=binance&q=ETH
-    1  GET /api/history?provider=binance&symbol=ETHUSDT&timeframe=1h&bars=5000
+    1  GET /api/history?provider=binance&symbol=ETHUSDT&timeframe=1h&bars=1000
+    1  GET /api/live?sub=binance%3A1h%3Anative%3AETHUSDT
     1  GET /api/search?provider=binance&q=SOL
-    1  GET /api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=5000
-    1  GET /api/search?provider=binance&q=ZZZZNOPE
-    1  GET /api/history?provider=binance&symbol=ZZZZNOPE&timeframe=1h&bars=5000
-    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=5000
-    5  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=5000
-    4  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=5m&bars=5000
-    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=5000
-    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=4h&bars=5000
+    1  GET /api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000
+    1  GET /api/live?sub=binance%3A1h%3Anative%3ASOLUSDT
+    2  GET /api/search?provider=binance&q=ZZZZNOPE
+    1  GET /api/history?provider=binance&symbol=ZZZZNOPE&timeframe=1h&bars=1000
+    1  GET /api/live?sub=binance%3A1h%3Anative%3AZZZZNOPE
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=1000
+    5  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=1000
+    4  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=5m&bars=1000
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=1000
+    1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=4h&bars=1000
+    2  GET /api/live?sub=binance%3A15m%3Anative%3ABTCUSDT
     1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=15m&bars=3
     1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=3
-    4  GET /api/live?provider=binance&symbol=BTCUSDT&timeframe=1h
-    1  GET /assets/backtest.worker-BCrNRwDO.js
+    2  GET /assets/backtest.worker-DGK80dYo.js
     1  GET /api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
     1  GET /api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
     1  GET /api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5

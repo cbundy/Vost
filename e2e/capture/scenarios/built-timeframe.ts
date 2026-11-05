@@ -1,3 +1,4 @@
+import { waitLive, openChartData, closeChartData } from '../topbar.ts';
 import type { Scenario } from '../scenario.ts';
 
 export const builtTimeframe: Scenario = {
@@ -40,29 +41,27 @@ export const builtTimeframe: Scenario = {
       if (value !== '4h') throw new Error(`timeframe snapped back to ${value}`);
     });
     await ctx.screenshot('chart');
-    const buildButton = () => (narrow ? page.getByRole('dialog', { name: 'More' }) : page.locator('.topbar')).getByRole('button', { name: 'Build higher timeframes from lower ones' });
+    const buildButton = async () => (await openChartData(page)).getByRole('button', { name: 'Build higher timeframes from lower ones' });
     if (narrow) {
-      await ctx.step('the Build setting sits in the More menu, off', async () => {
-        await more.click();
-        const pressed = await buildButton().getAttribute('aria-pressed');
+      await ctx.step('the Build setting sits in the Chart data pop-up, off', async () => {
+        const pressed = await (await buildButton()).getAttribute('aria-pressed');
         if (pressed !== 'false') throw new Error(`Build is aria-pressed=${pressed}, expected false`);
       });
       await ctx.screenshot('setting-off');
       await ctx.step('turn Build on: every option above 1m is marked and 4h reloads', async () => {
-        await buildButton().click();
-        await page.keyboard.press('Escape');
+        await (await buildButton()).click();
+        await closeChartData(page);
         await title('Coinbase', 'BTC-USD', '4h').waitFor();
         await expectPicker(['1m', '5m *', '15m *', '30m *', '1h *', '4h *', '1d *', '1w *', '1M *']);
       });
-      await more.click();
+      await openChartData(page);
       await ctx.screenshot('setting-on');
       return;
     }
     await ctx.step('charts open live: LIVE and the last 4h bar updates from the 1h stream', async () => {
-      const liveButton = page.locator('.topbar button.badge').first();
       const ohlc = page.locator('.chart-legend .legend-ohlc');
       const before = await ohlc.innerText();
-      await liveButton.filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+      await waitLive(page, 'live');
       await page.waitForFunction(
         (text) => (document.querySelector('.chart-legend .legend-ohlc') as HTMLElement | null)?.innerText !== text,
         before,
@@ -89,17 +88,18 @@ export const builtTimeframe: Scenario = {
     });
     await ctx.screenshot('picker');
     await ctx.step('the Build setting is off: the picker is unchanged', async () => {
-      const pressed = await buildButton().getAttribute('aria-pressed');
+      const pressed = await (await buildButton()).getAttribute('aria-pressed');
+      await closeChartData(page);
       if (pressed !== 'false') throw new Error(`Build is aria-pressed=${pressed}, expected false`);
     });
     await ctx.step('turn Build on: every option above 1m is marked, Live stays on, and 4h reloads', async () => {
-      const liveButton = page.locator('.topbar button.badge').first();
-      await buildButton().click();
+      await (await buildButton()).click();
+      await closeChartData(page);
       await expectPicker(['1m', '5m *', '15m *', '30m *', '1h *', '4h *', '1d *', '1w *', '1M *']);
       const built = await timeframeSelect.locator('option', { hasText: '1h' }).getAttribute('title');
       if (built !== 'Built from 15m') throw new Error(`1h option title is ${built}`);
       await title('Coinbase', 'BTC-USD', '4h').waitFor();
-      await liveButton.filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+      await waitLive(page, 'live');
     });
     await ctx.step('pick 1h: the chart loads built from 15m', async () => {
       const before = ctx.requests.length;

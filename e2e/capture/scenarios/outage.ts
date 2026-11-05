@@ -1,12 +1,12 @@
 import type { Page } from 'playwright';
+import { waitLive } from '../topbar.ts';
 import type { Scenario } from '../scenario.ts';
 
-const liveButton = (page: Page) => page.locator('.topbar button.badge');
 const lastCandle = (page: Page) => page.locator('.chart-legend .legend-ohlc').innerText();
 
 export const outage: Scenario = {
   name: 'outage',
-  description: 'Video: live data on Binance, the market-data service goes away (RETRY, the live row not ok) and comes back (LIVE, ok, candle moving) with no reload',
+  description: 'Video: live data on Binance, the market-data service goes away (reconnecting, the live row not ok) and comes back (LIVE, ok, candle moving) with no reload',
   video: true,
   viewports: ['desktop'],
   async run(ctx) {
@@ -34,7 +34,7 @@ export const outage: Scenario = {
       });
 
       await ctx.step('the chart opens live: LIVE and a moving last candle', async () => {
-        await liveButton(page).filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+        await waitLive(page, 'live');
         await candleMovesFrom(await lastCandle(page));
       });
 
@@ -47,9 +47,9 @@ export const outage: Scenario = {
       await ctx.screenshot('live');
 
       const beforeOutage = await lastCandle(page);
-      await ctx.step('the market-data service goes away: RETRY and the live row not ok', async () => {
+      await ctx.step('the market-data service goes away: reconnecting and the live row not ok', async () => {
         await ctx.upstream.stop();
-        await liveButton(page).filter({ hasText: /RETRY|ERR/ }).waitFor();
+        await page.locator('.topbar [data-live-status="reconnecting"], .topbar [data-live-status="error"]').first().waitFor();
         await testNow();
         // A "Test now" within 15 s of the last round only reads the live state; after that it runs a full round (about 4 s of staggered probes).
         await binanceLive().and(page.locator(':not([data-state="ok"])')).waitFor({ timeout: 20_000 });
@@ -60,7 +60,7 @@ export const outage: Scenario = {
         await ctx.upstream.start();
         // The outage is a few seconds, inside the fast reconnect backoff (700 ms doubling, server/live/socket.ts):
         // the next attempt is at most 11.2 s away (the fifth backoff step), so 20 s is that step plus slack.
-        await liveButton(page).filter({ hasText: /^\s*LIVE\s*$/ }).waitFor({ timeout: 20_000 });
+        await waitLive(page, 'live', 20_000);
       });
 
       await ctx.step('the live row is ok again and the last candle moves again', async () => {

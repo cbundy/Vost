@@ -67,6 +67,7 @@ npm run -s e2e:capture -- strategy-maker  # docs/evidence/strategy-maker/strateg
 npm run -s e2e:capture -- replay              # docs/evidence/replay/replay-{before,picking,start,stepped,played,repick,restarted,exited}-{desktop,narrow}.png + a desktop webm
 npm run -s e2e:capture -- pane-resize         # docs/evidence/pane-resize/pane-resize-{seeded,dragged,sidebar-focus,sidebar-max,dock-max,dock-collapsed,reset,small-window,small-window-max}-desktop.png + pane-resize-checks-desktop.txt + pane-resize.webm
 npm run -s e2e:capture -- responsive        # docs/evidence/responsive/responsive-{360x740,768x1024,1024x768,1920x1080,740x360,drawer-360,drawer-768,more-360,csv-360,inbox-360}-desktop.png + responsive-checks-desktop.txt
+npm run -s e2e:capture -- topbar             # docs/evidence/topbar/topbar-{bar,data-open,more-live-on,live-off,data-open-demo}-{desktop,narrow}.png + topbar-checks-*.txt (Chart data pop-up and Live dot)
 npm run -s e2e:capture -- ui-audit           # docs/evidence/ui-audit/ui-audit-{console,requests,leaks,layout,a11y,stack,races,states}-{desktop,narrow}.txt + screenshots of each state (research audit, see docs/spikes/ui-audit/README.md; about 2.5 minutes)
 npm run -s e2e:capture -- chart --slug my-fix   # everything goes to docs/evidence/my-fix/
 ```

@@ -14,7 +14,7 @@ Some providers lack timeframes that others have. Vost offers them anyway, built 
 
 ## The Build setting
 
-The **Build** switch next to the picker (in the **More** menu on narrower screens) is off by default and remembered. With it on, every timeframe above the provider's lowest is built from the next lower native one instead of using the exchange's own bars, for history and for live. Built stock daily bars can differ slightly from the exchange's official ones, and OKX's own daily bars use UTC+8 days while built ones use UTC.
+The **Build** switch in the **Chart data** pop-up (the database icon in the top bar) is off by default and remembered. With it on, every timeframe above the provider's lowest is built from the next lower native one instead of using the exchange's own bars, for history and for live. Built stock daily bars can differ slightly from the exchange's official ones, and OKX's own daily bars use UTC+8 days while built ones use UTC.
 
 ![The Build setting on](../evidence/built-timeframe/built-timeframe-setting-on-desktop.png)
 

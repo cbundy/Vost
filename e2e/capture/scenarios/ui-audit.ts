@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Locator, Page } from 'playwright';
+import { chartDataDialog, closeChartData, liveButton as liveBtn, openChartData } from '../topbar.ts';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
 import { addToChart } from '../pine-editor.ts';
@@ -253,7 +254,8 @@ export const uiAudit: Scenario = {
     const probe = (): Promise<Probe> => page.evaluate(() => (window as unknown as { __auditProbe: () => Probe }).__auditProbe());
     const settle = (ms = 400) => page.waitForTimeout(ms);
     const title = (name: string, symbol: string, tf: string) => page.locator('.chart-legend .legend-title', { hasText: `${name} · ${symbol} · ${tf}` });
-    const liveButton = page.locator('.topbar button.badge, .topbar-more-pop button.badge').filter({ hasText: /Live|LIVE|…|RETRY|ERR/ });
+    const liveButton = liveBtn(page);
+    const liveState = async (): Promise<string> => (await liveButton.getAttribute('data-live-status', { timeout: 1500 }).catch(() => null)) ?? '(none)';
 
     /** Runs fn as one user action and notes identical /api requests inside it. */
     const act = async (label: string, fn: () => Promise<void>): Promise<void> => {
@@ -344,7 +346,9 @@ export const uiAudit: Scenario = {
         await search.press('Enter');
         await settle(800);
       });
-      notes.states.push(`unknown symbol ZZZZNOPE on binance: legend="${(await text(page.locator('.chart-legend .legend-title'))).trim()}", toasts=${await page.locator('.toast').count()}, load button text="${(await text(page.getByTitle('Reload data'))).trim()}"`);
+      const loadLabel = (await text((await openChartData(page)).getByTitle('Reload data'))).trim();
+      await closeChartData(page);
+      notes.states.push(`unknown symbol ZZZZNOPE on binance: legend="${(await text(page.locator('.chart-legend .legend-title'))).trim()}", toasts=${await page.locator('.toast').count()}, load button text="${loadLabel}"`);
       await ctx.screenshot('unknown-symbol');
     });
     await ctx.step('restore a good symbol', () =>
@@ -435,12 +439,12 @@ export const uiAudit: Scenario = {
       });
       await snap('timeframe change while live');
       if (narrow) await openMore();
-      notes.races.push(`live button after a timeframe change while live: "${(await text(liveButton.first())).trim()}" (live was on before the change)`);
+      notes.races.push(`live button after a timeframe change while live: "${await liveState()}" (live was on before the change)`);
       if (narrow) await page.keyboard.press('Escape');
       notes.races.push(`live open streams after a timeframe change while live: ${(await probe()).es.open} (was ${during.es.open}); a leak shows as 2+`);
       await act('live off (final)', async () => {
         if (narrow) await openMore();
-        if (/LIVE|…|RETRY|ERR/.test(await text(liveButton.first()))) await liveButton.first().click();
+        if ((await liveState()) !== 'off') await liveButton.click();
         if (narrow) await page.keyboard.press('Escape');
         await settle(400);
       });
@@ -756,9 +760,11 @@ export const uiAudit: Scenario = {
       // a provider failure: the fake upstream is stopped, then Load is pressed
       await ctx.upstream.stop();
       await act('load with the upstream down', async () => {
-        await page.getByTitle('Reload data').click();
+        await (await openChartData(page)).getByTitle('Reload data').click();
         await settle(1500);
       });
+      const loadText = (await text(chartDataDialog(page).getByTitle('Reload data'))).trim();
+      await closeChartData(page);
       await showSideSection(page, 'Data and library', narrow);
       const dataSection = ((await text(page.locator('.sidebar-section').first())) || '').replace(/\s+/g, ' ').slice(0, 100);
       if (narrow) {
@@ -767,7 +773,7 @@ export const uiAudit: Scenario = {
       } else {
         await showSideSection(page, 'Watchlist', false);
       }
-      notes.states.push(`Load with the market-data service down: toasts=${JSON.stringify(await page.locator('.toast').allInnerTexts())}, load button="${(await text(page.getByTitle('Reload data'))).trim()}", chart legend="${(await text(page.locator('.chart-legend .legend-title'))).trim()}", sidebar says: ${dataSection}`);
+      notes.states.push(`Load with the market-data service down: toasts=${JSON.stringify(await page.locator('.toast').allInnerTexts())}, load button="${loadText}", chart legend="${(await text(page.locator('.chart-legend .legend-title'))).trim()}", sidebar says: ${dataSection}`);
       await ctx.screenshot('upstream-down');
       await act('switch provider with the upstream down', async () => {
         await selectProvider('kraken');
@@ -790,10 +796,11 @@ export const uiAudit: Scenario = {
       await cdp.send('Network.enable');
       await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 1500, downloadThroughput: -1, uploadThroughput: -1 });
       action = 'slow history';
-      await page.getByTitle('Reload data').click();
+      await (await openChartData(page)).getByTitle('Reload data').click();
       await settle(400);
-      notes.states.push(`while every request takes 1.5 s extra: load button="${(await text(page.getByTitle('Reload data'))).trim() || '(spinner only)'}", spinner shown=${(await page.locator('.topbar .spinner').count()) > 0}, "Loading data" overlay on the chart=${(await page.getByText('Loading data').count()) > 0}`);
+      notes.states.push(`while every request takes 1.5 s extra: load button="${(await text(chartDataDialog(page).getByTitle('Reload data'))).trim() || '(spinner only)'}", spinner shown=${(await page.locator('.topbar .spinner, .topbar-more-pop .spinner').count()) > 0}, "Loading data" overlay on the chart=${(await page.getByText('Loading data').count()) > 0}`);
       await ctx.screenshot('loading');
+      await closeChartData(page);
       await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
       await settle(2500);
     });

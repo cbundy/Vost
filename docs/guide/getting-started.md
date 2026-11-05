@@ -6,7 +6,7 @@ With Docker: `docker compose up -d`. Without: `npm install`, `npm run build`, `n
 
 ## Your first chart
 
-Vost opens on a chart. To see something at once, pick the **Demo (offline)** provider in the top bar: it makes synthetic candles with no network. To chart real data, pick a provider such as Binance, type or search a symbol and press **Load**. To chart your own file, press **Import CSV** (see [Data](data.md)).
+Vost opens on a chart. To see something at once, pick the **Demo (offline)** provider in the top bar: it makes synthetic candles with no network. To chart real data, pick a provider such as Binance, type or search a symbol; the chart loads by itself (the **Chart data** button has a **Load** button to reload). To chart your own file, press **Import CSV** (see [Data](data.md)).
 
 ![The chart with the top bar, side rail and dock](../evidence/chart/chart-desktop.png)
 
@@ -16,13 +16,14 @@ From left to right (on narrow screens the less used controls move into a **More*
 
 - **Select layout** and the **layout name**: pick how many charts to show and manage named layouts. See [Layouts](layouts.md).
 - The Vost logo with the running version.
-- **Symbol search**, the **Provider** menu and, when history loads all at once instead of by scrolling, the **Number of bars** menu (500 to 20k bars; see [Data](data.md#how-history-loads)).
-- The **timeframe picker** and the **Build** switch. See [Timeframes](timeframes.md).
-- **Load** reloads the data. **Live** streams new candles and is on by default for markets that support it. See [Charts](charts.md).
+- **Symbol search**, the **Provider** menu and the **timeframe picker**. See [Timeframes](timeframes.md).
+- **Chart data** (the database icon, which shows a spinner while loading) opens a small pop-up with the loaded date range and bar count, the **Build** switch ([Timeframes](timeframes.md)), the **Number of bars** menu when history loads all at once instead of by scrolling (500 to 20k bars; see [Data](data.md#how-history-loads)) and **Load**, which reloads the data.
+- **Live** is a dot that streams new candles and is on by default for markets that support it: green when live, amber while connecting or reconnecting, red on an error (click it to open the inbox) and grey when off. Hover it for the state in words. See [Charts](charts.md).
 - **Replay** starts bar replay. See [Bar replay](replay.md).
 - **Import CSV**. See [Data](data.md).
-- The loaded date range and bar count.
 - The **connection light**, the **Inbox** (messages and errors), the **Pine Editor** button, the **Alerts** bell and the **Settings** gear at the right end of the bar (see [The Settings popup](#the-settings-popup)). See [Charts](charts.md), [Pine Script](pine.md) and [Alerts](alerts.md).
+
+![The Chart data pop-up under the top bar](../evidence/topbar/topbar-data-open-desktop.png)
 
 ## The Settings popup
 
