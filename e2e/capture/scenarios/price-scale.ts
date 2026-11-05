@@ -1,11 +1,5 @@
 import type { Scenario } from '../scenario.ts';
 
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
-
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[] };
 
 export const priceScale: Scenario = {
@@ -25,7 +19,8 @@ export const priceScale: Scenario = {
     };
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as Stored[];
+      const doc = (await ctx.settings.get('drawings.v2')) as { sources?: Record<string, Stored[]> } | null;
+      return doc?.sources?.['demo:DEMO'] ?? [];
     };
     const box = async () => {
       const b = await page.locator('.chart-container').boundingBox();
@@ -47,7 +42,7 @@ export const priceScale: Scenario = {
     };
     const savedMode = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(`JSON.parse(localStorage.getItem('vost.prefs.v1') ?? '{}').priceScaleMode ?? 'linear'`)) as string;
+      return ((await ctx.settings.get('prefs.v1')) as { priceScaleMode?: string } | null)?.priceScaleMode ?? 'linear';
     };
     const rail = page.getByRole('toolbar', { name: 'Drawing tools' });
     const menuBtn = page.getByRole('button', { name: 'Drawing tools', exact: true });

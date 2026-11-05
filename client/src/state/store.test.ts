@@ -336,7 +336,7 @@ describe('highLowLabels setting', () => {
     stubStorage();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
     if (saved !== undefined) {
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, highLowLabels: saved }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, highLowLabels: saved }));
     }
     const { useStore } = await import('./store');
     track(useStore);
@@ -354,7 +354,7 @@ describe('highLowLabels setting', () => {
     const useStore = await fresh();
     useStore.getState().setHighLowLabels(false);
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).highLowLabels).toBe(false);
+    expect(stored('prefs.v1').highLowLabels).toBe(false);
   });
 });
 
@@ -623,7 +623,7 @@ describe('chart registry and flat prefs', () => {
   it('loads a missing or bad saved price scale mode as linear', async () => {
     for (const bad of [undefined, 'sideways', 7]) {
       vi.resetModules();
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...seed(), priceScaleMode: bad }));
+      seedRaw('prefs.v1', JSON.stringify({ ...seed(), priceScaleMode: bad }));
       const { useStore, getActiveChart } = await import('./store');
       track(useStore);
       useStore.getState().init();
