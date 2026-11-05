@@ -147,10 +147,8 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
         if (channel !== ch) return;
         ch.close();
         channel = null;
-        for (const [pid, q] of pending) {
-          pending.delete(pid);
-          q.reject(new Error('The worker was restarted'));
-        }
+        // Requests made after the cancel were queued behind the stuck step: they start again on the new worker.
+        for (const q of [...pending.values()]) openChannel().post(q.request);
       }, grace),
     );
   };

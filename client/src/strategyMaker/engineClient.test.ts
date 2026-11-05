@@ -138,6 +138,25 @@ describe('with a worker', () => {
     expect(made[1].sent[0]).toMatchObject({ type: 'find' });
   });
 
+  it('a find started right after a cancel runs on the replacement worker', async () => {
+    vi.useFakeTimers();
+    const made: StubWorker[] = [];
+    const client = createEngineClient({ makeWorker: () => (made.push(new StubWorker()), made[made.length - 1]) });
+    const ctl = new AbortController();
+    const a = client.find(series, inputs, { signal: ctl.signal });
+    const aSettled = expect(a).rejects.toMatchObject({ name: 'AbortError' });
+    ctl.abort();
+    await aSettled;
+    const b = client.find(series, inputs);
+    vi.advanceTimersByTime(1000);
+    expect(made[0].terminated).toBe(true);
+    expect(made).toHaveLength(2);
+    const req = made[1].sent[0];
+    expect(req).toMatchObject({ type: 'find' });
+    made[1].reply({ v: 1, id: req.id, type: 'result', outcome: { kind: 'refused', reason: 'x' } });
+    await expect(b).resolves.toEqual({ kind: 'refused', reason: 'x' });
+  });
+
   it('keeps a worker that answers the cancel', async () => {
     vi.useFakeTimers();
     const w = new StubWorker();
