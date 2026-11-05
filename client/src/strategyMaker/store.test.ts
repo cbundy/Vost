@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DB_NAME, openStore, setId, type HighlightSet, type Store } from './store';
+import { DB_NAME, openStore, setId, SETS, SETTINGS, type FindForm, type HighlightSet, type Store } from './store';
 
 const trade = { side: 'long' as const, entryTime: 100, exitTime: 400 };
 const provSource = { kind: 'provider' as const, provider: 'demo', symbol: 'BTC', timeframe: '1h' };
@@ -90,5 +90,53 @@ describe('store', () => {
   it('gives null when indexedDB is missing', async () => {
     vi.stubGlobal('indexedDB', undefined);
     expect(await openStore()).toBeNull();
+  });
+
+  const form: FindForm = {
+    direction: 'both',
+    families: ['sma_cross'],
+    feeBps: '10',
+    slippageBps: '5',
+    stopLossPct: '',
+    takeProfitPct: '3',
+    minRR: '1.5',
+    minHitRatePct: '',
+    maxDrawdownPct: '25',
+    setIds: null,
+  };
+  it('round-trips the find inputs, and has none at first', async () => {
+    const s = await open();
+    expect(await s.getInputs()).toBeUndefined();
+    await s.putInputs(form);
+    await s.putInputs({ ...form, minRR: '2', setIds: ['csv|a.csv'] });
+    expect(await s.getInputs()).toEqual({ id: 'find-inputs', version: 1, form: { ...form, minRR: '2', setIds: ['csv|a.csv'] } });
+    expect(await s.list()).toEqual([]);
+  });
+  it('opens a version 1 database at version 2 with its sets intact and an empty settings store', async () => {
+    const v1 = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(SETS, { keyPath: 'id' });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    expect([...v1.objectStoreNames]).toEqual([SETS]);
+    const tx = v1.transaction(SETS, 'readwrite');
+    tx.objectStore(SETS).put(mk(provSource));
+    await new Promise<void>((r) => (tx.oncomplete = () => r()));
+    v1.close();
+    const s = await open();
+    expect((await s.list()).map((x) => x.id)).toEqual([setId(provSource)]);
+    expect(await s.getInputs()).toBeUndefined();
+    await s.putInputs(form);
+    expect((await s.getInputs())?.form).toEqual(form);
+    const names = await new Promise<string[]>((resolve) => {
+      const req = indexedDB.open(DB_NAME);
+      req.onsuccess = () => {
+        const n = [...req.result.objectStoreNames];
+        req.result.close();
+        resolve(n);
+      };
+    });
+    expect(names.sort()).toEqual([SETS, SETTINGS].sort());
   });
 });

@@ -15,14 +15,20 @@ import {
   type Side,
   type Tool,
 } from './brush';
-import { openStore, setId, type SetSource, type Store } from './store';
+import { openStore, setId, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
 import { TradeList } from './TradeList';
+import { Results } from './Results';
+import { TargetsForm, type SetChoice } from './TargetsForm';
+import { blocker, defaultForm, readForm, sanitizeForm } from './form';
+import { sourceLabel } from './run';
+import { useFind } from './useFind';
 import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary, type Loaded } from './data';
 import './strategyMaker.css';
 
 const BARS = 1000;
 const SAVE_DELAY_MS = 400;
 const NO_TRADES: readonly HighlightTrade[] = [];
+const SAVE_INPUTS_MS = 400;
 
 /** The marks waiting to be written to the store. */
 interface Pending {
@@ -56,12 +62,17 @@ export default function StrategyMakerPage() {
   const [focus, setFocus] = useState<FocusRequest | null>(null);
   const [storeState, setStoreState] = useState<'pending' | 'ok' | 'none'>('pending');
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [sources, setSources] = useState<Record<string, SetSource>>({});
+  const [form, setForm] = useState<FindForm>(defaultForm);
+  const formReady = useRef(false);
+  const find = useFind(BARS, library);
   const store = useRef<Store | null>(null);
   const storeReady = useRef<Promise<void>>(Promise.resolve());
   const baseline = useRef<readonly HighlightTrade[]>(history.present);
   const pending = useRef<Pending | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadToken = useRef(0);
+  const inputsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const candlesRef = useRef<Candle[]>([]);
   candlesRef.current = candles;
 
@@ -88,13 +99,24 @@ export default function StrategyMakerPage() {
       if (!st) return;
       try {
         const all = await st.list();
-        if (!gone) setCounts((c) => ({ ...Object.fromEntries(all.map((x) => [x.id, x.trades.length])), ...c }));
+        if (!gone) {
+          setCounts((c) => ({ ...Object.fromEntries(all.map((x) => [x.id, x.trades.length])), ...c }));
+          setSources((m) => ({ ...Object.fromEntries(all.map((x) => [x.id, x.source])), ...m }));
+        }
       } catch {
         /* the counter then shows this chart only */
       }
+      try {
+        const rec = await st.getInputs();
+        if (!gone && rec) setForm(sanitizeForm(rec.form));
+      } catch {
+        /* the form keeps its defaults */
+      }
+      if (!gone) formReady.current = true;
     });
     return () => {
       gone = true;
+      if (inputsTimer.current) clearTimeout(inputsTimer.current);
       abort.current?.abort();
       flush();
       store.current?.close();
@@ -106,9 +128,17 @@ export default function StrategyMakerPage() {
     const untouched = history.past.length === 0 && history.future.length === 0;
     if ((untouched && history.present === baseline.current) || !source) return;
     pending.current = { source, trades: [...history.present], candles: candlesRef.current };
+    setSources((m) => (m[setId(source)] ? m : { ...m, [setId(source)]: source }));
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(flush, SAVE_DELAY_MS);
   }, [history.present, source, flush]);
+
+  // The form is kept in the page's own database a moment after each change, once the saved one has been read.
+  useEffect(() => {
+    if (!formReady.current) return;
+    if (inputsTimer.current) clearTimeout(inputsTimer.current);
+    inputsTimer.current = setTimeout(() => void store.current?.putInputs(form).catch(() => undefined), SAVE_INPUTS_MS);
+  }, [form]);
 
   const times = useMemo(() => candles.map((c) => c.time), [candles]);
   const trades = history.present;
@@ -123,6 +153,7 @@ export default function StrategyMakerPage() {
       setLabel(r.label);
       setError('');
       setSource(src);
+      setSources((m) => ({ ...m, [setId(src)]: src }));
       setTool(null);
       baseline.current = NO_TRADES;
       setHistory(emptyHistory(NO_TRADES));
@@ -181,6 +212,35 @@ export default function StrategyMakerPage() {
     const d = library.find((x) => x.id === id);
     if (d) show(loadFromDataset(d), { kind: 'library', datasetId: d.id });
   };
+
+  // Sets with marked trades; the open chart counts as it is now, saved or not.
+  const datasetName = (did: string) => library.find((d) => d.id === did)?.name;
+  const setChoices: SetChoice[] = Object.entries({ ...counts, ...(id ? { [id]: trades.length } : {}) })
+    .filter(([k, n]) => n > 0 && sources[k])
+    .map(([k, n]) => ({ id: k, label: sourceLabel(sources[k], datasetName), count: n }));
+  const chosen = form.setIds ? form.setIds.filter((k) => setChoices.some((c) => c.id === k)) : id && setChoices.some((c) => c.id === id) ? [id] : setChoices.map((c) => c.id);
+  const chosenTrades = setChoices.filter((c) => chosen.includes(c.id)).reduce((n, c) => n + c.count, 0);
+  const { inputs, errors } = readForm(form);
+
+  const onFind = async () => {
+    if (blocker(errors, inputs.families, chosenTrades)) return;
+    let saved: HighlightSet[] = [];
+    try {
+      await storeReady.current;
+      saved = (await store.current?.list()) ?? [];
+    } catch {
+      /* only the open chart is then available */
+    }
+    const sets = chosen.flatMap((k): HighlightSet[] => {
+      if (k === id && source) {
+        return [{ id: k, version: 1, source, trades: [...trades], updatedAt: Date.now(), ...(source.kind === 'csv' ? { candles } : {}) }];
+      }
+      return saved.filter((x) => x.id === k && x.trades.length);
+    });
+    void find.start(sets, inputs);
+  };
+
+  useEffect(() => find.clearSelection(), [candles]);
 
   const pickTool = useCallback((t: Tool | null) => {
     if (t?.kind === 'brush') lastSide.current = t.side;
@@ -316,8 +376,18 @@ export default function StrategyMakerPage() {
             {storeState === 'none' && (
               <p className="sm-note sm-warn">Saving is not available in this browser, so your marks will not be kept after you leave the page.</p>
             )}
+            {find.found.length > 0 && (
+              <div className="sm-legend" aria-label="Legend">
+                <span>
+                  <i className="sm-key sm-key-yours" /> Your trades
+                </span>
+                <span>
+                  <i className="sm-key sm-key-found" /> Found trades
+                </span>
+              </div>
+            )}
             <div className="sm-work">
-              <CandleChart candles={candles} trades={trades} tool={tool} onStroke={onStroke} focus={focus} />
+              <CandleChart candles={candles} trades={trades} tool={tool} onStroke={onStroke} focus={focus} foundTrades={find.found} />
               <aside className="sm-side" aria-label="Trades">
                 <TradeList
                   trades={trades}
@@ -330,6 +400,26 @@ export default function StrategyMakerPage() {
           </>
         ) : (
           <div className="sm-empty">No candles yet. Load a market, a saved dataset or a CSV file.</div>
+        )}
+        <TargetsForm
+          form={form}
+          onChange={setForm}
+          sets={setChoices}
+          chosen={chosen}
+          onChosen={(ids) => setForm((f) => ({ ...f, setIds: ids }))}
+          errors={errors}
+          trades={chosenTrades}
+          run={find.run}
+          onFind={() => void onFind()}
+          onCancel={find.cancel}
+        />
+        {find.error && (
+          <p className="sm-error" role="alert">
+            {find.error}
+          </p>
+        )}
+        {find.result && !find.run.running && (
+          <Results result={find.result} selected={find.selected} onSelect={(c) => find.select(c, candles)} />
         )}
       </main>
     </div>
