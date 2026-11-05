@@ -143,6 +143,8 @@ export interface ChartEnv {
   buildTimeframes(): boolean;
   /** How history loads: the latest page plus older pages on scroll, or everything at once. */
   historyLoading(): HistoryLoading;
+  /** Whether a Pine script's live bar sees the forming higher-timeframe bar (TradingView) or only finished ones. */
+  pineHigherBars(): 'forming' | 'finished';
   /** The saved local datasets. */
   datasets(): Dataset[];
   addDataset(dataset: Dataset): void;
@@ -272,6 +274,8 @@ export interface ChartState {
   setPineDraft(id: string, text: string): void;
   /** Pine: puts the draft on the chart as the source and runs it once. No-op without a draft. */
   applyPineDraft(id: string): void;
+  /** Re-runs every Pine indicator (a setting that changes what a run sees). */
+  rerunPine(): void;
   setShowTrades(v: boolean): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
@@ -376,8 +380,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
 
   /** The chart's market for a Pine run, with the Build setting so other timeframes are asked for the same way as the chart's. */
   const pineMarket = (): PineMarket => {
-    const m = marketOf(get(), env.datasets());
-    return m.dataset || !sourceOpt(getProvider(m.providerId)).source ? m : { ...m, source: 'built' };
+    const m0 = marketOf(get(), env.datasets());
+    const m: PineMarket = m0.dataset || !sourceOpt(getProvider(m0.providerId)).source ? m0 : { ...m0, source: 'built' };
+    return env.pineHigherBars() === 'finished' ? { ...m, higherBars: 'finished' } : m;
   };
 
   /* ---- Pine runs: one at a time per indicator, results from superseded runs dropped ---- */
@@ -935,6 +940,10 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       });
       env.onPrefsChange();
       schedulePine(id);
+    },
+
+    rerunPine() {
+      schedulePineAll();
     },
 
     setShowTrades(v) {

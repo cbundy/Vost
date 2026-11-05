@@ -1756,6 +1756,7 @@ describe('two chart stores stay apart', () => {
       timeZone: () => 'UTC',
       buildTimeframes: () => false,
       historyLoading: () => 'all',
+      pineHigherBars: () => 'forming',
       datasets: () => [],
       addDataset: () => {},
       removeDataset: () => {},
@@ -2101,6 +2102,18 @@ describe('Pine market context', () => {
     expect(written.join('\n')).toContain('"strategyId":"pine"');
     expect(written.join('\n')).not.toContain('market');
     expect(marketsOf(posts).run).toEqual(expected);
+  });
+
+  it('carries higherBars finished only when the Pine setting is on', async () => {
+    const { useStore, posts } = await boot();
+    const st = () => chartOf(useStore).getState();
+    st().setBtConfig({ strategyId: 'pine' });
+    chartOf(useStore).setState({ providerId: 'yahoo', symbol: 'AAPL', timeframe: '2h' });
+    await st().refreshPineInputs();
+    expect((posts.filter((p) => p.type === 'pine').at(-1)!.market as Record<string, unknown>).higherBars).toBeUndefined();
+    useStore.setState({ pineHigherBars: 'finished' });
+    await st().refreshPineInputs();
+    expect(posts.filter((p) => p.type === 'pine').at(-1)!.market).toEqual({ providerId: 'yahoo', symbol: 'AAPL', interval: '2h', higherBars: 'finished' });
   });
 
   it('uses the shown dataset instead of the provider picker', async () => {

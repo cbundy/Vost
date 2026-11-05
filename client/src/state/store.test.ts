@@ -330,6 +330,41 @@ describe('historyLoading setting', () => {
   });
 });
 
+describe('pineHigherBars setting', () => {
+  async function fresh(saved?: unknown) {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    if (saved !== undefined) {
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, pineHigherBars: saved }));
+    }
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore;
+  }
+
+  it('defaults to forming; a missing or bad saved value reads as forming', async () => {
+    expect((await fresh()).getState().pineHigherBars).toBe('forming');
+    for (const bad of ['x', 1, null, true]) expect((await fresh(bad)).getState().pineHigherBars).toBe('forming');
+    expect((await fresh('finished')).getState().pineHigherBars).toBe('finished');
+  });
+
+  it('persists, and a change re-runs Pine once on each chart; the same value does nothing', async () => {
+    const useStore = await fresh();
+    const rerun = vi.fn();
+    chartOf(useStore).setState({ rerunPine: rerun });
+    useStore.getState().setPineHigherBars('finished');
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).pineHigherBars).toBe('finished');
+    expect(rerun).toHaveBeenCalledTimes(1);
+    useStore.getState().setPineHigherBars('finished');
+    expect(rerun).toHaveBeenCalledTimes(1);
+    useStore.getState().setPineHigherBars('forming');
+    expect(rerun).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('historyLoading reload', () => {
   async function setup() {
     vi.resetModules();
@@ -479,6 +514,7 @@ describe('chart registry and flat prefs', () => {
     favoritesBarPos: { x: 120, y: 44 },
     buildTimeframes: true,
     historyLoading: 'all',
+    pineHigherBars: 'finished',
     customTimeframes: ['2h'],
   });
 
@@ -645,6 +681,7 @@ describe('chart registry and flat prefs', () => {
       timeZone: () => 'UTC',
       buildTimeframes: () => useStore.getState().buildTimeframes,
       historyLoading: () => useStore.getState().historyLoading,
+      pineHigherBars: () => useStore.getState().pineHigherBars,
       datasets: () => [],
       addDataset: () => {},
       removeDataset: () => {},

@@ -26,9 +26,11 @@ From left to right (on narrow screens the less used controls move into a **More*
 
 ## The Settings popup
 
-The gear at the right end of the top bar opens **Settings**. Its **Charts** section holds **Chart history**: **Load as you scroll back** (the default; older bars load in pages as you scroll or zoom back) or **Load all bars at once** (the **Number of bars** menu then sets how many bars load). A choice applies at once, with no Save button, and the open charts reload to follow it. Escape, the close button or a click outside closes the popup. See [Data](data.md#how-history-loads).
+The gear at the right end of the top bar opens **Settings**. Its **Charts** section holds **Chart history**: **Load as you scroll back** (the default; older bars load in pages as you scroll or zoom back) or **Load all bars at once** (the **Number of bars** menu then sets how many bars load). Its **Pine scripts** section holds **Higher timeframes on the live bar**: **Follow the forming bar (as TradingView)** (the default) or **Only finished bars (no repaint)**, which keeps a script that declares a higher timeframe from changing its live bar later (see [Repainting](pine.md#repainting)). A choice applies at once, with no Save button; the chart history choice reloads the open charts and the Pine choice re-runs their Pine indicators. Escape, the close button or a click outside closes the popup. See [Data](data.md#how-history-loads).
 
 ![The Settings popup](../evidence/settings/settings-open-desktop.png)
+
+![The Pine scripts section with Only finished bars picked](../evidence/settings/settings-pine-finished-desktop.png)
 
 ## The side panel
 

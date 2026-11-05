@@ -121,12 +121,16 @@ export interface DeclaredRun {
   load(): Promise<HigherKline[]>;
 }
 
-/** Wraps the provider so the bars of the declared timeframe load once, are kept, and fail with a message that names the declaration. */
-export function wrapProvider(provider: IProvider, ticker: string, declared: DeclaredTimeframe, chartTf: string): DeclaredRun {
+/**
+ * Wraps the provider so the bars of the declared timeframe load once, are kept, and fail with a message that names the declaration.
+ * With `finishedBy` (the run's end time) the script runs only on bars that closed by then: the forming bar, which the run would
+ * otherwise show on the live chart bar and later replace, is left out.
+ */
+export function wrapProvider(provider: IProvider, ticker: string, declared: DeclaredTimeframe, chartTf: string, finishedBy?: number): DeclaredRun {
   let loaded: Promise<HigherKline[]> | null = null;
   const own = (t: string) => { const u = t.toUpperCase(); const k = ticker.toUpperCase(); return u === k || u.endsWith(`:${k}`); };
   const fetchBars = (tickerId: string, timeframe: string, limit?: number, sDate?: number, eDate?: number) => {
-    loaded ??= provider.getMarketData(tickerId, timeframe, limit, sDate, eDate).catch((e) => {
+    loaded ??= provider.getMarketData(tickerId, timeframe, limit, sDate, eDate).then((bars) => (finishedBy === undefined ? bars : bars.filter((k) => k.closeTime <= finishedBy))).catch((e) => {
       const msg = (e instanceof Error ? e.message : String(e)).replace(/^request\.security\([^)]*\):\s*/, '');
       throw new Error(`${lead(declared)} cannot run on a ${chartTf} chart: ${msg}`);
     });

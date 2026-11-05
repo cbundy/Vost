@@ -12,6 +12,8 @@ export interface PineMarket {
   dataset?: boolean;
   /** `built` when the chart's Build setting is on: other timeframes are asked for built the same way. */
   source?: 'built';
+  /** `finished`: a script that declares a higher timeframe runs only on finished bars of it, so its live bar never repaints. Absent: the forming bar too, as TradingView. */
+  higherBars?: 'finished';
 }
 
 export type PineKind = 'indicator' | 'strategy';
