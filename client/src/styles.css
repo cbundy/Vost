@@ -786,6 +786,12 @@ button.icon {
   gap: 2px;
 }
 
+.chart-legend .legend-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .chart-legend .legend-line {
   display: flex;
   flex-wrap: wrap;
@@ -819,6 +825,136 @@ button.icon {
   font-weight: 600;
 }
 
+/*
+ * Indicator legend rows. The legend layers stay click-through; only the row elements take pointer events, so a pan or
+ * a drawing that starts anywhere else works as it always did. The buttons show while a row is hovered or focused (and
+ * always on touch, where there is no hover).
+ */
+.legend-rows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  pointer-events: none;
+  max-width: 100%;
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  max-width: 100%;
+  pointer-events: auto;
+  font-size: 11.5px;
+  line-height: 18px;
+}
+
+.legend-row.is-hidden {
+  opacity: 0.5;
+}
+
+.legend-row-name,
+.pane-legend-title {
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.legend-row-params,
+.legend-row-na {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+
+.legend-row-entry {
+  font-family: var(--mono);
+}
+
+.legend-row-entry b {
+  font-weight: 600;
+}
+
+.legend-row-plot {
+  opacity: 0.8;
+}
+
+.legend-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  align-self: center;
+  /* Taller than the text line: the margins keep the buttons from growing the row or the pane legend. */
+  margin: -4px 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.legend-row:hover .legend-actions,
+.legend-row:focus-within .legend-actions,
+.pane-legend:has(:is(.pane-legend-title, .pane-legend-params, .pane-legend-entry):hover) .legend-actions,
+.pane-legend:focus-within .legend-actions,
+.legend-actions:hover,
+.legend-actions.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .legend-actions {
+    opacity: 0.85;
+    pointer-events: auto;
+  }
+}
+
+.legend-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.legend-btn:hover,
+.legend-btn:focus-visible {
+  background: var(--panel-2, rgba(255, 255, 255, 0.08));
+  color: var(--text);
+}
+
+.legend-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 150px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.legend-menu-item {
+  text-align: left;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.legend-menu-item:hover,
+.legend-menu-item:focus-visible {
+  background: var(--panel-2, rgba(255, 255, 255, 0.08));
+  outline: none;
+}
+
 /* Legend at the top-left of each indicator sub pane; the hook sets top, left and right from the pane's box. */
 .pane-legends {
   position: absolute;
@@ -836,6 +972,21 @@ button.icon {
   column-gap: 10px;
   pointer-events: none;
   font-size: 11px;
+}
+
+/* The text is rewritten on every crosshair move; it adds no box of its own, so the parts wrap as they always did. */
+.pane-legend .pane-legend-text {
+  display: contents;
+}
+
+.pane-legend .legend-actions-host {
+  display: inline-flex;
+}
+
+.pane-legend .pane-legend-title,
+.pane-legend .pane-legend-params,
+.pane-legend .pane-legend-entry {
+  pointer-events: auto;
 }
 
 .pane-legend .pane-legend-title {

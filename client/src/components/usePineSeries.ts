@@ -18,7 +18,8 @@ import {
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { IndicatorSpec } from '../lib/indicatorCompute';
 import { pineIndicatorName } from '../lib/pine/title';
-import { newPaneState, releasePanes, sizePanes, type PaneReg, type PaneState } from './usePaneLegends';
+import { newPaneState, releasePanes, sizePanes, type OverlayReg, type PaneReg, type PaneState } from './usePaneLegends';
+import { pineInputParams } from '../lib/paneLegend';
 import { buildPineChart, fadedColor, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
 import { PineFillPrimitive } from './pineFillPrimitive';
 import { PineCharPrimitive } from './pineCharPrimitive';
@@ -152,10 +153,7 @@ export function usePineSeries(
         closes: run.candles.map((c) => c.close),
         times: run.candles.map((c) => c.time),
         name: pineIndicatorName(spec.source ?? '', run.result.declaration.title),
-        params: run.result.inputs.flatMap((inp) => {
-          const v = spec.inputs?.[inp.name] ?? inp.defval;
-          return v == null ? [] : [String(v)];
-        }),
+        params: pineInputParams(spec, run),
       });
     }
     const sig = JSON.stringify(
@@ -250,6 +248,7 @@ export function usePineSeries(
 
     // Before removing series empties and drops the panes: keep the sizes the user left them at.
     releasePanes(chart, paneState.current, 'pine', new Set(indicators.map((s) => s.id)));
+    for (const [oid, o] of paneState.current.overlays) if (o.source === 'pine') paneState.current.overlays.delete(oid);
     for (const { series } of st.built) {
       try {
         chart.removeSeries(series);
@@ -417,6 +416,16 @@ export function usePineSeries(
           }
         });
         paneState.current.panes.set(it.id, { id: it.id, source: 'pine', paneIndex: sepPane, name: it.name, params: it.params, entries });
+      }
+      // The plots drawn on the price pane, for the value spans of the script's row there.
+      const priceEntries: OverlayReg['entries'] = [];
+      it.model.series.forEach((d, k) => {
+        if (d.pane !== 'separate' && !d.hline && !d.band && d.type !== 'candle' && d.type !== 'bar') {
+          priceEntries.push({ title: d.title, color: d.color, series: mine[k].series as ValueSeries });
+        }
+      });
+      if (priceEntries.length > 0) {
+        paneState.current.overlays.set(it.id, { id: it.id, source: 'pine', entries: priceEntries.length === 1 ? [{ ...priceEntries[0], title: '' }] : priceEntries });
       }
       it.model.fills.forEach((f, index) => {
         const at = (key: string) => mine[it.model.series.findIndex((d) => d.key === key)]?.series;
