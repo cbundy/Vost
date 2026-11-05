@@ -16,6 +16,8 @@ Open the **Backtest** tab in the bottom dock. Pick a **Strategy** and set its pa
 - Buy & hold
 - Custom (JS) and Pine strategies: see [Custom strategies](../STRATEGIES.md) and [Pine Script](pine.md)
 
+Next to the Strategy select, **Strategy maker** opens the [strategy maker](strategy-maker.md) page in a new tab, where you can find a strategy from trades you mark. Its **Open in Backtest** button brings you back here: Vost opens with this tab already set to the strategy it found, its settings and its risk, and a message says so ([Using a result in the backtester](strategy-maker.md#using-a-result-in-the-backtester)).
+
 A Pine strategy shows all of its inputs under **Script inputs**, with the same controls as the Pine pane (color picker, source and timeframe selects, UTC date-time, text fields), in the script's groups and rows with its tooltips ([Pine Script](pine.md#inputs)). What you pick here is what the backtest runs with, it is kept with the backtest settings, and the optimizer uses it in every combination (and in walk-forward, held-out and Monte Carlo reruns). The optimizer still sweeps only whole-number and decimal inputs, and its CSV export lists the other inputs on its `fixed params:` line.
 
 ![Script inputs in the Pine pane, the same controls as in the Backtest pane](../evidence/pine-pane/pine-pane-inputs-desktop.png)

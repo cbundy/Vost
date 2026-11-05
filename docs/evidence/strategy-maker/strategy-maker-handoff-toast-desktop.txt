@@ -1,0 +1,1 @@
+Backtest set from the strategy maker: SMA crossover (fast period 8, slow period 34, direction both). It was found on big.csv; run it on the same data to see the same trades.

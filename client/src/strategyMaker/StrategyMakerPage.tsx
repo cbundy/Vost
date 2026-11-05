@@ -654,7 +654,7 @@ export default function StrategyMakerPage() {
           </p>
         )}
         {find.result && !find.run.running && (
-          <Results result={find.result} selected={find.selected} onSelect={(c) => find.select(c, candles)} />
+          <Results result={find.result} selected={find.selected} onSelect={(c) => find.select(c, candles)} source={label} />
         )}
       </main>
     </div>

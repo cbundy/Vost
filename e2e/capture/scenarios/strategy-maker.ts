@@ -62,7 +62,7 @@ const LONG_TASK_LIMIT_MS = 200;
 
 export const strategyMaker: Scenario = {
   name: 'strategy-maker',
-  description: 'Strategy maker page (/strategy-maker): empty, a demo market, a CSV file, marking trades, finding a strategy in the background (progress, cancel, results, closest match, found trades on the chart); then the saved model, the Sets panel, the out-of-date notice, Retrain, export and import (a conflict kept as mine, a refused file); proves it opens no live stream, no long task over 200 ms during a run, and the main app never requests its chunk',
+  description: 'Strategy maker page (/strategy-maker): empty, a demo market, a CSV file, marking trades, finding a strategy in the background (progress, cancel, results, closest match, found trades on the chart); then the saved model, the Sets panel, the out-of-date notice, Retrain, export and import (a conflict kept as mine, a refused file); the actions bar on a result (Open in Backtest, Copy settings, Copy as Pine strategy, the Copied state and the by-hand textarea), then the main app opened on the hand-off address, its Strategy maker link and an unreadable address; proves it opens no live stream, no long task over 200 ms during a run, and the main app never requests its chunk',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -253,6 +253,52 @@ export const strategyMaker: Scenario = {
     });
     await page.getByRole('heading', { name: 'What explains your trades' }).scrollIntoViewIfNeeded();
     await ctx.screenshot('results');
+    const actions = page.getByRole('group', { name: 'Use this result' });
+    let opened = '';
+    await ctx.step('the Ranked settings block has an actions bar naming the headline strategy', async () => {
+      await actions.waitFor();
+      const text = await actions.innerText();
+      if (!/^For .+ \(.+\):/.test(text)) throw new Error(`the bar reads ${text.split('\n')[0]}`);
+      for (const name of ['Open in Backtest', 'Copy settings', 'Copy as Pine strategy']) await actions.getByRole('button', { name }).waitFor();
+    });
+    await actions.scrollIntoViewIfNeeded();
+    await ctx.screenshot('actions');
+    await ctx.step('Copy settings and Copy as Pine strategy put the text on the clipboard and say Copied', async () => {
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+      const clip = () => page.evaluate(() => navigator.clipboard.readText());
+      await actions.getByRole('button', { name: 'Copy settings' }).click();
+      await actions.getByRole('status').getByText('Copied').waitFor();
+      const settings = await clip();
+      for (const part of ['Fee: ', 'Slippage: ', 'Stop loss: ', 'Take profit: ', 'Initial capital: ', 'Position size: ']) if (!settings.includes(part)) throw new Error(`settings lack ${part}`);
+      await ctx.writeText('copied-settings', settings);
+      await actions.getByRole('button', { name: 'Copy as Pine strategy' }).click();
+      await actions.getByRole('status').getByText('Copied').waitFor();
+      const pine = await clip();
+      if (!pine.startsWith('//@version=6') || !pine.includes('strategy(')) throw new Error('the clipboard does not hold a Pine strategy');
+      await ctx.writeText('copied-pine', pine);
+    });
+    await ctx.screenshot('copied');
+    await ctx.step('a refused clipboard shows the text in a read-only textarea, selected', async () => {
+      await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('refused')) }, configurable: true }));
+      await actions.getByRole('button', { name: 'Copy as Pine strategy' }).click();
+      const area = actions.getByRole('textbox', { name: 'Text to copy by hand' });
+      await area.waitFor();
+      const sel = await area.evaluate((el: HTMLTextAreaElement) => ({ ro: el.readOnly, all: el.selectionStart === 0 && el.selectionEnd === el.value.length && el.value.length > 0 }));
+      if (!sel.ro || !sel.all) throw new Error(`readOnly ${sel.ro}, selected ${sel.all}`);
+      if (await actions.getByText('Copied').count()) throw new Error('it said Copied though the clipboard refused');
+    });
+    await ctx.screenshot('copy-fallback');
+    await ctx.step('Open in Backtest opens a new tab on the hand-off address', async () => {
+      await page.evaluate(() => {
+        (window as unknown as { __opened: unknown[] }).__opened = [];
+        window.open = ((...a: unknown[]) => void (window as unknown as { __opened: unknown[] }).__opened.push(a)) as typeof window.open;
+      });
+      await actions.getByRole('button', { name: 'Open in Backtest' }).click();
+      const calls = await page.evaluate(() => (window as unknown as { __opened: unknown[][] }).__opened);
+      if (calls.length !== 1 || calls[0][1] !== '_blank' || calls[0][2] !== 'noopener') throw new Error(`window.open calls ${JSON.stringify(calls)}`);
+      opened = String(calls[0][0]);
+      if (!opened.startsWith('/#backtest=')) throw new Error(`opened ${opened}`);
+    });
     await ctx.step('strict targets give the closest match and its gaps', async () => {
       await page.getByLabel('Min R:R').fill('50');
       await find.click();
@@ -398,5 +444,29 @@ export const strategyMaker: Scenario = {
       await ctx.writeText('main-requests', ctx.requests.slice(mark).join('\n') + '\n');
       if (seen.length) throw new Error(`the main app requested ${seen.join(', ')}`);
     });
+    await ctx.step('the hand-off address opens the main app on the Backtest tab filled in, with a toast, and applies nothing on reload', async () => {
+      await page.goto('about:blank'); // a fresh load: a link to the same page with only a new fragment would not reload it
+      await page.goto(opened);
+      await ctx.waitForChart();
+      await page.getByText(/^Backtest set from the strategy maker: /).waitFor();
+      const strategy = page.getByRole('combobox', { name: 'Strategy' });
+      await strategy.waitFor();
+      const chosen = await strategy.inputValue();
+      if (!/^(sma_cross|ema_cross|macd_cross|rsi_reversion|bollinger|donchian)$/.test(chosen)) throw new Error(`strategy ${chosen}`);
+      if (new URL(page.url()).hash !== '') throw new Error(`the fragment stayed: ${page.url()}`);
+      await ctx.writeText('handoff-toast', (await page.getByText(/^Backtest set from the strategy maker: /).innerText()) + '\n');
+    });
+    await ctx.screenshot('handoff-backtest');
+    await ctx.step('the Backtest tab has a plain Strategy maker link', async () => {
+      const link = page.getByRole('link', { name: 'Strategy maker' });
+      if ((await link.getAttribute('href')) !== '/strategy-maker' || (await link.getAttribute('target')) !== '_blank') throw new Error('the link is not a new-tab link to /strategy-maker');
+    });
+    await ctx.step('an unreadable hand-off changes nothing and says so', async () => {
+      await page.goto('about:blank');
+      await page.goto('/#backtest=!!!');
+      await page.getByText('This strategy maker link could not be read.').waitFor();
+      if (new URL(page.url()).hash !== '') throw new Error('the fragment stayed');
+    });
+    await ctx.screenshot('handoff-bad');
   },
 };
