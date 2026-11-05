@@ -4,8 +4,9 @@ import { getStrategy } from '../lib/backtest/strategies';
 import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange } from '../lib/timeRange';
 import { useStore } from '../state/store';
-import { runNeedsHistoryOf, selectBars } from '../state/chart';
+import { atHistoryLimitOf, runNeedsHistoryOf, selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
+import { progressLabel } from './BacktestProgress';
 import { OptimizerResults } from './OptimizerResults';
 import { ValidationSettings } from './OptimizerValidation';
 import { splitBars, spanOf, totalBacktests, validationProblem } from '../lib/backtest/validation';
@@ -19,8 +20,9 @@ export function OptimizerTab() {
   const optRunning = useChart((s) => s.optRunning);
   const optProgress = useChart((s) => s.optProgress);
   const optStage = useChart((s) => s.optStage);
-  const historyLoading = useStore((s) => s.historyLoading);
-  const needsHistory = useChart((s) => runNeedsHistoryOf(s, historyLoading, s.btRange));
+  const needsHistory = useChart((s) => runNeedsHistoryOf(s, s.btRange));
+  const atLimit = useChart(atHistoryLimitOf);
+  const loadedBars = useChart((s) => s.candles.length);
   const optResult = useChart((s) => s.optResult);
   const candles = useChart(selectBars);
   const btRange = useChart((s) => s.btRange);
@@ -32,8 +34,11 @@ export function OptimizerTab() {
 
   const range = describeTimeRange(candles, btRange);
   const rangeSet = btRange.from != null || btRange.to != null;
-  const rangeText = !rangeSet
-    ? 'Range: full data (set in Backtest)'
+  const limitNote = btRange.from == null && atLimit ? ' · history limit reached' : '';
+  const rangeText = needsHistory && btRange.from == null
+    ? 'Range: full data, the full history loads on run (set in Backtest)'
+    : !rangeSet
+    ? `Range: full data${limitNote} (set in Backtest)`
     : needsHistory
       ? 'Range: starts before the loaded bars, older history loads on run (set in Backtest)'
       : range.error === 'from-after-to'
@@ -187,7 +192,7 @@ export function OptimizerTab() {
           <div className={`progress${optStage === 'history' ? ' indeterminate' : ''}`} style={{ maxWidth: 420, flex: 1 }}>
             <div style={optStage === 'history' ? undefined : { width: `${Math.round(optProgress * 100)}%` }} />
           </div>
-          {optStage === 'history' && <span className="hint">Loading history</span>}
+          {optStage === 'history' && <span className="hint">{progressLabel('history', 0, loadedBars)}</span>}
           <button className="ghost" aria-label="Cancel" onClick={() => cancelOptimizer()}>
             Cancel
           </button>

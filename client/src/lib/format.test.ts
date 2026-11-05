@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fmtDataRange, fmtElapsed, fmtTime } from './format';
+import { fmtDataRange, fmtDurationUnits, fmtElapsed, fmtTime } from './format';
 
 const a = 1355320800;
 const b = 1580846400;
@@ -55,5 +55,22 @@ describe('fmtElapsed', () => {
     expect(fmtElapsed(8100)).toBe('2h 15m');
     expect(fmtElapsed(274000)).toBe('3d 4h');
     expect(fmtElapsed(40 * 86400 + 3600)).toBe('40d 1h');
+  });
+});
+
+describe('fmtDurationUnits', () => {
+  it('lists units from the bar size up to the largest that is at least one', () => {
+    expect(fmtDurationUnits(123 * 60, 60)).toEqual(['123 min', '2.1 h']);
+    expect(fmtDurationUnits(1560 * 86400, 86400)).toEqual(['1,560 d', '222.9 w', '4.3 y']);
+    expect(fmtDurationUnits(3 * 3600, 3600)).toEqual(['3 h']);
+  });
+  it('starts at minutes for second bars and at weeks for weekly bars', () => {
+    expect(fmtDurationUnits(300, 1)).toEqual(['5 min']);
+    expect(fmtDurationUnits(10 * 604800, 604800)).toEqual(['10 w']);
+  });
+  it('is empty for zero, negative and non-finite input', () => {
+    expect(fmtDurationUnits(0, 60)).toEqual([]);
+    expect(fmtDurationUnits(-5, 60)).toEqual([]);
+    expect(fmtDurationUnits(Number.NaN, 60)).toEqual([]);
   });
 });

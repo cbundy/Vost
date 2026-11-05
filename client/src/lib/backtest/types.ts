@@ -81,6 +81,8 @@ export interface Metrics {
   calmar: number | null;
   maxDrawdownPct: number;
   maxDrawdownBars: number;
+  /** Clock seconds of the longest drawdown stretch: its last underwater bar minus the peak bar before it. 0 when there is no drawdown. */
+  maxDrawdownSeconds: number;
   exposurePct: number;
   buyHoldPct: number;
   trades: number;

@@ -66,6 +66,32 @@ export function fmtElapsed(seconds: number): string {
   return parts.length ? parts.join(' ') : '0m';
 }
 
+const DURATION_UNITS = [
+  ['min', 60],
+  ['h', 3600],
+  ['d', 86400],
+  ['w', 604800],
+  ['y', 31557600],
+] as const;
+
+/** A duration in each unit from the bar size up to the largest unit that is at least 1: ["1,560 d", "222.9 w", "4.3 y"]. */
+export function fmtDurationUnits(seconds: number, barSeconds: number): string[] {
+  if (!Number.isFinite(seconds) || seconds <= 0) return [];
+  const bar = Number.isFinite(barSeconds) && barSeconds > 0 ? barSeconds : 0;
+  let start = 0;
+  DURATION_UNITS.forEach(([, size], i) => {
+    if (size <= bar) start = i;
+  });
+  const out: string[] = [];
+  for (let i = start; i < DURATION_UNITS.length; i++) {
+    const [name, size] = DURATION_UNITS[i];
+    const v = seconds / size;
+    if (v < 1) break;
+    out.push(`${fmtNum(v, 1)} ${name}`);
+  }
+  return out;
+}
+
 /** Loaded data span, e.g. "12 Dec 2012, 14:00 → 04 Feb 2020, 19:00 · 4,987 bars". Empty when there is no data. */
 export function fmtDataRange(
   firstSec: number | null | undefined,

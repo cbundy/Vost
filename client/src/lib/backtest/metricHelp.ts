@@ -128,8 +128,8 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
   },
   maxDdDuration: {
     label: 'Max DD duration',
-    what: 'The longest stretch, in bars, that equity stayed below an earlier peak before making a new high.',
-    reading: 'Lower is better. Compare it with the Bars figure: a duration near the whole run means equity rarely made new highs.',
+    what: 'The longest stretch that equity stayed below an earlier peak before making a new high. The card gives it in bars and as clock time in minutes, hours, days, weeks and years (only the units that fit).',
+    reading: 'Lower is better. The time is real elapsed time between the bars, so gaps such as weekends and nights count; on 24/7 data it is the bars times the timeframe. Compare it with the Bars figure: a duration near the whole run means equity rarely made new highs.',
     profit: 'Long drawdowns are long periods without profit, even if the run ends well.',
     related: [
       { key: 'maxDrawdown', note: 'the depth of the worst fall' },

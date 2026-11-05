@@ -1,5 +1,6 @@
 import { downloadFile, rowsToCsv, sanitizeFileName } from '../lib/export';
-import { fmtCompact, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
+import { fmtCompact, fmtDurationBarCount, fmtDurationUnits, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
+import { medianBarSeconds } from '../lib/backtest/metrics';
 import { getStrategy } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
 import { MonteCarloPanel } from './MonteCarloPanel';
@@ -41,6 +42,7 @@ export function ResultsTab() {
     .join(', ');
 
   const profit = m.finalEquity - m.initialCapital;
+  const ddUnits = fmtDurationUnits(m.maxDrawdownSeconds, medianBarSeconds(btResult.equity));
   const cards: MetricProps[] = [
     { help: 'finalEquity', label: 'Final equity', value: fmtMoney(m.finalEquity) },
     { help: 'netPnl', label: 'Net P/L', value: fmtMoney(profit), className: pnlClass(profit) },
@@ -51,7 +53,7 @@ export function ResultsTab() {
     { help: 'sortino', label: 'Sortino', value: fmtNum(m.sortino, 2) },
     { help: 'calmar', label: 'Calmar', value: fmtNum(m.calmar, 2) },
     { help: 'maxDrawdown', label: 'Max drawdown', value: fmtPct(m.maxDrawdownPct), className: 'neg' },
-    { help: 'maxDdDuration', label: 'Max DD duration', value: `${fmtNum(m.maxDrawdownBars, 0)} bars` },
+    { help: 'maxDdDuration', label: 'Max DD duration', value: fmtDurationBarCount(m.maxDrawdownBars), sub: ddUnits.join(' · ') },
     { help: 'exposure', label: 'Exposure', value: fmtPct(m.exposurePct, 1) },
     { help: 'trades', label: 'Trades', value: fmtNum(m.trades, 0) },
     { help: 'winRate', label: 'Win rate', value: fmtPct(m.winRatePct, 1) },
@@ -147,14 +149,18 @@ interface MetricProps {
   help: HelpKey;
   label: string;
   value: string;
+  sub?: string;
   className?: string;
 }
 
-function Metric({ help, label, value, className }: MetricProps) {
+function Metric({ help, label, value, sub, className }: MetricProps) {
   return (
     <MetricTip help={help} as="div" className="metric-card">
       <div className="m-label">{label}</div>
       <div className={`m-value ${className ?? ''}`}>{value}</div>
+      {sub ? <div className="m-sub">{sub.split(' · ').map((u, i) => (
+        <span key={u}>{i > 0 ? ' · ' : ''}<span className="nowrap">{u}</span></span>
+      ))}</div> : null}
     </MetricTip>
   );
 }

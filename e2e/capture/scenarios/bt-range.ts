@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const btRange: Scenario = {
   name: 'bt-range',
-  description: 'Backtest pane on demo data: no range, a range before the loaded bars (loads history, moves the chart), then From later than To',
+  description: 'Backtest pane on demo data: no range, a range before the loaded bars (loads history, moves the chart), From later than To, then Full data (loads the full history)',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -35,5 +35,15 @@ export const btRange: Scenario = {
       await page.locator('.time-range-error').waitFor();
     });
     await ctx.screenshot('from-after-to');
+    await ctx.step('run on Full data', async () => {
+      await from.fill('');
+      await to.fill('');
+      await ctx.screenshot('full-data'); // no From: the hint says the full history loads on run
+      await page.getByRole('button', { name: /Run backtest/ }).click();
+      await page.getByText(/Backtest finished/).waitFor({ timeout: 120_000 }); // demo has no history start: pages to the limit
+      await page.locator('.time-range').scrollIntoViewIfNeeded();
+      await ctx.screenshot('full-data-run');
+      await page.locator('.toast button').first().click();
+    });
   },
 };

@@ -155,7 +155,7 @@ describe('btRange', () => {
     const candles = candlesFromCsvText(text).candles;
     const { useStore } = await import('./store');
     track(useStore);
-    chartOf(useStore).setState({ candles });
+    chartOf(useStore).setState({ candles, historyStart: true }); // a fixed series: Full data runs must not page older bars
     return { useStore, candles };
   }
 
@@ -1129,7 +1129,7 @@ describe('replay', () => {
     const candles = candlesFromCsvText(text).candles;
     const { useStore } = await import('./store');
     track(useStore);
-    chartOf(useStore).setState({ candles });
+    chartOf(useStore).setState({ candles, historyStart: true });
     return { useStore, candles };
   }
   type Store = Awaited<ReturnType<typeof setup>>['useStore'];
@@ -1859,7 +1859,7 @@ describe('runBacktest progress', () => {
     const candles = candlesFromCsvText(text).candles;
     const { useStore } = await import('./store');
     track(useStore);
-    chartOf(useStore).setState({ candles });
+    chartOf(useStore).setState({ candles, historyStart: true });
     return { useStore, candles };
   }
 
@@ -1945,7 +1945,7 @@ describe('Pine market context', () => {
     const candles = candlesFromCsvText(text).candles;
     const { useStore } = await import('./store');
     track(useStore);
-    chartOf(useStore).setState({ candles });
+    chartOf(useStore).setState({ candles, historyStart: true });
     const posts: Array<{ type: string; market?: unknown; config?: { market?: unknown } }> = [];
     class FakeWorker {
       onmessage: ((ev: { data: unknown }) => void) | null = null;

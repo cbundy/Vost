@@ -1460,6 +1460,18 @@ button.icon {
   font-weight: 600;
 }
 
+.metric-card .m-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-2);
+  margin-top: 3px;
+  overflow-wrap: normal;
+}
+
+.metric-card .m-sub .nowrap {
+  white-space: nowrap;
+}
+
 .pos {
   color: var(--green);
 }

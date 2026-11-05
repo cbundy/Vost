@@ -6,7 +6,7 @@ import type { SplitSettings } from './validation';
 
 const sample: Metrics = {
   initialCapital: 10000, finalEquity: 11234.5678, totalReturnPct: 12.345678, cagrPct: null, sharpe: 1.23456789, sortino: Number.NaN,
-  calmar: 0.5, maxDrawdownPct: -8.123456, maxDrawdownBars: 40, exposurePct: 55.5, buyHoldPct: 3.3, trades: 12, winRatePct: 50,
+  calmar: 0.5, maxDrawdownPct: -8.123456, maxDrawdownBars: 40, maxDrawdownSeconds: 144000, exposurePct: 55.5, buyHoldPct: 3.3, trades: 12, winRatePct: 50,
   profitFactor: Number.POSITIVE_INFINITY, expectancy: 12.5, avgTradePct: Number.NEGATIVE_INFINITY, bestTradePct: 9, worstTradePct: -4,
   avgBarsInTrade: 6, totalFees: 33.3, barsPerYear: 365,
 };

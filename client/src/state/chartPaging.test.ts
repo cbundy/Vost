@@ -14,7 +14,8 @@ vi.mock('./worker', async (orig) => {
     optimizerCall: (req: never, onProgress?: never) => (hooks.optimizerCall ? hooks.optimizerCall(req) : actual.optimizerCall(req, onProgress)),
   };
 });
-import { canPageOlder, createChartStore, defaultChartInitial, type ChartEnv } from './chart';
+import { progressLabel } from '../components/BacktestProgress';
+import { atHistoryLimitOf, canPageOlder, runNeedsHistoryOf, createChartStore, defaultChartInitial, type ChartEnv } from './chart';
 import type { HistoryRequest } from '../lib/providers/http';
 
 const H = 3600;
@@ -371,14 +372,143 @@ describe('runs that need older history', () => {
     expect(t.store.getState().viewRequest).toBeNull();
   });
 
-  it('all mode loads nothing', async () => {
+  it('all mode loads history for a run with From before the first loaded bar', async () => {
     const sent = fakeWorker();
     const { t, from } = await loaded({ mode: 'all' });
     t.store.getState().setBtRange({ from, to: null });
     await t.store.getState().runBacktest();
-    expect(t.requests).toHaveLength(1);
-    expect(t.store.getState().viewRequest).toBeNull();
-    expect(sent).toHaveLength(1);
+    expect(t.requests).toHaveLength(2);
+    expect(sent[0].candles[0].time).toBe(from);
+  });
+
+  describe('Full data (no From)', () => {
+    const last = T0 + 49999 * H;
+    for (const mode of ['scroll', 'all'] as const) {
+      it(`runBacktest loads all provider history in ${mode} mode and does not move the chart`, async () => {
+        const sent = fakeWorker();
+        const { t, first } = await loaded({ mode });
+        t.store.getState().setBtRange({ from: null, to: null });
+        await t.store.getState().runBacktest();
+        expect(t.requests[1]).toMatchObject({ bars: MAX_BARS, to: first - 1 });
+        for (const r of t.requests.slice(1)) expect(r.bars).toBe(MAX_BARS);
+        expect(sent).toHaveLength(1);
+        expect(sent[0].candles).toHaveLength(50000);
+        expect(sent[0].candles[0].time).toBe(T0);
+        expect(sent[0].candles.at(-1)!.time).toBe(last);
+        expect(t.store.getState().historyStart).toBe(true);
+        expect(t.store.getState().viewRequest).toBeNull();
+        expect(t.store.getState().btRunning).toBe(false);
+      });
+    }
+
+    it('with To set it loads the full history and tests up to To', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded();
+      const to = T0 + 30000 * H;
+      t.store.getState().setBtRange({ from: null, to });
+      await t.store.getState().runBacktest();
+      expect(sent[0].candles[0].time).toBe(T0);
+      expect(sent[0].candles.at(-1)!.time).toBe(to);
+    });
+
+    it('runOptimizer context starts at the history start', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded();
+      t.store.getState().setBtRange({ from: null, to: null });
+      await t.store.getState().runOptimizer();
+      expect(sent[0].candles).toHaveLength(50000);
+      expect(t.store.getState().optResult!.context.rangeFrom).toBe(T0);
+      expect(t.store.getState().optResult!.context.bars).toBe(50000);
+      expect(t.store.getState().viewRequest).toBeNull();
+    });
+
+    it('a second run after the history start makes no new request', async () => {
+      fakeWorker();
+      const { t } = await loaded();
+      t.store.getState().setBtRange({ from: null, to: null });
+      await t.store.getState().runBacktest();
+      const n = t.requests.length;
+      await t.store.getState().runBacktest();
+      await t.store.getState().runOptimizer();
+      expect(t.requests).toHaveLength(n);
+    });
+
+    it('stops at the history limit, still tests and names the limit in the toast', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded({ total: HISTORY_MAX_BARS + 30000 });
+      t.store.getState().setBtRange({ from: null, to: null });
+      await t.store.getState().runBacktest();
+      expect(sent).toHaveLength(1);
+      expect(sent[0].candles.length).toBeGreaterThanOrEqual(HISTORY_MAX_BARS);
+      expect(t.store.getState().historyStart).toBe(false);
+      expect(t.toasts.some((x) => /^Backtest finished.*\(the 200,000-bar history limit\)\.$/.test(x))).toBe(true);
+    });
+
+    it('a failed load ends the run with one toast, no worker call and keeps the optimizer result', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded();
+      const previous = { rows: [] } as never;
+      t.store.setState({ optResult: previous });
+      t.fail(new Error('down'));
+      await t.store.getState().runBacktest();
+      await t.store.getState().runOptimizer();
+      expect(sent).toHaveLength(0);
+      expect(t.toasts.filter((x) => x === 'Backtest could not load the full history')).toHaveLength(1);
+      expect(t.toasts.filter((x) => x === 'Optimizer could not load the full history')).toHaveLength(1);
+      expect(t.store.getState().optResult).toBe(previous);
+      expect(t.store.getState().btRunning).toBe(false);
+    });
+
+    it('a timeframe change during the load drops the run', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded();
+      const release = t.hold();
+      const p = t.store.getState().runBacktest();
+      expect(t.store.getState().btStage).toBe('history');
+      t.store.getState().setTimeframe('1h', { load: false });
+      t.store.getState().clearData();
+      release();
+      await p;
+      expect(sent).toHaveLength(0);
+      expect(t.toasts).toContain('Backtest could not load the full history');
+    });
+
+    it('Cancel during the load ends the optimizer run and keeps the previous result', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded();
+      const previous = { rows: [] } as never;
+      t.store.setState({ optResult: previous });
+      const release = t.hold();
+      const p = t.store.getState().runOptimizer();
+      expect(t.store.getState().optStage).toBe('history');
+      t.store.getState().cancelOptimizer();
+      release();
+      await p;
+      expect(sent).toHaveLength(0);
+      expect(t.store.getState().optRunning).toBe(false);
+      expect(t.store.getState().optResult).toBe(previous);
+    });
+
+    it('a dataset, chart range or replay never pages', async () => {
+      const sent = fakeWorker();
+      const { t } = await loaded();
+      const n = t.requests.length;
+      t.store.getState().setBtRange({ from: null, to: null });
+      for (const patch of [{ activeDatasetId: 'd1' }, { chartRange: { from: T0, to: T0 + H } }, { replay: { source: [] } }] as never[]) {
+        t.store.setState(patch);
+        expect(runNeedsHistoryOf(t.store.getState(), { from: null, to: null })).toBe(false);
+        expect(atHistoryLimitOf(t.store.getState())).toBe(false);
+        await t.store.getState().runBacktest();
+        await t.store.getState().runOptimizer();
+        t.store.setState({ activeDatasetId: null, chartRange: null, replay: null } as never);
+      }
+      expect(t.requests).toHaveLength(n); // no history request
+      expect(sent).toHaveLength(6); // each patch ran the backtest and the optimizer on the series as it is
+    });
+
+    it('progressLabel names the loaded bar count', () => {
+      expect(progressLabel('history', 0, 40000)).toBe('Loading history · 40,000 bars');
+    });
   });
 
   it('a failed load ends the run with one toast, no worker call and keeps the previous optimizer result', async () => {
