@@ -1,6 +1,7 @@
 /** The engine's side of the protocol: used by the worker, and by the page itself when it has no worker. */
 import type { Reply, Request } from './protocol';
-import { runEngine, tradesOf } from './run';
+import type { FindStage } from './run';
+import { runEngine, runTrain, tradesOf } from './run';
 
 export interface Host {
   receive(msg: Request): void;
@@ -32,9 +33,10 @@ export function createHost(post: (reply: Reply) => void): Host {
       runs.clear();
       const ctl = new AbortController();
       runs.set(msg.id, ctl);
-      runEngine(msg.series, msg.inputs, ctl.signal, (pct, stage) => {
+      const progress = (pct: number, stage: FindStage): void => {
         if (!ctl.signal.aborted) post({ v: 1, id: msg.id, type: 'progress', pct, stage });
-      })
+      };
+      (msg.type === 'train' ? runTrain(msg.series, ctl.signal, progress) : runEngine(msg.series, msg.inputs, ctl.signal, progress, msg.model))
         .then((outcome) => {
           if (ctl.signal.aborted) return;
           runs.delete(msg.id);

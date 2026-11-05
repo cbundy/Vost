@@ -71,3 +71,20 @@ The work runs in a background worker of the page, so the page stays usable and t
 ![No setting met strict targets: the closest one and its gaps](../evidence/strategy-maker/strategy-maker-closest-narrow.png)
 
 ![The trades a found strategy takes, drawn beside the marks](../evidence/strategy-maker/strategy-maker-found-trades-desktop.png)
+
+## Teaching it more
+
+The more charts you mark, the more the model has to learn from. Each chart you mark is its own **set**, and **Train on** picks which sets a run learns from.
+
+- **Saved model**: after a Find or a Retrain the model is kept in this browser. When you open the page again its rules, importance and held-out report show under **Saved model**, with no run.
+- **Out of date and Retrain**: when you mark or change trades on a chosen set, add a set to **Train on** or take one out, the page says "Model out of date" and why, and offers **Retrain**. Retrain learns from the chosen sets only, with the same progress and **Cancel** as Find, and clears the notice. When the model is up to date, **Find** reuses it and goes straight to the search, so it starts faster; when it is not, Find trains again first, so its results never come from an out-of-date model.
+- **Sets**: one row per saved set with its name, trade count and when it last changed. **Open** loads that market, saved dataset or CSV file on the chart, **Rename** gives it a name of your own (it is still the same set), and **Delete** asks first and removes the set and its marks.
+- **Export and Import**: **Export** saves every set (a CSV set with its candles) and the model as one file, `vost-strategy-maker.json`, to move to another machine. **Import** reads such a file and checks all of it before it writes anything: a file that is not a Strategy maker export, has another version or has a malformed set or model is refused with the reason. Sets you do not have are added. Sets that are the same are left alone, so importing a file twice changes nothing. A set that differs from yours is listed with **Keep mine** and **Use imported** (Cancel writes nothing); then everything is written at once. A model in the file replaces the saved one and shows as out of date unless its sets match yours. A saved dataset from another machine that is not in this library is listed and skipped at Find with "no longer in the library".
+
+![The saved model after a reload](../evidence/strategy-maker/strategy-maker-saved-model-desktop.png)
+
+![The Sets panel](../evidence/strategy-maker/strategy-maker-sets-panel-desktop.png)
+
+![One more mark makes the model out of date](../evidence/strategy-maker/strategy-maker-model-out-of-date-desktop.png)
+
+![A set that differs from the imported file](../evidence/strategy-maker/strategy-maker-import-conflict-desktop.png)

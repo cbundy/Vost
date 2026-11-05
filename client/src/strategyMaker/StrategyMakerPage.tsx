@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Candle, Timeframe } from '../../../shared/market.ts';
+import { downloadFile } from '../lib/export';
 import { getProvider, providers } from '../lib/providers';
 import { BrushToolbar } from './BrushToolbar';
 import { CandleChart, type FocusRequest } from './CandleChart';
@@ -16,6 +17,10 @@ import {
   type Tool,
 } from './brush';
 import { openStore, setId, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
+import { buildExport, EXPORT_FILE, parseExchange, planImport, setsToWrite, setStamp, type ImportPlan } from './exchange';
+import { SetsPanel, type SetRow } from './SetsPanel';
+import { ImportConflicts, SavedModel } from './SavedModel';
+import { useModel } from './useModel';
 import { TradeList } from './TradeList';
 import { Results } from './Results';
 import { TargetsForm, type SetChoice } from './TargetsForm';
@@ -65,8 +70,15 @@ export default function StrategyMakerPage() {
   const [sources, setSources] = useState<Record<string, SetSource>>({});
   const [form, setForm] = useState<FindForm>(defaultForm);
   const formReady = useRef(false);
-  const find = useFind(BARS, library);
   const store = useRef<Store | null>(null);
+  const model = useModel();
+  const find = useFind(BARS, library, (result, used) => void model.save(store.current, result, used));
+  const [saved, setSaved] = useState<HighlightSet[]>([]);
+  const savedRef = useRef<HighlightSet[]>([]);
+  savedRef.current = saved;
+  const lastWrite = useRef<Promise<void>>(Promise.resolve());
+  const [importing, setImporting] = useState<{ plan: ImportPlan; choices: Record<string, 'mine' | 'imported'> } | null>(null);
+  const [note, setNote] = useState<{ error: boolean; text: string } | null>(null);
   const storeReady = useRef<Promise<void>>(Promise.resolve());
   const baseline = useRef<readonly HighlightTrade[]>(history.present);
   const pending = useRef<Pending | null>(null);
@@ -76,6 +88,17 @@ export default function StrategyMakerPage() {
   const candlesRef = useRef<Candle[]>([]);
   candlesRef.current = candles;
 
+  const refreshSaved = useCallback(async (): Promise<HighlightSet[]> => {
+    await storeReady.current;
+    try {
+      const all = (await store.current?.list()) ?? [];
+      setSaved(all);
+      return all;
+    } catch {
+      return [];
+    }
+  }, []);
+
   const flush = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
@@ -84,10 +107,22 @@ export default function StrategyMakerPage() {
     const st = store.current;
     if (!p || !st) return;
     const id = setId(p.source);
-    const rec = { id, version: 1 as const, source: p.source, trades: p.trades, updatedAt: Date.now(), ...(p.source.kind === 'csv' ? { candles: p.candles } : {}) };
+    const name = savedRef.current.find((x) => x.id === id)?.name;
+    const rec = {
+      id,
+      version: 1 as const,
+      source: p.source,
+      trades: p.trades,
+      updatedAt: Date.now(),
+      ...(name ? { name } : {}),
+      ...(p.source.kind === 'csv' ? { candles: p.candles } : {}),
+    };
     setCounts((c) => ({ ...c, [id]: p.trades.length }));
-    void (p.trades.length || p.source.kind === 'csv' ? st.put(rec) : st.delete(id)).catch(() => setStoreState('none'));
-  }, []);
+    lastWrite.current = (p.trades.length || p.source.kind === 'csv' ? st.put(rec) : st.delete(id)).then(
+      () => void refreshSaved(),
+      () => setStoreState('none'),
+    );
+  }, [refreshSaved]);
 
   useEffect(() => {
     document.title = 'Strategy maker - Vost';
@@ -100,12 +135,14 @@ export default function StrategyMakerPage() {
       try {
         const all = await st.list();
         if (!gone) {
+          setSaved(all);
           setCounts((c) => ({ ...Object.fromEntries(all.map((x) => [x.id, x.trades.length])), ...c }));
           setSources((m) => ({ ...Object.fromEntries(all.map((x) => [x.id, x.source])), ...m }));
         }
       } catch {
         /* the counter then shows this chart only */
       }
+      if (!gone) await model.load(st);
       try {
         const rec = await st.getInputs();
         if (!gone && rec) setForm(sanitizeForm(rec.form));
@@ -145,6 +182,22 @@ export default function StrategyMakerPage() {
   const id = source ? setId(source) : null;
   const total = Object.entries(counts).reduce((n, [k, v]) => (k === id ? n : n + v), 0) + trades.length;
 
+  /** Puts the saved marks of a set on the chart, unless another chart was loaded meanwhile. */
+  const loadMarks = (sid: string, token: number) =>
+    void (async () => {
+      let marks: HighlightTrade[] = [];
+      await storeReady.current;
+      try {
+        marks = (await store.current?.get(sid))?.trades ?? [];
+      } catch {
+        setStoreState('none');
+      }
+      if (token !== loadToken.current) return;
+      baseline.current = marks;
+      setHistory(emptyHistory(marks));
+      setCounts((c) => ({ ...c, [sid]: marks.length }));
+    })();
+
   const show = (r: Loaded, src?: SetSource) => {
     if (r.ok && src) {
       flush();
@@ -157,20 +210,7 @@ export default function StrategyMakerPage() {
       setTool(null);
       baseline.current = NO_TRADES;
       setHistory(emptyHistory(NO_TRADES));
-      const sid = setId(src);
-      void (async () => {
-        let saved: HighlightTrade[] = [];
-        await storeReady.current;
-        try {
-          saved = (await store.current?.get(sid))?.trades ?? [];
-        } catch {
-          setStoreState('none');
-        }
-        if (token !== loadToken.current) return;
-        baseline.current = saved;
-        setHistory(emptyHistory(saved));
-        setCounts((c) => ({ ...c, [sid]: saved.length }));
-      })();
+      loadMarks(setId(src), token);
     } else if (r.ok) {
       setCandles(r.candles);
       setLabel(r.label);
@@ -187,16 +227,17 @@ export default function StrategyMakerPage() {
     setTimeframe(p.defaultTimeframe);
   };
 
-  const loadMarket = async () => {
+  const fetchMarket = async (pid: string, sym: string, tf: string) => {
     abort.current?.abort();
     const ctl = new AbortController();
     abort.current = ctl;
     setBusy(true);
-    const r = await loadFromProvider(provider, { symbol: symbol.trim(), timeframe, bars: BARS }, ctl.signal);
+    const r = await loadFromProvider(getProvider(pid), { symbol: sym, timeframe: tf as Timeframe, bars: BARS }, ctl.signal);
     if (ctl.signal.aborted) return;
     setBusy(false);
-    show(r, { kind: 'provider', provider: providerId, symbol: symbol.trim(), timeframe });
+    show(r, { kind: 'provider', provider: pid, symbol: sym, timeframe: tf });
   };
+  const loadMarket = () => fetchMarket(providerId, symbol.trim(), timeframe);
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -215,29 +256,188 @@ export default function StrategyMakerPage() {
 
   // Sets with marked trades; the open chart counts as it is now, saved or not.
   const datasetName = (did: string) => library.find((d) => d.id === did)?.name;
+  const names = useMemo(() => Object.fromEntries(saved.filter((x) => x.name).map((x) => [x.id, x.name as string])), [saved]);
+  const nameOf = (k: string): string => names[k] || (sources[k] ? sourceLabel(sources[k], datasetName) : k);
   const setChoices: SetChoice[] = Object.entries({ ...counts, ...(id ? { [id]: trades.length } : {}) })
     .filter(([k, n]) => n > 0 && sources[k])
-    .map(([k, n]) => ({ id: k, label: sourceLabel(sources[k], datasetName), count: n }));
+    .map(([k, n]) => ({ id: k, label: nameOf(k), count: n }));
   const chosen = form.setIds ? form.setIds.filter((k) => setChoices.some((c) => c.id === k)) : id && setChoices.some((c) => c.id === id) ? [id] : setChoices.map((c) => c.id);
   const chosenTrades = setChoices.filter((c) => chosen.includes(c.id)).reduce((n, c) => n + c.count, 0);
   const { inputs, errors } = readForm(form);
 
-  const onFind = async () => {
-    if (blocker(errors, inputs.families, chosenTrades)) return;
-    let saved: HighlightSet[] = [];
+  // The model is up to date when it was trained on exactly the chosen sets, with the marks they have now (the open chart counts as drawn).
+  const liveStamp = useMemo(
+    () => (source ? setStamp({ source, trades, candles: source.kind === 'csv' ? candles : undefined }) : null),
+    [source, trades, candles],
+  );
+  const stamps = useMemo(() => Object.fromEntries(saved.map((x) => [x.id, setStamp(x)])), [saved]);
+  const freshness = model.freshness(
+    chosen.map((k) => ({ id: k, stamp: (k === id ? liveStamp : stamps[k]) ?? '' })),
+    new Set(setChoices.map((c) => c.id)),
+    nameOf,
+  );
+
+  /** The chosen sets as they are now: the open chart with its marks as drawn, the others as saved. */
+  const gatherSets = async (): Promise<HighlightSet[]> => {
+    let list: HighlightSet[] = [];
     try {
       await storeReady.current;
-      saved = (await store.current?.list()) ?? [];
+      list = (await store.current?.list()) ?? [];
     } catch {
       /* only the open chart is then available */
     }
-    const sets = chosen.flatMap((k): HighlightSet[] => {
+    return chosen.flatMap((k): HighlightSet[] => {
       if (k === id && source) {
         return [{ id: k, version: 1, source, trades: [...trades], updatedAt: Date.now(), ...(source.kind === 'csv' ? { candles } : {}) }];
       }
-      return saved.filter((x) => x.id === k && x.trades.length);
+      return list.filter((x) => x.id === k && x.trades.length);
     });
-    void find.start(sets, inputs);
+  };
+
+  const onFind = async () => {
+    if (blocker(errors, inputs.families, chosenTrades)) return;
+    const sets = await gatherSets();
+    // Up to date: reuse it, with the sets in the order it was trained on so the skipped-trade indexes line up.
+    const rec = model.record;
+    const ordered = rec && freshness?.upToDate ? rec.trainedOn.map((t) => sets.find((x) => x.id === t.id)) : [];
+    if (rec && ordered.length === sets.length && ordered.every((x) => x)) void find.start(ordered as HighlightSet[], inputs, rec.result);
+    else void find.start(sets, inputs);
+  };
+
+  const onRetrain = async () => void find.retrain(await gatherSets());
+
+  /* ------------------------------ the Sets panel ------------------------------ */
+
+  const rows: SetRow[] = saved
+    .filter((x) => x.trades.length > 0 || x.source.kind === 'csv')
+    .map((x) => ({ id: x.id, name: x.name || sourceLabel(x.source, datasetName), trades: x.id === id ? trades.length : x.trades.length, updatedAt: x.updatedAt }))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  const onOpenSet = async (sid: string) => {
+    const set = saved.find((x) => x.id === sid);
+    if (!set) return;
+    const src = set.source;
+    try {
+      if (src.kind === 'provider') {
+        setProviderId(src.provider);
+        setSymbol(src.symbol);
+        setTimeframe(src.timeframe as Timeframe);
+        await fetchMarket(src.provider, src.symbol, src.timeframe);
+      } else if (src.kind === 'library') {
+        const d = library.find((x) => x.id === src.datasetId);
+        if (!d) return setError('This dataset is no longer in the library.');
+        setDatasetId(d.id);
+        show(loadFromDataset(d), src);
+      } else if (set.candles?.length) {
+        show({ ok: true, candles: set.candles, label: src.name }, src);
+      } else {
+        setError('The candles of this file were not kept.');
+      }
+    } catch (e) {
+      setBusy(false);
+      setError(`Could not open this set: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const onRename = async (sid: string, name: string) => {
+    await storeReady.current;
+    flush();
+    await lastWrite.current;
+    try {
+      const set = await store.current?.get(sid);
+      if (set) await store.current?.put({ ...set, name });
+    } catch {
+      setStoreState('none');
+    }
+    await refreshSaved();
+  };
+
+  const onDeleteSet = async (sid: string) => {
+    const row = rows.find((r) => r.id === sid);
+    if (!row || !window.confirm(`Delete ${row.name} and its ${row.trades} marked trades?`)) return;
+    // A delayed save must not bring the set back.
+    if (pending.current && setId(pending.current.source) === sid) {
+      pending.current = null;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (sid === id) {
+      baseline.current = NO_TRADES;
+      setHistory(emptyHistory(NO_TRADES));
+    }
+    setCounts((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== sid)));
+    await lastWrite.current;
+    try {
+      await store.current?.delete(sid);
+    } catch {
+      setStoreState('none');
+    }
+    await refreshSaved();
+  };
+
+  const onExport = async () => {
+    setNote(null);
+    await storeReady.current;
+    const st = store.current;
+    if (!st) return setNote({ error: true, text: 'Saving is not available in this browser, so there is nothing to export.' });
+    flush();
+    await lastWrite.current;
+    try {
+      const sets = await st.list();
+      downloadFile(EXPORT_FILE, JSON.stringify(buildExport(sets, (await st.getModel()) ?? null)), 'application/json');
+      setNote({ error: false, text: `Exported ${sets.length} set${sets.length === 1 ? '' : 's'}${model.record ? ' and the model' : ''} to ${EXPORT_FILE}.` });
+    } catch (e) {
+      setNote({ error: true, text: `Could not export: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  };
+
+  const commitImport = async (plan: ImportPlan, choices: Record<string, 'mine' | 'imported'>) => {
+    const st = store.current;
+    if (!st) return;
+    const sets = setsToWrite(plan, choices);
+    setImporting(null);
+    if (!sets.length && !plan.model && !plan.conflicts.length) return setNote({ error: false, text: 'Nothing to import: everything in the file is already here.' });
+    try {
+      if (sets.length || plan.model) await st.importAll(sets, plan.model);
+    } catch (e) {
+      return setNote({ error: true, text: `Nothing was imported: ${e instanceof Error ? e.message : String(e)}` });
+    }
+    const all = await refreshSaved();
+    setCounts((c) => ({ ...c, ...Object.fromEntries(all.map((x) => [x.id, x.trades.length])) }));
+    setSources((m) => ({ ...m, ...Object.fromEntries(all.map((x) => [x.id, x.source])) }));
+    if (plan.model) model.setRecord(plan.model);
+    if (id && sets.some((x) => x.id === id)) loadMarks(id, ++loadToken.current);
+    const replaced = sets.length - plan.add.length;
+    setNote({
+      error: false,
+      text: `Imported ${plan.add.length} new set${plan.add.length === 1 ? '' : 's'}, replaced ${replaced}, kept ${plan.conflicts.length - replaced} of yours${plan.model ? ', and the model' : ''}.`,
+    });
+  };
+
+  const onImport = async (file: File | undefined) => {
+    if (!file) return;
+    setNote(null);
+    setImporting(null);
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (e) {
+      return setNote({ error: true, text: `Could not read ${file.name}: ${e instanceof Error ? e.message : String(e)}` });
+    }
+    const parsed = parseExchange(text);
+    if (!parsed.ok) return setNote({ error: true, text: `Nothing was imported. ${parsed.error}` });
+    await storeReady.current;
+    const st = store.current;
+    if (!st) return setNote({ error: true, text: 'Saving is not available in this browser, so nothing can be imported.' });
+    flush();
+    await lastWrite.current;
+    try {
+      const plan = planImport({ sets: await st.list(), model: (await st.getModel()) ?? null }, parsed);
+      if (plan.conflicts.length) setImporting({ plan, choices: {} });
+      else await commitImport(plan, {});
+    } catch (e) {
+      setNote({ error: true, text: `Nothing was imported: ${e instanceof Error ? e.message : String(e)}` });
+    }
   };
 
   useEffect(() => find.clearSelection(), [candles]);
@@ -400,6 +600,41 @@ export default function StrategyMakerPage() {
           </>
         ) : (
           <div className="sm-empty">No candles yet. Load a market, a saved dataset or a CSV file.</div>
+        )}
+        <SetsPanel
+          rows={rows}
+          openId={id}
+          busy={busy}
+          onOpen={(sid) => void onOpenSet(sid)}
+          onRename={(sid, name) => void onRename(sid, name)}
+          onDelete={(sid) => void onDeleteSet(sid)}
+          onExport={() => void onExport()}
+          onImport={(f) => void onImport(f)}
+        />
+        {note && (
+          <p className={note.error ? 'sm-error' : 'sm-note'} role={note.error ? 'alert' : 'status'}>
+            {note.text}
+          </p>
+        )}
+        {importing && (
+          <ImportConflicts
+            conflicts={importing.plan.conflicts}
+            choices={importing.choices}
+            name={(k) => names[k] || (sources[k] ? sourceLabel(sources[k], datasetName) : k)}
+            onChoose={(k, c) => setImporting((i) => (i ? { ...i, choices: { ...i.choices, [k]: c } } : i))}
+            onApply={() => void commitImport(importing.plan, Object.fromEntries(importing.plan.conflicts.map((c) => [c.id, importing.choices[c.id] ?? 'mine'])))}
+            onCancel={() => setImporting(null)}
+          />
+        )}
+        {model.record && model.insights && (
+          <SavedModel
+            result={model.record.result}
+            insights={model.insights}
+            freshness={freshness}
+            running={find.run.running}
+            shownBelow={!!find.result && !find.run.running && find.result.outcome.kind === 'ok' && !!freshness?.upToDate}
+            onRetrain={() => void onRetrain()}
+          />
         )}
         <TargetsForm
           form={form}

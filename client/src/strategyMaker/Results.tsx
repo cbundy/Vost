@@ -1,5 +1,5 @@
 import { getStrategy } from '../lib/backtest/strategies';
-import type { Candidate, CandidateStats, Gap } from './engine';
+import type { Candidate, CandidateStats, Gap, TrainResult } from './engine';
 import type { FindResult } from './run';
 import { tooFewMessage } from './run';
 import { familyName } from './TargetsForm';
@@ -44,6 +44,38 @@ function Stats({ s }: { s: CandidateStats }) {
       <td>{pct(s.maxDrawdownPct)}</td>
       <td>{s.trades}</td>
     </>
+  );
+}
+
+interface ModelBlockProps {
+  model: Pick<TrainResult, 'heldOut' | 'rules' | 'importance'> & { model: { trainedOn: { trades: number } } };
+}
+
+/** What the model learned: its rules, importance and held-out report. */
+export function ModelBlock({ model }: ModelBlockProps) {
+  return (
+    <div className="sm-res-block">
+      <h3>What explains your trades</h3>
+      <p className="sm-note">
+        Learned from {model.model.trainedOn.trades} trades. On bars it had not seen, it called the right state {pct(model.heldOut.accuracy * 100, 0)} of the
+        time (entry and exit match F1 {model.heldOut.f1.toFixed(2)}).
+      </p>
+      <ul className="sm-rules">
+        {model.rules.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+      <p className="sm-note">
+        Importance by family:{' '}
+        {model.importance.byFamily.length
+          ? model.importance.byFamily.map((f) => `${familyName(f.family)} ${share(f.importance)}`).join(', ')
+          : 'none (the model found no pattern)'}
+        .
+      </p>
+      {model.importance.byFeature.length > 0 && (
+        <p className="sm-note">Top readings: {model.importance.byFeature.slice(0, 4).map((f) => `${f.label} ${share(f.importance)}`).join(', ')}.</p>
+      )}
+    </div>
   );
 }
 
@@ -93,30 +125,7 @@ export function Results({ result, selected, onSelect }: Props) {
     <section className="sm-results" aria-label="Results">
       <p className="sm-headline">{headline}</p>
 
-      <div className="sm-res-block">
-        <h3>What explains your trades</h3>
-        <p className="sm-note">
-          Learned from {model.model.trainedOn.trades} trades. On bars it had not seen, it called the right state {pct(model.heldOut.accuracy * 100, 0)} of the
-          time (entry and exit match F1 {model.heldOut.f1.toFixed(2)}).
-        </p>
-        <ul className="sm-rules">
-          {model.rules.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
-        <p className="sm-note">
-          Importance by family:{' '}
-          {model.importance.byFamily.length
-            ? model.importance.byFamily.map((f) => `${familyName(f.family)} ${share(f.importance)}`).join(', ')
-            : 'none (the model found no pattern)'}
-          .
-        </p>
-        {model.importance.byFeature.length > 0 && (
-          <p className="sm-note">
-            Top readings: {model.importance.byFeature.slice(0, 4).map((f) => `${f.label} ${share(f.importance)}`).join(', ')}.
-          </p>
-        )}
-      </div>
+      <ModelBlock model={model} />
 
       <div className="sm-res-block">
         <h3>Ranked settings</h3>

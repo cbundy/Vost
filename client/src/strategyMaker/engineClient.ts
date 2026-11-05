@@ -3,21 +3,25 @@
  * one-second terminate fallback, and the same engine run on the page when there is no worker or it crashes.
  */
 import type { Candle } from '../../../shared/market.ts';
-import type { SeriesInput } from './engine';
+import type { SeriesInput, TrainResult } from './engine';
 import { createHost } from './engineHost';
 import type { Reply, Request, TradesCandidate } from './protocol';
-import type { EngineOutcome, FindInputs, FindStage, FoundTrade } from './run';
+import type { EngineOutcome, FindInputs, FindStage, FoundTrade, TrainedOutcome } from './run';
 
 export const CANCEL_GRACE_MS = 1000;
 
 export interface FindOptions {
   signal?: AbortSignal;
+  /** A model that is up to date for the series (in its training order): training is skipped. */
+  model?: TrainResult;
   /** `onPage` is true while the run is on the page's own thread. */
   onProgress?: (pct: number, stage: FindStage, onPage: boolean) => void;
 }
 
 export interface EngineClient {
   find(series: SeriesInput[], inputs: FindInputs, opts?: FindOptions): Promise<EngineOutcome>;
+  /** Training alone (Retrain); stopped and replaced like a find. */
+  train(series: SeriesInput[], opts?: FindOptions): Promise<TrainedOutcome>;
   trades(candles: Candle[], candidate: TradesCandidate, inputs: Pick<FindInputs, 'direction' | 'risk'>): Promise<FoundTrade[]>;
   /** Stops any run and ends the worker. */
   dispose(): void;
@@ -163,16 +167,20 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
     return { id, done };
   };
 
+  /** A find or a train: a new one stops the one running. */
+  const run = (make: (id: string) => Request, o: FindOptions): Promise<EngineOutcome | TrainedOutcome> => {
+    if (o.signal?.aborted) return Promise.reject(abortError());
+    if (current) cancel(current);
+    const { id, done } = request<Extract<Reply, { type: 'result' }>>(make, { onProgress: o.onProgress });
+    current = id;
+    o.signal?.addEventListener('abort', () => cancel(id), { once: true });
+    return done.then((r) => r.outcome);
+  };
+
   return {
-    find(series, inputs, o = {}) {
-      if (o.signal?.aborted) return Promise.reject(abortError());
-      // A new find stops the one running.
-      if (current) cancel(current);
-      const { id, done } = request<Extract<Reply, { type: 'result' }>>((id) => ({ v: 1, id, type: 'find', series, inputs }), { onProgress: o.onProgress });
-      current = id;
-      o.signal?.addEventListener('abort', () => cancel(id), { once: true });
-      return done.then((r) => r.outcome);
-    },
+    find: (series, inputs, o = {}) =>
+      run((id) => ({ v: 1, id, type: 'find', series, inputs, ...(o.model ? { model: o.model } : {}) }), o) as Promise<EngineOutcome>,
+    train: (series, o = {}) => run((id) => ({ v: 1, id, type: 'train', series }), o) as Promise<TrainedOutcome>,
     trades(candles, candidate, inputs) {
       return request<Extract<Reply, { type: 'trades' }>>((id) => ({ v: 1, id, type: 'trades', candles, candidate, inputs })).done.then((r) => r.trades);
     },
