@@ -39,7 +39,7 @@ The icon rail at the right edge opens three sections: **Watchlist** ([Watchlist]
 
 ## The bottom dock
 
-Below the chart: **Backtest**, **Optimizer** and **Results** tabs ([Backtesting](backtesting.md)). Drag the handle to resize it.
+Below the chart: **Backtest**, **Optimizer** and **Results** tabs ([Backtesting](backtesting.md)). The dock starts collapsed below the chart: click a tab or the arrow to open it. Drag the handle to resize it.
 
 ## Small screens
 

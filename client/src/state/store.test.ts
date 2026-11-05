@@ -26,6 +26,23 @@ describe('addSymbolToWatchlist', () => {
 });
 
 
+describe('dock starts collapsed', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    stubStorage();
+  });
+
+  it('is collapsed on a fresh store and after init, and a tab click opens it', async () => {
+    const { useStore } = await import('./store');
+    track(useStore);
+    expect(useStore.getState().dockCollapsed).toBe(true);
+    useStore.getState().init();
+    expect(useStore.getState().dockCollapsed).toBe(true);
+    useStore.getState().setDockTab('results');
+    expect(useStore.getState().dockCollapsed).toBe(false);
+  });
+});
+
 describe('timeZone pref', () => {
   beforeEach(() => {
     vi.resetModules();

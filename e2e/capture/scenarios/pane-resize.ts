@@ -88,6 +88,11 @@ export const paneResize: Scenario = {
       const w = await width();
       expectWidth('drag left', w, w === before + 40);
     });
+    await ctx.step('the dock starts collapsed; Expand opens it at the seeded 420', async () => {
+      await page.getByTitle('Expand').click();
+      const p = await probe(page);
+      if (p.dock !== '420') throw new Error(`expanded dock is ${p.dock}`);
+    });
     await ctx.step('drag the dock splitter', () => drag(dock, 0, 90));
     await shot('dragged');
 
