@@ -21,6 +21,7 @@ New here? Start with [Getting started](getting-started.md).
 | [Data](data.md) | Data providers, CSV import, the local library and recorded markets |
 | [Backtesting](backtesting.md) | Strategies, the Backtest pane and its range, results and the optimizer |
 | [Pine Script](pine.md) | The Pine pane, converting old scripts, libraries and the `/compare` page |
+| [Strategy maker](strategy-maker.md) | The optional `/strategy-maker` page: picking a market, a saved dataset or a CSV file and seeing its candles on a chart of its own |
 | [Bar replay](replay.md) | Replaying the chart bar by bar from a bar you pick |
 
 Deeper docs: [custom strategies](../STRATEGIES.md), [Pine support](../PINE.md), [data sources](../DATA-SOURCES.md) and [deployment](../DEPLOYMENT.md).
