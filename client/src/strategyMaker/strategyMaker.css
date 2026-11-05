@@ -1,0 +1,87 @@
+.sm-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+.sm-head {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sm-head h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.sm-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+.sm-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sm-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.sm-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted);
+  min-width: 0;
+}
+.sm-group select,
+.sm-group input:not([type='file']) {
+  max-width: 100%;
+  min-width: 0;
+  width: 150px;
+}
+.sm-group input[type='file'] {
+  max-width: 100%;
+  width: 220px;
+}
+.sm-note {
+  color: var(--muted);
+  align-self: center;
+}
+.sm-error {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--red);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sm-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+}
+.sm-label {
+  color: var(--muted);
+  padding-bottom: 6px;
+}
+.sm-chart {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.sm-empty {
+  margin: auto;
+  color: var(--muted);
+  text-align: center;
+}
