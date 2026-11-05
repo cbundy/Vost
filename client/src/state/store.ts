@@ -168,7 +168,7 @@ export function layoutSnapshot(s: Pick<AppState, 'arrangementId' | 'activeChartI
 export interface AppState {
   /** IANA zone every date on screen is shown in (candle times stay UTC). */
   timeZone: string;
-  /** Bottom dock UI state (not persisted). */
+  /** Bottom dock UI state (not persisted); the dock starts collapsed on every load. */
   dockTab: DockTab;
   dockCollapsed: boolean;
   /** Whether the Pine editor pane is open (not persisted). */
@@ -542,7 +542,7 @@ export const useStore = create<AppState>()((set, get) => {
   return {
     timeZone: browserTimeZone(),
     dockTab: 'backtest',
-    dockCollapsed: false,
+    dockCollapsed: true,
     sidebarWidth: SIDEBAR_DEFAULT,
     pineWidth: PINE_DEFAULT,
     pineOpen: false,

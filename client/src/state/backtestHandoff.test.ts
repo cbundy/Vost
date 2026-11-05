@@ -54,6 +54,15 @@ describe('start-up without a hand-off', () => {
 });
 
 describe('applyBacktestHandoff', () => {
+  it('opens the collapsed dock', async () => {
+    const useStore = await setup();
+    useStore.getState().init();
+    expect(useStore.getState().dockCollapsed).toBe(true);
+    useStore.getState().applyBacktestHandoff(handoff());
+    expect(useStore.getState().dockCollapsed).toBe(false);
+  });
+
+
   it('fills the active chart Backtest config, shows the tab and says so', async () => {
     const useStore = await setup();
     useStore.getState().init();
