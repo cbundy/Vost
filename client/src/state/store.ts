@@ -39,6 +39,8 @@ import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial
 import type { IndicatorDefault, IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { cleanIndicatorDefault, sanitizeIndicatorDefaults, sanitizeIndicatorSpecs } from '../lib/indicatorSettings';
 import type { BacktestConfig } from '../lib/backtest/types';
+import { handoffSettingsText, type Handoff } from '../lib/backtestHandoff';
+import { DEFAULT_PARAMS, getStrategy } from '../lib/backtest/strategies';
 import type { Interval } from '../types';
 import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
 import { sanitizeArmed, sanitizeRecent, withRecent } from '../lib/iconSets/prefs';
@@ -288,6 +290,8 @@ export interface AppState {
   /** Forgets a custom interval and moves every chart showing it to its provider's default timeframe. */
   removeCustomTimeframe(iv: Interval): void;
   setDockTab(tab: DockTab): void;
+  /** Fills the active chart's Backtest tab from a strategy maker hand-off and shows the tab. It does not run the backtest. */
+  applyBacktestHandoff(h: Handoff): void;
   setDockCollapsed(collapsed: boolean): void;
   setSidebarWidth(px: number): void;
   setPineWidth(px: number): void;
@@ -863,6 +867,28 @@ export const useStore = create<AppState>()((set, get) => {
 
     setDockTab(tab) {
       set({ dockTab: tab, dockCollapsed: false });
+    },
+
+    applyBacktestHandoff(h) {
+      const chart = get().charts[get().activeChartId];
+      chart.getState().setBtConfig({
+        strategyId: h.strategyId,
+        params: { ...DEFAULT_PARAMS[h.strategyId], ...h.params },
+        feeBps: h.feeBps,
+        slippageBps: h.slippageBps,
+        stopLossPct: h.stopLossPct,
+        takeProfitPct: h.takeProfitPct,
+        allowShort: h.allowShort,
+        initialCapital: h.initialCapital,
+        positionSizePct: h.positionSizePct,
+        pineInputs: undefined,
+      });
+      get().setDockTab('backtest');
+      const settings = handoffSettingsText(h);
+      get().pushToast(
+        'info',
+        `Backtest set from the strategy maker: ${getStrategy(h.strategyId).name}${settings ? ` (${settings})` : ''}.${h.source ? ` It was found on ${h.source}; run` : ' Run'} it on the same data to see the same trades.`,
+      );
     },
 
     setDockCollapsed(collapsed) {

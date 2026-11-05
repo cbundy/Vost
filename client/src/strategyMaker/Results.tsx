@@ -3,6 +3,7 @@ import type { Candidate, CandidateStats, Gap, TrainResult } from './engine';
 import type { FindResult } from './run';
 import { tooFewMessage } from './run';
 import { familyName } from './TargetsForm';
+import { ResultActions } from './ResultActions';
 
 export const candidateKey = (c: Pick<Candidate, 'strategyId' | 'params'>): string => `${c.strategyId}|${JSON.stringify(c.params)}`;
 
@@ -83,9 +84,11 @@ interface Props {
   result: FindResult;
   selected: string | null;
   onSelect: (c: Candidate | null) => void;
+  /** The label of the data the run used; the Backtest tab shows it. */
+  source?: string;
 }
 
-export function Results({ result, selected, onSelect }: Props) {
+export function Results({ result, selected, onSelect, source = '' }: Props) {
   const { outcome, skippedSets, seriesLabels } = result;
   const skippedBlock = skippedSets.length > 0 && (
     <div className="sm-res-block">
@@ -118,6 +121,7 @@ export function Results({ result, selected, onSelect }: Props) {
   const { model, search } = outcome;
   const v = search.validation;
   const best = search.bestMeetingTargets ?? search.bestMatch;
+  const acting = search.recommendations.find((c) => candidateKey(c) === selected) ?? best;
   const headline = search.bestMeetingTargets
     ? `Found ${getStrategy(best.strategyId).name} (${settingsText(best)}), which meets your targets.`
     : `No setting met your targets. The closest is ${getStrategy((search.closest ?? best).strategyId).name} (${settingsText(search.closest ?? best)}).`;
@@ -175,6 +179,12 @@ export function Results({ result, selected, onSelect }: Props) {
           </table>
         </div>
         <p className="sm-note">Click a strategy to draw the trades it takes on the chart.</p>
+        <ResultActions
+          candidate={acting}
+          title={`${getStrategy(acting.strategyId).name} (${settingsText(acting)})`}
+          run={result.inputs}
+          source={source}
+        />
       </div>
 
       <div className="sm-res-block">

@@ -452,3 +452,24 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.sm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.sm-actions-for {
+  font-weight: 600;
+}
+.sm-copied {
+  color: var(--green, #3fb950);
+  min-width: 52px;
+}
+.sm-copy-text {
+  flex: 1 1 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  resize: vertical;
+}

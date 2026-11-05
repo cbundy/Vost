@@ -1,0 +1,10 @@
+SMA crossover
+Fast period: 8
+Slow period: 34
+Direction: Both
+Fee: 10 bps per side
+Slippage: 5 bps per fill
+Stop loss: off
+Take profit: off
+Initial capital: 10000
+Position size: 100% of equity

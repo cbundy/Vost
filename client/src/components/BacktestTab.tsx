@@ -82,23 +82,28 @@ export function BacktestTab() {
   return (
     <div>
       <div className="form-grid">
-        <label className="form-field" style={{ gridColumn: 'span 2' }}>
-          <span>Strategy</span>
-          <select
-            value={btConfig.strategyId}
-            onChange={(e) => {
-              const next = getStrategy(e.target.value);
-              const params = Object.fromEntries(next.params.map((p) => [p.key, p.default]));
-              setBtConfig({ strategyId: next.id, params, ...(btConfig.pineInputs && { pineInputs: undefined }), ...(next.pine && btConfig.pineCode === undefined && { pineCode: DEFAULT_PINE_CODE }) });
-            }}
-          >
-            {strategies.map((s) => (
-              <option key={s.id} value={s.id} title={s.description}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="bt-strategy-row">
+          <label className="form-field">
+            <span>Strategy</span>
+            <select
+              value={btConfig.strategyId}
+              onChange={(e) => {
+                const next = getStrategy(e.target.value);
+                const params = Object.fromEntries(next.params.map((p) => [p.key, p.default]));
+                setBtConfig({ strategyId: next.id, params, ...(btConfig.pineInputs && { pineInputs: undefined }), ...(next.pine && btConfig.pineCode === undefined && { pineCode: DEFAULT_PINE_CODE }) });
+              }}
+            >
+              {strategies.map((s) => (
+                <option key={s.id} value={s.id} title={s.description}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <a className="bt-sm-link" href="/strategy-maker" target="_blank" rel="noopener" title="Find a strategy from trades you mark on a chart">
+            Strategy maker
+          </a>
+        </div>
 
         {strategy.params.map((p) =>
           p.type === 'select' ? (
