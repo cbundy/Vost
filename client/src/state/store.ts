@@ -36,7 +36,8 @@ import {
 import type { HistoryLoading } from '../lib/historyPaging';
 import * as sl from '../lib/savedLayouts';
 import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial, type ChartStore } from './chart';
-import type { IndicatorSpec } from '../lib/indicatorCompute';
+import type { IndicatorDefault, IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
+import { cleanIndicatorDefault, sanitizeIndicatorDefaults, sanitizeIndicatorSpecs } from '../lib/indicatorSettings';
 import type { BacktestConfig } from '../lib/backtest/types';
 import type { Interval } from '../types';
 import { servable, MAX_CUSTOM_TIMEFRAMES, sanitizeCustomTimeframes } from '../lib/customTimeframes';
@@ -84,6 +85,8 @@ interface Prefs {
   drawingsHidden?: boolean;
   /** The style new drawings of a tool start with, per tool id (see lib/drawingStyle). */
   drawingDefaults?: Record<string, Record<string, unknown>>;
+  /** The params and hidden timeframe kinds a new indicator of a kind starts with, per kind (see lib/indicatorSettings). */
+  indicatorDefaults?: Record<string, IndicatorDefault>;
   drawingFavorites?: string[];
   drawingLastTool?: Record<string, string>;
   glyphArmed?: Record<string, string>;
@@ -124,7 +127,7 @@ function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
     symbol: known ? (p.symbol ?? defaultPrefs.symbol) : defaultPrefs.symbol,
     timeframe: known ? (typeof p.timeframe === 'string' && canonicalInterval(p.timeframe) === p.timeframe ? p.timeframe : defaultPrefs.timeframe) : defaultPrefs.timeframe,
     bars: p.bars ?? defaultPrefs.bars,
-    indicators: Array.isArray(p.indicators) && p.indicators.length > 0 ? p.indicators : defaultPrefs.indicators,
+    indicators: Array.isArray(p.indicators) && p.indicators.length > 0 ? sanitizeIndicatorSpecs(p.indicators) : defaultPrefs.indicators,
     btConfig: { ...defaultPrefs.btConfig, ...(p.btConfig ?? {}) },
     showTrades: p.showTrades ?? true,
     btRange: sanitizeTimeRange(p.btRange),
@@ -183,6 +186,8 @@ export interface AppState {
   drawingStayMode: boolean;
   drawingsHidden: boolean;
   drawingDefaults: Record<string, Record<string, unknown>>;
+  /** The saved starting params and hidden timeframe kinds of a new indicator, per built-in kind. */
+  indicatorDefaults: Record<string, IndicatorDefault>;
   /** Rail entry keys (see lib/drawingRail.ts) the person starred, in the order the favourites bar shows them. */
   drawingFavorites: string[];
   /** The last entry used from each rail family, shown on the family's button. */
@@ -297,6 +302,8 @@ export interface AppState {
   setDrawingsHidden(v: boolean): void;
   /** Saves (or with null clears) the style new drawings of a tool start with. */
   setDrawingDefault(tool: string, style: Record<string, unknown> | null): void;
+  /** Saves (or with null clears) what a new indicator of a built-in kind starts with. */
+  setIndicatorDefault(kind: IndicatorKind, value: IndicatorDefault | null): void;
   toggleDrawingFavorite(key: string): void;
   setDrawingLastTool(group: string, key: string): void;
   /** Arms a glyph tool with an entry and adds it to the tool's recent picks. */
@@ -344,6 +351,7 @@ export const useStore = create<AppState>()((set, get) => {
       drawingStayMode: s.drawingStayMode,
       drawingsHidden: s.drawingsHidden,
       drawingDefaults: s.drawingDefaults,
+      indicatorDefaults: s.indicatorDefaults,
       drawingFavorites: s.drawingFavorites,
       drawingLastTool: s.drawingLastTool,
       glyphArmed: s.glyphArmed,
@@ -463,6 +471,7 @@ export const useStore = create<AppState>()((set, get) => {
     timeZone: () => get().timeZone,
     buildTimeframes: () => get().buildTimeframes,
     historyLoading: () => get().historyLoading,
+    indicatorDefault: (kind) => get().indicatorDefaults[kind] ?? null,
     datasets: () => get().datasets,
     addDataset(dataset) {
       if (JSON.stringify(dataset).length > MAX_PERSISTED_DATASETS_BYTES) {
@@ -536,6 +545,7 @@ export const useStore = create<AppState>()((set, get) => {
     drawingStayMode: false,
     drawingsHidden: false,
     drawingDefaults: {},
+    indicatorDefaults: {},
     drawingFavorites: [],
     drawingLastTool: {},
     glyphArmed: {},
@@ -628,6 +638,7 @@ export const useStore = create<AppState>()((set, get) => {
         drawingStayMode: prefs.drawingStayMode === true,
         drawingsHidden: prefs.drawingsHidden === true,
         drawingDefaults: sanitizeDefaults(prefs.drawingDefaults, toolSettings),
+        indicatorDefaults: sanitizeIndicatorDefaults(prefs.indicatorDefaults),
         drawingFavorites: sanitizeFavorites(prefs.drawingFavorites),
         drawingLastTool: sanitizeLastTool(prefs.drawingLastTool),
         glyphArmed: sanitizeArmed(prefs.glyphArmed),
@@ -919,6 +930,15 @@ export const useStore = create<AppState>()((set, get) => {
       const valid = style ? sanitizeDefaults({ [tool]: style }, toolSettings)[tool] : undefined;
       if (valid) next[tool] = valid;
       set({ drawingDefaults: next });
+      persistPrefs();
+    },
+
+    setIndicatorDefault(kind, value) {
+      const next = { ...get().indicatorDefaults };
+      delete next[kind];
+      const valid = value ? cleanIndicatorDefault(kind, value) : null;
+      if (valid) next[kind] = valid;
+      set({ indicatorDefaults: next });
       persistPrefs();
     },
 

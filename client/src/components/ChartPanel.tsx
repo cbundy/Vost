@@ -27,6 +27,7 @@ import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
 import { newPaneState, releasePanes, sizePanes, usePaneLegends, type PaneReg, type PaneState } from './usePaneLegends';
 import { INDICATOR_META, computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
+import { indicatorDrawn } from '../lib/indicatorSettings';
 import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
 import { canPageOlder, selectDataCandles } from '../state/chart';
@@ -99,6 +100,8 @@ export function ChartPanel({
   const setProvider = useChart((s) => s.setProvider);
   const timeZone = useStore((s) => s.timeZone);
   const timeframe = useChart((s) => s.timeframe);
+  /** The indicators drawn at this timeframe: the one rule (see lib/indicatorSettings) every drawing site uses. */
+  const drawn = useMemo(() => indicators.filter((i) => indicatorDrawn(i, timeframe)), [indicators, timeframe]);
   const replayPhase = useChart((s) => s.replay?.phase ?? null);
   /** During replay: the last visible bar's time, the cut-off for trade markers and Pine output. */
   const replayCutoff = replayPhase === 'active' ? (candles[candles.length - 1]?.time ?? null) : null;
@@ -228,7 +231,7 @@ export function ChartPanel({
       }
     }
 
-    const visible = indicators.filter((i) => i.visible);
+    const visible = drawn;
     const subCount = visible.filter((s) => s.kind === 'rsi' || s.kind === 'macd').length;
     for (let i = 0; i < subCount; i++) chart.addPane();
     sizePanes(
@@ -304,11 +307,11 @@ export function ChartPanel({
         });
       }
     }
-  }, [chartApi, indicators]);
+  }, [chartApi, drawn]);
 
-  usePineSeries(chartApi, indicators, pineRuns, paneEpochRef, replayCutoff, paneStateRef);
+  usePineSeries(chartApi, drawn, pineRuns, paneEpochRef, replayCutoff, paneStateRef);
   /* barcolor() of the visible Pine scripts: kept as the same map while its content is unchanged. */
-  const mergedBarColors = useMemo(() => mergeBarColors(indicators, pineRuns, replayCutoff), [indicators, pineRuns, replayCutoff]);
+  const mergedBarColors = useMemo(() => mergeBarColors(drawn, pineRuns, replayCutoff), [drawn, pineRuns, replayCutoff]);
   const barColorsRef = useRef(mergedBarColors);
   if (!sameBarColors(barColorsRef.current, mergedBarColors)) barColorsRef.current = mergedBarColors;
   const barColors = barColorsRef.current;
@@ -371,7 +374,7 @@ export function ChartPanel({
     if (!chart || !candleSeries || candles.length === 0) return;
 
     const dataChanged = lastDataKeyRef.current !== dataKey;
-    const indChanged = lastIndicatorsRef.current !== indicators;
+    const indChanged = lastIndicatorsRef.current !== drawn;
 
     // One bar appended or the last bar changed: send just that bar. Any other change to the same data
     // (replay entering, stepping back, exiting, a merged backfill) replaces the bars without refitting.
@@ -428,8 +431,7 @@ export function ChartPanel({
     }
 
     if (dataChanged || indChanged || !incremental) {
-      for (const spec of indicators) {
-        if (!spec.visible) continue;
+      for (const spec of drawn) {
         for (const cs of computeIndicator(spec, candles)) {
           const entry = indMapRef.current.get(`${spec.id}|${cs.key}`);
           if (!entry) continue;
@@ -438,10 +440,9 @@ export function ChartPanel({
           else (entry.series as ISeriesApi<'Line'>).setData(data as never);
         }
       }
-      lastIndicatorsRef.current = indicators;
+      lastIndicatorsRef.current = drawn;
     } else {
-      for (const spec of indicators) {
-        if (!spec.visible) continue;
+      for (const spec of drawn) {
         for (const cs of computeIndicator(spec, candles)) {
           const entry = indMapRef.current.get(`${spec.id}|${cs.key}`);
           if (!entry || cs.data.length === 0) continue;
@@ -461,7 +462,7 @@ export function ChartPanel({
     sentBarColorsRef.current = barColors;
     updateLegend(candles[candles.length - 1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartApi, candles, dataKey, indicators]);
+  }, [chartApi, candles, dataKey, drawn]);
 
   /* A backtest or optimizer run that loaded older history asks the chart to show its range (once). */
   const viewRequest = useChart((s) => s.viewRequest);
@@ -742,7 +743,7 @@ export function ChartPanel({
     onDeleteAll: drawings.deleteAll,
   };
 
-  usePaneLegends(chartApi, paneStateRef, paneLegendsRef, [indicators, pineRuns, candles, replayCutoff]);
+  usePaneLegends(chartApi, paneStateRef, paneLegendsRef, [drawn, pineRuns, candles, replayCutoff]);
 
   return (
     <div className="chart-wrap">

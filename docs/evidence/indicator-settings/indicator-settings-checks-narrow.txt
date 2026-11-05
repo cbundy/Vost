@@ -1,0 +1,2 @@
+ok   the dialog fits 360 px - x=8 width=344
+ok   nothing overflows sideways

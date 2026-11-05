@@ -23,7 +23,7 @@ import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../
 import { walkForwardWindows, type WalkForwardOutput } from '../lib/backtest/walkForward';
 import { DEFAULT_PINE_CODE } from '../lib/pine/examples';
 import type { PineInput, PineMarket } from '../lib/pine/types';
-import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
+import type { IndicatorDefault, IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import type { MessageSeverity } from '../lib/messages';
 import type { PineCalculation, PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
@@ -147,6 +147,8 @@ export interface ChartEnv {
   datasets(): Dataset[];
   addDataset(dataset: Dataset): void;
   removeDataset(id: string): void;
+  /** The saved default a new indicator of `kind` starts from, if any. */
+  indicatorDefault?(kind: IndicatorKind): IndicatorDefault | null;
   /** A persisted per-chart field changed: the app should save the prefs. */
   onPrefsChange(): void;
   /** A committed change on chart `sourceId` that the other charts of the layout may follow (see lib/layoutSync). */
@@ -267,7 +269,9 @@ export interface ChartState {
   /** Adds an indicator and returns its id. */
   addIndicator(kind: IndicatorKind): string;
   removeIndicator(id: string): void;
-  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue>; calculation?: PineCalculation }): void;
+  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source' | 'hideOn'>> & { inputs?: Record<string, PineInputValue>; calculation?: PineCalculation }): void;
+  /** Replaces a whole indicator spec (the settings dialog's Cancel and Reset); Pine reruns when what it computes from differs. */
+  restoreIndicator(id: string, spec: IndicatorSpec): void;
   /** Pine: keeps edited editor text as a draft (no run); cleared when it equals the applied source. */
   setPineDraft(id: string, text: string): void;
   /** Pine: puts the draft on the chart as the source and runs it once. No-op without a draft. */
@@ -308,6 +312,14 @@ export interface ChartState {
 }
 
 export type ChartStore = StoreApi<ChartState>;
+
+/** A spec with an empty `hideOn` list stored as no list at all. */
+function withoutEmptyHideOn(spec: IndicatorSpec): IndicatorSpec {
+  if (!spec.hideOn || spec.hideOn.length > 0) return spec;
+  const { hideOn: _unused, ...rest } = spec;
+  void _unused;
+  return rest;
+}
 
 export function createChartStore(id: string, initial: ChartInitial, env: ChartEnv): ChartStore {
   return createStore<ChartState>()((set, get) => {
@@ -875,7 +887,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     },
 
     addIndicator(kind) {
-      const indicators = [...get().indicators, defaultIndicator(kind)];
+      const indicators = [...get().indicators, defaultIndicator(kind, env.indicatorDefault?.(kind))];
       set({ indicators });
       env.onPrefsChange();
       const id = indicators[indicators.length - 1].id;
@@ -897,18 +909,28 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       set({
         indicators: get().indicators.map((i) =>
           i.id === id
-            ? {
+            ? withoutEmptyHideOn({
                 ...i,
                 ...patch,
                 params: { ...i.params, ...(patch.params ?? {}) },
                 ...(i.kind === 'pine' && { inputs: { ...(i.inputs ?? {}), ...(patch.inputs ?? {}) } }),
                 ...(i.kind === 'pine' && (i.calculation || patch.calculation) && { calculation: { ...i.calculation, ...patch.calculation } }),
-              }
+              })
             : i,
         ),
       });
       env.onPrefsChange();
       if (patch.source !== undefined || patch.inputs !== undefined || patch.calculation !== undefined || patch.visible === true) schedulePine(id);
+    },
+
+    restoreIndicator(id, spec) {
+      const before = get().indicators.find((i) => i.id === id);
+      if (!before) return;
+      const next = withoutEmptyHideOn({ ...spec, id });
+      set({ indicators: get().indicators.map((i) => (i.id === id ? next : i)) });
+      env.onPrefsChange();
+      const same = (a: object | undefined, b: object | undefined) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
+      if (next.kind === 'pine' && (next.source !== before.source || !same(next.inputs, before.inputs) || !same(next.calculation, before.calculation) || next.visible !== before.visible)) schedulePine(id);
     },
 
     setPineDraft(id, text) {
