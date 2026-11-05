@@ -4199,6 +4199,10 @@ table.data-table th.sortable .sort-btn:focus-visible {
 }
 
 /* ----------------------------- settings ----------------------------- */
+.settings-section + .settings-section {
+  margin-top: 18px;
+}
+
 .settings-section h3 {
   margin: 0 0 10px;
   font-size: 12px;

@@ -293,7 +293,7 @@ export async function runPine(
     const declared = readDeclaredTimeframe(indicator, timeframe, supportsTimeframe, opts.calculation);
     const problem = declared ? checkDeclaredTimeframe(declared, timeframe, opts.market) : null;
     if (problem) return { ok: false, error: { message: problem } };
-    const wrapped = declared ? wrapProvider(provider, ticker, declared, timeframe) : null;
+    const wrapped = declared ? wrapProvider(provider, ticker, declared, timeframe, opts.market?.higherBars === 'finished' ? endTime : undefined) : null;
     const higher = wrapped ? await wrapped.load() : null;
     const rates = new CurrencyRates(candles, opts.market, opts.feed ?? defaultMarketFeed());
     const ctx: any = await runWithRates(rates, async () => {

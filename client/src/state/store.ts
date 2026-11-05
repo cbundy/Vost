@@ -95,6 +95,7 @@ interface Prefs {
   favoritesBarPos?: BarPos;
   buildTimeframes?: boolean;
   historyLoading?: HistoryLoading;
+  pineHigherBars?: 'forming' | 'finished';
   customTimeframes?: Interval[];
 }
 
@@ -204,6 +205,8 @@ export interface AppState {
   buildTimeframes: boolean;
   /** How a chart's history loads: the latest page and older pages on scroll, or everything at once. */
   historyLoading: HistoryLoading;
+  /** Pine: whether the live bar sees the forming higher-timeframe bar or only finished ones. */
+  pineHigherBars: 'forming' | 'finished';
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
   customTimeframes: Interval[];
 
@@ -279,6 +282,7 @@ export interface AppState {
   /** Turns building higher timeframes from lower ones on or off; reloads every remote chart whose source changes. */
   setBuildTimeframes(v: boolean): void;
   setHistoryLoading(v: HistoryLoading): void;
+  setPineHigherBars(v: 'forming' | 'finished'): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
   addCustomTimeframe(iv: Interval): void;
   /** Forgets a custom interval and moves every chart showing it to its provider's default timeframe. */
@@ -360,6 +364,7 @@ export const useStore = create<AppState>()((set, get) => {
       favoritesBarPos: s.favoritesBarPos,
       buildTimeframes: s.buildTimeframes,
       historyLoading: s.historyLoading,
+      pineHigherBars: s.pineHigherBars,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
   }, 400);
@@ -471,6 +476,7 @@ export const useStore = create<AppState>()((set, get) => {
     timeZone: () => get().timeZone,
     buildTimeframes: () => get().buildTimeframes,
     historyLoading: () => get().historyLoading,
+    pineHigherBars: () => get().pineHigherBars,
     indicatorDefault: (kind) => get().indicatorDefaults[kind] ?? null,
     datasets: () => get().datasets,
     addDataset(dataset) {
@@ -554,6 +560,7 @@ export const useStore = create<AppState>()((set, get) => {
     favoritesBarPos: { ...DEFAULT_BAR_POS },
     buildTimeframes: false,
     historyLoading: 'scroll',
+    pineHigherBars: 'forming',
     customTimeframes: [],
     charts: firstCharts,
     activeChartId: FIRST_CHART_ID,
@@ -647,6 +654,7 @@ export const useStore = create<AppState>()((set, get) => {
         favoritesBarPos: sanitizeBarPos(prefs.favoritesBarPos),
         buildTimeframes: prefs.buildTimeframes === true,
         historyLoading: prefs.historyLoading === 'all' ? 'all' : 'scroll',
+        pineHigherBars: prefs.pineHigherBars === 'finished' ? 'finished' : 'forming',
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
         ...fields,
@@ -810,6 +818,15 @@ export const useStore = create<AppState>()((set, get) => {
         if (activeDatasetId != null || chartRange != null || replay != null) continue;
         void chart.getState().loadData();
       }
+    },
+
+    setPineHigherBars(v) {
+      const was = get().pineHigherBars;
+      const next = v === 'finished' ? 'finished' : 'forming';
+      set({ pineHigherBars: next });
+      persistPrefs();
+      if (was === next) return;
+      for (const chart of Object.values(get().charts)) chart.getState().rerunPine();
     },
 
     setBuildTimeframes(v) {
