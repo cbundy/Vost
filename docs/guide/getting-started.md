@@ -49,4 +49,4 @@ At 900px and below the Pine editor is a dialog, dialogs fit phones and the layou
 
 ## What is saved where
 
-Your settings (the [Settings popup](#the-settings-popup) included), layouts, drawings, imported datasets and watchlists live in your browser's local storage, so they do not follow you to another browser or device, and clearing site data removes them. The server keeps only price alerts, Pine libraries and recorded candles in its data folder. See [Alerts](alerts.md), [Pine Script](pine.md) and [Data](data.md).
+Your settings (the [Settings popup](#the-settings-popup) included), layouts, drawings, imported datasets and watchlists live in your browser's local storage, so they do not follow you to another browser or device, and clearing site data removes them. The [strategy maker](strategy-maker.md) keeps its marked trades, its form and its trained model in the browser's IndexedDB (`vost-strategy-maker`), which clearing site data removes too; its **Export** saves them to a file. The server keeps only price alerts, Pine libraries and recorded candles in its data folder. See [Alerts](alerts.md), [Pine Script](pine.md) and [Data](data.md).
