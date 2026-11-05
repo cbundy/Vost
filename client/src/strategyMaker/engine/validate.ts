@@ -19,7 +19,8 @@ export const neighbourCount = (keys: number): number => 3 ** keys;
 
 /** Backtests the validation does for one chosen candidate on `seriesCount` series, at most. */
 export function validationBacktests(seriesCount: number, sweptKeys: number): number {
-  return seriesCount * (WALK_FORWARD.windows + neighbourCount(sweptKeys));
+  // Walk-forward windows, the neighbour grid, and the Monte Carlo selection and held-out runs.
+  return seriesCount * (WALK_FORWARD.windows + neighbourCount(sweptKeys) + 2);
 }
 
 /** Sweeps around the candidate: one step each side of each swept value, within the parameter's own limits. */
