@@ -17,6 +17,9 @@ export type ActiveDrawings = {
   hidden: boolean;
   /** Ids of drawings that do not show on the chart's current timeframe. */
   offTimeframe: readonly string[];
+  /** The current source has a step to undo / redo. */
+  canUndo: boolean;
+  canRedo: boolean;
   actions: DrawingActions;
 };
 
@@ -33,6 +36,8 @@ export function publish(entry: ActiveDrawings): void {
     c.owner === entry.owner &&
     c.drawings === entry.drawings &&
     c.hidden === entry.hidden &&
+    c.canUndo === entry.canUndo &&
+    c.canRedo === entry.canRedo &&
     c.actions === entry.actions &&
     same(c.selected, entry.selected) &&
     same(c.offTimeframe, entry.offTimeframe)
@@ -86,7 +91,7 @@ export function usePublishDrawings(src: Source): () => void {
     const st = s.getState();
     const prim = s.primRef.current;
     const offTimeframe = prim ? st.drawings.filter((d) => d.hidden !== true && !prim.shown(d)).map((d) => d.id) : [];
-    publish({ owner, drawings: st.drawings, selected: [...s.selectedRef.current], hidden: s.hiddenRef.current, offTimeframe, actions: s.actions });
+    publish({ owner, drawings: st.drawings, selected: [...s.selectedRef.current], hidden: s.hiddenRef.current, offTimeframe, canUndo: st.past.length > 0, canRedo: st.future.length > 0, actions: s.actions });
   }, [owner]);
   useEffect(() => {
     if (src.active) push();

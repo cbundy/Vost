@@ -11,7 +11,6 @@ import {
   saveDrawings,
   newDrawingId,
   previewMany,
-  redo,
   remove,
   removeAll,
   removeMany,
@@ -23,7 +22,6 @@ import {
   sourceKey,
   stateImageKeys,
   persistedImageKeys,
-  undo,
   anchorRange,
   type Anchor,
   type Drawing,
@@ -1240,12 +1238,9 @@ export function useDrawings(
         return;
       }
       if (action === 'undo' || action === 'redo') {
-        const st = getState();
-        const next = action === 'redo' ? redo(st) : undo(st);
         e.preventDefault();
-        if (next === st) return;
-        selectedRef.current = prune(selectedRef.current, next.drawings);
-        setState(next, true);
+        if (action === 'redo') actionsRef.current.redo();
+        else actionsRef.current.undo();
         return;
       }
       if (action === 'copy') {

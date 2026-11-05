@@ -2,7 +2,7 @@ import { useMemo, type MutableRefObject, type RefObject } from 'react';
 import { prune } from '../../lib/drawingSelection';
 import { MOUSE_HIT } from '../../lib/drawingGeometry';
 import { copyDrawings, isClipboardEmpty, readDrawings } from '../../lib/drawingClipboard';
-import { cloneMany, paste, removeAll, removeMany, moveTo, rename, reorderMany, setCells, setHidden, setLocked, type Drawing, type DrawingsState, type ReorderTo } from '../../lib/drawings';
+import { cloneMany, paste, removeAll, removeMany, moveTo, redo, rename, reorderMany, setCells, setHidden, setLocked, undo, type Drawing, type DrawingsState, type ReorderTo } from '../../lib/drawings';
 import type { DrawingPrimitive } from './drawingPrimitive';
 import { TABLE_MAX, deleteColumn, deleteRow, insertColumn, insertRow, tableSize } from '../../lib/geometry/table';
 import { cellUnder } from './tableEditing';
@@ -153,6 +153,21 @@ export function useDrawingActions({ getState, setState, selectedRef, primRef, co
       remove(ids: readonly string[]) {
         apply(removeMany(getState(), ids));
         select(prune(selectedRef.current, getState().drawings) as string[]);
+      },
+      /** Steps the drawing history back or forward (Ctrl+Z / Ctrl+Shift+Z and the top bar's buttons), pruning the selection. */
+      undo() {
+        const st = getState();
+        const next = undo(st);
+        if (next === st) return;
+        selectedRef.current = prune(selectedRef.current, next.drawings);
+        setState(next, true);
+      },
+      redo() {
+        const st = getState();
+        const next = redo(st);
+        if (next === st) return;
+        selectedRef.current = prune(selectedRef.current, next.drawings);
+        setState(next, true);
       },
       canPaste: () => !isClipboardEmpty(),
       /** Whether "Remove drawings" has anything to remove. */

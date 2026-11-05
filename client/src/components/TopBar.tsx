@@ -11,7 +11,7 @@ import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
 import { selectDataCandles } from '../state/chart';
 import { ChartRangeControl } from './ChartRangeControl';
-import { BellIcon, GearIcon, InboxIcon, RefreshIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
+import { BellIcon, GearIcon, InboxIcon, RefreshIcon, RedoIcon, ReplayIcon, StarIcon, UndoIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { LayoutDialogs } from './LayoutDialogs';
 import { LayoutMenu } from './LayoutMenu';
@@ -20,6 +20,7 @@ import { SettingsDialog } from './SettingsDialog';
 import { SymbolSearch } from './SymbolSearch';
 import { TopBarMore } from './TopBarMore';
 import type { Interval } from '../types';
+import { useActiveDrawings } from './chart/activeDrawings';
 import { useChart, useChartStore } from '../state/chartContext';
 
 const ADD_INTERVAL = '__add-interval';
@@ -40,6 +41,7 @@ export function TopBar({
   const chartStore = useChartStore();
   const providerInMore = tier === 'narrow' || tier === 'tiny';
   const importInMore = tier !== 'full';
+  const drawingsEntry = useActiveDrawings();
 
   const providerId = useChart((s) => s.providerId);
   const timeframe = useChart((s) => s.timeframe);
@@ -151,6 +153,17 @@ export function TopBar({
       Replay
     </button>
   );
+  /** Undo and Redo for the active chart's drawings, the same as Ctrl+Z and Ctrl+Shift+Z. */
+  const undoButtons = (
+    <>
+      <button className="ghost icon" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!drawingsEntry?.canUndo} onClick={() => drawingsEntry?.actions.undo()}>
+        <UndoIcon />
+      </button>
+      <button className="ghost icon" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!drawingsEntry?.canRedo} onClick={() => drawingsEntry?.actions.redo()}>
+        <RedoIcon />
+      </button>
+    </>
+  );
   const importButton = (after?: () => void) => (
     <button
       onClick={() => {
@@ -236,6 +249,8 @@ export function TopBar({
 
       {!providerInMore && replayButton()}
 
+      {tier !== 'tiny' && undoButtons}
+
       <ConnectionStatus />
 
       <div className="topbar-right">
@@ -311,6 +326,12 @@ export function TopBar({
                   <div className="more-row">
                     <span className="more-label">Replay</span>
                     {replayButton(close)}
+                  </div>
+                )}
+                {tier === 'tiny' && (
+                  <div className="more-row">
+                    <span className="more-label">Undo</span>
+                    {undoButtons}
                   </div>
                 )}
                 <div className="more-row">{importButton(close)}</div>
