@@ -40,6 +40,10 @@ When the range starts before the bars the chart has loaded (the chart opens on t
 
 The **Results** tab shows 20+ metrics (return against Buy & hold, CAGR, Sharpe, Sortino, Calmar, max drawdown and its duration, profit factor, exposure, expectancy and more; hover, focus or tap any figure for what it means, how to read it and what it relates to), the equity and underwater chart and the full trade log. **Export trades CSV** and **Export equity CSV** save them. The equity chart draws a dashed grey **Buy & hold** line next to the strategy's equity, starting from the same capital, with a legend naming both lines and their final values. Buy & hold ignores fees and slippage. **Export equity CSV** has a `buy_hold` column with the same curve.
 
+The **Max DD duration** card shows the longest drawdown in bars and, under it, the same stretch in time units: minutes, hours, days, weeks and years, only the units that fit (at least one, and none finer than the data's bar size). It is real clock time between the bars, so a stock's weekends and nights count; on 24/7 crypto data it equals bars times the timeframe.
+
+![The metric grid with the Max DD duration card](../evidence/bt-results/bt-results-metric-grid-desktop.png)
+
 ![The equity chart with the Buy & hold line](../evidence/bt-results/bt-results-equity-desktop.png)
 
 Every figure in the tab has this help, including the breakdown rows, streaks, exit reasons, the chart legend and the Monte Carlo figures. Press Escape to close it.

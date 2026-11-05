@@ -73,12 +73,19 @@ export function computeMetrics(
   // Drawdown.
   let maxDrawdownPct = 0;
   let maxDrawdownBars = 0;
+  let maxDrawdownSeconds = 0;
   let currentDdBars = 0;
-  for (const p of equity) {
+  let stretchStart = 0;
+  for (let i = 0; i < equity.length; i++) {
+    const p = equity[i];
     if (p.drawdownPct < maxDrawdownPct) maxDrawdownPct = p.drawdownPct;
     if (p.drawdownPct < -0.0001) {
+      if (currentDdBars === 0) stretchStart = equity[i > 0 ? i - 1 : 0].time;
       currentDdBars++;
-      if (currentDdBars > maxDrawdownBars) maxDrawdownBars = currentDdBars;
+      if (currentDdBars > maxDrawdownBars) {
+        maxDrawdownBars = currentDdBars;
+        maxDrawdownSeconds = Math.max(0, p.time - stretchStart);
+      }
     } else {
       currentDdBars = 0;
     }
@@ -108,6 +115,7 @@ export function computeMetrics(
     calmar,
     maxDrawdownPct,
     maxDrawdownBars,
+    maxDrawdownSeconds,
     exposurePct: (exposureBars / totalBars) * 100,
     buyHoldPct: candles.length > 1 && candles[0].close > 0 ? (candles[candles.length - 1].close / candles[0].close - 1) * 100 : 0,
     trades: trades.length,

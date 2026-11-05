@@ -55,6 +55,7 @@ const METRIC_FIELDS: Record<keyof Metrics, true> = {
   calmar: true,
   maxDrawdownPct: true,
   maxDrawdownBars: true,
+  maxDrawdownSeconds: true,
   exposurePct: true,
   buyHoldPct: true,
   trades: true,

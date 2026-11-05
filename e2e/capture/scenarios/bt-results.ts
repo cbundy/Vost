@@ -33,6 +33,16 @@ export const btResults: Scenario = {
       await page.getByText('Equity curve & drawdown', { exact: false }).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
     });
     await ctx.screenshot('equity');
+    await ctx.step('scroll to the top of the metric grid and check the Max DD duration card has a time line', async () => {
+      const card = page.locator('.metric-card', { hasText: 'Max DD duration' });
+      await card.locator('.m-sub').waitFor();
+      await card.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+      const box = await card.boundingBox();
+      const vp = await page.evaluate(() => window.innerHeight);
+      if (!box || box.y < 0 || box.y + box.height > vp) throw new Error(`Max DD duration card is not fully in view: ${JSON.stringify(box)} in height ${vp}`);
+    });
+    await ctx.screenshot('metric-grid');
     await ctx.step('hover a card in the right-most column and see its tooltip inside the viewport', async () => {
       await page.locator('.metrics-grid').first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
       const cards = page.locator('.metrics-grid').first().locator('.metric-card');
