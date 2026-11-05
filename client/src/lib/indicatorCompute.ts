@@ -119,6 +119,8 @@ export interface IndicatorSpec {
   visible: boolean;
   /** kind 'pine' only: the Pine Script source. */
   source?: string;
+  /** kind 'pine' only: unapplied editor text, present only while it differs from `source`. */
+  draft?: string;
   /** kind 'pine' only: input overrides keyed by input title. */
   inputs?: Record<string, PineInputValue>;
 }

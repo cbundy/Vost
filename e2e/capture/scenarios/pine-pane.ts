@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { addToChart, setPineSource } from '../pine-editor.ts';
 
 const inputsScript = readFileSync(new URL('../../../client/src/lib/pine/fixtures/inputs.pine', import.meta.url), 'utf8');
 
 export const pinePane: Scenario = {
   name: 'pine-pane',
-  description: 'Pine editor pane beside the chart (a dialog when narrow): add through the side panel, edit, error, close then Edit, top bar toggle, keyboard resize, empty state',
+  description: 'Pine editor pane beside the chart (a dialog when narrow): add through the side panel, edit as an unapplied draft, Add to chart, error, close then Edit, top bar toggle, keyboard resize, empty state',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -32,10 +33,27 @@ export const pinePane: Scenario = {
       await page.locator('.pine-status').getByText(/^Pine v\d+$|^no version$/).waitFor();
       if ((await toggle.getAttribute('aria-pressed')) !== 'true') throw new Error('the Pine Editor button is not pressed');
     });
+    const add = pane.getByRole('button', { name: 'Add to chart' });
+    await ctx.step('typing leaves the chart alone: Add to chart is enabled and nothing runs', async () => {
+      if (await add.isEnabled()) throw new Error('Add to chart is enabled before any edit');
+      await page.locator('.pine-editor .cm-content').click();
+      await page.keyboard.press('Control+End');
+      await page.keyboard.insertText('// a draft\n');
+      await page.waitForTimeout(600);
+      if (!(await add.isEnabled())) throw new Error('Add to chart is disabled after an edit');
+      if ((await pane.getByText('Running…').count()) > 0) throw new Error('typing started a run');
+    });
+    await ctx.screenshot('unapplied');
+    await ctx.step('Add to chart applies the draft and disables the button', async () => {
+      await addToChart(page);
+      await add.waitFor();
+      await page.waitForFunction(() => document.querySelector('.pine-entry-actions button')?.hasAttribute('disabled'));
+    });
     await ctx.step('type a syntax error', async () => {
       await page.locator('.pine-editor .cm-content').click();
       await page.keyboard.press('Control+End');
       await page.keyboard.type('\nplot(1 +');
+      await addToChart(page);
       await page.locator('.pine-error').waitFor();
     });
     await ctx.screenshot('error');
@@ -99,9 +117,7 @@ export const pinePane: Scenario = {
         'alertcondition(up, "Cross up", "fast crossed slow")',
         'plot(fast)',
       ].join('\n');
-      await page.locator('.pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      await page.keyboard.insertText(script);
+      await setPineSource(page, script);
       await page.locator('.pine-messages').waitFor();
       await page.locator('.pine-messages').getByText('Alerts (').waitFor();
       await page.locator('.pine-messages').getByText('Alert conditions (').waitFor();
@@ -109,9 +125,7 @@ export const pinePane: Scenario = {
     });
     await ctx.screenshot('messages');
     await ctx.step('a script with every input type shows a control for each, in its groups and rows', async () => {
-      await page.locator('.pine-editor .cm-content').click();
-      await page.keyboard.press('Control+A');
-      await page.keyboard.insertText(inputsScript);
+      await setPineSource(page, inputsScript);
       const inputs = pane.locator('.pine-inputs');
       await inputs.waitFor();
       for (const heading of ['Bands', 'Style', 'Higher timeframe', 'Filters']) await inputs.getByRole('heading', { name: heading }).waitFor();

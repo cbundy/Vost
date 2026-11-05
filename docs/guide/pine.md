@@ -8,6 +8,12 @@ Press **Pine Editor** in the top bar (or **Edit** on a Pine indicator in the Ind
 
 ![The Pine pane](../evidence/pine-pane/pine-pane-editor-desktop.png)
 
+### Add to chart
+
+What you type is a draft: the chart, the inputs list and the messages stay as they were. Press **Add to chart** (or Ctrl+Enter, Cmd+Enter on a Mac) to put the edited script on the chart and run it. The button is enabled only while the draft differs from the script on the chart. An unapplied draft is kept with the indicator, so it survives closing the pane, switching indicators and reloading, and a saved layout keeps it. Errors always describe the last script you added, and update only when you add again. Backtests, the optimizer and Compare use the script on the chart, never an unapplied draft. Input controls apply at once, since they are not the editor. **Convert to v6** converts the draft and writes it back as a draft, so press Add to chart afterwards.
+
+![A draft that is not on the chart yet, with Add to chart enabled](../evidence/pine-pane/pine-pane-unapplied-desktop.png)
+
 ### Inputs
 
 Every input of the script gets a control that fits its type: a number field, a checkbox, a select (for `input.source`, which lists the eight price sources, and for inputs with options), a color picker with an opacity slider, a UTC date-time field for `input.time`, a timeframe select (Chart, then the chart's own intervals), text fields for symbols and sessions, and a multi-line field for `input.text_area`. A symbol field suggests symbols from the current provider but never changes the chart's symbol. Inputs sit in the script's own groups (the heading), side by side where it sets `inline`, and a script's `tooltip` shows on the label (hover the label or the i mark). The same controls are in the Backtest pane.

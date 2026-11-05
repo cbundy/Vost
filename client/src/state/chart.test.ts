@@ -96,6 +96,60 @@ describe('pine indicators', () => {
     }
   });
 
+  const OTHER = '//@version=6\nindicator("Other title")\nplot(close)\n';
+
+  it('keeps editor text as a draft without running, and clears it when it equals the source', async () => {
+    const { useStore } = await setup();
+    chartOf(useStore).getState().addIndicator('pine');
+    const id = pineId(useStore);
+    const run = await settle(useStore, id);
+    const source = chartOf(useStore).getState().indicators.find((i) => i.id === id)!.source;
+    chartOf(useStore).getState().setPineDraft(id, OTHER);
+    const spec = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    expect(spec.draft).toBe(OTHER);
+    expect(spec.source).toBe(source);
+    expect(chartOf(useStore).getState().pineRuns[id]).toBe(run);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(chartOf(useStore).getState().pineRuns[id]).toBe(run);
+    chartOf(useStore).getState().setPineDraft(id, source!);
+    expect('draft' in chartOf(useStore).getState().indicators.find((i) => i.id === id)!).toBe(false);
+  });
+
+  it('applies a draft: source becomes the draft, draft cleared, one run; no-op without a draft', async () => {
+    const { useStore } = await setup();
+    chartOf(useStore).getState().addIndicator('pine');
+    const id = pineId(useStore);
+    const first = await settle(useStore, id);
+    chartOf(useStore).getState().applyPineDraft(id);
+    expect(chartOf(useStore).getState().pineRuns[id]).toBe(first);
+    chartOf(useStore).getState().setPineDraft(id, OTHER);
+    chartOf(useStore).getState().applyPineDraft(id);
+    const spec = chartOf(useStore).getState().indicators.find((i) => i.id === id)!;
+    expect(spec.source).toBe(OTHER);
+    expect('draft' in spec).toBe(false);
+    await vi.waitFor(() => expect(chartOf(useStore).getState().pineRuns[id].result?.declaration.title).toBe('Other title'), { timeout: 20000 });
+  });
+
+  it('persists a draft in prefs', async () => {
+    vi.useFakeTimers();
+    try {
+      const { useStore } = await setup();
+      chartOf(useStore).getState().addIndicator('pine');
+      const id = pineId(useStore);
+      chartOf(useStore).getState().setPineDraft(id, OTHER);
+      vi.advanceTimersByTime(1000);
+      vi.resetModules();
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const fresh = track((await import('./store')).useStore);
+      fresh.getState().init();
+      const pine = chartOf(fresh).getState().indicators.find((i) => i.id === id)!;
+      expect(pine.draft).toBe(OTHER);
+      expect(pine.source).toContain('EMA cross');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('loads old saved prefs that have no pine entries', async () => {
     localStorage.setItem(
       'vost.prefs.v1',

@@ -268,6 +268,10 @@ export interface ChartState {
   addIndicator(kind: IndicatorKind): string;
   removeIndicator(id: string): void;
   updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
+  /** Pine: keeps edited editor text as a draft (no run); cleared when it equals the applied source. */
+  setPineDraft(id: string, text: string): void;
+  /** Pine: puts the draft on the chart as the source and runs it once. No-op without a draft. */
+  applyPineDraft(id: string): void;
   setShowTrades(v: boolean): void;
   setBtConfig(patch: Partial<BacktestConfig>): void;
   setBtRange(range: TimeRange): void;
@@ -903,6 +907,32 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       });
       env.onPrefsChange();
       if (patch.source !== undefined || patch.inputs !== undefined || patch.visible === true) schedulePine(id);
+    },
+
+    setPineDraft(id, text) {
+      set({
+        indicators: get().indicators.map((i) => {
+          if (i.id !== id || i.kind !== 'pine') return i;
+          const { draft: _drop, ...rest } = i;
+          return text === (i.source ?? '') ? rest : { ...rest, draft: text };
+        }),
+      });
+      env.onPrefsChange();
+    },
+
+    applyPineDraft(id) {
+      const cur = get().indicators.find((i) => i.id === id);
+      if (!cur || cur.kind !== 'pine' || cur.draft === undefined) return;
+      const draft = cur.draft;
+      set({
+        indicators: get().indicators.map((i) => {
+          if (i.id !== id) return i;
+          const { draft: _drop, ...rest } = i;
+          return { ...rest, source: draft };
+        }),
+      });
+      env.onPrefsChange();
+      schedulePine(id);
     },
 
     setShowTrades(v) {

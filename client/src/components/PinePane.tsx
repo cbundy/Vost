@@ -22,6 +22,8 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
   const selectedPineId = useChart((s) => s.selectedPineId);
   const pineRuns = useChart((s) => s.pineRuns);
   const updateIndicator = useChart((s) => s.updateIndicator);
+  const setPineDraft = useChart((s) => s.setPineDraft);
+  const applyPineDraft = useChart((s) => s.applyPineDraft);
   const addIndicator = useChart((s) => s.addIndicator);
   const openPineEditor = useStore((s) => s.openPineEditor);
   const rootRef = useRef<HTMLElement>(null);
@@ -75,10 +77,12 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
       {active ? (
         <PineEntry
           key={active.id}
-          source={active.source ?? ''}
+          source={active.draft ?? active.source ?? ''}
+          hasDraft={active.draft !== undefined}
           overrides={active.inputs ?? {}}
           run={pineRuns[active.id]}
-          onSource={(source) => updateIndicator(active.id, { source })}
+          onSource={(text) => setPineDraft(active.id, text)}
+          onApply={() => applyPineDraft(active.id)}
           onInput={(name, v) => updateIndicator(active.id, { inputs: { [name]: v } })}
           onPasteLibrary={(path) => setLibraries({ path })}
         />
@@ -97,16 +101,20 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
 
 function PineEntry({
   source,
+  hasDraft,
   overrides,
   run,
   onSource,
+  onApply,
   onInput,
   onPasteLibrary,
 }: {
   source: string;
+  hasDraft: boolean;
   overrides: Record<string, PineInputValue>;
   run: PineRunState | undefined;
   onSource: (source: string) => void;
+  onApply: () => void;
   onInput: (name: string, v: PineInputValue) => void;
   onPasteLibrary: (path: string) => void;
 }) {
@@ -117,9 +125,14 @@ function PineEntry({
   return (
     <div className="pine-entry">
       <div className="pine-entry-editor">
-        <PineEditor value={source} onChange={onSource} error={error} ariaLabel="Pine source" minHeight={60} onCursor={(line, col) => setCursor({ line, col })} />
+        <PineEditor value={source} onChange={onSource} error={error} ariaLabel="Pine source" minHeight={60} onCursor={(line, col) => setCursor({ line, col })} onSubmit={onApply} />
       </div>
-      {run?.running && <div className="muted-2" style={{ fontSize: 11.5 }}>Running…</div>}
+      <div className="pine-entry-actions">
+        <button className="primary" disabled={!hasDraft} title={hasDraft ? 'Add the edited script to the chart (Ctrl+Enter)' : 'No changes to add to the chart'} onClick={onApply}>
+          Add to chart
+        </button>
+        {run?.running && <span className="muted-2" style={{ fontSize: 11.5 }}>Running…</span>}
+      </div>
       <PineConvert source={source} error={error} onChange={onSource} />
       {error?.library && (
         <div className="pine-error-actions">
