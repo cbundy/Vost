@@ -304,11 +304,14 @@ export function ChartPanel({
               ...(fmt.priceFormat && { priceFormat: fmt.priceFormat }),
               lastValueVisible: fmt.lastValueVisible,
               crosshairMarkerVisible: false,
-              priceScaleId: 'right',
+              priceScaleId: cs.pane === 'volume' ? 'volume' : 'right',
               ...priceLine,
             },
             paneIndex,
           );
+          if (cs.pane === 'volume') {
+            chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+          }
         } else {
           series = chart.addSeries(
             LineSeries,
@@ -321,11 +324,14 @@ export function ChartPanel({
               ...(fmt.priceFormat && { priceFormat: fmt.priceFormat }),
               lastValueVisible: fmt.lastValueVisible,
               crosshairMarkerVisible: false,
-              priceScaleId: 'right',
+              priceScaleId: cs.pane === 'volume' ? 'volume' : 'right',
               ...priceLine,
             },
             paneIndex,
           );
+          if (cs.pane === 'volume') {
+            chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+          }
           for (const pl of cs.priceLines ?? []) {
             series.createPriceLine({
               price: pl.value,
