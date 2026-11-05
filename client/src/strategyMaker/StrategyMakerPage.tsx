@@ -57,6 +57,7 @@ export default function StrategyMakerPage() {
   const [storeState, setStoreState] = useState<'pending' | 'ok' | 'none'>('pending');
   const [counts, setCounts] = useState<Record<string, number>>({});
   const store = useRef<Store | null>(null);
+  const storeReady = useRef<Promise<void>>(Promise.resolve());
   const baseline = useRef<readonly HighlightTrade[]>(history.present);
   const pending = useRef<Pending | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,7 +81,7 @@ export default function StrategyMakerPage() {
   useEffect(() => {
     document.title = 'Strategy maker - Vost';
     let gone = false;
-    void openStore().then(async (st) => {
+    storeReady.current = openStore().then(async (st) => {
       if (gone) return st?.close();
       store.current = st;
       setStoreState(st ? 'ok' : 'none');
@@ -102,7 +103,8 @@ export default function StrategyMakerPage() {
 
   // Marks changed by the user are written within a moment; marks that were just loaded are not.
   useEffect(() => {
-    if (history.present === baseline.current || !source) return;
+    const untouched = history.past.length === 0 && history.future.length === 0;
+    if ((untouched && history.present === baseline.current) || !source) return;
     pending.current = { source, trades: [...history.present], candles: candlesRef.current };
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(flush, SAVE_DELAY_MS);
@@ -127,6 +129,7 @@ export default function StrategyMakerPage() {
       const sid = setId(src);
       void (async () => {
         let saved: HighlightTrade[] = [];
+        await storeReady.current;
         try {
           saved = (await store.current?.get(sid))?.trades ?? [];
         } catch {

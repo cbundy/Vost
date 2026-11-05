@@ -80,6 +80,8 @@ export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
       return Math.round(logical ?? 0);
     };
     let start: number | null = null;
+    let lo = 0;
+    let hi = 0;
     let pointer = -1;
     const clampIdx = (i: number) => Math.max(0, Math.min(live.current.times.length - 1, i));
     const previewFor = (a: number, b: number): HighlightTrade | null => {
@@ -95,13 +97,17 @@ export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
     const down = (e: PointerEvent) => {
       if (!live.current.tool || (e.pointerType === 'mouse' && e.button !== 0)) return;
       start = indexAt(e);
+      lo = hi = start;
       pointer = e.pointerId;
       el.setPointerCapture(e.pointerId);
       e.preventDefault();
     };
     const move = (e: PointerEvent) => {
       if (start === null || e.pointerId !== pointer) return;
-      prim.setPreview(previewFor(start, indexAt(e)));
+      const i = indexAt(e);
+      lo = Math.min(lo, i);
+      hi = Math.max(hi, i);
+      prim.setPreview(live.current.tool?.kind === 'eraser' ? previewFor(lo, hi) : previewFor(start, i));
     };
     const end = (e: PointerEvent, commit: boolean) => {
       if (start === null || e.pointerId !== pointer) return;
@@ -109,7 +115,11 @@ export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
       start = null;
       prim.setPreview(null);
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
-      if (commit && live.current.tool) live.current.onStroke(a, indexAt(e));
+      if (!commit || !live.current.tool) return;
+      const i = indexAt(e);
+      // An eraser removes every trade the drag passed over, not only between press and release.
+      if (live.current.tool.kind === 'eraser') live.current.onStroke(Math.min(lo, i), Math.max(hi, i));
+      else live.current.onStroke(a, i);
     };
     const up = (e: PointerEvent) => end(e, true);
     const cancel = (e: PointerEvent) => end(e, false);

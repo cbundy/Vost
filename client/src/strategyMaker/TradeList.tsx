@@ -17,7 +17,7 @@ export function TradeList({ trades, times, onFocus, onDelete }: Props) {
         <li key={`${t.entryTime}-${t.exitTime}`} className="sm-row">
           <button type="button" className="sm-row-main" onClick={() => onFocus(t)} title="Show on the chart">
             <span className={`sm-tag sm-tag-${t.side}`}>{t.side}</span>
-            <span>
+            <span className="sm-when">
               {fmt(t.entryTime)} to {fmt(t.exitTime)}
             </span>
             <span className="sm-bars">{barCount(times, t)} bars</span>

@@ -166,6 +166,11 @@
   color: var(--red);
   font-weight: 600;
 }
+.sm-when {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .sm-bars {
   color: var(--muted);
 }
