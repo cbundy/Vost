@@ -41,9 +41,13 @@ A script can also read another symbol, for example `request.security("BYBIT:ETHU
 
 ![A daily EMA plotted on an hourly chart steps once a day](../evidence/pine-security/pine-security-daily-ema-desktop.png)
 
-An indicator can also declare its own timeframe, as in TradingView: `indicator("Daily SMA", overlay=true, timeframe="D", timeframe_gaps=false)` runs the whole script on daily bars and shows its values on the chart's bars. Each daily value shows on the last chart bar of its day (the day still in progress shows its value so far, never its final close); with `timeframe_gaps=false` it holds until the next day's value, with the default `true` it shows only on that one bar. A timeframe lower than the chart's, a seconds timeframe or one the data source cannot give stops the script with a message naming both timeframes.
+An indicator can also declare its own timeframe, as in TradingView: `indicator("Daily SMA", overlay=true, timeframe="D", timeframe_gaps=false)` runs the whole script on daily bars and shows its values on the chart's bars. Each daily value shows on the last chart bar of its day (the day still in progress shows its value so far, never its final close); with `timeframe_gaps=false` it holds until the next day's value, with the default `true` it shows only on that one bar. A script that names `timeframe` in its `indicator(...)` call (even `timeframe=""`) shows a Calculation section in the Pine pane, after its own inputs, as in TradingView: a Timeframe list (Chart, or any interval in the chart's list) and a "Wait for timeframe closes" checkbox (the script's `timeframe_gaps`). Changing either re-runs the indicator on that timeframe and the choice is saved with the chart; a script without the argument has no such section. A timeframe lower than the chart's runs the script on the lower bars and each chart bar shows the last value inside it. The lower bars loaded are the newest 20000 at most, so on a long chart the oldest chart bars show no value. A chart of an imported file cannot give lower bars, and a seconds timeframe or one the data source cannot give stops the script with a message naming both timeframes and where the timeframe came from (the script or the Calculation setting).
 
 ![A daily SMA from a declared timeframe steps once a day on an hourly chart](../evidence/pine-security/pine-security-declared-timeframe-desktop.png)
+
+![The Calculation section set to the daily timeframe, not waiting for closes](../evidence/pine-security/pine-security-calculation-higher-desktop.png)
+
+![The Calculation section set to 15m: each hourly bar shows the last 15m value inside it](../evidence/pine-security/pine-security-calculation-lower-desktop.png)
 
 Two limits: the time zone is always UTC (right for crypto, not for Yahoo stocks), and the tick size is estimated from the prices on the chart, not taken from the exchange.
 

@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDialogKeys } from '../lib/useDialogKeys';
 import { detectPineVersion } from '../lib/pine/version';
+import { declaresTimeframe } from '../lib/pine/declaredTimeframe';
 import { pineIndicatorName } from '../lib/pine/title';
 import { resolvePineSelection } from '../lib/pineSelection';
 import { fmtTime } from '../lib/format';
-import type { PineInputValue, PineMessages } from '../lib/pine/types';
+import type { PineCalculation, PineInputValue, PineMessages } from '../lib/pine/types';
 import { useStore } from '../state/store';
 import { type PineRunState } from '../state/chart';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
-import { PineInputList } from './PineInputControl';
+import { PineCalculationSection, PineInputList } from './PineInputControl';
 import { PineLibraries } from './PineLibraries';
 import { useChart } from '../state/chartContext';
 
@@ -80,10 +81,12 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
           source={active.draft ?? active.source ?? ''}
           hasDraft={active.draft !== undefined}
           overrides={active.inputs ?? {}}
+          calculation={active.calculation}
           run={pineRuns[active.id]}
           onSource={(text) => setPineDraft(active.id, text)}
           onApply={() => applyPineDraft(active.id)}
           onInput={(name, v) => updateIndicator(active.id, { inputs: { [name]: v } })}
+          onCalculation={(patch) => updateIndicator(active.id, { calculation: patch })}
           onPasteLibrary={(path) => setLibraries({ path })}
         />
       ) : (
@@ -103,19 +106,23 @@ function PineEntry({
   source,
   hasDraft,
   overrides,
+  calculation,
   run,
   onSource,
   onApply,
   onInput,
+  onCalculation,
   onPasteLibrary,
 }: {
   source: string;
   hasDraft: boolean;
   overrides: Record<string, PineInputValue>;
+  calculation: PineCalculation | undefined;
   run: PineRunState | undefined;
   onSource: (source: string) => void;
   onApply: () => void;
   onInput: (name: string, v: PineInputValue) => void;
+  onCalculation: (patch: PineCalculation) => void;
   onPasteLibrary: (path: string) => void;
 }) {
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
@@ -146,6 +153,14 @@ function PineEntry({
           inputs={inputs}
           valueOf={(inp) => overrides[inp.name] ?? inp.defval}
           onChange={(inp, v) => onInput(inp.name, v)}
+        />
+      )}
+      {declaresTimeframe(source) && (
+        <PineCalculationSection
+          timeframe={calculation?.timeframe ?? run?.result?.calculation?.timeframe ?? ''}
+          gaps={calculation?.gaps ?? run?.result?.calculation?.gaps ?? true}
+          onTimeframe={(timeframe) => onCalculation({ timeframe })}
+          onGaps={(gaps) => onCalculation({ gaps })}
         />
       )}
       {!error && run?.result?.messages && <PineMessagesView messages={run.result.messages} />}

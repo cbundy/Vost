@@ -6,7 +6,7 @@
  * (right for every crypto provider, not for stocks) and `syminfo.mintick` is estimated from the prices.
  */
 import type { IProvider, ISymbolInfo } from 'pinets';
-import { intervalSeconds, parseInterval, type Interval } from '../../../../shared/market';
+import { intervalSeconds, MAX_BARS, parseInterval, type Interval } from '../../../../shared/market';
 import { PROVIDER_CATALOG } from '../../../../shared/providerCatalog';
 import { buildBars } from '../../../../shared/timeframes';
 import type { Candle } from '../../types';
@@ -225,7 +225,9 @@ export function createMarketProvider(
     const from = Math.min(startMs, candles[0].time * 1000);
     if (wantMs < chartMs) {
       if (m.dataset) throw new Error(`the imported data has ${tf} bars and cannot give lower ones`);
-      const bars = await feed.bars({ providerId: m.providerId, symbol: m.symbol, interval, ...(m.source && { source: m.source }), fromMs: from, toMs: endTime });
+      // The newest bars that fit in one request; older chart bars get no value.
+      const lowFrom = Math.max(from, endTime - (MAX_BARS - 1) * wantMs);
+      const bars = await feed.bars({ providerId: m.providerId, symbol: m.symbol, interval, ...(m.source && { source: m.source }), fromMs: lowFrom, toMs: endTime });
       return bars.map((c) => kline(c, intervalEndMs(c.time * 1000, interval) - 1)).filter((k) => k.closeTime <= endTime);
     }
     if (m.dataset) {

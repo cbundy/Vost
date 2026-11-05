@@ -4,7 +4,7 @@
 import type { Series } from '../types';
 import { bollinger, ema, macd, rsi, sma, vwap, type MacdResult } from './indicators';
 import type { Candle } from '../types';
-import type { PineInputValue } from './pine/types';
+import type { PineCalculation, PineInputValue } from './pine/types';
 
 export type IndicatorKind = 'sma' | 'ema' | 'bb' | 'vwap' | 'volume' | 'rsi' | 'macd' | 'pine';
 
@@ -123,6 +123,8 @@ export interface IndicatorSpec {
   draft?: string;
   /** kind 'pine' only: input overrides keyed by input title. */
   inputs?: Record<string, PineInputValue>;
+  /** Pine only: the user's Calculation overrides (timeframe, wait for timeframe closes). Absent = the script's own values. */
+  calculation?: PineCalculation;
 }
 
 let indicatorCounter = 0;

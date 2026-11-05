@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildBars } from '../../../../shared/timeframes';
 import { sma } from '../indicators';
 import type { Candle } from '../../types';
+import { MAX_BARS } from '../../../../shared/market';
+import { remapToChart, declaresTimeframe } from './declaredTimeframe';
 import { runPine } from './runtime';
 import { candles15, fakeServer, hourlyOf } from './securityFixture';
 import type { PineMarket } from './types';
@@ -100,7 +102,12 @@ describe('indicator(timeframe=...)', () => {
   it('an empty or equal timeframe runs exactly as without it', async () => {
     const plain = await run('//@version=6\nindicator("x", overlay=true)\nplot(ta.sma(close, 3))');
     for (const a of ['timeframe=""', 'timeframe="60"']) {
-      expect(await run(decl(a) + 'plot(ta.sma(close, 3))')).toEqual(plain);
+      // Only the reported Calculation values differ: the script declares the argument, the plain one does not.
+      const r = await run(decl(a) + 'plot(ta.sma(close, 3))');
+      if (!r.ok) throw new Error(r.error.message);
+      const { calculation, ...rest } = r;
+      expect(calculation).toEqual({ timeframe: a.slice(11, -1), gaps: true });
+      expect(rest).toEqual(plain);
     }
   });
 
@@ -116,7 +123,6 @@ describe('indicator(timeframe=...)', () => {
     const failing = fakeServer(base);
     failing.failWith = 'HTTP 503';
     const cases: [string, Parameters<typeof run>, RegExp][] = [
-      ['5', [decl('timeframe="5"') + 'plot(close)'], /indicator\(timeframe="5"\).*60.*chart.*only on the chart's timeframe or a higher/],
       ['1S', [decl('timeframe="1S"') + 'plot(close)'], /indicator\(timeframe="1S"\).*60/],
       ['feed', [decl() + 'plot(close)', chart, failing.feed], /indicator\(timeframe="D"\).*60.*HTTP 503/],
     ];
@@ -128,5 +134,110 @@ describe('indicator(timeframe=...)', () => {
     const none = await runPine(decl() + 'plot(close)', chart, {});
     expect(none.ok).toBe(false);
     if (!none.ok) expect(none.error.message).toMatch(/indicator\(timeframe="D"\).*no market/);
+  });
+});
+
+describe('declaresTimeframe', () => {
+  const head = (args: string) => `//@version=6\nindicator(${args})\nplot(close)\n`;
+  it.each([
+    ['empty timeframe', head('"x", timeframe=""'), true],
+    ['daily', head('"x", timeframe="D"'), true],
+    ['multi-line call', '//@version=6\nindicator("x",\n  overlay=true,\n  timeframe = "D",\n  timeframe_gaps=true)\n', true],
+    ['gaps only', head('"x", timeframe_gaps=true'), false],
+    ['inside a string', head('"timeframe=x"'), false],
+    ['inside a comment', '//@version=6\nindicator("x") // timeframe="D"\n', false],
+    ['nested call', head('"x", format=format.price, precision=input(2, "timeframe=")'), false],
+    ['no argument', head('"x"'), false],
+    ['a strategy', '//@version=6\nstrategy("x", timeframe="D")\n', false],
+  ])('%s', (_, src, want) => {
+    expect(declaresTimeframe(src)).toBe(want);
+  });
+});
+
+describe('Calculation overrides', () => {
+  const plot = 'plot(ta.sma(close, 3))';
+  const runWith = async (src: string, calculation?: { timeframe?: string; gaps?: boolean }, candles = chart, feed = fakeServer(base).feed) => {
+    const r = await runPine(src, candles, {}, { market, feed, ...(calculation && { calculation }) });
+    if (!r.ok) throw new Error(r.error.message);
+    return r;
+  };
+
+  it('a timeframe override equals writing it in the script, gaps too', async () => {
+    expect((await runWith(decl('timeframe=""') + plot, { timeframe: 'D' })).plots).toEqual((await runWith(decl('timeframe="D"') + plot)).plots);
+    expect((await runWith(decl('timeframe=""') + plot, { timeframe: 'D', gaps: false })).plots).toEqual(
+      (await runWith(decl('timeframe="D", timeframe_gaps=false') + plot)).plots,
+    );
+  });
+
+  it('an override to the chart equals the plain run', async () => {
+    const a = await runWith(decl('timeframe="D"') + plot, { timeframe: '' });
+    const b = await runWith('//@version=6\nindicator("x", overlay=true)\n' + plot);
+    expect(a.plots).toEqual(b.plots);
+  });
+
+  it('a script without the argument ignores the overrides and reports no calculation', async () => {
+    const src = '//@version=6\nindicator("x", overlay=true)\n' + plot;
+    const a = await runWith(src, { timeframe: 'D', gaps: false });
+    expect(a).toEqual(await runWith(src));
+    expect(a.calculation).toBeUndefined();
+  });
+
+  it('a supporting script reports its declared values', async () => {
+    expect((await runWith(decl('timeframe="D", timeframe_gaps=false') + plot, { timeframe: '15' })).calculation).toEqual({ timeframe: 'D', gaps: false });
+    expect((await runWith(decl('timeframe=""') + plot)).calculation).toEqual({ timeframe: '', gaps: true });
+  });
+
+  it('a lower timeframe shows the last lower bar inside each chart bar', async () => {
+    const src = decl('timeframe=""');
+    const closes = (await runWith(src + 'plot(close)', { timeframe: '15' })).plots[0].values;
+    chart.forEach((c, i) => expect(closes[i]).toBeCloseTo(c.close, 9));
+    const got = (await runWith(src + 'plot(ta.sma(close, 4))', { timeframe: '15' })).plots[0].values;
+    const ref = sma(base.map((b) => b.close), 4);
+    chart.forEach((_, i) => {
+      const last = ref[i * 4 + 3];
+      if (last == null) expect(got[i]).toBeNull(); else expect(got[i]).toBeCloseTo(last, 9);
+    });
+  });
+
+  it('a dataset chart cannot give a lower timeframe', async () => {
+    const ds: PineMarket = { providerId: 'csv', symbol: 'DATA', barSeconds: 3600, dataset: true };
+    const r = await run(decl('timeframe=""') + 'plot(close)', chart, fakeServer(base).feed, ds);
+    expect(r.ok).toBe(true);
+    const low = await runPine(decl('timeframe=""') + 'plot(close)', chart, {}, { market: ds, feed: fakeServer(base).feed, calculation: { timeframe: '15' } });
+    expect(low.ok).toBe(false);
+    if (!low.ok) expect(low.error.message).toMatch(/Calculation timeframe 15.*cannot give lower ones/);
+  });
+
+  it('an override error names the Calculation setting, a script one names the declaration', async () => {
+    const r = await runPine(decl('timeframe=""') + 'plot(close)', chart, {}, { market, feed: fakeServer(base).feed, calculation: { timeframe: '1S' } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/^Calculation timeframe 1S cannot run on a 60 chart/);
+  });
+
+  it('a lower range beyond MAX_BARS runs on the newest bars only', async () => {
+    const big = candles15(MAX_BARS + 5000);
+    const bigChart = hourlyOf(big).slice(-6000);
+    const server = fakeServer(big);
+    const r = await runWith(decl('timeframe=""') + 'plot(close)', { timeframe: '15' }, bigChart, server.feed);
+    const v = r.plots[0].values;
+    expect(v.at(-1)).toBeCloseTo(bigChart.at(-1)!.close, 9);
+    expect(v[0]).toBeNull();
+    const filled = v.filter((x) => x !== null).length;
+    expect(filled).toBeGreaterThan(MAX_BARS / 4 - 10);
+    expect(filled).toBeLessThan(bigChart.length);
+    for (const c of server.calls) expect(((c.to ?? 0) - (c.from ?? 0)) / 900 + 1).toBeLessThanOrEqual(MAX_BARS + 1);
+    expect(server.calls.length).toBeGreaterThan(0);
+  });
+});
+
+describe('remapToChart', () => {
+  it('keeps the last of several source bars on one chart bar', () => {
+    const candles = [0, 3600, 7200].map((t) => ({ time: t, open: 1, high: 1, low: 1, close: 1, volume: 1 }));
+    const k = (open: number) => ({ openTime: open * 1000, closeTime: (open + 900) * 1000 - 1 }) as any;
+    const higher = [k(0), k(900), k(3600)];
+    const plots = { a: { data: [{ time: 0, value: 1 }, { time: 900000, value: 2 }, { time: 3600000, value: 3 }] } };
+    const out = remapToChart(plots, higher, candles, true).plots.a.data;
+    expect(out.map((p: any) => p.value)).toEqual([2, 3]);
+    expect(out.map((p: any) => p.time)).toEqual([0, 3600000]);
   });
 });

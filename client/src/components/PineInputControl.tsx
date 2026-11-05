@@ -137,6 +137,41 @@ function ColorField({ id, name, value, onChange }: { id: string; name: string; v
   );
 }
 
+/** The Calculation settings of an indicator that declares a `timeframe`: the timeframe it runs on and whether it waits for that timeframe's bars to close. */
+export function PineCalculationSection({
+  timeframe,
+  gaps,
+  onTimeframe,
+  onGaps,
+}: {
+  timeframe: string;
+  gaps: boolean;
+  onTimeframe: (v: string) => void;
+  onGaps: (v: boolean) => void;
+}) {
+  const tfId = useId();
+  const gapsId = useId();
+  return (
+    <div className="pine-inputs pine-calculation">
+      <section className="pine-input-group" aria-label="Calculation">
+        <h4 className="pine-input-heading">Calculation</h4>
+        <div className="pine-input-row">
+          <div className="pine-input pine-input-timeframe">
+            <label htmlFor={tfId} className="pine-input-label">Timeframe</label>
+            <TimeframeField id={tfId} value={timeframe} onChange={(v) => onTimeframe(String(v))} />
+          </div>
+        </div>
+        <div className="pine-input-row">
+          <div className="pine-input pine-input-bool">
+            <label htmlFor={gapsId} className="pine-input-label">Wait for timeframe closes</label>
+            <input id={gapsId} type="checkbox" checked={gaps} onChange={(ev) => onGaps(ev.target.checked)} />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function TimeframeField({ id, value, onChange }: { id: string; value: string; onChange: OnChange }) {
   const providerId = useChart((s) => s.providerId);
   const custom = useStore((s) => s.customTimeframes);

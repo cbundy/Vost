@@ -26,7 +26,7 @@ import type { PineInput, PineMarket } from '../lib/pine/types';
 import type { IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { defaultIndicator } from '../lib/indicatorCompute';
 import type { MessageSeverity } from '../lib/messages';
-import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
+import type { PineCalculation, PineError, PineInputValue, PineResult, PineRunOutcome } from '../lib/pine/types';
 import { type Source } from '../../../shared/timeframes.ts';
 import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, type SymbolSuggestion } from '../lib/providers';
@@ -267,7 +267,7 @@ export interface ChartState {
   /** Adds an indicator and returns its id. */
   addIndicator(kind: IndicatorKind): string;
   removeIndicator(id: string): void;
-  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue> }): void;
+  updateIndicator(id: string, patch: Partial<Pick<IndicatorSpec, 'params' | 'color' | 'visible' | 'source'>> & { inputs?: Record<string, PineInputValue>; calculation?: PineCalculation }): void;
   /** Pine: keeps edited editor text as a draft (no run); cleared when it equals the applied source. */
   setPineDraft(id: string, text: string): void;
   /** Pine: puts the draft on the chart as the source and runs it once. No-op without a draft. */
@@ -403,12 +403,12 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     if (candles.length === 0) return;
     pineInflight.add(id);
     pineDirty.delete(id);
-    const { source, inputs } = { source: spec.source ?? '', inputs: spec.inputs ?? {} };
+    const { source, inputs, calculation } = { source: spec.source ?? '', inputs: spec.inputs ?? {}, calculation: spec.calculation };
     const prev = get().pineRuns[id];
     setPineRun(id, { ...prev, running: true });
     let outcome: PineRunOutcome;
     try {
-      const res = await workerCall({ type: 'pine', source, candles, inputs, market: pineMarket() });
+      const res = await workerCall({ type: 'pine', source, candles, inputs, market: pineMarket(), ...(calculation && { calculation }) });
       outcome =
         res.type === 'pineResult' ? res.outcome : { ok: false, error: { message: 'Unexpected worker reply' } };
     } catch (err) {
@@ -429,6 +429,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         now &&
         (now.source ?? '') === source &&
         sameInputs(now.inputs ?? {}, inputs) &&
+        sameInputs({ ...now.calculation }, { ...calculation }) &&
         runIsPrefixOf(candles, get().candles)
       ) {
         setPineRun(id, { running: true, result: outcome, candles });
@@ -901,12 +902,13 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
                 ...patch,
                 params: { ...i.params, ...(patch.params ?? {}) },
                 ...(i.kind === 'pine' && { inputs: { ...(i.inputs ?? {}), ...(patch.inputs ?? {}) } }),
+                ...(i.kind === 'pine' && (i.calculation || patch.calculation) && { calculation: { ...i.calculation, ...patch.calculation } }),
               }
             : i,
         ),
       });
       env.onPrefsChange();
-      if (patch.source !== undefined || patch.inputs !== undefined || patch.visible === true) schedulePine(id);
+      if (patch.source !== undefined || patch.inputs !== undefined || patch.calculation !== undefined || patch.visible === true) schedulePine(id);
     },
 
     setPineDraft(id, text) {

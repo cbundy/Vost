@@ -150,6 +150,40 @@ describe('pine indicators', () => {
     }
   });
 
+  it('re-runs on a Calculation override and persists it; other settings are kept when one changes', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      const { useStore, candles } = await setup();
+      chartOf(useStore).getState().addIndicator('pine');
+      const id = pineId(useStore);
+      const src = '//@version=6\nindicator("X", timeframe="")\nplot(close)\n';
+      chartOf(useStore).getState().updateIndicator(id, { source: src });
+      vi.useRealTimers();
+      await vi.waitFor(() => expect(chartOf(useStore).getState().pineRuns[id]?.result?.calculation).toEqual({ timeframe: '', gaps: true }), { timeout: 20000 });
+      const first = chartOf(useStore).getState().pineRuns[id].result!;
+      expect(first.plots[0].values.filter((v) => v !== null)).toHaveLength(candles.length);
+
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      chartOf(useStore).getState().updateIndicator(id, { calculation: { timeframe: 'W' } });
+      chartOf(useStore).getState().updateIndicator(id, { calculation: { gaps: false } });
+      vi.advanceTimersByTime(1000);
+      const raw = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+      expect(raw.indicators.find((i: { id: string }) => i.id === id).calculation).toEqual({ timeframe: 'W', gaps: false });
+      vi.useRealTimers();
+      await vi.waitFor(() => expect(chartOf(useStore).getState().pineRuns[id]?.error).toBeDefined(), { timeout: 20000 });
+      const second = await settle(useStore, id);
+      // The test chart has no server to load weekly bars from; the message shows the request carried the setting.
+      expect(second.error?.message).toMatch(/^Calculation timeframe W /);
+      vi.resetModules();
+      vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+      const fresh = track((await import('./store')).useStore);
+      fresh.getState().init();
+      expect(chartOf(fresh).getState().indicators.find((i) => i.id === id)!.calculation).toEqual({ timeframe: 'W', gaps: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('loads old saved prefs that have no pine entries', async () => {
     localStorage.setItem(
       'vost.prefs.v1',

@@ -14,6 +14,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Candle } from '../../../shared/market.ts';
 import { DOWN_COLOR, UP_COLOR, chartTheme, theme } from '../lib/theme';
 import { strokeTrade, type HighlightTrade, type Tool } from './brush';
+import { FoundMarks } from './foundMarks';
+import type { FoundTrade } from './run';
 import { TradeBands } from './tradeBands';
 
 export interface FocusRequest {
@@ -29,13 +31,20 @@ interface Props {
   /** A finished stroke, from bar index a to bar index b (the page decides what the tool does with it). */
   onStroke: (a: number, b: number) => void;
   focus: FocusRequest | null;
+  /** The trades of a found strategy, drawn as outlines beside the user's bands. */
+  foundTrades?: readonly FoundTrade[];
 }
 
 /** The strategy maker's own candle chart: it pans, zooms and resizes with its box, and paints marked trades. */
-export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
+const NO_FOUND: readonly FoundTrade[] = [];
+
+export function CandleChart({ candles, trades, tool, onStroke, focus, foundTrades = NO_FOUND }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const bands = useRef(new TradeBands());
+  const foundMarks = useRef(new FoundMarks());
+  const latestFound = useRef(foundTrades);
+  latestFound.current = foundTrades;
   const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const times = useMemo(() => candles.map((c) => c.time), [candles]);
   const live = useRef({ tool, onStroke, times });
@@ -69,6 +78,8 @@ export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
     const prim = bands.current;
     series.attachPrimitive(prim);
     prim.setTrades(latest.current.trades);
+    series.attachPrimitive(foundMarks.current);
+    foundMarks.current.setTrades(latestFound.current);
     const mk = createSeriesMarkers(series, markersFor(latest.current.trades));
     markers.current = mk;
     chartRef.current = chart;
@@ -143,6 +154,10 @@ export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
     bands.current.setTrades(trades);
     markers.current?.setMarkers(markersFor(trades));
   }, [trades]);
+
+  useEffect(() => {
+    foundMarks.current.setTrades(foundTrades);
+  }, [foundTrades]);
 
   // A tool turns the chart's own pan and zoom off, and back on when it is left.
   useEffect(() => {

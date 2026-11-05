@@ -108,6 +108,9 @@ export interface PineStrategyConfig {
   defaultQtyValue: number;
 }
 
+/** The Calculation settings of an indicator that declares a `timeframe`: `""` is the chart; `gaps` is `timeframe_gaps`. */
+export interface PineCalculation { timeframe?: string; gaps?: boolean }
+
 export interface PineResult {
   ok: true;
   kind: PineKind;
@@ -124,6 +127,8 @@ export interface PineResult {
   messages?: PineMessages;
   /** The line, box, polyline and linefill objects the script left, in their final state. Absent when there are none. */
   drawings?: PineDrawings;
+  /** Present only for a script that declares `timeframe`: its own declared values. */
+  calculation?: { timeframe: string; gaps: boolean };
 }
 
 /** Where a drawing object is painted: over the candles, or in the script's own pane. */

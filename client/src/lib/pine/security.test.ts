@@ -152,9 +152,15 @@ describe('request.security on the chart symbol at another timeframe', () => {
     expect(fail.ok).toBe(false);
     if (!fail.ok) expect(fail.error.message).toMatch(/BTCUSDT.*HTTP 503/);
     s.failWith = undefined;
+    // The chart symbol's lower range is clamped to the newest bars that fit, so it runs; another symbol's range is not.
     const span = await run('plot(request.security(syminfo.tickerid, "1", close))');
-    expect(span.ok).toBe(false);
-    if (!span.ok) expect(span.error.message).toMatch(/BTCUSDT.*20000/);
+    expect(span.ok).toBe(true);
+    const minute = s.calls.filter((c) => c.timeframe === '1m');
+    expect(minute.length).toBeGreaterThan(0);
+    for (const c of minute) expect((c.to! - c.from!) / 60 + 1).toBeLessThanOrEqual(20000);
+    const wide = await runPine(head + 'plot(request.security("BINANCE:ETHUSDT", "1", close))', chart, {}, { market, feed: fakeServer(base, { markets: { 'binance|ETHUSDT': base } }).feed });
+    expect(wide.ok).toBe(false);
+    if (!wide.ok) expect(wide.error.message).toMatch(/ETHUSDT.*20000/);
     const other = await run('plot(request.security("NOPE:ETHUSDT", "D", close))');
     expect(other.ok).toBe(false);
     if (!other.ok) expect(other.error.message).toContain('unknown data source "NOPE"');
@@ -416,12 +422,13 @@ describe('request.security_lower_tf on the chart symbol', () => {
   });
 
   it('names request.security_lower_tf in the cap error, and request.security keeps its own name', async () => {
-    const low = await run('plot(array.size(request.security_lower_tf(syminfo.tickerid, "1", close)))');
+    const feed = fakeServer(base, { markets: { 'binance|ETHUSDT': base } });
+    const low = await run('plot(array.size(request.security_lower_tf("BINANCE:ETHUSDT", "1", close)))', chart, market, feed);
     expect(low.ok).toBe(false);
-    if (!low.ok) expect(low.error.message).toMatch(/^request\.security_lower_tf\(BTCUSDT, 1\).*86400.*20000/);
-    const sec = await run('plot(request.security(syminfo.tickerid, "1", close))');
+    if (!low.ok) expect(low.error.message).toMatch(/^request\.security_lower_tf\(BINANCE:ETHUSDT, 1\).*20000/);
+    const sec = await run('plot(request.security("BINANCE:ETHUSDT", "1", close))', chart, market, feed);
     expect(sec.ok).toBe(false);
-    if (!sec.ok) expect(sec.error.message).toMatch(/^request\.security\(BTCUSDT/);
+    if (!sec.ok) expect(sec.error.message).toMatch(/^request\.security\(BINANCE:ETHUSDT/);
   });
 
   it('names request.security_lower_tf in a failed fetch and a symbol not found', async () => {

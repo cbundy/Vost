@@ -1,5 +1,5 @@
 /**
- * An indicator that declares its own timeframe (`indicator("x", timeframe="D")`) runs on that timeframe's bars and
+ * An indicator that declares its own timeframe (or has one set in its Calculation settings) (`indicator("x", timeframe="D")`) runs on that timeframe's bars and
  * shows its values on the chart's bars. The bars are the ones `request.security` gets (finished bars plus the forming
  * bar rebuilt from the chart's candles), so a script never sees a higher bar's final close before the bar ends.
  */
@@ -15,6 +15,8 @@ export interface DeclaredTimeframe {
   timeframe: string;
   /** `timeframe_gaps`: true (the default) shows a higher bar's value only on its chart bar. */
   gaps: boolean;
+  /** True when the timeframe comes from the Calculation setting, not the script. */
+  fromSetting?: boolean;
 }
 
 /** Seconds in a Pine timeframe string, or null for one that is not a timeframe. */
@@ -26,26 +28,89 @@ function timeframeSeconds(tf: string): number | null {
   return n * (unit === 'S' ? 1 : unit === 'D' ? 86400 : unit === 'W' ? 604800 : unit === 'M' ? 2592000 : 60);
 }
 
-/** The timeframe the indicator declares, or null when it declares none or the chart's own. */
-export function readDeclaredTimeframe(indicator: Indicator, chartTf: string): DeclaredTimeframe | null {
+/**
+ * True when the first `indicator(...)` call passes a top-level `timeframe=` named argument (any value, `""` too).
+ * Strings, comments and nested calls are skipped; `timeframe_gaps=` alone does not count.
+ */
+export function declaresTimeframe(source: string): boolean {
+  const start = findIndicatorCall(source);
+  if (start < 0) return false;
+  let depth = 0;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '"' || ch === "'") { i = skipString(source, i); continue; }
+    if (ch === '/' && source[i + 1] === '/') { i = skipLine(source, i); continue; }
+    if (ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === ')' || ch === ']' || ch === '}') { depth--; if (depth === 0) return false; }
+    else if (depth === 1 && ch === 't' && /^timeframe\s*=(?!=)/.test(source.slice(i, i + 40)) && !/[\w.]/.test(source[i - 1] ?? '')) return true;
+  }
+  return false;
+}
+
+/** Index of the `(` of the first `indicator(` call outside strings and comments, or -1. */
+function findIndicatorCall(source: string): number {
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '"' || ch === "'") { i = skipString(source, i); continue; }
+    if (ch === '/' && source[i + 1] === '/') { i = skipLine(source, i); continue; }
+    if (ch === 'i' && !/[\w.]/.test(source[i - 1] ?? '')) {
+      const m = /^indicator\s*\(/.exec(source.slice(i, i + 40));
+      if (m) return i + m[0].length - 1;
+    }
+  }
+  return -1;
+}
+
+function skipString(source: string, at: number): number {
+  const q = source[at];
+  let i = at + 1;
+  while (i < source.length && source[i] !== q && source[i] !== '\n') i += source[i] === '\\' ? 2 : 1;
+  return i;
+}
+
+function skipLine(source: string, at: number): number {
+  const nl = source.indexOf('\n', at);
+  return nl < 0 ? source.length : nl;
+}
+
+/** The user's overrides of the declared timeframe (`""` = the chart). */
+export interface CalculationOverride { timeframe?: string; gaps?: boolean }
+
+/**
+ * The timeframe the indicator runs on, or null when it declares none, is not supported, or it is the chart's own.
+ * The script's own timeframe and gaps apply unless the override sets them.
+ */
+export function readDeclaredTimeframe(
+  indicator: Indicator,
+  chartTf: string,
+  supports: boolean,
+  override?: CalculationOverride,
+): DeclaredTimeframe | null {
+  if (!supports) return null;
   const prop = (indicator as any).prop;
-  const tf = prop?.timeframe;
-  if (typeof tf !== 'string' || tf.trim() === '') return null;
+  const own = typeof prop?.timeframe === 'string' ? prop.timeframe : '';
+  const fromSetting = typeof override?.timeframe === 'string';
+  const tf = (fromSetting ? override!.timeframe! : own).trim();
+  if (tf === '') return null;
   if (normalizeTimeframe(tf) === normalizeTimeframe(chartTf)) return null;
   const a = timeframeSeconds(tf);
   if (a !== null && a === timeframeSeconds(chartTf)) return null;
-  return { timeframe: tf.trim(), gaps: prop.timeframe_gaps !== false };
+  const gaps = typeof override?.gaps === 'boolean' ? override.gaps : prop?.timeframe_gaps !== false;
+  return { timeframe: tf, gaps, fromSetting };
 }
 
-const lead = (declared: DeclaredTimeframe) => `indicator(timeframe="${declared.timeframe}")`;
+/** The script's own declared calculation values. */
+export function declaredCalculation(indicator: Indicator): { timeframe: string; gaps: boolean } {
+  const prop = (indicator as any).prop;
+  return { timeframe: typeof prop?.timeframe === 'string' ? prop.timeframe : '', gaps: prop?.timeframe_gaps !== false };
+}
+
+const lead = (declared: DeclaredTimeframe) => (declared.fromSetting ? `Calculation timeframe ${declared.timeframe}` : `indicator(timeframe="${declared.timeframe}")`);
 
 /** Why the declared timeframe cannot run on the chart, or null. */
 export function checkDeclaredTimeframe(declared: DeclaredTimeframe, chartTf: string, market: PineMarket | undefined): string | null {
   const head = `${lead(declared)} cannot run on a ${chartTf} chart: `;
-  const want = timeframeSeconds(declared.timeframe);
-  const have = timeframeSeconds(chartTf);
-  if (want === null || !vostInterval(declared.timeframe)) return `${head}Vost has no bars for that timeframe`;
-  if (have !== null && want < have) return `${head}Vost runs a script only on the chart's timeframe or a higher one`;
+  if (timeframeSeconds(declared.timeframe) === null || !vostInterval(declared.timeframe)) return `${head}Vost has no bars for that timeframe`;
   if (!market) return `${head}the run has no market to load bars from`;
   return null;
 }
@@ -117,13 +182,15 @@ export function remapToChart(plots: Record<string, any>, higher: readonly Higher
   const out: Record<string, any> = {};
   for (const [key, plot] of Object.entries(plots)) {
     if (key.startsWith('__') || !plot || !Array.isArray(plot.data)) { out[key] = plot; continue; }
-    const data: any[] = [];
+    // Several lower bars can land on one chart bar: the last one's point stays.
+    const byChart = new Map<number, any>();
     for (const p of plot.data) {
       const i = byOpen.get(p.time);
       if (i === undefined) continue;
       const [from, to] = span(i);
-      for (let c = from; c <= to; c++) data.push({ ...p, time: candles[c].time * 1000 });
+      for (let c = from; c <= to; c++) byChart.set(c, { ...p, time: candles[c].time * 1000 });
     }
+    const data = [...byChart.values()];
     out[key] = { ...plot, data };
   }
   return { plots: out, times: at.map((c, i) => candles[Math.max(c, 0)].time) };
