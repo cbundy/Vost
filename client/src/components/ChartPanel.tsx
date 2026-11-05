@@ -43,6 +43,8 @@ import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { historyNeededFrom, resetLogicalRange, resetRangeKey } from '../lib/quickRange';
 import { HISTORY_PREFETCH_BARS } from '../lib/historyPaging';
+import { carriedView, isAssetSwitch, windowBars, type SeriesIdentity } from '../lib/carryView';
+import { MIN_RANGE_BARS } from '../lib/timeRange';
 import { useChart, useChartStore } from '../state/chartContext';
 import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
 
@@ -109,6 +111,9 @@ export function ChartPanel({
   const indMapRef = useRef(new Map<string, IndEntry>());
   const lastDataKeyRef = useRef('');
   const lastLeftEdgeRef = useRef<number | null>(null);
+  const lastSeriesRef = useRef<SeriesIdentity | null>(null);
+  /** Set from an asset switch until its carried window is shown: the views in between are not scroll backs. */
+  const carryingRef = useRef(false);
   const lastIndicatorsRef = useRef<unknown>(null);
   const lastCandlesRef = useRef<typeof candles | null>(null);
   const savedRangeRef = useRef<{ from: number; to: number } | null>(null);
@@ -325,6 +330,40 @@ export function ChartPanel({
     savedRangeRef.current = r ? { from: r.from, to: r.to } : null;
   }, [chartApi, replayPhase === 'active']);
 
+  /* After an asset switch scrolled back: show the same time window, paging older bars in first when it starts before the first one. */
+  async function showCarriedWindow(from: number, to: number, needFrom: number | null, key: string) {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const stale = () => chartStore.getState().dataKey !== key || chartRef.current !== chart;
+    try {
+      await carryWindow(chart, from, to, needFrom, stale);
+    } finally {
+      if (!stale()) carryingRef.current = false;
+    }
+  }
+
+  async function carryWindow(chart: IChartApi, from: number, to: number, needFrom: number | null, stale: () => boolean) {
+    const st = chartStore.getState();
+    if (needFrom != null && canPageOlder(st, useStore.getState().historyLoading)) {
+      await st.loadHistoryTo(needFrom);
+      if (stale()) return;
+    }
+    // One frame later: a range set in the same frame as new or merged bars is overridden by the chart's own update for them.
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    if (stale()) return;
+    const cs = chartStore.getState().candles;
+    if (cs.length === 0) return;
+    const start = Math.max(from, cs[0].time);
+    lastLeftEdgeRef.current = null; // moving to the carried window is not a scroll back: do not page for it
+    try {
+      if (needFrom != null && windowBars(cs, start, to) < MIN_RANGE_BARS) chart.timeScale().fitContent();
+      else chart.timeScale().setVisibleRange({ from: start as UTCTimestamp, to: to as UTCTimestamp });
+    } catch {
+      chart.timeScale().fitContent();
+    }
+    lastLeftEdgeRef.current = chart.timeScale().getVisibleLogicalRange()?.from ?? null;
+  }
+
   /* ---------------- push data (full or incremental) ---------------- */
   useEffect(() => {
     const chart = chartApi;
@@ -337,6 +376,18 @@ export function ChartPanel({
     // One bar appended or the last bar changed: send just that bar. Any other change to the same data
     // (replay entering, stepping back, exiting, a merged backfill) replaces the bars without refitting.
     const prev = lastCandlesRef.current;
+    // The view of the series being replaced, read before setData: an asset switch on the same timeframe carries it over.
+    const ts = chart.timeScale();
+    const oldLogical = dataChanged ? ts.getVisibleLogicalRange() : null;
+    const oldTimes = dataChanged ? ts.getVisibleRange() : null;
+    const oldLength = prev?.length ?? 0;
+    const st0 = chartStore.getState();
+    const series: SeriesIdentity = {
+      providerId: st0.providerId,
+      symbol: st0.symbol,
+      timeframe: st0.timeframe,
+      datasetId: st0.activeDatasetId ?? (st0.chartRange != null ? 'range' : null),
+    };
     const incremental =
       !dataChanged &&
       prev != null &&
@@ -354,7 +405,21 @@ export function ChartPanel({
       candleSeries.setData(candles.map((c) => toCandleData(c, barColors)));
       lastDataKeyRef.current = dataKey;
       lastLeftEdgeRef.current = null; // the fit below is not a scroll back: do not page for it
-      chart.timeScale().fitContent();
+      carryingRef.current = false;
+      const carried =
+        oldLogical && isAssetSwitch(lastSeriesRef.current, series)
+          ? carriedView({ logical: oldLogical, from: oldTimes ? Number(oldTimes.from) : null, to: oldTimes ? Number(oldTimes.to) : null, length: oldLength }, candles)
+          : null;
+      lastSeriesRef.current = series;
+      if (carried?.kind === 'logical') {
+        ts.setVisibleLogicalRange(carried.range);
+        lastLeftEdgeRef.current = carried.range.from;
+      } else if (carried) {
+        carryingRef.current = true;
+        void showCarriedWindow(carried.from, carried.to, carried.needFrom, dataKey);
+      } else {
+        ts.fitContent();
+      }
     } else if (incremental && sentBarColorsRef.current === barColors) {
       candleSeries.update(toCandleData(candles[candles.length - 1], barColors));
     } else {
@@ -387,7 +452,7 @@ export function ChartPanel({
       }
     }
 
-    if (prepended) {
+    if (prepended && !carryingRef.current) {
       const r = chart.timeScale().getVisibleLogicalRange();
       lastLeftEdgeRef.current = r ? r.from : null;
       if (r && r.from < HISTORY_PREFETCH_BARS) void chartStore.getState().loadOlder(); // still near the left edge: the next page
@@ -430,7 +495,7 @@ export function ChartPanel({
     if (!chartApi) return;
     const ts = chartApi.timeScale();
     const onRange = (r: LogicalRange | null) => {
-      if (!r) return;
+      if (!r || carryingRef.current) return;
       const prevFrom = lastLeftEdgeRef.current;
       lastLeftEdgeRef.current = r.from;
       // Only a move of the left edge toward older bars counts: a prepend shifts it right, a fresh fit is the first sample.

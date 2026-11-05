@@ -44,6 +44,12 @@ The clock at the right of the bar under the chart shows the time in a chosen zon
 
 In the chart toolbar, **Screenshot (PNG)** saves the chart as an image and **Export candles as CSV** saves the loaded bars. With several charts you can also download every chart's data ([Layouts](layouts.md#download-chart-data)). **Show backtest trades** toggles the trade markers from the last backtest ([Backtesting](backtesting.md)).
 
+## Switching symbol
+
+Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at (a chart following the latest bar keeps following the new symbol's latest bar), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, fits all loaded bars.
+
+![The same dates after switching symbol](../evidence/symbol-view/symbol-view-back-after-desktop.png)
+
 ## Live candles
 
 Charts open live on their own for providers that support it: **Live** in the top bar streams new candles. Turning Live off sticks for that chart through symbol, timeframe and provider changes until you turn it back on, and picking a chart range pauses it until you clear the range. The server keeps one exchange connection per feed and shares it between tabs, reconnects by itself and backfills the bars a drop missed. Live works on built timeframes too ([Timeframes](timeframes.md)). When live fails, the error goes to the inbox.
