@@ -30,7 +30,7 @@ docker build -t vost .
 docker run -d --name vost -p 8787:8787 --restart unless-stopped vost
 ```
 
-Open <http://localhost:8787>. The image runs as a non-root user. Mount a volume on `/data` to keep alerts across container re-creation (`-v vost-data:/data`); without it they live and die with the container.
+Open <http://localhost:8787>. The image runs as a non-root user. Mount a volume on `/data` to keep your data across container re-creation (`-v vost-data:/data`): alerts, settings, layouts, drawings, watchlists, datasets, pictures and strategy maker data all live there. Without it they live and die with the container.
 
 ## Docker Compose
 
@@ -121,6 +121,9 @@ server {
     add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
 
+    # Settings, datasets, pictures and strategy maker data are saved through /api; nginx's default 1 MB cap refuses big ones
+    client_max_body_size 128m;
+
     # Live candles: a long-lived event stream, so no buffering and no short read timeout
     location /api/live {
         proxy_pass http://127.0.0.1:8787;
@@ -152,6 +155,7 @@ server {
 Notes:
 
 - `/api/live` is a server-sent-events stream. Without the `location /api/live` block above (`proxy_buffering off`, a long `proxy_read_timeout`) the proxy holds the events back or cuts the stream, and the live indicator will not recover cleanly. The server also sends a `: ping` comment every 15 s and replies with `X-Accel-Buffering: no`.
+- The app saves your settings, layouts, drawings, watchlists, datasets, pictures and strategy maker data through `/api` (requests of up to 32 MB, 5 MB for a picture, 64 MB for the one-time settings move and 128 MB for a strategy maker import or move). A proxy's request-size cap below that (nginx defaults to 1 MB) answers `413`, and the app then reports the save as refused and does not retry it, so raise the cap as in `client_max_body_size` above.
 - Hashed assets (`/assets/*.js`, `*.css`) are served with `Cache-Control: immutable`; `index.html` with `no-cache`. Don't override this — it's what makes updates instant.
 - If you gate the app behind HTTP basic auth or an SSO proxy, protect `/` **and** `/api/*` so the market-data API isn't left open.
 
