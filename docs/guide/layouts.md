@@ -12,7 +12,7 @@ The **Select layout** button at the left of the top bar opens the arrangements, 
 
 ## Active chart
 
-Click a chart to make it active: it gets an accent outline. The top bar, the dock, the Pine pane and the watchlist act on the active chart. Drawing shortcuts (Escape, undo, redo, Delete) also act only on the active chart ([Drawings](drawings.md)).
+Click a chart to make it active: it gets an accent outline. The top bar, the dock, the Pine pane and the watchlist act on the active chart. The top bar's Undo and Redo buttons and the drawing shortcuts (Escape, undo, redo, Delete) also act only on the active chart ([Drawings](drawings.md)).
 
 ## Dividers
 

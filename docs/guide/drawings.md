@@ -85,7 +85,9 @@ Click the star beside a tool to favourite it; the list stays open. Favourites sh
 
 ## Working with drawings
 
-Click a drawing to select it, drag to move it and drag a handle to resize it. Delete or Backspace removes the selected drawing (or all the selected drawings). **Ctrl or Cmd+Z** undoes, **Ctrl or Cmd+Shift+Z** (or Ctrl+Y) redoes, Escape leaves the tool or clears the selection. With several charts these keys act on the active chart only ([Layouts](layouts.md)).
+Click a drawing to select it, drag to move it and drag a handle to resize it. Delete or Backspace removes the selected drawing (or all the selected drawings). **Ctrl or Cmd+Z** undoes, **Ctrl or Cmd+Shift+Z** (or Ctrl+Y) redoes, Escape leaves the tool or clears the selection. The **Undo** and **Redo** buttons in the top bar do the same and are greyed out when there is nothing to undo or redo (on a narrow window they sit in the **More** menu). With several charts the keys and buttons act on the active chart only ([Layouts](layouts.md)).
+
+![Top bar Undo enabled after drawing](../evidence/drawing-manage/drawing-manage-topbar-undo-desktop.png)
 
 The rail also has:
 

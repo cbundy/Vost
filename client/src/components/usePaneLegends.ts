@@ -1,6 +1,6 @@
 import type { IChartApi, ISeriesApi, MouseEventParams, Time } from 'lightweight-charts';
-import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
-import { paneLegendHtml } from '../lib/paneLegend';
+import { useEffect, useRef, useState, type MutableRefObject, type RefObject } from 'react';
+import { legendValueText, paneLegendHtml } from '../lib/paneLegend';
 import { paneFactors, recordFactors, type PaneFactors } from '../lib/subPaneSizes';
 
 type ValueSeries = ISeriesApi<'Line'> | ISeriesApi<'Baseline'> | ISeriesApi<'Histogram'>;
@@ -16,13 +16,24 @@ export interface PaneReg {
   entries: Array<{ title: string; color: string; series: ValueSeries }>;
 }
 
+/**
+ * The plots of one indicator drawn on the price pane, for the value spans of its legend row there. Kept apart from
+ * `panes`: the size keeping reads `panes` only, and the price pane has no stretch factor of an indicator's.
+ */
+export interface OverlayReg {
+  id: string;
+  source: 'builtin' | 'pine';
+  entries: Array<{ title: string; color: string; series: ValueSeries; compact?: boolean }>;
+}
+
 /** Shared by the built-in and Pine pane builders: the panes now built and the sizes the user left them at. */
 export interface PaneState {
   panes: Map<string, PaneReg>;
+  overlays: Map<string, OverlayReg>;
   factors: PaneFactors;
 }
 
-export const newPaneState = (): PaneState => ({ panes: new Map(), factors: new Map() });
+export const newPaneState = (): PaneState => ({ panes: new Map(), overlays: new Map(), factors: new Map() });
 
 /** Before a rebuild drops panes: keep their stretch factors per indicator id and forget their registrations. */
 export function releasePanes(chart: IChartApi, state: PaneState, source: PaneReg['source'] | 'all', liveIds: ReadonlySet<string>) {
@@ -69,18 +80,28 @@ export function usePaneLegends(
   chart: IChartApi | null,
   stateRef: MutableRefObject<PaneState>,
   hostRef: RefObject<HTMLDivElement | null>,
+  /** The element holding the price pane's legend rows: their value spans (`data-ov="<id>:<plot>"`) are written here. */
+  rowsRef: RefObject<HTMLDivElement | null>,
+  /** Called when the name of a pane's legend is double-clicked. */
+  onNameDoubleClick: (id: string) => void,
   deps: readonly unknown[],
-) {
+): { /** Changes whenever the panes or the price pane's plots change: what the React side of the legends renders from. */ sig: string; /** The element of each pane legend that holds its buttons. */ actionHosts: ReadonlyMap<string, HTMLElement> } {
+  const [shape, setShape] = useState<{ sig: string; actionHosts: ReadonlyMap<string, HTMLElement> }>({ sig: '', actionHosts: new Map() });
+  const dblRef = useRef(onNameDoubleClick);
+  dblRef.current = onNameDoubleClick;
   const api = useRef<{ sync: () => void; position: () => void; refresh: () => void } | null>(null);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!chart || !host) return;
     const divs = new Map<string, HTMLDivElement>();
+    const texts = new Map<string, HTMLElement>();
+    const actions = new Map<string, HTMLElement>();
     const html = new Map<string, string>();
     let param: MouseEventParams<Time> | null = null;
     let raf = 0;
     let dead = false;
+    let shownSig = '';
 
     const ro = new ResizeObserver(() => position());
     ro.observe(host);
@@ -96,8 +117,17 @@ export function usePaneLegends(
         });
         if (html.get(reg.id) !== next) {
           html.set(reg.id, next);
-          div.innerHTML = next;
+          const text = texts.get(reg.id);
+          if (text) text.innerHTML = next;
         }
+      }
+      const rows = rowsRef.current;
+      if (!rows) return;
+      for (const ov of stateRef.current.overlays.values()) {
+        ov.entries.forEach((e, i) => {
+          const el = rows.querySelector(`[data-ov="${ov.id}:${i}"]`);
+          if (el) el.textContent = legendValueText(valueAt(e.series, param), e.compact);
+        });
       }
     };
 
@@ -126,6 +156,8 @@ export function usePaneLegends(
         if (!regs.has(id)) {
           div.remove();
           divs.delete(id);
+          texts.delete(id);
+          actions.delete(id);
           html.delete(id);
         }
       }
@@ -134,8 +166,24 @@ export function usePaneLegends(
         const div = document.createElement('div');
         div.className = 'pane-legend';
         div.dataset.paneId = reg.id;
+        // The text is rewritten on every crosshair move; the buttons next to it are React's and never touched.
+        const text = document.createElement('span');
+        text.className = 'pane-legend-text';
+        const act = document.createElement('span');
+        act.className = 'legend-actions-host';
+        div.append(text, act);
         host.appendChild(div);
         divs.set(reg.id, div);
+        texts.set(reg.id, text);
+        actions.set(reg.id, act);
+      }
+      const sig = JSON.stringify([
+        [...regs.keys()],
+        [...stateRef.current.overlays.values()].map((o) => [o.id, o.entries.map((e) => [e.title, e.color])]),
+      ]);
+      if (sig !== shownSig) {
+        shownSig = sig;
+        setShape({ sig, actionHosts: new Map(actions) });
       }
       refresh();
       position();
@@ -147,6 +195,13 @@ export function usePaneLegends(
       }
     };
     api.current = { sync, position, refresh };
+    const onDouble = (ev: MouseEvent) => {
+      const t = ev.target as HTMLElement | null;
+      if (!t?.closest('.pane-legend-title')) return;
+      const id = t.closest<HTMLElement>('.pane-legend')?.dataset.paneId;
+      if (id) dblRef.current(id);
+    };
+    host.addEventListener('dblclick', onDouble);
 
     const onMove = (p: MouseEventParams<Time>) => {
       param = p.time != null ? p : null;
@@ -164,9 +219,15 @@ export function usePaneLegends(
       chart.unsubscribeCrosshairMove(onMove);
       window.removeEventListener('pointerup', onUp);
       ro.disconnect();
+      host.removeEventListener('dblclick', onDouble);
       for (const div of divs.values()) div.remove();
     };
-  }, [chart, stateRef, hostRef]);
+  }, [chart, stateRef, hostRef, rowsRef]);
+
+  /* The row spans React just rendered start empty: fill them. */
+  useEffect(() => {
+    api.current?.refresh();
+  }, [shape.sig]);
 
   /* After every rebuild of panes or data: register the divs, then place them once the chart has laid out. */
   useEffect(() => {
@@ -182,4 +243,6 @@ export function usePaneLegends(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chart, ...deps]);
+
+  return shape;
 }

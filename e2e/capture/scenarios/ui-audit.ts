@@ -553,7 +553,7 @@ export const uiAudit: Scenario = {
       await scan('pine pane');
       await act('pine remove', async () => {
         await showSideSection(page, 'Indicators', narrow);
-        await page.getByTitle('Remove').last().click();
+        await page.getByTitle('Remove', { exact: true }).last().click();
         if (narrow) {
           await page.keyboard.press('Escape');
           await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });

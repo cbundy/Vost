@@ -55,6 +55,7 @@ export const drawingManage: Scenario = {
       await page.mouse.up();
     };
 
+    const countIs = async (n: number) => (await stored()).length === n;
     const rail = page.getByRole('toolbar', { name: 'Drawing tools' });
     const menuBtn = page.getByRole('button', { name: 'Drawing tools', exact: true });
     const toolMenu = page.getByRole('group', { name: 'Drawing tools menu' });
@@ -96,6 +97,23 @@ export const drawingManage: Scenario = {
       check('Escape closes it', true);
     });
 
+    /** The top bar's Undo or Redo button (on the phone it sits in the More menu, which is left open). */
+    const topBtn = async (name: 'Undo' | 'Redo') => {
+      const pop = page.getByRole('dialog', { name: 'More', exact: true });
+      if (narrow && !(await pop.isVisible())) await page.locator('.topbar').getByRole('button', { name: 'More', exact: true }).click();
+      return (narrow ? pop : page.locator('.topbar')).getByRole('button', { name, exact: true });
+    };
+    const closeMore = async () => {
+      const pop = page.getByRole('dialog', { name: 'More', exact: true });
+      if (narrow && (await pop.isVisible())) await page.locator('.topbar').getByRole('button', { name: 'More', exact: true }).click();
+    };
+
+    await ctx.step('top bar Undo and Redo are disabled on a fresh source', async () => {
+      check('Undo disabled', await (await topBtn('Undo')).isDisabled());
+      check('Redo disabled', await (await topBtn('Redo')).isDisabled());
+      await closeMore();
+    });
+
     const [ta, tb] = await Promise.all(TREND.map(at));
     const body = mid(ta, tb);
 
@@ -107,6 +125,23 @@ export const drawingManage: Scenario = {
       const names = (await menu.getByRole('menuitem').allTextContents()).join(',');
       check('every action listed', names === 'Settings,Rename,Clone,Copy,Lock,Hide,Bring to front,Bring forward,Send backward,Send to back,Delete', names);
       await ctx.screenshot('menu');
+    });
+
+    await ctx.step('top bar Undo and Redo step the drawing back and forward', async () => {
+      await page.keyboard.press('Escape'); // the drawing's menu from the step above
+      await menu.waitFor({ state: 'detached' });
+      check('Undo enabled after drawing', await (await topBtn('Undo')).isEnabled());
+      check('Redo disabled', await (await topBtn('Redo')).isDisabled());
+      await ctx.screenshot('topbar-undo');
+      await (await topBtn('Undo')).click();
+      check('the line is gone', await countIs(0));
+      check('Undo disabled again', await (await topBtn('Undo')).isDisabled());
+      check('Redo enabled', await (await topBtn('Redo')).isEnabled());
+      await (await topBtn('Redo')).click();
+      check('the line is back', await countIs(1));
+      check('Redo disabled', await (await topBtn('Redo')).isDisabled());
+      await closeMore();
+      await rightClick(body); // the next step uses the drawing's menu
     });
 
     await ctx.step('Lock: a drag does nothing and the chart does not pan', async () => {
@@ -152,7 +187,6 @@ export const drawingManage: Scenario = {
       await b.click();
       return null;
     };
-    const countIs = async (n: number) => (await stored()).length === n;
     const undoTo = async (n: number) => {
       for (let i = 0; i < 6 && !(await countIs(n)); i++) await page.keyboard.press('Control+z');
       check(`back to ${n} drawing(s)`, await countIs(n));
@@ -652,6 +686,39 @@ export const drawingManage: Scenario = {
       await showSideSection(page, 'Object tree', narrow);
       await page.waitForFunction((n) => document.querySelectorAll('.object-row').length === n, 3);
       check('switching the active chart lists its three drawings', (await rowIds()).length === 3);
+    });
+
+    await ctx.step('the top bar buttons follow the active chart', async () => {
+      if (narrow) {
+        const dlg = page.getByRole('dialog', { name: 'Sidebar' });
+        await dlg.getByRole('button', { name: 'Close sidebar' }).click();
+        await dlg.waitFor({ state: 'detached' });
+      }
+      check('first chart: Undo enabled', await (await topBtn('Undo')).isEnabled());
+      await closeMore();
+      if (narrow) await page.getByRole('button', { name: 'Next chart' }).click();
+      else {
+        const b = await page.locator('.chart-cell').nth(1).boundingBox();
+        if (!b) throw new Error('no second cell');
+        await page.mouse.click(b.x + b.width * 0.1, b.y + b.height * 0.1);
+      }
+      await page.locator('.chart-cell.active .legend-title', { hasText: 'DEMO-BEAR' }).waitFor();
+      check('second chart: Undo enabled (the paste)', await (await topBtn('Undo')).isEnabled());
+      await (await topBtn('Undo')).click();
+      check('the paste is undone', (await stored('DEMO-BEAR')).length === 0);
+      check('second chart: Undo disabled', await (await topBtn('Undo')).isDisabled());
+      check('second chart: Redo enabled', await (await topBtn('Redo')).isEnabled());
+      await closeMore();
+      if (narrow) await page.getByRole('button', { name: 'Previous chart' }).click();
+      else {
+        const b = await page.locator('.chart-cell').nth(0).boundingBox();
+        if (!b) throw new Error('no first cell');
+        await page.mouse.click(b.x + b.width * 0.1, b.y + b.height * 0.1);
+      }
+      await page.locator('.chart-cell.active .legend-title', { hasNotText: 'DEMO-BEAR' }).waitFor();
+      check('back on the first chart: Undo enabled', await (await topBtn('Undo')).isEnabled());
+      check('back on the first chart: Redo disabled', await (await topBtn('Redo')).isDisabled());
+      await closeMore();
     });
 
     await ctx.writeText('checks', checks.join('\n') + '\n');

@@ -3,7 +3,7 @@ import { getSnapshot, publish, subscribe, unpublish, type ActiveDrawings } from 
 
 const actions = {} as ActiveDrawings['actions'];
 const none: ActiveDrawings['drawings'] = [];
-const entry = (owner: object, extra: Partial<ActiveDrawings> = {}): ActiveDrawings => ({ owner, drawings: none, selected: [], hidden: false, offTimeframe: [], actions, ...extra });
+const entry = (owner: object, extra: Partial<ActiveDrawings> = {}): ActiveDrawings => ({ owner, drawings: none, selected: [], hidden: false, offTimeframe: [], canUndo: false, canRedo: false, actions, ...extra });
 
 describe('activeDrawings registry', () => {
   it('publish is seen by a subscriber and unpublish by the owner clears it', () => {
@@ -41,6 +41,25 @@ describe('activeDrawings registry', () => {
     const next = entry(a, { selected: ['y'] });
     publish(next);
     expect(getSnapshot()).toBe(next);
+    unpublish(a);
+  });
+
+  it('a change only in canUndo or canRedo notifies and replaces the snapshot', () => {
+    const a = {};
+    const first = entry(a);
+    publish(first);
+    const seen = vi.fn();
+    const off = subscribe(seen);
+    publish(entry(a));
+    expect(seen).not.toHaveBeenCalled();
+    const u = entry(a, { canUndo: true });
+    publish(u);
+    expect(getSnapshot()).toBe(u);
+    const r = entry(a, { canUndo: true, canRedo: true });
+    publish(r);
+    expect(getSnapshot()).toBe(r);
+    expect(seen).toHaveBeenCalledTimes(2);
+    off();
     unpublish(a);
   });
 });

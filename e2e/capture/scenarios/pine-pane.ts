@@ -154,7 +154,7 @@ export const pinePane: Scenario = {
     await ctx.step('remove the indicator', async () => {
       if (narrow) await page.keyboard.press('Escape');
       await openSidebar();
-      await page.getByTitle('Remove').last().click();
+      await page.getByTitle('Remove', { exact: true }).last().click();
       if (narrow) {
         await page.keyboard.press('Escape');
         await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });

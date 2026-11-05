@@ -104,6 +104,20 @@ export const ReplayIcon = () => (
   </Svg>
 );
 
+export const UndoIcon = () => (
+  <Svg>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </Svg>
+);
+
+export const RedoIcon = () => (
+  <Svg>
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+  </Svg>
+);
+
 const Glyph = ({ children }: { children: ReactNode }) => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     {children}

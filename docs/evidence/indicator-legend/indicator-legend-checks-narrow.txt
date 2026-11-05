@@ -1,0 +1,31 @@
+ok   two rows in list order - Volume 36.94K | SMA 20 59.98
+ok   values shown (not na) - Volume 36.94K | SMA 20 59.98
+buttons: Volume - Hide, Volume - Settings, Volume - Remove, Volume - More, SMA 20 - Hide, SMA 20 - Settings, SMA 20 - Remove, SMA 20 - More
+ok   every button has an aria-label naming the action and the indicator - Volume - Hide, Volume - Settings, Volume - Remove, Volume - More, SMA 20 - Hide, SMA 20 - Settings, SMA 20 - Remove, SMA 20 - More
+ok   every button has a title
+pointer-events: {"legend":"none","rows":"none","paneLegends":"none","row":"auto","head":"none"}
+ok   containers click through, rows take events - {"legend":"none","rows":"none","paneLegends":"none","row":"auto","head":"none"}
+ok   rows stay inside the chart - {"x":12,"y":128,"width":183.46875,"height":18} in {"x":0,"y":41,"width":350,"height":455}
+actions opacity 0 -> 1
+ok   buttons appear on hover
+ok   menu items - Settings...|Hide|Remove
+ok   an outside click closes it too
+ok   the SMA is drawn - 1497
+SMA pixels 1497 -> 0; hidden row "SMA 20  -"
+ok   the SMA series is gone - 0
+ok   its row is dimmed with na values - SMA 20  -
+ok   the row keeps its place (2 rows)
+ok   Show draws the SMA again - 1497
+ok   titled SMA
+ok   a double click on the name opens it too
+bar under the centre: 29 Mar 2026, 00:00 -> 30 Jun 2025, 00:00
+ok   the visible range moved - 29 Mar 2026, 00:00 -> 30 Jun 2025, 00:00
+ok   the RSI has its pane legend - RSI 14 44.00
+ok   and no price-pane row
+ok   the pane is gone
+ok   a dimmed RSI row is listed last - Volume 25.26K | SMA 20 107.50 | RSI 14 -
+ok   Show brings the pane back
+ok   the Pine row shows its title and inputs - Volume 36.94K | SMA 20 59.98 | EMA cross 9 21 Fast 57.36 Slow 59.22
+ok   the editor opened
+ok   the SMA row is gone - Volume 36.94K | EMA cross 9 21 Fast 57.36 Slow 59.22
+ok   and its series
