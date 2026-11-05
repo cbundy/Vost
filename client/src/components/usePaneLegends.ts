@@ -14,6 +14,8 @@ export interface PaneReg {
   name: string;
   params: string[];
   entries: Array<{ title: string; color: string; series: ValueSeries }>;
+  /** Decimals of every value; absent = the default format. */
+  precision?: number;
 }
 
 /**
@@ -24,6 +26,7 @@ export interface OverlayReg {
   id: string;
   source: 'builtin' | 'pine';
   entries: Array<{ title: string; color: string; series: ValueSeries; compact?: boolean }>;
+  precision?: number;
 }
 
 /** Shared by the built-in and Pine pane builders: the panes now built and the sizes the user left them at. */
@@ -113,6 +116,7 @@ export function usePaneLegends(
         const next = paneLegendHtml({
           name: reg.name,
           params: reg.params,
+          precision: reg.precision,
           entries: reg.entries.map((e) => ({ title: e.title, color: e.color, value: valueAt(e.series, param) })),
         });
         if (html.get(reg.id) !== next) {
@@ -126,7 +130,7 @@ export function usePaneLegends(
       for (const ov of stateRef.current.overlays.values()) {
         ov.entries.forEach((e, i) => {
           const el = rows.querySelector(`[data-ov="${ov.id}:${i}"]`);
-          if (el) el.textContent = legendValueText(valueAt(e.series, param), e.compact);
+          if (el) el.textContent = legendValueText(valueAt(e.series, param), e.compact, ov.precision);
         });
       }
     };

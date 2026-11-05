@@ -57,6 +57,28 @@ describe('legendValueText', () => {
     expect(legendValueText(1.5)).toBe('1.50');
     expect(legendValueText(36940, true)).toBe('36.94K');
   });
+
+  it('shows a fixed number of decimals when a precision is set', () => {
+    expect(legendValueText(1234.5678, false, 0)).toBe('1,235');
+    expect(legendValueText(1.5, false, 2)).toBe('1.50');
+    expect(legendValueText(0.123456, false, 4)).toBe('0.1235');
+    expect(legendValueText(36940, true, 1)).toBe('36,940.0');
+    expect(legendValueText(null, false, 2)).toBe('-');
+  });
+});
+
+describe('priceLegendRows with the inputs off in the status line', () => {
+  it('names a built-in overlay by its short name, and hides params of a hidden sub-pane indicator and a Pine script', () => {
+    const ema = spec('ema', { params: { length: 20 }, style: { inputsInStatusLine: false } });
+    const bb = spec('bb', { style: { inputsInStatusLine: false } });
+    const hiddenMacd = spec('macd', { visible: false, style: { inputsInStatusLine: false } });
+    const pine = spec('pine', { source: pineSource('P'), inputs: { Fast: 5 }, style: { inputsInStatusLine: false } });
+    const rows = priceLegendRows([ema, bb, hiddenMacd, pine], '1d', { [pine.id]: okRun([{ pane: 'price' }], [{ name: 'Fast', defval: 9 }]) });
+    expect(rows.map((r) => [r.name, r.params])).toEqual([['EMA', []], ['BB', []], ['MACD', []], ['P', []]]);
+  });
+  it('keeps the title with its length when the inputs are on', () => {
+    expect(priceLegendRows([spec('ema', { params: { length: 20 } })], '1d', {})[0].name).toBe('EMA 20');
+  });
 });
 
 describe('priceLegendRows', () => {

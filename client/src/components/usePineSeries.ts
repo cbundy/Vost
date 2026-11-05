@@ -20,6 +20,7 @@ import type { IndicatorSpec } from '../lib/indicatorCompute';
 import { pineIndicatorName } from '../lib/pine/title';
 import { newPaneState, releasePanes, sizePanes, type OverlayReg, type PaneReg, type PaneState } from './usePaneLegends';
 import { pineInputParams } from '../lib/paneLegend';
+import { seriesFormat, styledPine, type IndicatorStyle } from '../lib/plotStyle';
 import { buildPineChart, fadedColor, type PineChartModel, type PineSeriesDesc } from '../lib/pine/chartSeries';
 import { PineFillPrimitive } from './pineFillPrimitive';
 import { PineCharPrimitive } from './pineCharPrimitive';
@@ -68,6 +69,9 @@ const toData = (d: PineSeriesDesc) =>
         : { time: p.time as UTCTimestamp, value: p.value, ...(p.color && { color: p.color }) },
   );
 
+/** Whether the script's legend shows plot values (the status line setting of its style). */
+const valuesOn = (it: { style: IndicatorStyle | undefined }) => it.style?.valuesInStatusLine !== false;
+
 /** The marker panes a script uses, price first: one invisible carrier series each. */
 type MarkerKind = 'price' | 'separate' | 'scale';
 const kindOf = (m: { pane: 'price' | 'separate'; onScale?: boolean }): MarkerKind =>
@@ -80,9 +84,9 @@ const markerPanes = (it: { model: PineChartModel }): MarkerKind[] =>
  * The panes whose drawing objects need an invisible carrier series of their own: the price pane always, a
  * script's own pane only when it has no series there to carry them.
  */
-const drawingCarriers = (it: { model: PineChartModel; drawings: Record<'price' | 'separate', unknown> }): Array<'price' | 'separate'> => [
+const drawingCarriers = (it: { series: PineSeriesDesc[]; drawings: Record<'price' | 'separate', unknown> }): Array<'price' | 'separate'> => [
   ...(it.drawings.price ? (['price'] as const) : []),
-  ...(it.drawings.separate && !it.model.series.some((d) => d.pane === 'separate') ? (['separate'] as const) : []),
+  ...(it.drawings.separate && !it.series.some((d) => d.pane === 'separate') ? (['separate'] as const) : []),
 ];
 
 /**
@@ -125,6 +129,10 @@ export function usePineSeries(
     const items: Array<{
       id: string;
       model: PineChartModel;
+      /** The model's series as drawn under the script's style (the model's own stay for the fills, which align by bar). */
+      series: PineSeriesDesc[];
+      style: IndicatorStyle | undefined;
+      flags: Array<{ visible: boolean; priceLine: boolean; lastValue: boolean | undefined }>;
       closes: number[];
       times: number[];
       name: string;
@@ -146,9 +154,14 @@ export function usePineSeries(
       const run = pineRuns[spec.id];
       if (spec.kind !== 'pine' || !spec.visible || !run?.result || !run.candles) continue;
       if (!runFitsVisible(run.candles, lastVisibleTime)) continue;
+      const model = buildPineChart(run.result, run.candles, spec.color);
+      const styled = model.series.map((d) => styledPine(d, spec.style));
       items.push({
         id: spec.id,
-        model: buildPineChart(run.result, run.candles, spec.color),
+        model,
+        series: styled.map((x) => x.desc),
+        style: spec.style,
+        flags: styled.map((x) => ({ visible: x.visible, priceLine: x.priceLine, lastValue: x.lastValueVisible })),
         drawings: { price: drawingsOfPane(run.result.drawings, 'price'), separate: drawingsOfPane(run.result.drawings, 'separate') },
         closes: run.candles.map((c) => c.close),
         times: run.candles.map((c) => c.time),
@@ -160,15 +173,17 @@ export function usePineSeries(
       items.map((it) => [
         it.id,
         [...new Set([...it.model.markers, ...it.model.chars].map(kindOf))].sort(),
-        it.model.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.lineStyle, s.lineType, s.base, s.pointsOnly, s.band]),
+        it.series.map((s) => [s.key, s.type, s.pane, s.color, s.lineWidth, s.lineStyle, s.lineType, s.base, s.pointsOnly, s.band]),
         it.model.fills.map((f) => [f.key1, f.key2, f.pane, f.color]),
         [it.drawings.price !== null, it.drawings.separate !== null],
+        // Only a styled script adds to the signature: an unstyled one rebuilds exactly when it always did.
+        ...(it.style ? [[it.flags.map((f) => [f.visible, f.priceLine, f.lastValue]), it.style.precision ?? null, it.style.valuesInStatusLine ?? null]] : []),
       ]),
     );
 
     const fill = (it: (typeof items)[number], built: Built[]) => {
       let i = 0;
-      for (const d of it.model.series) (built[i++].series as ISeriesApi<'Line'>).setData(toData(d) as never);
+      for (const d of it.series) (built[i++].series as ISeriesApi<'Line'>).setData(toData(d) as never);
       for (const pane of markerPanes(it)) {
         const anchor = built[i++];
         anchor.chars?.setData(it.model.chars.filter((c) => kindOf(c) === pane));
@@ -237,10 +252,10 @@ export function usePineSeries(
       }
       let offset = 0;
       for (const it of items) {
-        const n = it.model.series.length + markerPanes(it).length + drawingCarriers(it).length;
+        const n = it.series.length + markerPanes(it).length + drawingCarriers(it).length;
         const mine = st.built.slice(offset, offset + n);
         fill(it, mine);
-        fillCarriers(it, mine, it.model.series.length + markerPanes(it).length);
+        fillCarriers(it, mine, it.series.length + markerPanes(it).length);
         offset += n;
       }
       return;
@@ -271,7 +286,16 @@ export function usePineSeries(
     for (const it of items) {
       const mine: Built[] = [];
       let sepPane = -1;
-      for (const d of it.model.series) {
+      for (const [di, d] of it.series.entries()) {
+        const fl = it.flags[di];
+        const fmt = seriesFormat(it.style, true);
+        // What a style adds to the options of a plot's series; nothing for an unstyled script.
+        const styleOpts = {
+          priceLineVisible: fl.priceLine,
+          ...(fl.priceLine && { priceLineColor: d.color }),
+          ...(!fl.visible && { visible: false }),
+          ...(fmt.priceFormat && { priceFormat: fmt.priceFormat }),
+        };
         let paneIndex = 0;
         if (d.pane === 'separate') {
           if (sepPane < 0) {
@@ -293,9 +317,9 @@ export function usePineSeries(
             {
               color: d.color,
               base: d.base ?? 0,
-              priceLineVisible: false,
-              lastValueVisible: !d.band && d.pane === 'separate',
+              lastValueVisible: d.band ? false : (fl.lastValue ?? d.pane === 'separate'),
               priceScaleId: scaleId,
+              ...(d.band ? { priceLineVisible: false } : styleOpts),
               ...(d.band && { autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 1 } }) }),
             },
             paneIndex,
@@ -319,10 +343,10 @@ export function usePineSeries(
               bottomLineColor: d.color,
               bottomFillColor1: fade,
               bottomFillColor2: fade,
-              priceLineVisible: false,
-              lastValueVisible: d.pane === 'separate',
+              lastValueVisible: fl.lastValue ?? d.pane === 'separate',
               crosshairMarkerVisible: false,
               priceScaleId: 'right',
+              ...styleOpts,
             },
             paneIndex,
           );
@@ -334,13 +358,13 @@ export function usePineSeries(
               lineWidth: d.lineWidth as LineWidth,
               lineStyle: d.lineStyle === 'dotted' ? LineStyle.Dotted : d.lineStyle === 'dashed' ? LineStyle.Dashed : LineStyle.Solid,
               lineType: d.lineType === 'steps' ? LineType.WithSteps : LineType.Simple,
-              priceLineVisible: false,
-              lastValueVisible: d.pane === 'separate' || !d.hline,
+              lastValueVisible: fl.lastValue ?? (d.pane === 'separate' || !d.hline),
               crosshairMarkerVisible: false,
               lineVisible: !d.pointsOnly,
               pointMarkersVisible: Boolean(d.pointsOnly),
               ...(d.pointsOnly && { pointMarkersRadius: d.lineWidth + 1 }),
               priceScaleId: 'right',
+              ...styleOpts,
             },
             paneIndex,
           );
@@ -395,13 +419,13 @@ export function usePineSeries(
         );
         mine.push({ series });
       }
-      fillCarriers(it, mine, it.model.series.length + markerPanes(it).length);
+      fillCarriers(it, mine, it.series.length + markerPanes(it).length);
       for (const pane of ['price', 'separate'] as const) {
         const data = it.drawings[pane];
         if (!data) continue;
         // A script's own pane without a series of its own is scaled by its objects; otherwise they ride its first series.
-        const hostIdx = pane === 'separate' ? it.model.series.findIndex((d) => d.pane === 'separate') : -1;
-        const carrierIdx = it.model.series.length + markerPanes(it).length + carried.indexOf(pane);
+        const hostIdx = pane === 'separate' ? it.series.findIndex((d) => d.pane === 'separate') : -1;
+        const carrierIdx = it.series.length + markerPanes(it).length + carried.indexOf(pane);
         const host = hostIdx >= 0 ? mine[hostIdx].series : mine[carrierIdx].series;
         const prim = attachPineDrawings(host, chartTimes, hostIdx < 0 && pane === 'separate');
         prim.setData(data);
@@ -410,25 +434,25 @@ export function usePineSeries(
       if (sepPane >= 0) {
         sizePanes(chart, paneState.current, [{ id: it.id, paneIndex: sepPane }]);
         const entries: PaneReg['entries'] = [];
-        it.model.series.forEach((d, k) => {
-          if (d.pane === 'separate' && !d.hline && !d.band && d.type !== 'candle' && d.type !== 'bar') {
+        it.series.forEach((d, k) => {
+          if (d.pane === 'separate' && !d.hline && !d.band && d.type !== 'candle' && d.type !== 'bar' && it.flags[k].visible && valuesOn(it)) {
             entries.push({ title: d.title, color: d.color, series: mine[k].series as ValueSeries });
           }
         });
-        paneState.current.panes.set(it.id, { id: it.id, source: 'pine', paneIndex: sepPane, name: it.name, params: it.params, entries });
+        paneState.current.panes.set(it.id, { id: it.id, source: 'pine', paneIndex: sepPane, name: it.name, params: it.params, entries, precision: it.style?.precision });
       }
       // The plots drawn on the price pane, for the value spans of the script's row there.
       const priceEntries: OverlayReg['entries'] = [];
-      it.model.series.forEach((d, k) => {
-        if (d.pane !== 'separate' && !d.hline && !d.band && d.type !== 'candle' && d.type !== 'bar') {
+      it.series.forEach((d, k) => {
+        if (d.pane !== 'separate' && !d.hline && !d.band && d.type !== 'candle' && d.type !== 'bar' && it.flags[k].visible && valuesOn(it)) {
           priceEntries.push({ title: d.title, color: d.color, series: mine[k].series as ValueSeries });
         }
       });
       if (priceEntries.length > 0) {
-        paneState.current.overlays.set(it.id, { id: it.id, source: 'pine', entries: priceEntries.length === 1 ? [{ ...priceEntries[0], title: '' }] : priceEntries });
+        paneState.current.overlays.set(it.id, { id: it.id, source: 'pine', precision: it.style?.precision, entries: priceEntries.length === 1 ? [{ ...priceEntries[0], title: '' }] : priceEntries });
       }
       it.model.fills.forEach((f, index) => {
-        const at = (key: string) => mine[it.model.series.findIndex((d) => d.key === key)]?.series;
+        const at = (key: string) => mine[it.series.findIndex((d) => d.key === key)]?.series;
         const first = at(f.key1);
         const second = at(f.key2);
         if (!first || !second) return;

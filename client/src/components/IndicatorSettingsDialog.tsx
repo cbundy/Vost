@@ -8,11 +8,12 @@ import { useStore } from '../state/store';
 import { useChart } from '../state/chartContext';
 import { Modal } from './Modal';
 import { NumField } from './NumField';
+import { IndicatorStyleTab } from './IndicatorStyleTab';
 import { PineCalculationSection, PineInputList } from './PineInputControl';
 
-type Tab = 'inputs' | 'visibility';
-const TAB_LABEL: Record<Tab, string> = { inputs: 'Inputs', visibility: 'Visibility' };
-const TABS: Tab[] = ['inputs', 'visibility'];
+type Tab = 'inputs' | 'style' | 'visibility';
+const TAB_LABEL: Record<Tab, string> = { inputs: 'Inputs', style: 'Style', visibility: 'Visibility' };
+const TABS: Tab[] = ['inputs', 'style', 'visibility'];
 const KIND_LABEL: Record<TimeframeKind, string> = { seconds: 'Seconds', minutes: 'Minutes', hours: 'Hours', days: 'Days', weeks: 'Weeks', months: 'Months' };
 
 /**
@@ -53,7 +54,7 @@ export function IndicatorSettingsDialog({ id, onClose }: { id: string; onClose: 
     setMenu(false);
   };
   const saveDefault = () => {
-    setIndicatorDefault(spec.kind, { params: spec.params, hideOn: spec.hideOn ?? [] });
+    setIndicatorDefault(spec.kind, { params: spec.params, hideOn: spec.hideOn ?? [], ...(spec.style && { style: spec.style }) });
     setMenu(false);
   };
 
@@ -136,6 +137,7 @@ export function IndicatorSettingsDialog({ id, onClose }: { id: string; onClose: 
             )}
           </>
         )}
+        {tab === 'style' && <IndicatorStyleTab spec={spec} run={run} onStyle={(style) => updateIndicator(id, { style })} />}
         {tab === 'visibility' && (
           <>
             <p className="muted-2 ds-hint">Show this indicator on these timeframes.</p>

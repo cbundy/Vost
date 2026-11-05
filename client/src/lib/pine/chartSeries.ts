@@ -169,13 +169,16 @@ export function separatePosition(loc: string | undefined, value?: number | null)
   return { panePosition: 'atPriceTop', price: 1 };
 }
 
+/** The key of a script's plot: its index and title. The Style tab and the series builder share it. */
+export const pinePlotKey = (idx: number, name: string) => `${idx}_${name}`;
+
 export function buildPineChart(result: PineResult, candles: Candle[], fallbackColor: string): PineChartModel {
   const series: PineSeriesDesc[] = [];
   const markers: PineMarkerDesc[] = [];
   const chars: PineCharDesc[] = [];
   const fills: PineFillDesc[] = [];
   const barColors = new Map<number, string>();
-  const keyOf = (idx: number) => `${idx}_${result.plots[idx].name}`;
+  const keyOf = (idx: number) => pinePlotKey(idx, result.plots[idx].name);
 
   result.plots.forEach((plot, idx) => {
     const key = keyOf(idx);
