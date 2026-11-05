@@ -18,6 +18,7 @@ export function settingsText(c: Pick<Candidate, 'strategyId' | 'params'>): strin
 }
 
 const pct = (v: number | null, d = 1): string => (v == null || !Number.isFinite(v) ? 'n/a' : `${v.toFixed(d)}%`);
+const share = (v: number): string => (v > 0 && v < 0.005 ? '<1%' : pct(v * 100, 0));
 const rr = (v: number | null): string => (v == null || !Number.isFinite(v) ? 'n/a' : v.toFixed(2));
 
 const GAP_WORDS: Record<Gap['metric'], (g: Gap) => string> = {
@@ -106,13 +107,13 @@ export function Results({ result, selected, onSelect }: Props) {
         <p className="sm-note">
           Importance by family:{' '}
           {model.importance.byFamily.length
-            ? model.importance.byFamily.map((f) => `${familyName(f.family)} ${pct(f.importance * 100, 0)}`).join(', ')
+            ? model.importance.byFamily.map((f) => `${familyName(f.family)} ${share(f.importance)}`).join(', ')
             : 'none (the model found no pattern)'}
           .
         </p>
         {model.importance.byFeature.length > 0 && (
           <p className="sm-note">
-            Top readings: {model.importance.byFeature.slice(0, 4).map((f) => `${f.label} ${pct(f.importance * 100, 0)}`).join(', ')}.
+            Top readings: {model.importance.byFeature.slice(0, 4).map((f) => `${f.label} ${share(f.importance)}`).join(', ')}.
           </p>
         )}
       </div>

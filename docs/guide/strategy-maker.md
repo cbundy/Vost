@@ -1,6 +1,6 @@
 # Strategy maker
 
-The strategy maker is an optional page at `/strategy-maker` (type it after your Vost address). It is the first part of a small tool for working out strategies from candles, and for now it does one thing: it shows the candles you pick on a chart of its own. Everything stays in this browser, and the main chart app is not started: the page opens no live stream and does no alert polling. The main app never loads the page's code.
+The strategy maker is an optional page at `/strategy-maker` (type it after your Vost address). It is a small tool for working out strategies from candles: you pick candles, mark the trades you would have taken, and it looks for a built-in strategy that behaves like your marks. Everything stays in this browser, and the main chart app is not started: the page opens no live stream and does no alert polling. The main app never loads the page's code.
 
 ![The empty strategy maker page](../evidence/strategy-maker/strategy-maker-empty-desktop.png)
 
@@ -18,7 +18,7 @@ The chart pans, zooms and resizes with the window, and works on a narrow screen 
 
 ## Marking trades
 
-Once candles are showing, a toolbar above the chart lets you mark the trades you would have taken, with a brush. These marks are what the tool will later learn a strategy from; you need at least 30 of them.
+Once candles are showing, a toolbar above the chart lets you mark the trades you would have taken, with a brush. These marks are what the tool learns a strategy from; you need at least 30 of them.
 
 - **Brush long** and **Brush short**: pick one (it shows as pressed), then press on the chart, drag across some bars and let go. The bars from the first to the last one you touched become one trade, shaded green for long or red for short, with an entry and an exit marker. Dragging right to left gives the same trade. A plain click, or a drag over a single bar, marks nothing.
 - **Eraser**: drag over trades to remove every one you touch.
@@ -37,3 +37,37 @@ The list beside the chart (below it on a narrow screen) shows each trade with it
 Marks are saved in this browser a moment after each change and come back when you open the same chart again (the same market and timeframe, saved dataset or CSV file name). Undo history is not kept. If the browser cannot store them, the page says so and the brush still works until you leave.
 
 ![The marks found again after a reload](../evidence/strategy-maker/strategy-maker-restored-desktop.png)
+
+## Finding a strategy
+
+Below the chart, **Find a strategy** turns your marks into a recommendation. Fill in what you want, then press **Find a strategy**.
+
+- **Strategy type**: long and short (the default), long only or short only.
+- **Allowed indicators**: the families the search may use (SMA crossover, EMA crossover, MACD, RSI mean reversion, Bollinger Bands, Donchian breakout). All are on at first; at least one must stay on.
+- **Risk (always on)**: fee and slippage in basis points, and an optional stop loss and take profit in percent. They start at the main backtester's defaults, and fees and slippage are always applied.
+- **Targets**: an optional minimum R:R (average win over average loss), minimum hit rate and maximum drawdown. An empty target is not applied.
+- **Train on**: which saved sets of marks to learn from. It starts as the chart you have open, or all of them when none is open.
+
+A number that cannot be used is flagged under its field and switches Find off. With fewer than 30 marked trades in the chosen sets, Find stays off and the form says how many more trades are needed. Your choices are kept in this browser and are there when you come back.
+
+![The form with too few trades](../evidence/strategy-maker/strategy-maker-find-needs-more-desktop.png)
+
+![The form ready to run](../evidence/strategy-maker/strategy-maker-find-ready-desktop.png)
+
+The work runs in a background worker of the page, so the page stays usable and the main app is not touched. A progress bar names the stage (loading data, training, searching, validating). **Cancel** stops it within a second and the page goes back to what it showed before. Pressing Find again also stops a run in progress. If the browser cannot start a worker, the page says "Running on this page; it may pause while it works" and does the same work itself. Market sets are fetched again for the run, and a set that cannot be loaded is listed in the results and skipped.
+
+![A run in progress on a narrow screen](../evidence/strategy-maker/strategy-maker-find-progress-narrow.png)
+
+## Reading the results
+
+![Results with the model's rules and the ranked settings](../evidence/strategy-maker/strategy-maker-results-desktop.png)
+
+- **What explains your trades**: a small decision tree learns when you were in a trade and writes it as plain rules, with how much each family of indicators mattered and how well it called the state on bars it had not seen.
+- **Ranked settings**: the settings that best reproduce your entries and exits, with the best match and the best one that meets your targets marked. Each row shows its return, hit rate, R:R, largest drawdown and trade count on the part it was chosen on and on a held-out part it was not. Click a row to draw its trades on the chart beside your own, as outlined circles (entries) and squares (exits) joined by a dashed line; the legend tells "Your trades" from "Found trades". Click the row again to clear them.
+- **Validated or Not validated**: the chosen setting is checked on held-out data, in a walk-forward test, against its neighbouring settings and with a Monte Carlo reshuffle, and each check is listed as passed or failed with its detail. It is validated only when the held-out result keeps within your targets.
+- **Closest found**: when no setting meets your targets, the nearest one and each gap in words.
+- A short note on the limits: few trades prove little, the highlights are drawn with hindsight, and fees and slippage are always on. Skipped sets and skipped trades are listed with their reasons.
+
+![No setting met strict targets: the closest one and its gaps](../evidence/strategy-maker/strategy-maker-closest-narrow.png)
+
+![The trades a found strategy takes, drawn beside the marks](../evidence/strategy-maker/strategy-maker-found-trades-desktop.png)
