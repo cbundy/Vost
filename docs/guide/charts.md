@@ -97,7 +97,13 @@ Switching to another symbol on the same timeframe keeps the dates and zoom you w
 
 ## Live candles
 
-Charts open live on their own for providers that support it: **Live** in the top bar streams new candles. Turning Live off sticks for that chart through symbol, timeframe and provider changes until you turn it back on, and picking a chart range pauses it until you clear the range. The server keeps one exchange connection per feed and shares it between tabs, reconnects by itself and backfills the bars a drop missed. Live works on built timeframes too ([Timeframes](timeframes.md)). When live fails, the error goes to the inbox.
+Charts open live on their own for providers that support it: the **Live** dot in the top bar streams new candles (green when live, amber while connecting, red on an error, grey when off; hover it for the state in words). Turning Live off sticks for that chart through symbol, timeframe and provider changes until you turn it back on, and picking a chart range pauses it until you clear the range. The server keeps one exchange connection per feed and shares it between tabs, reconnects by itself and backfills the bars a drop missed. Live works on built timeframes too ([Timeframes](timeframes.md)). When live fails, the error goes to the inbox.
+
+## Countdown to bar close
+
+While the last candle is still forming, a small label under the last price shows the time left until it closes, ticking every second (`04:37`, `03:12:09`, or `2d 05h` for a day or more). It takes the colour of the last-price label and is hidden in replay or when the last price is off the visible scale. Turn it off with **Countdown to bar close** in Settings. Stock bars count to the bar's nominal end (a day, a week, a calendar month), not to the exchange's session close.
+
+![The countdown under the last price](../evidence/bar-countdown/bar-countdown-1m-desktop.png)
 
 ## Connection light
 

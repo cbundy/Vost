@@ -28,7 +28,7 @@ async function layout(page: Page): Promise<Layout> {
   return page.evaluate(() => {
     const W = innerWidth;
     const clipped: string[] = [];
-    for (const sel of ['.topbar', '.dock-tabs', '.chart-range-bar', '.app-body', '.dock', '.modal', '.sidebar.drawer', '.topbar-more-pop']) {
+    for (const sel of ['.topbar', '.dock-tabs', '.chart-range-bar', '.app-body', '.dock', '.modal', '.sidebar.drawer', '.topbar-more-pop', '.topbar-data-pop']) {
       for (const root of document.querySelectorAll(sel)) {
         for (const e of [root, ...root.querySelectorAll('*')]) {
           // a scroller's content may extend past its own box; only boxes that are not inside one count
@@ -253,6 +253,7 @@ export const responsive: Scenario = {
       // each moved control exists once
       // Bars is hidden in the default scroll mode (history pages in as the chart is scrolled)
       expect((await page.getByLabel('Number of bars', { exact: true }).count()) === 0, 'Bars select shown in scroll mode');
+      for (const name of ['Timeframes', 'Bars']) expect((await pop.locator('.more-label', { hasText: new RegExp(`^${name}$`) }).count()) === 0, `${name} row is still in the More menu`);
       for (const name of ['Provider']) expect((await page.getByLabel(name, { exact: true }).count()) === 1, `${name} select is not unique`);
       expect((await page.getByRole('button', { name: 'Range', exact: true }).count()) === 1, 'Range is not unique');
       await check('more-360');
@@ -277,6 +278,21 @@ export const responsive: Scenario = {
       await page.getByRole('dialog', { name: 'More' }).waitFor({ state: 'visible' });
       await page.mouse.click(180, 400);
       await page.getByRole('dialog', { name: 'More' }).waitFor({ state: 'detached' });
+    });
+
+    await ctx.step('Chart data pop-up at 360', async () => {
+      const button = page.getByRole('button', { name: 'Chart data', exact: true });
+      await button.click();
+      const pop = page.getByRole('dialog', { name: 'Chart data' });
+      await pop.waitFor({ state: 'visible' });
+      const b = (await pop.boundingBox())!;
+      expect(b.x >= 0 && b.x + b.width <= 360 && b.y + b.height <= 740, `Chart data pop-up outside the viewport: ${JSON.stringify(b)}`);
+      // checked with the pop-up open, so a zero here means scroll mode hides Bars and not that the pop-up was shut
+      expect((await page.getByLabel('Number of bars', { exact: true }).count()) === 0, 'Bars select shown in scroll mode');
+      expect((await pop.getByRole('button', { name: 'Load' }).count()) === 1, 'Load is not in the Chart data pop-up');
+      await check('chart-data-360');
+      await page.keyboard.press('Escape');
+      await pop.waitFor({ state: 'detached' });
     });
 
     // dialogs at 360

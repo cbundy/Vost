@@ -10,6 +10,7 @@ drawer-360: scrollWidth=360/360 topbar=40 chartH=351 dock=320 more=true clipped=
 drawer-768: scrollWidth=768/768 topbar=40 chartH=635 dock=320 more=true clipped=0
 more-360: scrollWidth=360/360 topbar=40 chartH=351 dock=320 more=true clipped=0
 range-from-more-360: scrollWidth=360/360 topbar=40 chartH=351 dock=320 more=true clipped=0
+chart-data-360: scrollWidth=360/360 topbar=40 chartH=351 dock=320 more=true clipped=0
 csv-360: modal=344x636 at 8,52
 csv-360: scrollWidth=360/360 topbar=40 chartH=351 dock=320 more=true clipped=0
 inbox-360: modal=344x190

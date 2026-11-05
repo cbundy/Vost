@@ -38,6 +38,7 @@ import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
 import { PaneLegendActions, PriceLegendRows } from './IndicatorLegend';
 import { builtinParams, priceLegendRows } from '../lib/paneLegend';
 import { usePineSeries } from './usePineSeries';
+import { useBarCountdown } from './chart/useBarCountdown';
 import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
@@ -392,6 +393,13 @@ export function ChartPanel({
     const lines = cursorKind === 'cross';
     chartApi?.applyOptions({ crosshair: { vertLine: { visible: lines }, horzLine: { visible: lines } } });
   }, [chartApi, cursorKind]);
+  const lastBarRef = useRef({ candles, barColors });
+  lastBarRef.current = { candles, barColors };
+  useBarCountdown(chartApi, chartApi ? candleSeriesRef.current : null, () => {
+    const { candles: cs, barColors: bc } = lastBarRef.current;
+    const c = cs[cs.length - 1];
+    return c ? { time: c.time, close: c.close, up: c.close >= c.open, color: bc.get(c.time) } : null;
+  }, timeframe, replayPhase);
   const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef, active);
 
   /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */

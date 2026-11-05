@@ -1,9 +1,8 @@
 import { PROVIDER_CATALOG } from '../../../shared/providerCatalog.ts';
 import type { Page } from 'playwright';
+import { liveButton, waitLive } from '../topbar.ts';
 import type { Scenario } from '../scenario.ts';
 
-/** The top-bar live button: LIVE / ... / RETRY / ERR when on, "Live" when off. */
-const liveButton = (page: Page) => page.locator('.topbar button.badge:has(.live-dot)');
 
 /** One line per distinct URL: how many times the browser asked for it, then the URL. */
 function countLines(urls: readonly string[]): string {
@@ -64,10 +63,10 @@ export const networkAudit: Scenario = {
       await providerSelect.selectOption('coinbase');
       await title('Coinbase', 'BTC-USD', '1h').waitFor();
       // Coinbase builds its live candles from the trade feed; the audit covers that socket too.
-      await liveButton(page).filter({ hasText: /^\s*LIVE\s*$/ }).waitFor(); // charts open live on their own
+      await waitLive(page, 'live'); // charts open live on their own
       await ctx.screenshot('live-coinbase');
       await liveButton(page).click();
-      await liveButton(page).filter({ hasText: /^\s*Live\s*$/ }).waitFor();
+      await waitLive(page, 'off');
       await row.click();
       // The seeded list already holds ETHUSDT, so opening it loads the provider's default timeframe.
       await title('Binance', 'ETHUSDT', '1h').waitFor();
@@ -76,10 +75,10 @@ export const networkAudit: Scenario = {
 
     await ctx.step('live on, then off', async () => {
       await liveButton(page).click(); // the earlier off click stays: this chart is not live until turned on
-      await liveButton(page).filter({ hasText: /^\s*LIVE\s*$/ }).waitFor();
+      await waitLive(page, 'live');
       await ctx.screenshot('live');
       await liveButton(page).click();
-      await liveButton(page).filter({ hasText: /^\s*Live\s*$/ }).waitFor();
+      await waitLive(page, 'off');
     });
 
     await ctx.step('open the status popover', async () => {

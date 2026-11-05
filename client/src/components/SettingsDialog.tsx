@@ -25,6 +25,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const historyLoading = useStore((s) => s.historyLoading);
   const setHistoryLoading = useStore((s) => s.setHistoryLoading);
+  const barCountdown = useStore((s) => s.barCountdown);
+  const setBarCountdown = useStore((s) => s.setBarCountdown);
   const pineHigherBars = useStore((s) => s.pineHigherBars);
   const setPineHigherBars = useStore((s) => s.setPineHigherBars);
   return (
@@ -42,6 +44,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </label>
           ))}
         </fieldset>
+        <div className="settings-row">
+          <label className="settings-radio">
+            <input type="checkbox" checked={barCountdown} onChange={(e) => setBarCountdown(e.target.checked)} />
+            <span>
+              <span className="settings-radio-label">Countdown to bar close</span>
+              <span className="hint settings-radio-hint">Shows the time left in the current bar under the last price.</span>
+            </span>
+          </label>
+        </div>
       </Section>
       <Section title="Pine scripts">
         <fieldset className="settings-row">

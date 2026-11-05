@@ -1,6 +1,6 @@
-import { useEffect, useState, type Ref } from 'react';
+import { useState, type Ref } from 'react';
 import { APP_VERSION, PROVIDER_GITHUB_URL } from '../lib/constants';
-import { fmtDataRange } from '../lib/format';
+import { liveIndicator } from '../lib/liveIndicator';
 import { topbarTier } from '../lib/paneSizes';
 import { useViewportSize } from '../lib/useViewportSize';
 import { getProvider, providers } from '../lib/providers';
@@ -9,15 +9,15 @@ import { IntervalDialog } from './IntervalDialog';
 import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
-import { selectDataCandles } from '../state/chart';
 import { ChartRangeControl } from './ChartRangeControl';
-import { BellIcon, GearIcon, InboxIcon, RefreshIcon, RedoIcon, ReplayIcon, StarIcon, UndoIcon, UploadIcon } from './Icons';
+import { BellIcon, GearIcon, InboxIcon, RedoIcon, ReplayIcon, StarIcon, UndoIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { LayoutDialogs } from './LayoutDialogs';
 import { LayoutMenu } from './LayoutMenu';
 import { LayoutPicker } from './LayoutPicker';
 import { SettingsDialog } from './SettingsDialog';
 import { SymbolSearch } from './SymbolSearch';
+import { TopBarData } from './TopBarData';
 import { TopBarMore } from './TopBarMore';
 import type { Interval } from '../types';
 import { useActiveDrawings } from './chart/activeDrawings';
@@ -25,7 +25,6 @@ import { useChart, useChartStore } from '../state/chartContext';
 
 const ADD_INTERVAL = '__add-interval';
 const UNDO_IN_MORE_MAX = 768;
-const BAR_OPTIONS = [500, 1000, 2000, 5000, 10000, 20000];
 
 export function TopBar({
   onImportCsv,
@@ -49,8 +48,6 @@ export function TopBar({
 
   const providerId = useChart((s) => s.providerId);
   const timeframe = useChart((s) => s.timeframe);
-  const bars = useChart((s) => s.bars);
-  const loadState = useChart((s) => s.loadState);
   const activeAlerts = useAlerts((s) => s.alerts.filter((a) => a.status === 'active').length);
   const unread = useStore((s) => unreadCount(s.messages));
   const pineOpen = useStore((s) => s.pineOpen);
@@ -58,41 +55,21 @@ export function TopBar({
   const pineRunning = useChart((s) => Object.values(s.pineRuns).some((r) => r.running));
   const togglePineEditor = useStore((s) => s.togglePineEditor);
   const live = useChart((s) => s.live);
-  const candles = useChart(selectDataCandles);
   const replayOn = useChart((s) => s.replay != null);
   const hasBars = useChart((s) => s.candles.length >= 3);
-  const chartRange = useChart((s) => s.chartRange);
-  const timeZone = useStore((s) => s.timeZone);
-  const [now, setNow] = useState(() => Date.now() / 1000);
   const liveStatus = useChart((s) => s.liveStatus);
   const liveDetail = useChart((s) => s.liveDetail);
   const setProvider = useChart((s) => s.setProvider);
   const setTimeframe = useChart((s) => s.setTimeframe);
   const buildTimeframes = useStore((s) => s.buildTimeframes);
-  /** The Bars menu only exists when everything loads at once; in scroll mode history pages in as the chart is scrolled. */
-  const showBars = useStore((s) => s.historyLoading) === 'all';
   const customTimeframes = useStore((s) => s.customTimeframes);
   const [intervalOpen, setIntervalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const setBuildTimeframes = useStore((s) => s.setBuildTimeframes);
-  const setBars = useChart((s) => s.setBars);
-  const loadData = useChart((s) => s.loadData);
   const setLive = useChart((s) => s.setLive);
-
-  useEffect(() => {
-    if (!live) return;
-    setNow(Date.now() / 1000);
-    const id = setInterval(() => setNow(Date.now() / 1000), 30_000);
-    return () => clearInterval(id);
-  }, [live]);
-
-  const rangeText = fmtDataRange(candles[0]?.time, candles[candles.length - 1]?.time, candles.length, { live: live && !chartRange, now, timeZone });
 
   const provider = getProvider(providerId);
   const source = buildTimeframes && !provider.offline ? 'built' : 'native';
   const pickerEntries = pickerTimeframes(provider, customTimeframes, source);
-
-  const liveClass = liveStatus === 'live' ? '' : liveStatus === 'connecting' || liveStatus === 'reconnecting' ? 'connecting' : 'error';
 
   const providerSelect = (
     <div className="field">
@@ -105,38 +82,17 @@ export function TopBar({
       </select>
     </div>
   );
-  const barsSelect = (
-    <div className="field">
-      <select value={bars} onChange={(e) => setBars(Number(e.target.value))} title="Number of bars to request" aria-label="Number of bars">
-        {BAR_OPTIONS.map((b) => (
-          <option key={b} value={b}>
-            {b >= 1000 ? `${b / 1000}k bars` : `${b} bars`}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  const liveInfo = liveIndicator(liveStatus, liveDetail);
   const liveButton = provider.supportsLive && (
     <button
-      className={live ? 'badge green' : 'badge'}
+      className={`badge live-btn${live ? ' green' : ''}`}
       style={{ cursor: 'pointer' }}
+      data-live-status={liveStatus}
+      aria-label={liveInfo.label}
+      title={liveInfo.label}
       onClick={() => (liveStatus === 'error' ? onOpenInbox() : setLive(!live))}
-      title={liveStatus === 'error' ? `${liveDetail} - click to open the inbox` : liveDetail || 'Stream live candles from Binance'}
     >
-      <span className={`live-dot ${liveClass}`} />
-      {liveStatus === 'live' ? 'LIVE' : liveStatus === 'connecting' ? '…' : liveStatus === 'reconnecting' ? 'RETRY' : liveStatus === 'error' ? 'ERR' : 'Live'}
-    </button>
-  );
-  const buildButton = (
-    <button
-      className={buildTimeframes ? 'build-toggle blue' : 'build-toggle'}
-      style={{ cursor: 'pointer' }}
-      aria-pressed={buildTimeframes}
-      aria-label="Build higher timeframes from lower ones"
-      title="Build higher timeframes from lower ones instead of the exchange's own bars"
-      onClick={() => setBuildTimeframes(!buildTimeframes)}
-    >
-      Build
+      <span className={`live-dot ${liveInfo.dotClass}`} />
     </button>
   );
   const replayButton = (after?: () => void) => (
@@ -228,26 +184,7 @@ export function TopBar({
         </select>
       </div>
 
-      {!importInMore && !provider.offline && buildButton}
-
-      {!importInMore && showBars && barsSelect}
-
-      {rangeText && (
-        <span className="topbar-range" title={rangeText}>
-          {rangeText}
-        </span>
-      )}
-
-      <button className="primary" onClick={() => void loadData()} disabled={loadState === 'loading'} title="Reload data" aria-label="Load">
-        {loadState === 'loading' ? (
-          <span className="spinner" />
-        ) : (
-          <>
-            <RefreshIcon />
-            <span className="btn-label">Load</span>
-          </>
-        )}
-      </button>
+      <TopBarData />
 
       {!providerInMore && liveButton}
 
@@ -300,18 +237,6 @@ export function TopBar({
                   <div className="more-row">
                     <span className="more-label">Provider</span>
                     {providerSelect}
-                  </div>
-                )}
-                {!provider.offline && (
-                  <div className="more-row">
-                    <span className="more-label">Timeframes</span>
-                    {buildButton}
-                  </div>
-                )}
-                {showBars && (
-                  <div className="more-row">
-                    <span className="more-label">Bars</span>
-                    {barsSelect}
                   </div>
                 )}
                 {providerInMore && (

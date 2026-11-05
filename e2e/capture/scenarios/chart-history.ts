@@ -1,4 +1,5 @@
 import type { Page } from 'playwright';
+import { openChartData, closeChartData } from '../topbar.ts';
 import type { Scenario } from '../scenario.ts';
 
 const BAR_SECONDS = 3600; // the chart runs on 1h bars
@@ -42,8 +43,10 @@ export const chartHistory: Scenario = {
       await page.locator('.chart-legend .legend-ohlc').waitFor();
       await page.waitForTimeout(800);
     });
-    await ctx.step('no Bars menu in the top bar', async () => {
+    await ctx.step('no Bars menu in the Chart data pop-up', async () => {
+      await openChartData(page);
       const n = await page.getByLabel('Number of bars', { exact: true }).count();
+      await closeChartData(page);
       if (n !== 0) throw new Error(`the Bars select is shown (${n})`);
     });
     const firstRequest = history().filter((u) => param(u, 'provider') === 'binance' && param(u, 'timeframe') === '1h')[0];
