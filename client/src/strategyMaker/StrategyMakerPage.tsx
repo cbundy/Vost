@@ -27,10 +27,9 @@ import { TargetsForm, type SetChoice } from './TargetsForm';
 import { blocker, defaultForm, readForm, sanitizeForm } from './form';
 import { sourceLabel } from './run';
 import { useFind } from './useFind';
-import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary, type Loaded } from './data';
+import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary, PROVIDER_BARS, type Loaded } from './data';
 import './strategyMaker.css';
 
-const BARS = 1000;
 const SAVE_DELAY_MS = 400;
 const NO_TRADES: readonly HighlightTrade[] = [];
 const SAVE_INPUTS_MS = 400;
@@ -79,7 +78,7 @@ export default function StrategyMakerPage() {
   const formReady = useRef(false);
   const store = useRef<Store | null>(null);
   const model = useModel();
-  const find = useFind(BARS, library, (result, used) => void model.save(store.current, result, used));
+  const find = useFind(PROVIDER_BARS, library, (result, used) => void model.save(store.current, result, used));
   const [saved, setSaved] = useState<HighlightSet[]>([]);
   const savedRef = useRef<HighlightSet[]>([]);
   savedRef.current = saved;
@@ -249,7 +248,7 @@ export default function StrategyMakerPage() {
     const ctl = new AbortController();
     abort.current = ctl;
     setBusy(true);
-    const r = await loadFromProvider(getProvider(pid), { symbol: sym, timeframe: tf as Timeframe, bars: BARS }, ctl.signal);
+    const r = await loadFromProvider(getProvider(pid), { symbol: sym, timeframe: tf as Timeframe, bars: PROVIDER_BARS }, ctl.signal);
     if (ctl.signal.aborted) return;
     setBusy(false);
     show(r, { kind: 'provider', provider: pid, symbol: sym, timeframe: tf });

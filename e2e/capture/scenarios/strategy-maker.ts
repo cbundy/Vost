@@ -78,6 +78,9 @@ export const strategyMaker: Scenario = {
       await page.getByRole('button', { name: 'Load market' }).click();
       await page.getByText(/ candles$/).waitFor();
       await page.locator('.sm-chart canvas').first().waitFor();
+      const label = (await page.getByText(/ candles$/).first().textContent()) ?? '';
+      const count = Number(/([\d,]+) candles$/.exec(label)?.[1]?.replace(/,/g, ''));
+      if (!(count > 1000)) throw new Error(`expected more than 1000 candles, label: ${label}`);
     });
     await ctx.screenshot('market');
 

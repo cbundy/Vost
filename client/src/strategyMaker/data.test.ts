@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { demoProvider } from '../lib/providers/demo';
 import type { DataProvider } from '../lib/providers/http';
 import { seedStorageForTest } from '../lib/storage';
-import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary } from './data';
+import { MAX_BARS } from '../../../shared/market.ts';
+import { OPENING_BARS, PROVIDER_BARS, loadFromCsv, loadFromDataset, loadFromProvider, openingRange, readLibrary } from './data';
 
 function stubStorage(value: string | null) {
   seedStorageForTest();
@@ -56,5 +57,27 @@ describe('loadFromCsv', () => {
   it('gives a message for text that is not candles', () => {
     const r = loadFromCsv('hello', 'x.csv');
     expect(r.ok).toBe(false);
+  });
+});
+
+describe('PROVIDER_BARS', () => {
+  it('is the most one request may ask, and a demo market then loads more than 1,000 candles', async () => {
+    expect(PROVIDER_BARS).toBe(MAX_BARS);
+    const r = await loadFromProvider(demoProvider, { symbol: demoProvider.defaultSymbol, timeframe: '1h', bars: PROVIDER_BARS });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.candles.length).toBeGreaterThan(1000);
+  });
+});
+
+describe('openingRange', () => {
+  it('fits a short series', () => {
+    expect(openingRange(100)).toBeNull();
+    expect(openingRange(OPENING_BARS)).toBeNull();
+  });
+  it('opens a long series on the latest bars with a small right pad', () => {
+    const r = openingRange(20000)!;
+    expect(r.from).toBe(20000 - OPENING_BARS);
+    expect(r.to).toBeGreaterThanOrEqual(19999);
+    expect(r.to).toBeLessThan(20010);
   });
 });

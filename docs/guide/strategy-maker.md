@@ -6,7 +6,7 @@ The strategy maker is an optional page at `/strategy-maker` (type it after your 
 
 ## Where the data comes from
 
-- **A market**: choose a provider, a symbol (pick a popular one or type your own) and a timeframe, then **Load market**.
+- **A market**: choose a provider, a symbol (pick a popular one or type your own) and a timeframe, then **Load market**. A market load brings up to 20,000 candles (fewer where the provider has less; Kraken gives at most 720). The chart opens on the latest 300 or so bars so they stay readable; pan and zoom back to see the rest.
 - **A saved dataset**: datasets saved in the main app's library are listed read-only; the page never changes the library. With none saved it says "No saved datasets."
 - **A CSV file**: **CSV file** opens a file from your disk. A file that cannot be read shows a message on the page.
 

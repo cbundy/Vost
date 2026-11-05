@@ -1,11 +1,24 @@
 /** Loads candles for the strategy maker page: from a provider, the local library (read-only) or a CSV text. */
-import type { Candle } from '../../../shared/market.ts';
+import { MAX_BARS, type Candle } from '../../../shared/market.ts';
 import { candlesFromCsvText } from '../lib/csv';
 import { loadJson } from '../lib/storage';
 import type { DataProvider, HistoryRequest } from '../lib/providers/http';
 import type { Dataset } from '../types';
 
 export type Loaded = { ok: true; candles: Candle[]; label: string } | { ok: false; error: string };
+
+/** Bars a market load (and Find's refetch of a provider set) asks for: the most one history request may ask. */
+export const PROVIDER_BARS = MAX_BARS;
+
+/** Bars visible when the chart opens on a long series. */
+export const OPENING_BARS = 300;
+const RIGHT_PAD = 5;
+
+/** The logical range the chart opens on: the latest bars with a small right pad, or null (fit all) for a short series. */
+export function openingRange(count: number, view = OPENING_BARS): { from: number; to: number } | null {
+  if (count <= view) return null;
+  return { from: count - view, to: count - 1 + RIGHT_PAD };
+}
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 

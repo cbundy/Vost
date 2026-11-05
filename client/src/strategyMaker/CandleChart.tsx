@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Candle } from '../../../shared/market.ts';
 import { DOWN_COLOR, UP_COLOR, chartTheme, theme } from '../lib/theme';
 import { strokeTrade, type HighlightTrade, type Tool } from './brush';
+import { openingRange } from './data';
 import { FoundMarks } from './foundMarks';
 import type { FoundTrade } from './run';
 import { TradeBands } from './tradeBands';
@@ -74,7 +75,9 @@ export function CandleChart({ candles, trades, tool, onStroke, focus, foundTrade
       wickDownColor: DOWN_COLOR,
     });
     series.setData(candles.map((c) => ({ time: c.time as UTCTimestamp, open: c.open, high: c.high, low: c.low, close: c.close })));
-    chart.timeScale().fitContent();
+    const opening = openingRange(candles.length);
+    if (opening) chart.timeScale().setVisibleLogicalRange(opening);
+    else chart.timeScale().fitContent();
     const prim = bands.current;
     series.attachPrimitive(prim);
     prim.setTrades(latest.current.trades);
