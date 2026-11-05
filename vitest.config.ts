@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['client/src/**/*.test.ts', 'server/**/*.test.ts', 'shared/**/*.test.ts', 'scripts/**/*.test.ts', 'e2e/**/*.test.ts'],
+    setupFiles: ['client/src/testSetup.ts'],
     reporters: ['dot'],
     silent: true,
   },

@@ -38,21 +38,21 @@ import {
   setCell,
   setCells,
 } from './drawings';
+import { seedRaw, storedRaw, stubStorage } from '../state/stateTestKit';
 import { withStyleValue } from './toolbarPickers';
 import { VALIDATORS } from '../components/chart/tools';
 
 const COUNTS = { trendLine: 2, horizontalLine: 1, ray: 2, rectangle: 2, fibRetracement: 2, fibTimeZone: 2, fibSpeedFan: 2, fibCircles: 2, fibSpiral: 2, fibSpeedArcs: 2, gannBox: 2, gannSquareFixed: 2, gannSquare: 2, gannFan: 2, text: 1 };
 const TEXT = new Set(['text']);
 const TRANSIENT = new Set(['measure']);
-const store = new Map<string, string>();
-beforeEach(() => {
-  store.clear();
-  (globalThis as { localStorage?: unknown }).localStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-  };
-});
+/** The saved documents, keyed `vost.<name>` like the old browser keys, over the settings cache. */
+const store = {
+  get: (k: string) => storedRaw(k.slice(5)) ?? undefined,
+  set: (k: string, v: string) => seedRaw(k.slice(5), v),
+  has: (k: string) => storedRaw(k.slice(5)) !== null,
+  clear: () => stubStorage(),
+};
+beforeEach(() => stubStorage());
 
 const trend = (id: string, p = 10): Drawing => ({
   id,

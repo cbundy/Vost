@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { afterEachCleanup, stubStorage, track } from './stateTestKit';
+import { afterEachCleanup, stubStorage, seedRaw, stored, track } from './stateTestKit';
 import { DEFAULT_SYNC, type LayoutSync } from '../lib/layouts';
 import type { Candle } from '../types';
 
@@ -16,7 +16,7 @@ async function grid(sync: Partial<LayoutSync>) {
   const { useStore } = await import('./store');
   const providers = await import('../lib/providers');
   track(useStore);
-  localStorage.setItem('vost.prefs.v1', JSON.stringify(base));
+  seedRaw('prefs.v1', JSON.stringify(base));
   useStore.getState().init();
   useStore.getState().setArrangement('grid-2x2');
   useStore.getState().setSync('crosshair', false);
@@ -52,7 +52,7 @@ describe('Sync in layout', () => {
     useStore.getState().setSync('interval', true);
     useStore.getState().setSync('crosshair', false);
     vi.advanceTimersByTime(1000);
-    expect(JSON.parse(localStorage.getItem('vost.layout.v1')!).sync).toEqual({ ...DEFAULT_SYNC, interval: true, crosshair: false });
+    expect(stored('layout.v1').sync).toEqual({ ...DEFAULT_SYNC, interval: true, crosshair: false });
     vi.resetModules();
     const again = (await import('./store')).useStore;
     track(again);

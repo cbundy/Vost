@@ -2,12 +2,7 @@ import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import { timeToLogical } from '../../../client/src/lib/drawingGeometry.ts';
 import { ghostFeedBars } from '../../../client/src/lib/geometry/ghostFeed.ts';
 import type { Scenario } from '../scenario.ts';
-
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
+import { storedDrawings } from '../saved.ts';
 
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[]; style?: Record<string, unknown> };
 
@@ -34,7 +29,7 @@ export const drawingBars: Scenario = {
     const narrow = ctx.viewport === 'narrow';
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as Stored[];
+      return (await storedDrawings(ctx)) as Stored[];
     };
     const mine = async (tool?: string) => (await stored()).filter((d) => (tool ? d.tool === tool : d.tool === 'barsPattern' || d.tool === 'ghostFeed'));
     const box = async () => {

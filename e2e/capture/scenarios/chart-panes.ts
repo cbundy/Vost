@@ -51,12 +51,7 @@ export const chartPanes: Scenario = {
       await page.getByRole('dialog', { name: 'Sidebar' }).waitFor({ state: 'detached' });
     };
     await ctx.step('open app with a short bottom dock, so the chart has room for the panes', async () => {
-      await page.addInitScript(() => {
-        localStorage.setItem(
-          'vost.prefs.v1',
-          JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d', dockHeight: 120 }),
-        );
-      });
+      await ctx.settings.put('prefs.v1', { providerId: 'demo', symbol: 'DEMO', timeframe: '1d', dockHeight: 120 });
       await page.goto('/');
     });
     await ctx.waitForChart();

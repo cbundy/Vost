@@ -7,14 +7,14 @@ Vost is a static web client plus a tiny zero-dependency Node server. The server 
 3. keeps price alerts (`/api/alerts`) and watches prices for them around the clock, even with every browser tab closed.
 4. looks up and keeps the TradingView libraries that Pine scripts import (`/api/pine/libraries`).
 
-There is state on disk, all in the data folder (`VOST_DATA_DIR`): the alerts file, `alerts.json`, the `settings/` folder (the app's settings, one `<name>.json` per setting; see the API list below), the Pine libraries file, `pine-libraries.json` (open-source TradingView libraries the server fetched for scripts that import them, and libraries you pasted), and a candle store, `candles.sqlite` (a SQLite file the server opens with Node's built-in `node:sqlite`, so no npm dependency is added). The candle store holds chart history for the markets the server records (see [Recorded markets](#recorded-markets)); it is safe to delete, because the history is then fetched from the exchange again. Everything else is in memory (the symbol-list cache, the open exchange websockets). The server is TypeScript that Node runs directly (type stripping), so there is no server build step and no npm dependency at runtime. Everything else — fetch orchestration, CSV parsing, indicators, backtests — runs in the visitor's browser.
+There is state on disk, all in the data folder (`VOST_DATA_DIR`): the alerts file, `alerts.json`, the `settings/` folder (the app's settings, one `<name>.json` per setting; see the API list below), the Pine libraries file, `pine-libraries.json` (open-source TradingView libraries the server fetched for scripts that import them, and libraries you pasted), and a candle store, `candles.sqlite` (a SQLite file the server opens with Node's built-in `node:sqlite`, so no npm dependency is added). The candle store holds chart history for the markets the server records (see [Recorded markets](#recorded-markets)); it is safe to delete, because the history is then fetched from the exchange again. Everything else is in memory (the symbol-list cache, the open exchange websockets). The server is TypeScript that Node runs directly (type stripping), so there is no server build step and no npm dependency at runtime. Everything else — CSV parsing, indicators, backtests — runs in the visitor's browser, but the app needs the server to start: it loads its settings, layouts, drawings, watchlists and datasets from the `settings/` folder at start and saves them there as you work.
 
 - [Docker](#docker)
 - [Docker Compose](#docker-compose)
 - [Plain Node / systemd](#plain-node--systemd)
 - [Reverse proxy & TLS (nginx)](#reverse-proxy--tls-nginx)
 - [Behind a sub-path](#behind-a-sub-path)
-- [Static-only hosting](#static-only-hosting)
+- [Static-only hosting (not supported)](#static-only-hosting-not-supported)
 - [Environment variables](#environment-variables)
 - [Health checks & updates](#health-checks--updates)
 - [Troubleshooting](#troubleshooting)
@@ -159,12 +159,9 @@ Notes:
 
 The client calls `/api/...` with absolute paths, so it assumes it's served from the domain root. The simplest reliable setup for `https://example.com/charts/` is to keep Vost at the root, or mount it on a dedicated subdomain (`charts.example.com`) and use the nginx block above. Sub-path mounting is possible with a prefix-stripping proxy but is not a tested configuration yet.
 
-## Static-only hosting
+## Static-only hosting (not supported)
 
-You can skip the Node server (GitHub Pages, Netlify, S3, nginx serving files) by deploying `client/dist/` anywhere, but only the offline features work there:
-
-- **CSV import, the Demo provider and all backtesting work** - they never touch the network.
-- **Every remote provider (Binance, Coinbase, Kraken, Bybit, OKX, Hyperliquid Perps, Hyperliquid Spot, Yahoo) needs the Node server**: the browser no longer calls those APIs itself, so without `/api/*` they fail to load.
+Deploying `client/dist/` alone (GitHub Pages, Netlify, S3, nginx serving files) is no longer supported. The app reads everything it keeps (settings, layouts, drawings, watchlists, datasets) from `/api/settings` when it starts, so without the Node server it shows "The Vost server cannot be reached" and builds no chart. Always serve the app through the Node server (or Docker).
 
 `npm run dev` automatically proxies `/api/*` from Vite (:5173) to the Node server (:8787).
 

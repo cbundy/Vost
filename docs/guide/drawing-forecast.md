@@ -50,7 +50,7 @@ Double-click a position to open its settings.
 
 ![The Inputs tab](../evidence/drawing-positions/drawing-positions-inputs-desktop.png)
 
-**Save as default** keeps the inputs and the style for new positions of that tool. Positions are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
+**Save as default** keeps the inputs and the style for new positions of that tool. Positions are saved on the server and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
 
 ## Forecast
 
@@ -88,7 +88,7 @@ Pick **Projection** and click three points: point 1, point 2, then point 3 (the 
 
 Settings: **Line colour**, **Line width**, **Fill colour**, **Fill opacity**, **Text colour** and **Font size**, plus Coordinates and Visibility.
 
-Forecasts and projections are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
+Forecasts and projections are saved on the server and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
 
 ## Bars pattern
 
@@ -132,7 +132,7 @@ Settings (defaults in brackets): **Up colour** (green), **Down colour** (red), *
 
 ![The Ghost feed settings](../evidence/drawing-bars/drawing-bars-ghost-settings-desktop.png)
 
-Bars patterns and ghost feeds are saved in your browser and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
+Bars patterns and ghost feeds are saved on the server and survive a reload, a zoom, a pan and a timeframe change; **Ctrl+Z** and **Ctrl+Shift+Z** undo and redo every change.
 
 ## Measurers
 
@@ -150,4 +150,4 @@ Settings: **Line colour**, **Line width**, **Line style**, **Background** (on or
 
 ![The Date range settings](../evidence/drawing-ranges/drawing-ranges-date-range-settings-desktop.png)
 
-Range tools are saved in your browser, survive a reload, a zoom, a pan and a timeframe change, and take part in undo and redo.
+Range tools are saved on the server, survive a reload, a zoom, a pan and a timeframe change, and take part in undo and redo.

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Alert } from '../../../shared/alerts.ts';
+import { seedStorageForTest } from './storage';
+import { seedRaw } from '../state/stateTestKit';
 import { NETWORK_ERROR, SEEN_CAP, addSeen, announcementText, conditionLabel, createAlert, loadSeen, pruneSeen, seenKey, unseenTriggers } from './alerts';
 
 const alert = (over: Partial<Alert> = {}): Alert => ({
@@ -41,14 +43,13 @@ describe('seen record', () => {
     expect(pruneSeen(['a:1', 'b:2', 'a:3'], [alert({ id: 'a' })])).toEqual(['a:1', 'a:3']);
   });
   it('reads a malformed stored value as empty', () => {
-    const store = new Map<string, string>();
-    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
+    seedStorageForTest();
     try {
-      store.set('vost.alerts.seen.v1', '{"not":"an array"}');
+      seedRaw('alerts.seen.v1', '{"not":"an array"}');
       expect(loadSeen()).toEqual([]);
-      store.set('vost.alerts.seen.v1', 'not json');
+      seedRaw('alerts.seen.v1', 'not json');
       expect(loadSeen()).toEqual([]);
-      store.set('vost.alerts.seen.v1', '["a:1", 5, null]');
+      seedRaw('alerts.seen.v1', '["a:1", 5, null]');
       expect(loadSeen()).toEqual(['a:1']);
     } finally {
       vi.unstubAllGlobals();

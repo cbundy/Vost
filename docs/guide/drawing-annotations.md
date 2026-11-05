@@ -111,7 +111,7 @@ A **Flag mark** is a small pole with a flag at the bar and price you clicked. It
 
 ![A recoloured Flag mark](../evidence/drawing-price-markers/drawing-price-markers-flag-mark-red-desktop.png)
 
-All the note tools and price markers are saved in your browser with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
+All the note tools and price markers are saved on the server with the other drawings, with their lines, and can be hidden on timeframes on the **Visibility** tab.
 
 ## Icons, emojis and stickers
 
@@ -120,7 +120,7 @@ The **Icons** family on the rail holds three tools that place a small picture on
 Picking one of the tools, from the rail or the favourites bar, opens a picker:
 
 - the search box has focus; type words and only pictures that match every word (in the name or the keywords) stay, so "arrow up" finds the up arrows;
-- the tabs filter by category, and **Recent** shows your last picks for that tool (up to 16, kept in your browser);
+- the tabs filter by category, and **Recent** shows your last picks for that tool (up to 16, saved on the server);
 - **ArrowUp**, **ArrowDown**, **ArrowLeft** and **ArrowRight** move through the grid, **Enter** picks and **Escape** closes the picker without picking. On a phone the picker fits the screen.
 
 ![The Icons picker after a search for "arrow"](../evidence/drawing-icons/drawing-icons-search-desktop.png)

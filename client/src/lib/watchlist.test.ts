@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as wl from './watchlist';
 import type { WatchlistState } from './watchlist';
+import { seedStorageForTest } from './storage';
+import { seedRaw, storedRaw } from '../state/stateTestKit';
 import type { DataProvider } from './providers/http';
 
 const fakeProviders = [
@@ -14,13 +16,9 @@ const list = (s: WatchlistState, i = 0) => s.lists[i];
 const syms = (sec: { items: { symbol: string }[] }) => sec.items.map((i) => i.symbol);
 
 function stubStorage(initial: Record<string, string> = {}) {
-  const store = { ...initial };
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => store[k] ?? null,
-    setItem: (k: string, v: string) => void (store[k] = v),
-    removeItem: (k: string) => void delete store[k],
-  });
-  return store;
+  seedStorageForTest();
+  for (const [k, v] of Object.entries(initial)) seedRaw(k.slice(5), v);
+  return new Proxy({}, { get: (_t, k) => storedRaw(String(k).slice(5)) ?? undefined }) as Record<string, string>;
 }
 afterEach(() => vi.unstubAllGlobals());
 

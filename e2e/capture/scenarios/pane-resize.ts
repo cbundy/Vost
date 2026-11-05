@@ -48,13 +48,7 @@ export const paneResize: Scenario = {
       await ctx.screenshot(name);
     };
     await ctx.step('seed sizes and open app', async () => {
-      await page.addInitScript(() => {
-        localStorage.removeItem('vost.layout.v1');
-        localStorage.setItem(
-          'vost.prefs.v1',
-          JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d', sidebarWidth: 340, dockHeight: 420 }),
-        );
-      });
+      await ctx.settings.put('prefs.v1', { providerId: 'demo', symbol: 'DEMO', timeframe: '1d', sidebarWidth: 340, dockHeight: 420 });
       await page.goto('/');
     });
     await ctx.waitForChart();

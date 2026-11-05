@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { afterEachCleanup, chartOf, stubStorage, track } from './stateTestKit';
+import { afterEachCleanup, chartOf, stubStorage, seedRaw, stored, track } from './stateTestKit';
 import { getArrangement } from '../lib/layouts';
 
 afterEach(afterEachCleanup);
@@ -14,16 +14,15 @@ async function fresh() {
   return useStore;
 }
 
-const stored = (key: string) => JSON.parse(localStorage.getItem(`vost.${key}`)!);
 
 describe('chart layouts in the app store', () => {
   beforeEach(() => {
     stubStorage();
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(base));
+    seedRaw('prefs.v1', JSON.stringify(base));
   });
 
   it('opens on one chart of the saved prefs when there is no saved layout', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR' }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR' }));
     const app = await fresh();
     app.getState().init();
     expect(app.getState().arrangementId).toBe('single');
@@ -142,9 +141,8 @@ describe('chart layouts in the app store', () => {
   });
 
   it('a saved layout wins over prefs.v1 for the charts; the app-wide prefs still come from prefs.v1', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR', sidebarWidth: 333 }));
-    localStorage.setItem(
-      'vost.layout.v1',
+    seedRaw('prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR', sidebarWidth: 333 }));
+    seedRaw('layout.v1',
       JSON.stringify({ version: 1, arrangementId: 'cols-2', activeChartId: 'x2', charts: [{ id: 'x1', ...base }, { id: 'x2', ...base, symbol: 'DEMO-CHOP' }], sizes: null }),
     );
     const app = await fresh();
@@ -161,8 +159,8 @@ describe('chart layouts in the app store', () => {
     ['an unknown arrangement', JSON.stringify({ version: 1, arrangementId: 'zzz', charts: [{ id: 'a', ...base }] })],
     ['a chart count that does not match', JSON.stringify({ version: 1, arrangementId: 'cols-2', charts: [{ id: 'a', ...base }] })],
   ])('%s opens one chart of the prefs.v1 chart', async (_name, raw) => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR' }));
-    localStorage.setItem('vost.layout.v1', raw);
+    seedRaw('prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-BEAR' }));
+    seedRaw('layout.v1', raw);
     const app = await fresh();
     app.getState().init();
     expect(app.getState().arrangementId).toBe('single');
@@ -171,8 +169,7 @@ describe('chart layouts in the app store', () => {
   });
 
   it('an unknown provider falls back to the default market for that chart only', async () => {
-    localStorage.setItem(
-      'vost.layout.v1',
+    seedRaw('layout.v1',
       JSON.stringify({
         version: 1,
         arrangementId: 'cols-2',
@@ -187,8 +184,7 @@ describe('chart layouts in the app store', () => {
   });
 
   it('bad saved sizes fall back to even tracks, and setLayoutSizes sanitizes', async () => {
-    localStorage.setItem(
-      'vost.layout.v1',
+    seedRaw('layout.v1',
       JSON.stringify({ version: 1, arrangementId: 'cols-2', charts: [{ id: 'a', ...base }, { id: 'b', ...base }], sizes: { cols: [1, -1], rows: [1] } }),
     );
     const app = await fresh();
@@ -202,7 +198,7 @@ describe('chart layouts in the app store', () => {
   });
 
   it('a user with only prefs.v1 opens on a one-chart layout of their chart', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-CHOP' }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, symbol: 'DEMO-CHOP' }));
     const app = await fresh();
     app.getState().init();
     expect(app.getState().chartOrder).toHaveLength(1);

@@ -1,15 +1,27 @@
 /** Shared helpers for the store tests (not a test file itself). */
 import { expect, vi } from 'vitest';
 import type { ChartStore } from './chart';
+import { seedStorageForTest } from '../lib/storage';
 
-export function stubStorage() {
-  const store: Record<string, string> = {};
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => store[k] ?? null,
-    setItem: (k: string, v: string) => void (store[k] = v),
-    removeItem: (k: string) => void delete store[k],
-  });
+/** An empty server settings store for this test (shared across `vi.resetModules()`; every write counts as saved). */
+export function stubStorage(initial: Record<string, unknown> = {}) {
+  seedStorageForTest(initial);
 }
+
+const cache = () => (globalThis as { __vostStorageCache?: Map<string, string> }).__vostStorageCache!;
+/** The JSON text saved under a name, or null. */
+export const storedRaw = (key: string): string | null => cache().get(key) ?? null;
+/** The names of the saved documents. */
+export const storedKeys = (): string[] => [...cache().keys()];
+/** Every saved document's JSON text, one per line. */
+export const allStoredRaw = (): string => [...cache().values()].join('\n');
+/** The value saved under a name (undefined when none). */
+export const stored = (key: string): any => {
+  const raw = storedRaw(key);
+  return raw === null ? undefined : JSON.parse(raw);
+};
+/** Saves JSON text under a name as it would be after a start-up load (not necessarily valid JSON, to test corrupt data). */
+export const seedRaw = (key: string, raw: string): void => void cache().set(key, raw);
 
 export type TestStore = (typeof import('./store'))['useStore'];
 const used: TestStore[] = [];

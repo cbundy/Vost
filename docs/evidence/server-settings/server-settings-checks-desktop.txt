@@ -1,0 +1,11 @@
+ok   only the unparsable key is left in the browser - vost.unreadable
+ok   compare.v1 is on the server
+ok   the server prefs were not overwritten - 1d
+ok   the inbox says what moved
+ok   the line is saved on the server
+ok   the setting is saved on the server
+ok   the countdown is still off
+ok   the new browser keeps no copy
+ok   one outage toast, however many retries
+ok   the retried save reached the server
+ok   no chart is built

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { seedRaw, storedKeys, stubStorage } from '../../state/stateTestKit';
 import { compareSummary, describeCompare, defaultCompareState, formatSummary, loadCompareState, saveCompareState, savedPineScripts } from './compare';
 
 const sum = (a: string, b: string) => {
@@ -57,20 +58,7 @@ describe('formatSummary', () => {
 });
 
 describe('saved state', () => {
-  let store: Record<string, string>;
-  beforeEach(() => {
-    store = {};
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => store[k] ?? null,
-      setItem: (k: string, v: string) => {
-        store[k] = v;
-      },
-      removeItem: (k: string) => {
-        delete store[k];
-      },
-    });
-  });
-  afterEach(() => vi.unstubAllGlobals());
+  beforeEach(() => stubStorage());
 
   it('falls back to defaults on missing or bad values', () => {
     expect(loadCompareState()).toEqual(defaultCompareState());
@@ -85,10 +73,10 @@ describe('saved state', () => {
       { texts: ['', '', '', ''], count: '2', reference: 0 },
     ];
     for (const v of bad) {
-      store['vost.compare.v1'] = JSON.stringify(v);
+      seedRaw('compare.v1', JSON.stringify(v));
       expect(loadCompareState()).toEqual(defaultCompareState());
     }
-    store['vost.compare.v1'] = '{not json';
+    seedRaw('compare.v1', '{not json');
     expect(loadCompareState()).toEqual(defaultCompareState());
   });
   it('round-trips a valid state', () => {
@@ -97,17 +85,13 @@ describe('saved state', () => {
     expect(loadCompareState()).toEqual(s);
   });
   it('a failed save returns false and does not throw', () => {
-    vi.stubGlobal('localStorage', {
-      getItem: () => null,
-      setItem: () => {
-        throw new Error('quota');
-      },
-    });
-    expect(saveCompareState(defaultCompareState())).toBe(false);
+    // a value that cannot be written as JSON
+    const unserialisable = { ...defaultCompareState(), count: 1n } as unknown as ReturnType<typeof defaultCompareState>;
+    expect(saveCompareState(unserialisable)).toBe(false);
   });
 
   it('savedPineScripts lists only pine indicators with titles', () => {
-    store['vost.prefs.v1'] = JSON.stringify({
+    seedRaw('prefs.v1', JSON.stringify({
       indicators: [
         { kind: 'sma' },
         { kind: 'pine', source: '//@version=6\nindicator("My Ind", overlay=true)\nplot(close)' },
@@ -115,16 +99,16 @@ describe('saved state', () => {
         { kind: 'pine', source: 'plot(close)' },
         null,
       ],
-    });
+    }));
     expect(savedPineScripts().map((s) => s.label)).toEqual(['My Ind', 'Strat X', 'Pine indicator 3']);
   });
   it('savedPineScripts is empty for missing or broken prefs and never writes', () => {
     expect(savedPineScripts()).toEqual([]);
-    store['vost.prefs.v1'] = '{oops';
+    seedRaw('prefs.v1', '{oops');
     expect(savedPineScripts()).toEqual([]);
-    store['vost.prefs.v1'] = JSON.stringify({ indicators: 5 });
+    seedRaw('prefs.v1', JSON.stringify({ indicators: 5 }));
     expect(savedPineScripts()).toEqual([]);
-    expect(Object.keys(store)).toEqual(['vost.prefs.v1']);
+    expect(storedKeys()).toEqual(['prefs.v1']);
   });
 });
 

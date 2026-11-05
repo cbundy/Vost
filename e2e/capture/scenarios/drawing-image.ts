@@ -1,11 +1,6 @@
 import { deflateSync } from 'node:zlib';
 import type { Scenario } from '../scenario.ts';
-
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
+import { storedDrawings } from '../saved.ts';
 
 /** How many records the picture store holds (-1 when it cannot be opened). */
 const RECORDS = `new Promise((resolve) => {
@@ -85,7 +80,7 @@ export const drawingImage: Scenario = {
     const narrow = ctx.viewport === 'narrow';
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as Stored[];
+      return (await storedDrawings(ctx)) as Stored[];
     };
     const records = () => page.evaluate(RECORDS) as Promise<number>;
     const box = async () => {

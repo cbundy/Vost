@@ -1,13 +1,8 @@
 import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import type { Scenario } from '../scenario.ts';
+import { storedDrawings } from '../saved.ts';
 
 /** Reads the saved drawings of the demo source (waits past the 400 ms debounce first). */
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
-
 /** The trend line's anchors as fractions of the chart canvas: near the right end, so a timeframe change keeps it in view. */
 const TA = { x: 0.915, y: 0.55 };
 const TB = { x: 0.94, y: 0.25 };
@@ -40,7 +35,7 @@ export const drawings: Scenario = {
     const rail = page.getByRole('toolbar', { name: 'Drawing tools' });
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as { id: string; tool: string; anchors: { time: number; price: number }[] }[];
+      return (await storedDrawings(ctx)) as { id: string; tool: string; anchors: { time: number; price: number }[] }[];
     };
     const check = (label: string, ok: boolean, detail = '') => {
       checks.push(`${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ` - ${detail}` : ''}`);

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { afterEachCleanup, chartOf, markUsed, stubStorage, track, snap } from './stateTestKit';
+import { afterEachCleanup, chartOf, markUsed, stubStorage, seedRaw, stored, storedRaw, track, snap } from './stateTestKit';
 
 afterEach(afterEachCleanup);
 
@@ -61,7 +61,7 @@ describe('timeZone pref', () => {
       const { useStore } = await setup();
       useStore.getState().setTimeZone('Asia/Tehran');
       vi.advanceTimersByTime(1000);
-      expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).timeZone).toBe('Asia/Tehran');
+      expect(stored('prefs.v1').timeZone).toBe('Asia/Tehran');
       vi.resetModules();
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const fresh = track((await import('./store')).useStore);
@@ -82,7 +82,7 @@ describe('timeZone pref', () => {
   it('old prefs without timeZone and invalid stored zones fall back to the browser zone', async () => {
     const browser = new Intl.DateTimeFormat().resolvedOptions().timeZone;
     for (const stored of [{}, { timeZone: 'Nope/Zone' }]) {
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...stored }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...stored }));
       vi.resetModules();
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const fresh = track((await import('./store')).useStore);
@@ -103,7 +103,7 @@ describe('stale persist isolation', () => {
     await afterEachCleanup();
     stubStorage();
     await new Promise((r) => setTimeout(r, 700));
-    expect(localStorage.getItem('vost.prefs.v1')).toBeNull();
+    expect(storedRaw('prefs.v1')).toBeNull();
   });
 });
 
@@ -183,7 +183,7 @@ describe('pane size prefs', () => {
   const base = { providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100 };
 
   it('prefs without sizes load the defaults', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(base));
+    seedRaw('prefs.v1', JSON.stringify(base));
     const useStore = await fresh();
     useStore.getState().init();
     expect(useStore.getState().sidebarWidth).toBe(264);
@@ -192,7 +192,7 @@ describe('pane size prefs', () => {
   });
 
   it('a garbage pineWidth loads the default', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, pineWidth: 'wide' }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, pineWidth: 'wide' }));
     const useStore = await fresh();
     useStore.getState().init();
     expect(useStore.getState().pineWidth).toBe(440);
@@ -202,7 +202,7 @@ describe('pane size prefs', () => {
     const a = await fresh();
     a.getState().setPineWidth(500);
     a.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).pineWidth).toBe(500);
+    expect(stored('prefs.v1').pineWidth).toBe(500);
     vi.resetModules();
     const b = await fresh();
     b.getState().init();
@@ -211,7 +211,7 @@ describe('pane size prefs', () => {
   });
 
   it('non-numeric and non-finite stored sizes load the defaults', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, sidebarWidth: 'wide', dockHeight: -3 }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, sidebarWidth: 'wide', dockHeight: -3 }));
     const useStore = await fresh();
     useStore.getState().init();
     expect(useStore.getState().sidebarWidth).toBe(264);
@@ -223,7 +223,7 @@ describe('pane size prefs', () => {
     a.getState().setSidebarWidth(900);
     a.getState().setDockHeight(410);
     a.getState().flushPersist();
-    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    const saved = stored('prefs.v1');
     expect(saved.sidebarWidth).toBe(900);
     expect(saved.dockHeight).toBe(410);
     vi.resetModules();
@@ -234,7 +234,7 @@ describe('pane size prefs', () => {
   });
 
   it('prefs without a side panel load an open watchlist', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(base));
+    seedRaw('prefs.v1', JSON.stringify(base));
     const useStore = await fresh();
     useStore.getState().init();
     expect(useStore.getState().sidePanel).toBe('watchlist');
@@ -242,7 +242,7 @@ describe('pane size prefs', () => {
   });
 
   it('junk side panel prefs load the defaults', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, sidePanel: 'charts', sidePanelCollapsed: 'yes' }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, sidePanel: 'charts', sidePanelCollapsed: 'yes' }));
     const useStore = await fresh();
     useStore.getState().init();
     expect(useStore.getState().sidePanel).toBe('watchlist');
@@ -250,7 +250,7 @@ describe('pane size prefs', () => {
   });
 
   it('loads the object tree section', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, sidePanel: 'objects' }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, sidePanel: 'objects' }));
     const useStore = await fresh();
     useStore.getState().init();
     expect(useStore.getState().sidePanel).toBe('objects');
@@ -264,7 +264,7 @@ describe('pane size prefs', () => {
     a.getState().setSidePanel('indicators');
     a.getState().setSidePanelCollapsed(true);
     a.getState().flushPersist();
-    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    const saved = stored('prefs.v1');
     expect(saved.sidePanel).toBe('indicators');
     expect(saved.sidePanelCollapsed).toBe(true);
     vi.resetModules();
@@ -284,7 +284,7 @@ describe('init with saved prefs', () => {
   });
 
   const startWith = async (prefs: object) => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(prefs));
+    seedRaw('prefs.v1', JSON.stringify(prefs));
     const { useStore } = await import('./store');
     track(useStore);
     useStore.getState().init();
@@ -308,7 +308,7 @@ describe('barCountdown setting', () => {
     stubStorage();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
     if (saved !== undefined) {
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, barCountdown: saved }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, barCountdown: saved }));
     }
     const { useStore } = await import('./store');
     track(useStore);
@@ -326,7 +326,7 @@ describe('barCountdown setting', () => {
     const useStore = await fresh();
     useStore.getState().setBarCountdown(false);
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).barCountdown).toBe(false);
+    expect(stored('prefs.v1').barCountdown).toBe(false);
   });
 });
 
@@ -336,7 +336,7 @@ describe('historyLoading setting', () => {
     stubStorage();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
     if (saved !== undefined) {
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, historyLoading: saved }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, historyLoading: saved }));
     }
     const { useStore } = await import('./store');
     track(useStore);
@@ -355,7 +355,7 @@ describe('historyLoading setting', () => {
     const env = { current: () => useStore.getState().historyLoading };
     useStore.getState().setHistoryLoading('all');
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).historyLoading).toBe('all');
+    expect(stored('prefs.v1').historyLoading).toBe('all');
     expect(env.current()).toBe('all');
     // a chart built by the store reads the setting through its env: load-all asks for the saved Bars value
     const { getProvider } = await import('../lib/providers');
@@ -381,7 +381,7 @@ describe('pineHigherBars setting', () => {
     stubStorage();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
     if (saved !== undefined) {
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, pineHigherBars: saved }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, pineHigherBars: saved }));
     }
     const { useStore } = await import('./store');
     track(useStore);
@@ -401,7 +401,7 @@ describe('pineHigherBars setting', () => {
     chartOf(useStore).setState({ rerunPine: rerun });
     useStore.getState().setPineHigherBars('finished');
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).pineHigherBars).toBe('finished');
+    expect(stored('prefs.v1').pineHigherBars).toBe('finished');
     expect(rerun).toHaveBeenCalledTimes(1);
     useStore.getState().setPineHigherBars('finished');
     expect(rerun).toHaveBeenCalledTimes(1);
@@ -428,7 +428,7 @@ describe('historyLoading reload', () => {
     const { useStore, history } = await setup();
     useStore.getState().setHistoryLoading('all');
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).historyLoading).toBe('all');
+    expect(stored('prefs.v1').historyLoading).toBe('all');
     await vi.waitFor(() => expect(history).toHaveBeenCalledTimes(1));
     expect(history).toHaveBeenLastCalledWith(expect.objectContaining({ bars: 321 }));
     useStore.getState().setHistoryLoading('all');
@@ -475,9 +475,9 @@ describe('buildTimeframes setting', () => {
     expect(useStore.getState().buildTimeframes).toBe(false);
     useStore.getState().setBuildTimeframes(true);
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).buildTimeframes).toBe(true);
+    expect(stored('prefs.v1').buildTimeframes).toBe(true);
     vi.resetModules();
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, buildTimeframes: 'yes' }));
+    seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, buildTimeframes: 'yes' }));
     const fresh = track((await import('./store')).useStore);
     fresh.getState().init();
     expect(fresh.getState().buildTimeframes).toBe(false);
@@ -567,7 +567,7 @@ describe('chart registry and flat prefs', () => {
 
   it('opens with exactly one chart, chart-1, built from the saved prefs', async () => {
     const prefs = seed();
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(prefs));
+    seedRaw('prefs.v1', JSON.stringify(prefs));
     const { useStore, getActiveChart, FIRST_CHART_ID } = await import('./store');
     track(useStore);
     useStore.getState().init();
@@ -591,7 +591,7 @@ describe('chart registry and flat prefs', () => {
 
   it('keeps the Pine text inputs of the backtest settings, and old settings without them load as before', async () => {
     const seeded = { ...seed().btConfig, pineInputs: { Src: 'open', 'Line color': '#00FF0080' } };
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...seed(), btConfig: seeded }));
+    seedRaw('prefs.v1', JSON.stringify({ ...seed(), btConfig: seeded }));
     const { useStore, getActiveChart } = await import('./store');
     track(useStore);
     useStore.getState().init();
@@ -601,7 +601,7 @@ describe('chart registry and flat prefs', () => {
   });
 
   it('old backtest settings load with no pineInputs', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(seed()));
+    seedRaw('prefs.v1', JSON.stringify(seed()));
     const { useStore, getActiveChart } = await import('./store');
     track(useStore);
     useStore.getState().init();
@@ -611,8 +611,7 @@ describe('chart registry and flat prefs', () => {
   it('reads the drawing rail prefs with sanitising, and old prefs without them load the defaults', async () => {
     const { useStore } = await import('./store');
     track(useStore);
-    localStorage.setItem(
-      'vost.prefs.v1',
+    seedRaw('prefs.v1',
       JSON.stringify({ ...seed(), drawingFavorites: ['ray', 'nope', 'ray', 7], drawingLastTool: { lines: 'rectangle', shapes: 'rectangle' }, cursorKind: 'star', favoritesBarPos: { x: 'a', y: 2 } }),
     );
     useStore.getState().init();
@@ -623,7 +622,7 @@ describe('chart registry and flat prefs', () => {
     expect(app.favoritesBarPos).toEqual({ x: 56, y: 12 });
     const old: Record<string, unknown> = seed();
     for (const k of ['drawingFavorites', 'drawingLastTool', 'cursorKind', 'favoritesBarPos']) delete old[k];
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(old));
+    seedRaw('prefs.v1', JSON.stringify(old));
     useStore.getState().init();
     app = useStore.getState();
     expect([app.drawingFavorites, app.drawingLastTool, app.cursorKind, app.favoritesBarPos]).toEqual([[], {}, 'cross', { x: 56, y: 12 }]);
@@ -633,8 +632,7 @@ describe('chart registry and flat prefs', () => {
     const { useStore } = await import('./store');
     track(useStore);
     const many = Array.from({ length: 30 }, (_, i) => `g${i}`);
-    localStorage.setItem(
-      'vost.prefs.v1',
+    seedRaw('prefs.v1',
       JSON.stringify({ ...seed(), glyphArmed: { icon: 'star', emoji: 7, sticker: '', ray: 'x' }, glyphRecent: { icon: ['a', 'a', 5, '', 'b'], emoji: many, ray: ['x'], sticker: 'nope' } }),
     );
     useStore.getState().init();
@@ -646,7 +644,7 @@ describe('chart registry and flat prefs', () => {
     const old: Record<string, unknown> = seed();
     delete old.glyphArmed;
     delete old.glyphRecent;
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(old));
+    seedRaw('prefs.v1', JSON.stringify(old));
     useStore.getState().init();
     app = useStore.getState();
     expect([app.glyphArmed, app.glyphRecent]).toEqual([{}, {}]);
@@ -666,7 +664,7 @@ describe('chart registry and flat prefs', () => {
     expect(app.glyphRecent.emoji.slice(0, 3)).toEqual(['e10', 'e19', 'e18']);
     expect(app.glyphRecent.ray).toBeUndefined();
     useStore.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).glyphArmed).toEqual({ emoji: 'e10' });
+    expect(stored('prefs.v1').glyphArmed).toEqual({ emoji: 'e10' });
   });
 
   it('toggles favourites and remembers the last tool of a family', async () => {
@@ -687,14 +685,14 @@ describe('chart registry and flat prefs', () => {
 
   it('writes prefs.v1 back flat with the same keys, from the chart and the app together', async () => {
     const prefs = seed();
-    localStorage.setItem('vost.prefs.v1', JSON.stringify(prefs));
+    seedRaw('prefs.v1', JSON.stringify(prefs));
     const { useStore, getActiveChart } = await import('./store');
     track(useStore);
     useStore.getState().init();
     getActiveChart().getState().setBars(77); // a chart field
     useStore.getState().setDockHeight(260); // an app field
     useStore.getState().flushPersist();
-    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    const saved = stored('prefs.v1');
     expect(Object.keys(saved).sort()).toEqual(Object.keys(prefs).sort());
     expect(saved.bars).toBe(77);
     expect(saved.dockHeight).toBe(260);
@@ -780,7 +778,7 @@ describe('custom timeframes', () => {
     stubStorage();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
   });
-  const saved = () => JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+  const saved = () => stored('prefs.v1');
   const base = { providerId: 'coinbase', symbol: 'BTC-USD', timeframe: '1h', bars: 100 };
   async function fresh() {
     const { useStore } = await import('./store');
@@ -809,14 +807,14 @@ describe('custom timeframes', () => {
   });
 
   it('restores a chart left on a custom interval', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, timeframe: '2h', customTimeframes: ['2h'] }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, timeframe: '2h', customTimeframes: ['2h'] }));
     const useStore = await fresh();
     expect(chartOf(useStore).getState().timeframe).toBe('2h');
   });
 
   it('drops bad saved lists and a bad saved timeframe without a toast', async () => {
     for (const bad of ['2h', [1, '120m', 'x'], Array.from({ length: 30 }, (_, i) => `${i + 2}m`)]) {
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, timeframe: '120m', customTimeframes: bad }));
+      seedRaw('prefs.v1', JSON.stringify({ ...base, timeframe: '120m', customTimeframes: bad }));
       vi.resetModules();
       const useStore = await fresh();
       expect(useStore.getState().customTimeframes.length).toBe(Array.isArray(bad) && bad.length === 30 ? 20 : 0);
@@ -826,7 +824,7 @@ describe('custom timeframes', () => {
   });
 
   it('removing the active interval moves the chart to the provider default', async () => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ ...base, timeframe: '2h', customTimeframes: ['2h'] }));
+    seedRaw('prefs.v1', JSON.stringify({ ...base, timeframe: '2h', customTimeframes: ['2h'] }));
     const useStore = await fresh();
     useStore.getState().removeCustomTimeframe('2h');
     expect(useStore.getState().customTimeframes).toEqual([]);

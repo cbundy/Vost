@@ -44,7 +44,7 @@ Press **Import CSV** in the top bar, drop a file (or click to browse, or paste t
 
 ## Local library
 
-Open **Data and library** from the icon rail. **Data** shows what is on the chart (range, bar count, last close) with **Save to library** and **Export CSV**. **Local library** lists the datasets you kept: click one to chart it, export it as CSV or delete it. Datasets live in your browser's local storage, so you can chart and backtest them with the network off.
+Open **Data and library** from the icon rail. **Data** shows what is on the chart (range, bar count, last close) with **Save to library** and **Export CSV**. **Local library** lists the datasets you kept: click one to chart it, export it as CSV or delete it. Datasets are saved on the server, in its data folder, so you can chart and backtest them with no market-data network.
 
 ## Recorded markets
 

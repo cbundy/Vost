@@ -4539,3 +4539,19 @@ table.data-table th.sortable .sort-btn:focus-visible {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+.startup-error {
+  max-width: 480px;
+  margin: 18vh auto 0;
+  padding: 0 24px;
+  text-align: center;
+}
+.startup-error h1 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+.startup-error p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}

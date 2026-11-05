@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SYNC, evenSizes, getArrangement, LAYOUT_VERSION, type LayoutRecord } from './layouts';
 import * as sl from './savedLayouts';
-import { stubStorage } from '../state/stateTestKit';
+import { seedRaw, storedRaw, stubStorage } from '../state/stateTestKit';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -114,12 +114,12 @@ describe('parsing the stored layouts', () => {
     beforeEach(() => stubStorage());
 
     it('a corrupt key reads as nothing and touches no other key', () => {
-      localStorage.setItem('vost.savedLayouts.v1', '{not json');
-      localStorage.setItem('vost.layout.v1', 'L');
-      localStorage.setItem('vost.prefs.v1', 'P');
-      localStorage.setItem('vost.watchlists.v1', 'W');
+      seedRaw('savedLayouts.v1', '{not json');
+      seedRaw('layout.v1', 'L');
+      seedRaw('prefs.v1', 'P');
+      seedRaw('watchlists.v1', 'W');
       expect(sl.loadSavedLayouts()).toBeNull();
-      expect(['layout.v1', 'prefs.v1', 'watchlists.v1'].map((k) => localStorage.getItem(`vost.${k}`))).toEqual(['L', 'P', 'W']);
+      expect(['layout.v1', 'prefs.v1', 'watchlists.v1'].map((k) => storedRaw(k))).toEqual(['L', 'P', 'W']);
     });
 
     it('saves and loads a state', () => {

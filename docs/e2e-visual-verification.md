@@ -93,8 +93,14 @@ predates the Chromium image change (rebuild it) or, outside it, that the system 
 
 ## Fake market data, offline
 
-Most captures run on the Demo provider. Each scenario starts with `localStorage` seeded
-(`vost.prefs.v1` = `{ "providerId": "demo", "symbol": "DEMO", "timeframe": "1d" }`).
+Most captures run on the Demo provider. The app keeps its settings on the server, so before each scenario and
+viewport run the runner lists `/api/settings`, deletes every document and seeds `prefs.v1` with
+`{ "providerId": "demo", "symbol": "DEMO", "timeframe": "1d" }` through `PUT /api/settings/prefs.v1`. A scenario that needs
+other saved state calls `ctx.settings.put(name, value)` and then `goto`s or reloads; one that checks what the page saved
+calls `ctx.settings.get(name)` (null when nothing is saved). No scenario touches `localStorage` except `server-settings`,
+which puts old `vost.*` browser data there to prove the one-time move to the server, and also shows a setting and a
+drawing in a brand-new browser, the outage toast when saves fail and the start-up error page when `/api/settings` is
+unreachable.
 
 The remote providers are served by a fake market-data service in `e2e/fake-upstream/`. `npm run e2e:capture` always
 starts it before the server and passes the server `VOST_TEST_UPSTREAM=http://127.0.0.1:<port>`, so a capture never
@@ -143,7 +149,7 @@ export const myScenario: Scenario = {
 ```
 
 `ctx` gives `page`, `step(label, fn)` (wraps failures with the scenario and step name), `screenshot(name?)`,
-`waitForChart()`, `upstream` (`stop()` / `start()` of the fake market data), `requests` (every URL the browser asked
+`settings` (`get(name)` and `put(name, value)` on the server's saved settings), `waitForChart()`, `upstream` (`stop()` / `start()` of the fake market data), `requests` (every URL the browser asked
 for) and `writeText(name, text)` (writes `<scenario>-<name>-<viewport>.txt`). Keep the scripts to erasable TypeScript syntax (Node runs them with type stripping). Check types
 with `npx tsc -p e2e` (not part of the typecheck gate).
 

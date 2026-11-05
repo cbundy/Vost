@@ -2,6 +2,7 @@ import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { MOUSE_HIT, TOUCH_HIT, WEAK_MAGNET_PX, snapToBar, type Pt } from '../../lib/drawingGeometry';
+import { flushStorage } from '../../lib/storage';
 import {
   add,
   commit,
@@ -587,7 +588,10 @@ export function useDrawings(
 
   /* Flush a pending save when the page goes away. */
   useEffect(() => {
-    const flush = () => drawingsStorage().flush();
+    const flush = () => {
+      drawingsStorage().flush();
+      flushStorage();
+    };
     window.addEventListener('pagehide', flush);
     return () => {
       window.removeEventListener('pagehide', flush);

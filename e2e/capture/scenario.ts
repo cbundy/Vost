@@ -18,8 +18,8 @@ export interface ScenarioContext {
   viewport: ViewportName;
   /** Runs fn; a failure is rethrown as `scenario "<name>" step "<label>" failed: <first line>`. */
   step<T>(label: string, fn: () => Promise<T>): Promise<T>;
-  /** Writes `<scenario>-<name>-<viewport>.png` (or `<scenario>-<viewport>.png`) and returns its path. */
-  screenshot(name?: string): Promise<string>;
+  /** Writes `<scenario>-<name>-<viewport>.png` (or `<scenario>-<viewport>.png`) of the scenario's page, or of `of`, and returns its path. */
+  screenshot(name?: string, of?: Page): Promise<string>;
   /** Waits for the chart canvas, the demo legend title and the web fonts. */
   waitForChart(): Promise<void>;
   /** The fake market-data service the server is pointed at; `stop()` and `start()` take it down and bring it back. */
@@ -28,6 +28,11 @@ export interface ScenarioContext {
   requests: readonly string[];
   /** Writes `<scenario>-<name>-<viewport>.txt` and returns its path. */
   writeText(name: string, text: string): Promise<string>;
+  /** The server's saved settings (what the app keeps): seed with `put`, then `goto` or reload; read what the page saved with `get` (null when none). */
+  settings: {
+    get(name: string): Promise<unknown>;
+    put(name: string, value: unknown): Promise<void>;
+  };
 }
 
 export interface Scenario {
@@ -38,7 +43,7 @@ export interface Scenario {
   viewports?: ViewportName[];
   /** Viewports that emulate a touch device (a touchscreen, mobile mode); the others use a mouse. */
   touch?: ViewportName[];
-  /** Seed the prefs once per page load only when none are saved yet, so a reload keeps what the page saved. */
+  /** Kept for the scenarios that set it: the prefs are now seeded once per run (not on every page load), so a reload always keeps what the page saved. */
   keepPrefs?: boolean;
   run(ctx: ScenarioContext): Promise<void>;
 }
@@ -93,16 +98,10 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
     aborted.push(url.href);
     void ws.close();
   });
-  await context.addInitScript((keep) => {
-    if (keep && localStorage.getItem('vost.prefs.v1')) return;
-    // A saved layout wins over prefs.v1 for the charts: seeding the prefs starts from a single chart again.
-    localStorage.removeItem('vost.layout.v1');
-    localStorage.removeItem('vost.savedLayouts.v1');
-    localStorage.setItem(
-      'vost.prefs.v1',
-      JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d' }),
-    );
-  }, scenario.keepPrefs === true);
+  const settings = settingsClient(baseUrl);
+  // Every run starts from the same server state: no document is left from an earlier run, and the prefs are seeded.
+  await settings.reset();
+  await settings.put('prefs.v1', { providerId: 'demo', symbol: 'DEMO', timeframe: '1d' });
   const page = await context.newPage();
   const written: string[] = [];
 
@@ -118,14 +117,15 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
     page,
     viewport,
     step,
-    async screenshot(name) {
+    async screenshot(name, of) {
       const file = path.join(outDir, `${[scenario.name, name, viewport].filter(Boolean).join('-')}.png`);
-      await page.screenshot({ path: file });
+      await (of ?? page).screenshot({ path: file });
       written.push(file);
       return file;
     },
     upstream,
     requests,
+    settings,
     async writeText(name, text) {
       const file = path.join(outDir, `${[scenario.name, name, viewport].join('-')}.txt`);
       await writeFile(file, text);
@@ -160,4 +160,29 @@ export async function runScenario(opts: RunOptions): Promise<string[]> {
     written.push(dest);
   }
   return written;
+}
+
+/** Talks to `/api/settings` of the server under test (Node has no Origin header, which the server accepts). */
+export function settingsClient(baseUrl: string) {
+  const url = (name?: string) => `${baseUrl}/api/settings${name ? `/${encodeURIComponent(name)}` : ''}`;
+  const write = async (method: string, name: string, body?: unknown) => {
+    const res = await fetch(url(name), { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    if (!res.ok && !(method === 'DELETE' && res.status === 404)) throw new Error(`${method} /api/settings/${name} answered ${res.status}`);
+  };
+  return {
+    async get(name: string): Promise<unknown> {
+      const res = await fetch(url(name));
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`GET /api/settings/${name} answered ${res.status}`);
+      return res.json();
+    },
+    put: (name: string, value: unknown) => write('PUT', name, value),
+    /** Deletes every document (there is no delete-all endpoint). */
+    async reset(): Promise<void> {
+      const res = await fetch(url());
+      if (!res.ok) throw new Error(`GET /api/settings answered ${res.status}`);
+      const { values } = (await res.json()) as { values: Record<string, unknown> };
+      for (const name of Object.keys(values)) await write('DELETE', name);
+    },
+  };
 }

@@ -1,11 +1,5 @@
 import type { Scenario } from '../scenario.ts';
-
-const PREFS = `(() => JSON.parse(localStorage.getItem('vost.prefs.v1') || '{}'))()`;
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
+import { storedDrawings } from '../saved.ts';
 
 type Prefs = {
   drawingFavorites?: string[];
@@ -41,11 +35,11 @@ export const drawingRail: Scenario = {
     };
     const prefs = async () => {
       await page.waitForTimeout(700); // past the prefs debounce
-      return (await page.evaluate(PREFS)) as Prefs;
+      return ((await ctx.settings.get('prefs.v1')) ?? {}) as Prefs;
     };
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as { id: string; tool: string }[];
+      return (await storedDrawings(ctx)) as { id: string; tool: string }[];
     };
     const box = async () => {
       const b = await page.locator('.chart-container').boundingBox();

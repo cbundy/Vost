@@ -1,14 +1,10 @@
 import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import type { Scenario } from '../scenario.ts';
 import { showSideSection } from '../side-panel.ts';
+import { storedSources } from '../saved.ts';
 
 type Anchor = { time: number; price: number };
 type Stored = { id: string; tool: string; anchors: Anchor[]; name?: string; locked?: boolean };
-
-const ALL = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  return raw ? JSON.parse(raw).sources : {};
-})()`;
 
 /** Where (canvas fractions) each drawing goes; x is scaled to stay in the plot, clear of the price axis. */
 const TREND = [{ x: 0.2, y: 0.6 }, { x: 0.6, y: 0.25 }];
@@ -30,7 +26,7 @@ export const drawingManage: Scenario = {
     const narrow = ctx.viewport === 'narrow';
     const sources = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(ALL)) as Record<string, Stored[]>;
+      return (await storedSources(ctx)) as Record<string, Stored[]>;
     };
     const stored = async (symbol = 'DEMO') => (await sources())[`demo:${symbol}`] ?? [];
     const cell = () => page.locator('.chart-container').first();

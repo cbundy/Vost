@@ -52,4 +52,4 @@ From the layout menu, download the active chart's bars or every chart's as `<sym
 
 ## Where layouts are saved
 
-In your browser's local storage only: the working layout and the named layouts do not follow you to another browser or device, and clearing site data removes them. Layouts have no export yet; use Download chart data if you need the bars.
+On the server: the working layout and the named layouts are saved in its data folder, so another browser or device sees them and clearing site data does not remove them. Layouts have no export yet; use Download chart data if you need the bars.

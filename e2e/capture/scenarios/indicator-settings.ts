@@ -65,11 +65,9 @@ export const indicatorSettings: Scenario = {
     void dialog;
 
     await ctx.step('open app', async () => {
-      await page.addInitScript(() => {
-        if (!localStorage.getItem('vost.prefs.v1')) {
-          localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'demo', symbol: 'DEMO', timeframe: '1d', dockHeight: 120, indicators: [] }));
-        }
-      });
+      if ((await ctx.settings.get('prefs.v1')) === null) {
+        await ctx.settings.put('prefs.v1', { providerId: 'demo', symbol: 'DEMO', timeframe: '1d', dockHeight: 120, indicators: [] });
+      }
       await page.goto('/');
     });
     await ctx.waitForChart();
@@ -278,10 +276,8 @@ export const indicatorSettings: Scenario = {
       check('Reset goes to the saved default (20)', (await dlg.getByLabel('Length', { exact: true }).inputValue()) === '20');
       await dlg.getByRole('button', { name: 'OK' }).click();
       await dlg.waitFor({ state: 'detached' });
-      const prefs = await page.evaluate(() => localStorage.getItem('vost.prefs.v1'));
       await page.waitForTimeout(600);
-      void prefs;
-      const saved = JSON.parse((await page.evaluate(() => localStorage.getItem('vost.prefs.v1'))) as string).indicatorDefaults;
+      const saved = ((await ctx.settings.get('prefs.v1')) as { indicatorDefaults?: any }).indicatorDefaults;
       check('the default is stored in the prefs', saved?.ema?.params?.length === 20 && saved.ema.hideOn.join() === 'minutes', JSON.stringify(saved));
       await ctx.screenshot('new-ema');
     });

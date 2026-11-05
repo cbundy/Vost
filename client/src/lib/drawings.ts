@@ -448,8 +448,8 @@ export function stateImageKeys(s: DrawingsState): string[] {
 }
 
 /**
- * The picture keys of every stored drawing of every source, read fresh from storage (other tabs share it). Null when
- * storage cannot be read; `newer` when the payload is from a newer app, which this one cannot read completely.
+ * The picture keys of every stored drawing of every source, as this tab last loaded or saved them (another tab's newer drawings are not seen). Null when
+ * the value is not valid JSON; `newer` when the payload is from a newer app, which this one cannot read completely.
  */
 export function persistedImageKeys(): { keys: Set<string>; newer: boolean } | null {
   const r = peekJson(STORAGE_KEY);

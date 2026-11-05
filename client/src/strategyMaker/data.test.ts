@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { demoProvider } from '../lib/providers/demo';
 import type { DataProvider } from '../lib/providers/http';
+import { seedStorageForTest } from '../lib/storage';
 import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary } from './data';
 
 function stubStorage(value: string | null) {
-  vi.stubGlobal('localStorage', { getItem: (k: string) => (k === 'vost.datasets.v1' ? value : null) });
+  seedStorageForTest();
+  // raw text, so a corrupt value can be seeded
+  if (value !== null) (globalThis as { __vostStorageCache?: Map<string, string> }).__vostStorageCache!.set('datasets.v1', value);
 }
-afterEach(() => vi.unstubAllGlobals());
 
 const candle = (time: number) => ({ time, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 });
 

@@ -3,7 +3,7 @@ import { fmtTime } from '../lib/format';
 import type { Candle } from '../types';
 import * as providersModule from '../lib/providers';
 import { createChartStore, defaultChartInitial, type ChartEnv } from './chart';
-import { afterEachCleanup, chartOf, stubStorage, track, snap } from './stateTestKit';
+import { afterEachCleanup, chartOf, stubStorage, allStoredRaw, seedRaw, stored, storedRaw, track, snap } from './stateTestKit';
 
 afterEach(afterEachCleanup);
 
@@ -80,7 +80,7 @@ describe('pine indicators', () => {
       const id = pineId(useStore);
       chartOf(useStore).getState().updateIndicator(id, { source: '//@version=6\nindicator("X")\nplot(close)\n', inputs: { Fast: 4 } });
       vi.advanceTimersByTime(1000);
-      const raw = localStorage.getItem('vost.prefs.v1');
+      const raw = storedRaw('prefs.v1');
       expect(raw).not.toBeNull();
       // Reload: a fresh store reads the same prefs back.
       vi.resetModules();
@@ -190,7 +190,7 @@ describe('pine indicators', () => {
       chartOf(useStore).getState().updateIndicator(id, { calculation: { timeframe: 'W' } });
       chartOf(useStore).getState().updateIndicator(id, { calculation: { gaps: false } });
       vi.advanceTimersByTime(1000);
-      const raw = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+      const raw = stored('prefs.v1');
       expect(raw.indicators.find((i: { id: string }) => i.id === id).calculation).toEqual({ timeframe: 'W', gaps: false });
       vi.useRealTimers();
       await vi.waitFor(() => expect(chartOf(useStore).getState().pineRuns[id]?.error).toBeDefined(), { timeout: 20000 });
@@ -208,8 +208,7 @@ describe('pine indicators', () => {
   });
 
   it('loads old saved prefs that have no pine entries', async () => {
-    localStorage.setItem(
-      'vost.prefs.v1',
+    seedRaw('prefs.v1',
       JSON.stringify({
         providerId: 'binance',
         symbol: 'BTCUSDT',
@@ -271,7 +270,7 @@ describe('btRange', () => {
   }
 
   const freshFromPrefs = async (btRange: unknown) => {
-    localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, btRange }));
+    seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, btRange }));
     vi.resetModules();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
     const fresh = track((await import('./store')).useStore);
@@ -733,8 +732,8 @@ describe('btRange', () => {
       const { useStore } = await setup();
       chartOf(useStore).getState().setBtRange({ from: 100, to: null });
       vi.advanceTimersByTime(1000);
-      expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).btRange).toEqual({ from: 100, to: null });
-      const fresh = await freshFromPrefs(JSON.parse(localStorage.getItem('vost.prefs.v1')!).btRange);
+      expect(stored('prefs.v1').btRange).toEqual({ from: 100, to: null });
+      const fresh = await freshFromPrefs(stored('prefs.v1').btRange);
       expect(chartOf(fresh).getState().btRange).toEqual({ from: 100, to: null });
     } finally {
       vi.useRealTimers();
@@ -1003,7 +1002,7 @@ describe('chartRange', () => {
       await chartOf(useStore).getState().setChartRange({ from: candles[20].time, to: candles[80].time });
       chartOf(useStore).getState().setBars(300);
       vi.advanceTimersByTime(1000);
-      expect(localStorage.getItem('vost.prefs.v1')).not.toContain('chartRange');
+      expect(storedRaw('prefs.v1')).not.toContain('chartRange');
       vi.resetModules();
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const fresh = track((await import('./store')).useStore);
@@ -1648,7 +1647,7 @@ describe('replay', () => {
   it('drawing magnet and hide-all: default off, persisted, bad values load as off', async () => {
     const load = async (prefs: Record<string, unknown>) => {
       vi.resetModules();
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const st = track((await import('./store')).useStore);
       st.getState().init();
@@ -1661,7 +1660,7 @@ describe('replay', () => {
     old.getState().setDrawingMagnet(true);
     old.getState().setDrawingsHidden(true);
     old.getState().flushPersist();
-    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    const saved = stored('prefs.v1');
     expect(saved.drawingMagnet).toBe(true);
     expect(saved.drawingsHidden).toBe(true);
 
@@ -1680,7 +1679,7 @@ describe('replay', () => {
   it('drawing magnet strength, lock all and stay mode: defaults, persisted, old and bad values', async () => {
     const load = async (prefs: Record<string, unknown>) => {
       vi.resetModules();
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const st = track((await import('./store')).useStore);
       st.getState().init();
@@ -1693,7 +1692,7 @@ describe('replay', () => {
     fresh.getState().setDrawingsLocked(true);
     fresh.getState().setDrawingStayMode(true);
     fresh.getState().flushPersist();
-    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    const saved = stored('prefs.v1');
     expect([saved.drawingMagnetStrength, saved.drawingsLocked, saved.drawingStayMode]).toEqual(['strong', true, true]);
     const back = await load(saved);
     expect([back.getState().drawingMagnetStrength, back.getState().drawingsLocked, back.getState().drawingStayMode]).toEqual(['strong', true, true]);
@@ -1710,7 +1709,7 @@ describe('replay', () => {
   it('indicator defaults: persisted per built-in kind, bad entries load as nothing, a new indicator starts from one', async () => {
     const load = async (prefs: Record<string, unknown>) => {
       vi.resetModules();
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const st = track((await import('./store')).useStore);
       st.getState().init();
@@ -1722,7 +1721,7 @@ describe('replay', () => {
     fresh.getState().setIndicatorDefault('pine', { params: {}, hideOn: [] });
     expect(fresh.getState().indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
     fresh.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
+    expect(stored('prefs.v1').indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
 
     const id = chartOf(fresh).getState().addIndicator('ema');
     const spec = chartOf(fresh).getState().indicators.find((i) => i.id === id)!;
@@ -1732,7 +1731,7 @@ describe('replay', () => {
     expect(rsi.hideOn).toBeUndefined();
     fresh.getState().flushPersist(); // nothing pending that could write over the prefs the next load seeds
 
-    const again = await load({ indicatorDefaults: JSON.parse(localStorage.getItem('vost.prefs.v1')!).indicatorDefaults });
+    const again = await load({ indicatorDefaults: stored('prefs.v1').indicatorDefaults });
     expect(again.getState().indicatorDefaults).toEqual({ ema: { params: { length: 2000 }, hideOn: ['minutes'] } });
     again.getState().setIndicatorDefault('ema', null);
     expect(again.getState().indicatorDefaults).toEqual({});
@@ -1746,8 +1745,7 @@ describe('replay', () => {
   it('indicators read from prefs: a bad hideOn is cleaned, a spec without one loads as before', async () => {
     vi.resetModules();
     const base = { color: '#111111', visible: true, params: { length: 5 } };
-    localStorage.setItem(
-      'vost.prefs.v1',
+    seedRaw('prefs.v1',
       JSON.stringify({
         providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100,
         indicators: [{ id: 'a', kind: 'sma', ...base }, { id: 'b', kind: 'ema', ...base, hideOn: ['days', 'x', 3] }, { id: 'c', kind: 'rsi', ...base, hideOn: 'days' }],
@@ -1793,7 +1791,7 @@ describe('replay', () => {
     c.updateIndicator(id, { style });
     expect(find().style).toEqual(style);
     useStore.getState().flushPersist();
-    const saved = JSON.parse(localStorage.getItem('vost.prefs.v1')!);
+    const saved = stored('prefs.v1');
     expect(saved.indicators.find((i: { id: string }) => i.id === id).style).toEqual(style);
     vi.resetModules();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
@@ -1858,7 +1856,7 @@ describe('replay', () => {
   it('drawing defaults: persisted per tool, bad or unknown entries load as nothing', async () => {
     const load = async (prefs: Record<string, unknown>) => {
       vi.resetModules();
-      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, ...prefs }));
       vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
       const st = track((await import('./store')).useStore);
       st.getState().init();
@@ -1870,7 +1868,7 @@ describe('replay', () => {
     fresh.getState().setDrawingDefault('ghost', { width: 3 });
     expect(fresh.getState().drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
     fresh.getState().flushPersist();
-    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
+    expect(stored('prefs.v1').drawingDefaults).toEqual({ trendLine: { width: 3, color: '#ff0000' } });
 
     vi.resetModules();
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
@@ -2225,9 +2223,6 @@ describe('Pine market context', () => {
     Object.fromEntries(posts.map((p) => [p.type, p.type === 'pine' ? p.market : p.config?.market]));
 
   it('the indicator run, backtest, input refresh and optimizer all carry the chart market, never saved', async () => {
-    const written: string[] = [];
-    const set = localStorage.setItem.bind(localStorage);
-    vi.stubGlobal('localStorage', { ...localStorage, getItem: localStorage.getItem.bind(localStorage), removeItem: localStorage.removeItem.bind(localStorage), setItem: (k: string, v: string) => { written.push(v); set(k, v); } });
     const { useStore, posts } = await boot();
     const st = () => chartOf(useStore).getState();
     st().setBtConfig({ strategyId: 'pine' });
@@ -2247,8 +2242,8 @@ describe('Pine market context', () => {
 
     expect(st().btConfig.market).toBeUndefined();
     useStore.getState().flushPersist();
-    expect(written.join('\n')).toContain('"strategyId":"pine"');
-    expect(written.join('\n')).not.toContain('market');
+    expect(allStoredRaw()).toContain('"strategyId":"pine"');
+    expect(allStoredRaw()).not.toContain('market');
     expect(marketsOf(posts).run).toEqual(expected);
   });
 

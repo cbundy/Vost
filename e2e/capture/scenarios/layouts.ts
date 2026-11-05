@@ -57,8 +57,8 @@ export const layouts: Scenario = {
       await menu.waitFor();
     };
     const savedState = () =>
-      page.evaluate(() => {
-        const raw = JSON.parse(localStorage.getItem('vost.savedLayouts.v1') ?? 'null') as { currentId: string; autosave: boolean; layouts: Array<{ id: string; name: string; updatedAt: number; layout: { charts: unknown[] } }> } | null;
+      ctx.settings.get('savedLayouts.v1').then((value) => {
+        const raw = value as { currentId: string; autosave: boolean; layouts: Array<{ id: string; name: string; updatedAt: number; layout: { charts: unknown[] } }> } | null;
         return raw && { autosave: raw.autosave, current: raw.layouts.find((l) => l.id === raw.currentId)?.name, names: raw.layouts.map((l) => `${l.name}:${l.layout.charts.length}`), updatedAt: raw.layouts.find((l) => l.id === raw.currentId)?.updatedAt };
       });
     const syncSwitch = (name: string) => page.getByRole('switch', { name, exact: true });
@@ -584,8 +584,9 @@ export const layouts: Scenario = {
       await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
       await page.locator('.chart-cell').nth(3).waitFor({ state: 'attached' });
       await waitLoaded(4);
-      const fresh = await page.evaluate(() => {
-        const raw = JSON.parse(localStorage.getItem('vost.savedLayouts.v1')!) as { layouts: Array<{ name: string; layout: { charts: Array<{ timeframe: string }> } }> };
+      await page.waitForTimeout(700);
+      const fresh = await ctx.settings.get('savedLayouts.v1').then((value) => {
+        const raw = value as { layouts: Array<{ name: string; layout: { charts: Array<{ timeframe: string }> } }> };
         return raw.layouts.find((l) => l.name === 'Fresh')!.layout.charts[0].timeframe;
       });
       log.push(`saved on leave: Fresh timeframe=${fresh}`);

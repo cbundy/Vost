@@ -22,7 +22,7 @@ The **Build** switch in the **Chart data** pop-up (the database icon in the top 
 
 Pick **Add interval...** at the end of the picker. Enter a number and a unit (minutes, hours, days, weeks or months, for example `2h`, `10m`, `3d`, `2w` or `3M`). The dialog previews what the interval is built from and refuses one that is outside the limits, already listed, or that the provider cannot serve or build.
 
-Up to 20 custom intervals are kept. They are listed in the picker by bar length and marked `*`, and are hidden (not removed) on a provider that cannot serve them. Remove one from the picker and every chart on it moves to the provider's default timeframe. The Demo provider generates any interval. Custom intervals are saved in your browser.
+Up to 20 custom intervals are kept. They are listed in the picker by bar length and marked `*`, and are hidden (not removed) on a provider that cannot serve them. Remove one from the picker and every chart on it moves to the provider's default timeframe. The Demo provider generates any interval. Custom intervals are saved on the server.
 
 ![Adding a custom interval](../evidence/custom-timeframe/custom-timeframe-added-desktop.png)
 

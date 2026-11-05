@@ -70,8 +70,9 @@ export const settings: Scenario = {
       await openChartData(page);
     });
     await ctx.screenshot('all');
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('vost.prefs.v1') ?? '{}').historyLoading);
-    notes.push(`vost.prefs.v1 historyLoading: ${saved}`, `new /api/history requests after the switch: ${history().length - before}`);
+    await page.waitForTimeout(700);
+    const saved = ((await ctx.settings.get('prefs.v1')) as { historyLoading?: string } | null)?.historyLoading;
+    notes.push(`prefs.v1 historyLoading: ${saved}`, `new /api/history requests after the switch: ${history().length - before}`);
     await ctx.step('the choice is saved and the chart reloaded', async () => {
       if (saved !== 'all') throw new Error(`saved ${saved}`);
       if (history().length <= before) throw new Error('no new history request after the switch');
@@ -91,8 +92,9 @@ export const settings: Scenario = {
       if (!(await dialog.getByLabel(/Only finished bars/).isChecked())) throw new Error('finished is not still checked after reopening');
       await ctx.screenshot('pine-finished');
     });
-    const savedPine = await page.evaluate(() => JSON.parse(localStorage.getItem('vost.prefs.v1') ?? '{}').pineHigherBars);
-    notes.push(`vost.prefs.v1 pineHigherBars: ${savedPine}`);
+    await page.waitForTimeout(700);
+    const savedPine = ((await ctx.settings.get('prefs.v1')) as { pineHigherBars?: string } | null)?.pineHigherBars;
+    notes.push(`prefs.v1 pineHigherBars: ${savedPine}`);
     if (savedPine !== 'finished') throw new Error(`pineHigherBars saved ${savedPine}`);
     await ctx.writeText('checks', [...notes, ''].join('\n'));
   },

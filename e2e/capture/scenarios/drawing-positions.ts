@@ -1,12 +1,7 @@
 import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import { formatMoney, positionOutcome, positionStats, type PositionSide } from '../../../client/src/lib/geometry/position.ts';
 import type { Scenario } from '../scenario.ts';
-
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
+import { storedDrawings } from '../saved.ts';
 
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[]; style?: Record<string, unknown> };
 
@@ -33,7 +28,7 @@ export const drawingPositions: Scenario = {
     const narrow = ctx.viewport === 'narrow';
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as Stored[];
+      return (await storedDrawings(ctx)) as Stored[];
     };
     const box = async () => {
       const b = await page.locator('.chart-container').boundingBox();
@@ -167,7 +162,7 @@ export const drawingPositions: Scenario = {
           notes.push(`${side}: entry ${f.entry.toFixed(2)} target ${f.target.toFixed(2)} stop ${f.stop.toFixed(2)}, risk ${formatMoney(stats.riskAmount)}, Qty ${stats.quantity}, R/R ${stats.riskReward}, closed at ${outcome.result}, Closed P&L ${formatMoney(pnl)}`);
         }
         const kept = await stored();
-        await page.evaluate((all) => localStorage.setItem('vost.drawings.v2', JSON.stringify({ version: 2, sources: { 'demo:DEMO': all } })), [...kept, ...seeded]);
+        await ctx.settings.put('drawings.v2', { version: 2, sources: { 'demo:DEMO': [...kept, ...seeded] } });
         await page.reload();
         await ctx.waitForChart();
         await lastYear();

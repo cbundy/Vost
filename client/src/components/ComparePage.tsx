@@ -1,7 +1,7 @@
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { PineEditor } from './PineEditor';
 import { PANE_LABELS, describeCompare, loadCompareState, saveCompareState, savedPineScripts, type CompareState } from '../lib/pine/compare';
-import { debounce } from '../lib/storage';
+import { debounce, flushStorage } from '../lib/storage';
 
 type Texts = CompareState['texts'];
 
@@ -107,7 +107,10 @@ export default function ComparePage() {
     save(state);
   }, [state, save]);
   useEffect(() => {
-    const flush = () => save.flush();
+    const flush = () => {
+      save.flush();
+      flushStorage();
+    };
     window.addEventListener('pagehide', flush);
     return () => window.removeEventListener('pagehide', flush);
   }, [save]);

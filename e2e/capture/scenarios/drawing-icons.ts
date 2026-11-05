@@ -1,10 +1,5 @@
 import type { Scenario } from '../scenario.ts';
-
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
+import { storedDrawings } from '../saved.ts';
 
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[]; glyph?: string; style?: Record<string, unknown> };
 
@@ -27,7 +22,7 @@ export const drawingIcons: Scenario = {
     const narrow = ctx.viewport === 'narrow';
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as Stored[];
+      return (await storedDrawings(ctx)) as Stored[];
     };
     const of = async (tool: string) => (await stored()).find((d) => d.tool === tool);
     const box = async () => {

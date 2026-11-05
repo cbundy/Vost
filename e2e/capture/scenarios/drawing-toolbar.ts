@@ -1,13 +1,8 @@
 import type { Scenario } from '../scenario.ts';
+import { storedDrawings } from '../saved.ts';
 
 type Anchor = { time: number; price: number };
 type Stored = { id: string; tool: string; anchors: Anchor[]; style?: Record<string, unknown>; locked?: boolean };
-
-const STORED = `(() => {
-  const raw = localStorage.getItem('vost.drawings.v2');
-  const all = raw ? JSON.parse(raw).sources : {};
-  return all['demo:DEMO'] ?? [];
-})()`;
 
 /** Where (canvas fractions) each drawing goes; x is scaled to stay in the plot, clear of the price axis. */
 const TREND = [{ x: 0.2, y: 0.6 }, { x: 0.6, y: 0.35 }];
@@ -29,7 +24,7 @@ export const drawingToolbar: Scenario = {
     const narrow = ctx.viewport === 'narrow';
     const stored = async () => {
       await page.waitForTimeout(700);
-      return (await page.evaluate(STORED)) as Stored[];
+      return (await storedDrawings(ctx)) as Stored[];
     };
     const cell = () => page.locator('.chart-container').first();
     const at = async (f: { x: number; y: number }) => {

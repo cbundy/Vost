@@ -26,8 +26,8 @@ The search box in the top bar lists a provider's symbols (browse the full list o
 
 ## Import and export
 
-**Export list as JSON** and **Import list from JSON** move a list between browsers or back it up.
+**Export list as JSON** and **Import list from JSON** move a list between Vost servers or back it up.
 
 ## Where it is saved
 
-In your browser's local storage, with your other preferences.
+Saved on the server, in its data folder, with your other settings.

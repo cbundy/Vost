@@ -1,10 +1,8 @@
 import { generateDemoCandles } from '../../../client/src/lib/providers/demo.ts';
 import type { Scenario } from '../scenario.ts';
+import { storedDrawings } from '../saved.ts';
 
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[]; style?: Record<string, unknown> };
-
-/** The saved drawings of the demo source and the raw v2 payload (waits past the 400 ms debounce first). */
-const PAYLOAD = `localStorage.getItem('vost.drawings.v2')`;
 
 /** The trend line's anchors as canvas fractions: near the right end, so a timeframe change keeps it in view. */
 const TA = { x: 0.915, y: 0.55 };
@@ -27,8 +25,7 @@ export const drawingSettings: Scenario = {
     };
     const stored = async (): Promise<Stored[]> => {
       await page.waitForTimeout(700);
-      const raw = (await page.evaluate(PAYLOAD)) as string | null;
-      return raw ? (JSON.parse(raw).sources['demo:DEMO'] ?? []) : [];
+      return (await storedDrawings(ctx)) as Stored[];
     };
     const box = async () => {
       const b = await page.locator('.chart-container').boundingBox();
@@ -65,7 +62,7 @@ export const drawingSettings: Scenario = {
         const first = bars[bars.length - 40];
         const last = bars[bars.length - 10];
         const line = { id: 'seed1', tool: 'trendLine', anchors: [{ time: first.time, price: first.close }, { time: last.time, price: last.close }] };
-        await page.evaluate((l) => localStorage.setItem('vost.drawings.v2', JSON.stringify({ version: 2, sources: { 'demo:DEMO': [l] } })), line);
+        await ctx.settings.put('drawings.v2', { version: 2, sources: { 'demo:DEMO': [line] } });
         await page.reload();
         await ctx.waitForChart();
         const b = await box();
@@ -192,7 +189,7 @@ export const drawingSettings: Scenario = {
       await dialog.getByRole('button', { name: 'Cancel' }).click();
       await dialog.waitFor({ state: 'hidden' });
       await page.waitForTimeout(700);
-      const prefs = (await page.evaluate(`JSON.parse(localStorage.getItem('vost.prefs.v1'))`)) as { drawingDefaults?: Record<string, Record<string, unknown>> };
+      const prefs = (await ctx.settings.get('prefs.v1')) as { drawingDefaults?: Record<string, Record<string, unknown>> };
       check('the default is saved in prefs', prefs.drawingDefaults?.trendLine?.width === 3, JSON.stringify(prefs.drawingDefaults));
       await page.getByRole('toolbar', { name: 'Drawing tools' }).getByRole('button', { name: 'Trend line' }).click();
       await drag(await at(SECOND[0]), await at(SECOND[1]));
@@ -228,8 +225,8 @@ export const drawingSettings: Scenario = {
     });
 
     await ctx.step('the stored v2 payload keeps every style', async () => {
-      const raw = (await page.evaluate(PAYLOAD)) as string;
-      const parsed = JSON.parse(raw);
+      await page.waitForTimeout(700);
+      const parsed = (await ctx.settings.get('drawings.v2')) as { version: number };
       check('version 2', parsed.version === 2);
       await ctx.writeText('payload', JSON.stringify(parsed, null, 2) + '\n');
     });

@@ -12,7 +12,7 @@ import { uid } from '../types';
 import { appendMessage, markAllRead, type InboxMessage, type MessageSeverity } from '../lib/messages';
 import { sourceBase } from '../../../shared/timeframes.ts';
 import { getProvider, providers, type SymbolSuggestion } from '../lib/providers';
-import { loadJson, saveJson, debounce, removeKey } from '../lib/storage';
+import { loadJson, saveJson, debounce, removeKey, flushStorage, onStorageOutage, takeMigrationNotice } from '../lib/storage';
 import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import type { SyncChange } from '../lib/layoutSync';
 import { sanitizeTimeRange } from '../lib/timeRange';
@@ -408,6 +408,8 @@ export const useStore = create<AppState>()((set, get) => {
     writeLayout();
   };
 
+  let stopOutageWatch: (() => void) | undefined;
+
   const persistWatchlists = debounce(() => {
     wl.saveWatchlists(get().watchlists);
   }, 400);
@@ -416,7 +418,7 @@ export const useStore = create<AppState>()((set, get) => {
     const datasets = get().datasets;
     const res = saveJson(DATASETS_KEY, datasets);
     if (!res.ok) {
-      get().pushToast('error', 'Browser storage full — dataset kept in memory only.');
+      get().pushToast('error', 'The server could not store the dataset - it is kept in memory only.');
     }
   }, 600);
 
@@ -490,7 +492,7 @@ export const useStore = create<AppState>()((set, get) => {
     datasets: () => get().datasets,
     addDataset(dataset) {
       if (JSON.stringify(dataset).length > MAX_PERSISTED_DATASETS_BYTES) {
-        get().pushToast('error', 'Dataset too large to persist in the browser (kept for this session only).');
+        get().pushToast('error', 'Dataset too large to save on the server (kept for this session only).');
         set({ datasets: [...get().datasets, dataset] });
         return;
       }
@@ -631,9 +633,22 @@ export const useStore = create<AppState>()((set, get) => {
       writeLayout.flush();
       persistWatchlists.flush();
       persistDatasets.flush();
+      flushStorage();
     },
 
     init() {
+      // Saves that cannot reach the server: one error toast (and so one inbox message) per outage, one info toast when it ends.
+      stopOutageWatch?.();
+      stopOutageWatch = onStorageOutage((e) => {
+        if (e.kind === 'down') get().pushToast('error', e.message);
+        else if (e.kind === 'up') get().pushToast('info', 'Settings saved again');
+        else get().pushToast('error', e.message);
+      });
+      const migrated = takeMigrationNotice();
+      if (migrated) {
+        const archived = migrated.archived > 0 ? ` Already on the server, so kept aside: ${migrated.archived}, in ${migrated.file ?? 'an import file'} in the data folder.` : '';
+        get().pushMessage('Settings', 'info', `Moved ${migrated.adopted} saved item${migrated.adopted === 1 ? '' : 's'} from this browser to the server.${archived}`);
+      }
       // The exchange symbol lists used to be cached in the browser; the server caches them now.
       for (const id of ['binance', 'coinbase', 'kraken', 'bybit', 'okx']) removeKey(`${id}.symbols.v1`);
       const prefs = loadJson<Prefs>(PREFS_KEY, defaultPrefs);
