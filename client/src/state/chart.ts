@@ -30,7 +30,7 @@ import type { PineError, PineInputValue, PineResult, PineRunOutcome } from '../l
 import { type Source } from '../../../shared/timeframes.ts';
 import type { HistoryRequest, LiveHandle, LiveStatus } from '../lib/providers/http';
 import { getProvider, type SymbolSuggestion } from '../lib/providers';
-import { HISTORY_PAGE_BARS, belowHistoryCap, isHistoryStart, nextPageRequest, runPageBars, type HistoryLoading } from '../lib/historyPaging';
+import { HISTORY_MAX_BARS, HISTORY_PAGE_BARS, belowHistoryCap, isHistoryStart, nextPageRequest, runPageBars, type HistoryLoading } from '../lib/historyPaging';
 import { ApiHttpError } from '../lib/providers/api';
 import { servable } from '../lib/customTimeframes';
 import { fmtTime } from '../lib/format';
@@ -252,12 +252,12 @@ export interface ChartState {
    * Loads the page of bars before the first loaded one and merges it in (same series, same `dataKey`). One page in
    * flight at a time: a call meanwhile returns that page's result. Never pages a dataset, a chart range or a replay.
    */
-  loadOlder(pageBars?: number): Promise<OlderResult>;
+  loadOlder(pageBars?: number, opts?: { run?: boolean }): Promise<OlderResult>;
   /**
    * Pages older bars in until the first loaded bar is at or before `time`, or the history start, a failure or the cap
    * stops it, and says which: covered, the history start, skipped (nothing to page, the data changed, or the cap) or an error.
    */
-  loadHistoryTo(time: number, opts?: { pageBars?: number }): Promise<HistoryToResult>;
+  loadHistoryTo(time: number, opts?: { pageBars?: number; run?: boolean }): Promise<HistoryToResult>;
   clearViewRequest(): void;
   clearData(): void;
   addDataset(input: { name: string; candles: Candle[]; source: string; description: string; barSeconds: number; barLabel: string }): string;
@@ -327,15 +327,15 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   let olderSeq = 0;
   let olderInflight: Promise<OlderResult> | null = null;
 
-  /** Whether a run over `range` must first load history: scroll mode on a live series, From set and before the first loaded bar. */
-  const runNeedsHistory = (range: TimeRange): boolean => runNeedsHistoryOf(get(), env.historyLoading(), range);
+  /** Whether a run over `range` must first load history: a live series that can page older, with From open or before the first loaded bar. */
+  const runNeedsHistory = (range: TimeRange): boolean => runNeedsHistoryOf(get(), range);
 
   /**
    * Loads the older bars a run's range needs. `ok` is false when the load failed or the chart's data changed meanwhile;
    * `extended` says the history was paged (so the chart should move to the range). The cap or the history start stopping
    * short of From is not a failure: the run uses what exists.
    */
-  const loadRunHistory = async (from: number): Promise<{ ok: boolean; extended: boolean }> => {
+  const loadRunHistory = async (from: number | null): Promise<{ ok: boolean; extended: boolean }> => {
     const s0 = get();
     const same = () => {
       const n = get();
@@ -349,7 +349,10 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         n.replay == null
       );
     };
-    const r = await get().loadHistoryTo(from, { pageBars: runPageBars(s0.timeframe, from, s0.candles[0].time) });
+    const r =
+      from == null
+        ? await get().loadHistoryTo(-Infinity, { pageBars: MAX_BARS, run: true })
+        : await get().loadHistoryTo(from, { pageBars: runPageBars(s0.timeframe, from, s0.candles[0].time), run: true });
     if (!same() || r === 'error') return { ok: false, extended: false };
     return { ok: true, extended: true }; // covered, the history start, or the cap on an unchanged chart
   };
@@ -714,11 +717,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
     },
 
-    loadOlder(pageBars) {
+    loadOlder(pageBars, opts) {
       if (olderInflight) return olderInflight;
       const s = get();
       if (
-        env.historyLoading() !== 'scroll' ||
+        (env.historyLoading() !== 'scroll' && !opts?.run) ||
         s.historyStart ||
         s.activeDatasetId != null ||
         s.chartRange != null ||
@@ -787,7 +790,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         const { candles } = get();
         if (candles.length === 0) return 'skipped';
         if (candles[0].time <= time) return 'covered';
-        const r = await get().loadOlder(opts?.pageBars);
+        const r = await get().loadOlder(opts?.pageBars, { run: opts?.run });
         if (r !== 'loaded') return r;
       }
     },
@@ -1112,16 +1115,21 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         return;
       }
       let loadedHistory = false;
-      if (btRange.from != null && runNeedsHistory(btRange)) {
+      if (runNeedsHistory(btRange)) {
         set({ btRunning: true, btProgress: 0, btStage: 'history', btError: null });
         const h = await loadRunHistory(btRange.from);
         if (!h.ok) {
           set({ btRunning: false, btProgress: 0, btStage: null });
-          env.pushToast('error', `Backtest could not load history from ${fmtTime(btRange.from, { timeZone: env.timeZone() })}`);
+          env.pushToast(
+            'error',
+            btRange.from == null
+              ? 'Backtest could not load the full history'
+              : `Backtest could not load history from ${fmtTime(btRange.from, { timeZone: env.timeZone() })}`,
+          );
           return;
         }
         loadedHistory = true;
-        requestRunView(btRange.from);
+        if (btRange.from != null) requestRunView(btRange.from);
       }
       const { slice: candles, error } = describeTimeRange(selectBars(get()), btRange);
       if (error) {
@@ -1137,10 +1145,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         );
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
         const ms = Math.round(performance.now() - t0);
+        const atLimit = btRange.from == null && !belowHistoryCap(get().candles.length);
         set({ btResult: msg.result, btRunning: false, btProgress: 0, btStage: null });
         env.pushToast(
           'success',
-          `Backtest finished in ${ms} ms — ${msg.result.trades.length} trade(s), ${candles.length} bars.`,
+          `Backtest finished in ${ms} ms — ${msg.result.trades.length} trade(s), ${atLimit ? candles.length.toLocaleString('en-US') : candles.length} bars${atLimit ? ` (the ${HISTORY_MAX_BARS.toLocaleString('en-US')}-bar history limit)` : ''}.`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -1219,7 +1228,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
       const previous = optRun ? optRun.previous : get().optResult;
       let loading: NonNullable<typeof optRun> | null = null;
-      if (btRange.from != null && runNeedsHistory(btRange)) {
+      if (runNeedsHistory(btRange)) {
         optRun?.cancel();
         const pending = { cancel: () => {}, previous };
         loading = pending;
@@ -1230,11 +1239,16 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         if (!h.ok) {
           optRun = null;
           set({ optRunning: false, optStage: null, optResult: previous });
-          env.pushToast('error', `Optimizer could not load history from ${fmtTime(btRange.from, { timeZone: env.timeZone() })}`);
+          env.pushToast(
+            'error',
+            btRange.from == null
+              ? 'Optimizer could not load the full history'
+              : `Optimizer could not load history from ${fmtTime(btRange.from, { timeZone: env.timeZone() })}`,
+          );
           return;
         }
         set({ optStage: null });
-        requestRunView(btRange.from);
+        if (btRange.from != null) requestRunView(btRange.from);
       }
       const abandon = () => {
         if (!loading) return;
@@ -1370,8 +1384,10 @@ export function canPageOlder(s: ChartState, mode: HistoryLoading): boolean {
   return mode === 'scroll' && !s.historyStart && s.activeDatasetId == null && s.chartRange == null && s.replay == null && s.candles.length > 0;
 }
 
-/** Whether a run over `range` must first load history: scroll mode on a live series that can page older, From set and before the first loaded bar. */
-export function runNeedsHistoryOf(s: ChartState, mode: HistoryLoading, range: TimeRange): boolean {
-  if (range.from == null || (range.to != null && range.from > range.to)) return false;
-  return canPageOlder(s, mode) && range.from < s.candles[0].time;
+/** Whether a run over `range` must first load history: a live series that can page older and is below the cap, with From open or before the first loaded bar. */
+export function runNeedsHistoryOf(s: ChartState, range: TimeRange): boolean {
+  if (range.from != null && range.to != null && range.from > range.to) return false;
+  if (s.historyStart || s.activeDatasetId != null || s.chartRange != null || s.replay != null || s.candles.length === 0) return false;
+  if (!belowHistoryCap(s.candles.length)) return false;
+  return range.from == null || range.from < s.candles[0].time;
 }

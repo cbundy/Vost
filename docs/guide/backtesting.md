@@ -28,7 +28,9 @@ While it runs, a progress bar under the button (and in the Results tab) shows th
 
 ## The backtest range
 
-The pane has a **From** and **To** range. The backtester and the optimizer run only on that window of the loaded data; empty means all of it. The pane says how many of the loaded bars are in the range, and warns when the range starts before or ends after the data or holds fewer than 3 bars. The range is remembered between sessions.
+The pane has a **From** and **To** range. The backtester and the optimizer run only on that window of the loaded data; empty means all of it (**Full data**). The pane says how many of the loaded bars are in the range, and warns when the range starts before or ends after the data or holds fewer than 3 bars. The range is remembered between sessions.
+
+**Full data** (no From) tests the provider's whole history for that market and timeframe: running first loads all the older history (the pane says "the full history loads on run" beforehand), up to a limit of 200,000 bars, and the finished message names the limit if it stopped there. This works in both chart history modes and leaves the chart view alone. A local dataset, a chart range and bar replay never load more: Full data there is the data shown.
 
 When the range starts before the bars the chart has loaded (the chart opens on the latest page of history), running loads the older history first (the progress bar says "Loading history"), tests the whole range and moves the chart to show it. A range inside the loaded bars runs at once and leaves the chart alone. If the data source has no bars that far back, or the load fails, the run says so or uses what exists.
 

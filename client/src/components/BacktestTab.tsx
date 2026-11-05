@@ -14,6 +14,7 @@ import { fmtNum, fmtTime } from '../lib/format';
 import { describeTimeRange, timeRangeErrorText } from '../lib/timeRange';
 import { TimeRangePicker } from './TimeRangePicker';
 import { useStore } from '../state/store';
+import { belowHistoryCap } from '../lib/historyPaging';
 import { runNeedsHistoryOf, selectBars } from '../state/chart';
 import { useChart } from '../state/chartContext';
 
@@ -36,8 +37,8 @@ export function BacktestTab() {
 
   const isPine = !!strategy.pine;
 
-  const historyLoading = useStore((s) => s.historyLoading);
-  const needsHistory = useChart((s) => runNeedsHistoryOf(s, historyLoading, btRange));
+  const needsHistory = useChart((s) => runNeedsHistoryOf(s, btRange));
+  const atLimit = useChart((s) => !belowHistoryCap(s.candles.length));
   const range = describeTimeRange(candles, btRange);
   const hasData = candles.length >= 3;
   const rangeSet = btRange.from != null || btRange.to != null;
@@ -46,6 +47,7 @@ export function BacktestTab() {
     if (!hasData) return 'Load data first (provider above or CSV import).';
     const tail = "signals execute at the next bar's open · fees & slippage applied";
     if (range.error === 'too-few-bars' && !needsHistory) return `Fewer than 3 bars in range · ${fmtNum(range.total, 0)} bars loaded · ${tail}`;
+    if (needsHistory && btRange.from == null) return `${fmtNum(range.total, 0)} bars loaded · the full history loads on run · ${tail}`;
     const count = rangeSet ? `${fmtNum(range.count, 0)} of ${fmtNum(range.total, 0)} bars` : `${fmtNum(range.total, 0)} bars`;
     const span =
       range.count > 0
@@ -58,6 +60,7 @@ export function BacktestTab() {
           : 'range starts before the data, using the first bar'
         : '',
       range.clippedEnd ? 'range ends after the data, using the last bar' : '',
+      btRange.from == null && atLimit ? 'history limit reached' : '',
     ].filter(Boolean);
     return `${count}${span}${clips.length ? ` · ${clips.join(' · ')}` : ''} · ${tail}`;
   })();
