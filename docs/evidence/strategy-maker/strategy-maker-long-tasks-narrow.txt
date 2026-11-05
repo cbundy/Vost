@@ -1,1 +1,1 @@
-run 2498 ms; long tasks (ms): 71
+run 4209 ms; long tasks (ms): 88, 56, 82, 76, 55, 50, 65, 68, 53, 51, 59, 54, 52

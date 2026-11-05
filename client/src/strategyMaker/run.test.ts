@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SIGNAL_FAMILIES } from './engine';
+import { SIGNAL_FAMILIES, trainModel } from './engine';
 import { highlights, synth } from './engine/synthetic';
-import { loadSeries, moreNeeded, runEngine, runFind, tooFewMessage, tradesOf, type FindInputs, type Loaders } from './run';
+import { loadSeries, moreNeeded, runEngine, runFind, runRetrain, runTrain, tooFewMessage, tradesOf, type FindInputs, type Loaders } from './run';
 import { setId, type HighlightSet } from './store';
 import type { HighlightTrade } from './brush';
 
@@ -124,4 +124,59 @@ describe('loadSeries and tradesOf', () => {
     expect(t.length).toBeGreaterThan(5);
     expect(t.every((x) => x.side === 'long' && x.exitTime >= x.entryTime && x.entryPrice > 0)).toBe(true);
   });
+});
+
+describe('reusing a trained model', () => {
+  it('skips training with an up-to-date model and searches the same as a fresh train', async () => {
+    const series = [{ candles, trades }];
+    const trained = await trainModel({ series });
+    if (trained.kind !== 'ok') throw new Error('training should work');
+    const fresh: Array<[number, string]> = [];
+    const reused: Array<[number, string]> = [];
+    const inp = inputs({ families: ['sma_cross'] });
+    const a = await runEngine(series, inp, undefined, (p, s) => fresh.push([p, s]));
+    const b = await runEngine(series, inp, undefined, (p, s) => reused.push([p, s]), trained);
+    expect(fresh.some((x) => x[1] === 'Training')).toBe(true);
+    expect(reused.some((x) => x[1] === 'Training')).toBe(false);
+    expect(reused[0][1]).toBe('Searching');
+    if (a.kind !== 'ok' || b.kind !== 'ok') throw new Error('expected ok');
+    expect(b.model).toBe(trained);
+    expect(b.search.recommendations).toEqual(a.search.recommendations);
+  }, 120_000);
+
+  it('runFind passes the model on and says it was reused, unless a set did not load', async () => {
+    const seen: unknown[] = [];
+    const engine = async (_s: unknown, _i: unknown, _g: unknown, _p: unknown, m: unknown) => (
+      seen.push(m), { kind: 'refused' as const, reason: 'stub' }
+    );
+    const model = { kind: 'ok' } as never;
+    const sets = [csvSet('a.csv')];
+    const r = await runFind({ sets, inputs: inputs(), loaders, engine, model });
+    expect(seen).toEqual([model]);
+    expect(r.reused).toBe(true);
+    expect(r.usedSets.map((s) => s.id)).toEqual([sets[0].id]);
+    const lib: HighlightSet = { id: 'library|x', version: 1, source: { kind: 'library', datasetId: 'x' }, trades, updatedAt: 1 };
+    const r2 = await runFind({ sets: [lib, ...sets], inputs: inputs(), loaders, engine, model });
+    expect(seen[1]).toBeUndefined();
+    expect(r2.reused).toBe(false);
+  });
+});
+
+describe('runTrain and runRetrain', () => {
+  it('runTrain returns the model, and the words for too few trades', async () => {
+    const out = await runTrain([{ candles, trades }]);
+    expect(out.kind).toBe('trained');
+    expect(await runTrain([{ candles, trades: trades.slice(0, 5) }])).toMatchObject({ kind: 'too-few', have: 5, need: 30 });
+  }, 120_000);
+  it('runRetrain loads the chosen sets and reports the ones it could not', async () => {
+    const lib: HighlightSet = { id: 'library|x', version: 1, source: { kind: 'library', datasetId: 'x' }, trades, updatedAt: 1 };
+    const stages: string[] = [];
+    const r = await runRetrain({ sets: [lib, csvSet('a.csv')], loaders, onProgress: (_p, s) => stages.push(s) });
+    expect(r.outcome.kind).toBe('trained');
+    expect(r.usedSets.map((s) => s.id)).toEqual([csvSet('a.csv').id]);
+    expect(r.skippedSets).toHaveLength(1);
+    expect(stages[0]).toBe('Loading data');
+    expect(stages).toContain('Training');
+    expect(stages).not.toContain('Searching');
+  }, 120_000);
 });

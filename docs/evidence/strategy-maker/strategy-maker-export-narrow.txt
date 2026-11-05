@@ -1,0 +1,4 @@
+csv|big.csv: 1495 trades
+csv|sample.csv: 0 trades
+provider|demo|DEMO|1d: 3 trades
+model: yes

@@ -1,11 +1,13 @@
 /** The strategy maker's own IndexedDB store of highlight sets, one record per chart source. */
 import type { Candle } from '../../../shared/market.ts';
 import type { HighlightTrade } from './brush';
+import type { TrainResult } from './engine';
 
 export const DB_NAME = 'vost-strategy-maker';
 export const SETS = 'highlightSets';
 export const SETTINGS = 'settings';
 export const INPUTS_ID = 'find-inputs';
+export const MODEL_ID = 'model';
 export const DB_VERSION = 2;
 
 export type SetSource =
@@ -17,6 +19,8 @@ export interface HighlightSet {
   id: string;
   version: 1;
   source: SetSource;
+  /** A name the user gave; the source's own label is shown when there is none. Never changes the id. */
+  name?: string;
   trades: HighlightTrade[];
   /** Kept for a csv set only, so the set can be trained on later. */
   candles?: Candle[];
@@ -51,7 +55,20 @@ export interface FindInputsRecord {
   form: FindForm;
 }
 
+/** The trained model, kept with what it was trained on so the page can tell when it is out of date. */
+export interface ModelRecord {
+  id: typeof MODEL_ID;
+  version: 1;
+  result: TrainResult;
+  /** The sets it was trained on, in training order, each with a stamp of its marks (see exchange.ts). */
+  trainedOn: Array<{ id: string; trades: number; stamp: string }>;
+}
+
 export interface Store {
+  getModel(): Promise<ModelRecord | undefined>;
+  putModel(record: ModelRecord): Promise<void>;
+  /** Writes the sets and the model in one transaction: all of it or none of it. */
+  importAll(sets: HighlightSet[], model: ModelRecord | null): Promise<void>;
   getInputs(): Promise<FindInputsRecord | undefined>;
   putInputs(form: FindForm): Promise<void>;
   get(id: string): Promise<HighlightSet | undefined>;
@@ -101,6 +118,30 @@ export async function openStore(): Promise<Store | null> {
     return { tx, store: tx.objectStore(SETTINGS) };
   };
   return {
+    getModel: () => done(settings('readonly').store.get(MODEL_ID) as IDBRequest<ModelRecord | undefined>),
+    putModel: async (record) => {
+      const { tx, store } = settings('readwrite');
+      store.put(record);
+      await txDone(tx);
+    },
+    importAll: async (sets, model) => {
+      const tx = db.transaction([SETS, SETTINGS], 'readwrite');
+      const finished = txDone(tx);
+      finished.catch(() => undefined);
+      try {
+        const setsStore = tx.objectStore(SETS);
+        for (const set of sets) setsStore.put(set);
+        if (model) tx.objectStore(SETTINGS).put(model);
+      } catch (e) {
+        try {
+          tx.abort();
+        } catch {
+          /* already finished */
+        }
+        throw e;
+      }
+      await finished;
+    },
     getInputs: () => done(settings('readonly').store.get(INPUTS_ID) as IDBRequest<FindInputsRecord | undefined>),
     putInputs: async (form) => {
       const { tx, store } = settings('readwrite');

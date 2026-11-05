@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DB_NAME, openStore, setId, SETS, SETTINGS, type FindForm, type HighlightSet, type Store } from './store';
+import { DB_NAME, MODEL_ID, openStore, setId, SETS, SETTINGS, type FindForm, type HighlightSet, type ModelRecord, type Store } from './store';
+import type { TrainResult } from './engine';
 
 const trade = { side: 'long' as const, entryTime: 100, exitTime: 400 };
 const provSource = { kind: 'provider' as const, provider: 'demo', symbol: 'BTC', timeframe: '1h' };
@@ -138,5 +139,57 @@ describe('store', () => {
       };
     });
     expect(names.sort()).toEqual([SETS, SETTINGS].sort());
+  });
+
+  const record = (stamp = 'abc'): ModelRecord => ({
+    id: MODEL_ID,
+    version: 1,
+    result: { kind: 'ok', rules: ['long when x'], usedTrades: 30 } as unknown as TrainResult,
+    trainedOn: [{ id: setId(provSource), trades: 1, stamp }],
+  });
+  it('round-trips the model record, and has none at first', async () => {
+    const s = await open();
+    expect(await s.getModel()).toBeUndefined();
+    await s.putModel(record());
+    await s.putModel(record('def'));
+    expect(await s.getModel()).toEqual(record('def'));
+    // the find inputs share the settings store and are untouched
+    expect(await s.getInputs()).toBeUndefined();
+  });
+  it('importAll writes the sets and the model together', async () => {
+    const s = await open();
+    await s.importAll([mk(provSource), mk({ kind: 'library', datasetId: 'd1' })], record());
+    expect((await s.list()).map((x) => x.id).sort()).toEqual([setId(provSource), 'library|d1'].sort());
+    expect(await s.getModel()).toEqual(record());
+    await s.importAll([], null);
+    expect(await s.getModel()).toEqual(record());
+  });
+  it('a failed importAll leaves both stores as they were', async () => {
+    const s = await open();
+    await s.put(mk(provSource, { updatedAt: 1 }));
+    await s.putModel(record('old'));
+    const broken = { ...record('new'), result: { fn: () => 1 } } as unknown as ModelRecord;
+    await expect(s.importAll([mk(provSource, { updatedAt: 9 }), mk({ kind: 'library', datasetId: 'd1' })], broken)).rejects.toThrow();
+    expect((await s.list()).map((x) => [x.id, x.updatedAt])).toEqual([[setId(provSource), 1]]);
+    expect((await s.getModel())?.trainedOn[0].stamp).toBe('old');
+  });
+  it('a rename keeps the id', async () => {
+    const s = await open();
+    await s.put(mk(provSource));
+    const got = await s.get(setId(provSource));
+    await s.put({ ...(got as HighlightSet), name: 'My BTC' });
+    const after = await s.list();
+    expect(after).toHaveLength(1);
+    expect(after[0].id).toBe(setId(provSource));
+    expect(after[0].name).toBe('My BTC');
+  });
+  it('a version 2 database without a model opens and works', async () => {
+    const first = await open();
+    await first.put(mk(provSource));
+    first.close();
+    opened.pop();
+    const again = await open();
+    expect(await again.getModel()).toBeUndefined();
+    expect(await again.list()).toHaveLength(1);
   });
 });
