@@ -156,10 +156,10 @@ export function TopBar({
   /** Undo and Redo for the active chart's drawings, the same as Ctrl+Z and Ctrl+Shift+Z. */
   const undoButtons = (
     <>
-      <button className="ghost icon" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!drawingsEntry?.canUndo} onClick={() => drawingsEntry?.actions.undo()}>
+      <button className="ghost icon undo-btn" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!drawingsEntry?.canUndo} onClick={() => drawingsEntry?.actions.undo()}>
         <UndoIcon />
       </button>
-      <button className="ghost icon" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!drawingsEntry?.canRedo} onClick={() => drawingsEntry?.actions.redo()}>
+      <button className="ghost icon undo-btn" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={!drawingsEntry?.canRedo} onClick={() => drawingsEntry?.actions.redo()}>
         <RedoIcon />
       </button>
     </>

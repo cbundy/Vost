@@ -100,12 +100,12 @@ export const drawingManage: Scenario = {
     /** The top bar's Undo or Redo button (on the phone it sits in the More menu, which is left open). */
     const topBtn = async (name: 'Undo' | 'Redo') => {
       const pop = page.getByRole('dialog', { name: 'More', exact: true });
-      if (narrow && !(await pop.isVisible())) await page.getByRole('button', { name: 'More', exact: true }).click();
+      if (narrow && !(await pop.isVisible())) await page.locator('.topbar').getByRole('button', { name: 'More', exact: true }).click();
       return (narrow ? pop : page.locator('.topbar')).getByRole('button', { name, exact: true });
     };
     const closeMore = async () => {
       const pop = page.getByRole('dialog', { name: 'More', exact: true });
-      if (narrow && (await pop.isVisible())) await page.getByRole('button', { name: 'More', exact: true }).click();
+      if (narrow && (await pop.isVisible())) await page.locator('.topbar').getByRole('button', { name: 'More', exact: true }).click();
     };
 
     await ctx.step('top bar Undo and Redo are disabled on a fresh source', async () => {
@@ -128,6 +128,8 @@ export const drawingManage: Scenario = {
     });
 
     await ctx.step('top bar Undo and Redo step the drawing back and forward', async () => {
+      await page.keyboard.press('Escape'); // the drawing's menu from the step above
+      await menu.waitFor({ state: 'detached' });
       check('Undo enabled after drawing', await (await topBtn('Undo')).isEnabled());
       check('Redo disabled', await (await topBtn('Redo')).isDisabled());
       await ctx.screenshot('topbar-undo');
@@ -687,6 +689,11 @@ export const drawingManage: Scenario = {
     });
 
     await ctx.step('the top bar buttons follow the active chart', async () => {
+      if (narrow) {
+        const dlg = page.getByRole('dialog', { name: 'Sidebar' });
+        await dlg.getByRole('button', { name: 'Close sidebar' }).click();
+        await dlg.waitFor({ state: 'detached' });
+      }
       check('first chart: Undo enabled', await (await topBtn('Undo')).isEnabled());
       await closeMore();
       if (narrow) await page.getByRole('button', { name: 'Next chart' }).click();
@@ -708,7 +715,7 @@ export const drawingManage: Scenario = {
         if (!b) throw new Error('no first cell');
         await page.mouse.click(b.x + b.width * 0.1, b.y + b.height * 0.1);
       }
-      await page.locator('.chart-cell.active .legend-title', { hasText: /^DEMO\b(?!-)/ }).waitFor();
+      await page.locator('.chart-cell.active .legend-title', { hasNotText: 'DEMO-BEAR' }).waitFor();
       check('back on the first chart: Undo enabled', await (await topBtn('Undo')).isEnabled());
       check('back on the first chart: Redo disabled', await (await topBtn('Redo')).isDisabled());
       await closeMore();

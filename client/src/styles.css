@@ -2553,6 +2553,11 @@ a:hover {
   .topbar-right {
     gap: 4px;
   }
+
+  /* Undo and Redo are the last controls to fit on a tablet: a little narrower keeps the row inside the screen. */
+  .topbar button.icon.undo-btn {
+    width: 24px;
+  }
 }
 
 @media (max-width: 600px) {
