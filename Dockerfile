@@ -32,7 +32,7 @@ COPY server ./server
 COPY shared ./shared
 COPY --from=build /app/client/dist ./client/dist
 
-# The one piece of state: alerts.json. Owned by the unprivileged user.
+# The state: the data folder (alerts, settings, Pine libraries, candle store). Owned by the unprivileged user.
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 

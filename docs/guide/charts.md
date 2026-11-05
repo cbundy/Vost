@@ -117,6 +117,12 @@ While the last candle is still forming, a small label under the last price shows
 
 ![The countdown under the last price](../evidence/bar-countdown/bar-countdown-1m-desktop.png)
 
+## High and low price labels
+
+Two labels on the price scale, **High** and **Low**, show the highest and lowest price of the candles currently on screen. They follow you as you scroll and zoom, and as live candles arrive, and are hidden in an empty view. Turn them off with **High and low price labels** in Settings.
+
+![The High and Low labels on the price scale](../evidence/high-low/high-low-default-desktop.png)
+
 ## Connection light
 
 The dot in the top bar shows whether each exchange's price history, symbol lookup and live stream work right now. Click it for latency, the last good time, the error text and a **Test now** button. The server checks about once a minute (`VOST_STATUS_INTERVAL=0` turns that off).

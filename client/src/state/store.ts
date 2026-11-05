@@ -100,6 +100,7 @@ interface Prefs {
   buildTimeframes?: boolean;
   historyLoading?: HistoryLoading;
   barCountdown?: boolean;
+  highLowLabels?: boolean;
   pineHigherBars?: 'forming' | 'finished';
   customTimeframes?: Interval[];
 }
@@ -214,6 +215,8 @@ export interface AppState {
   historyLoading: HistoryLoading;
   /** Show the time left in the last bar under the last price. */
   barCountdown: boolean;
+  /** Show High and Low labels on the price scale for the bars on screen. */
+  highLowLabels: boolean;
   /** Pine: whether the live bar sees the forming higher-timeframe bar or only finished ones. */
   pineHigherBars: 'forming' | 'finished';
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
@@ -292,6 +295,7 @@ export interface AppState {
   setBuildTimeframes(v: boolean): void;
   setHistoryLoading(v: HistoryLoading): void;
   setBarCountdown(v: boolean): void;
+  setHighLowLabels(v: boolean): void;
   setPineHigherBars(v: 'forming' | 'finished'): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
   addCustomTimeframe(iv: Interval): void;
@@ -378,6 +382,7 @@ export const useStore = create<AppState>()((set, get) => {
       buildTimeframes: s.buildTimeframes,
       historyLoading: s.historyLoading,
       barCountdown: s.barCountdown,
+      highLowLabels: s.highLowLabels,
       pineHigherBars: s.pineHigherBars,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
@@ -575,6 +580,7 @@ export const useStore = create<AppState>()((set, get) => {
     buildTimeframes: false,
     historyLoading: 'scroll',
     barCountdown: true,
+    highLowLabels: true,
     pineHigherBars: 'forming',
     customTimeframes: [],
     charts: firstCharts,
@@ -670,6 +676,7 @@ export const useStore = create<AppState>()((set, get) => {
         buildTimeframes: prefs.buildTimeframes === true,
         historyLoading: prefs.historyLoading === 'all' ? 'all' : 'scroll',
         barCountdown: prefs.barCountdown !== false,
+        highLowLabels: prefs.highLowLabels !== false,
         pineHigherBars: prefs.pineHigherBars === 'finished' ? 'finished' : 'forming',
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
@@ -824,6 +831,11 @@ export const useStore = create<AppState>()((set, get) => {
 
     setBarCountdown(v) {
       set({ barCountdown: v !== false });
+      persistPrefs();
+    },
+
+    setHighLowLabels(v) {
+      set({ highLowLabels: v !== false });
       persistPrefs();
     },
 

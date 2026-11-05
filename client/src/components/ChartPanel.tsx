@@ -41,6 +41,7 @@ import { usePineSeries } from './usePineSeries';
 import { useBarCountdown } from './chart/useBarCountdown';
 import { usePriceScale } from './chart/usePriceScale';
 import { PriceScaleButtons } from './PriceScaleButtons';
+import { useVisibleHighLow } from './chart/useVisibleHighLow';
 import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
@@ -404,6 +405,7 @@ export function ChartPanel({
     const c = cs[cs.length - 1];
     return c ? { time: c.time, close: c.close, up: c.close >= c.open, color: bc.get(c.time) } : null;
   }, timeframe, replayPhase);
+  useVisibleHighLow(chartApi, chartApi ? candleSeriesRef.current : null);
   const drawings = useDrawings(chartApi, chartApi ? candleSeriesRef.current : null, containerRef, active);
 
   /* Entering replay: remember the view before the data effect cuts the bars. Exit restores it (below). */

@@ -64,6 +64,7 @@ export const chartTheme = {
   refLine: rgba(theme.muted, 0.7),
   exit: rgba(theme.muted, 0.9),
   benchmark: theme.text,
+  highLowLabel: '#1e3a8a',
 } as const;
 
 /** Colours for the Pine code editor. */

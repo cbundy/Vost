@@ -27,6 +27,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setHistoryLoading = useStore((s) => s.setHistoryLoading);
   const barCountdown = useStore((s) => s.barCountdown);
   const setBarCountdown = useStore((s) => s.setBarCountdown);
+  const highLowLabels = useStore((s) => s.highLowLabels);
+  const setHighLowLabels = useStore((s) => s.setHighLowLabels);
   const pineHigherBars = useStore((s) => s.pineHigherBars);
   const setPineHigherBars = useStore((s) => s.setPineHigherBars);
   return (
@@ -50,6 +52,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <span>
               <span className="settings-radio-label">Countdown to bar close</span>
               <span className="hint settings-radio-hint">Shows the time left in the current bar under the last price.</span>
+            </span>
+          </label>
+        </div>
+        <div className="settings-row">
+          <label className="settings-radio">
+            <input type="checkbox" checked={highLowLabels} onChange={(e) => setHighLowLabels(e.target.checked)} />
+            <span>
+              <span className="settings-radio-label">High and low price labels</span>
+              <span className="hint settings-radio-hint">Shows the highest and lowest price of the bars on screen on the price scale.</span>
             </span>
           </label>
         </div>

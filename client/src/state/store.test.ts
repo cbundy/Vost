@@ -330,6 +330,34 @@ describe('barCountdown setting', () => {
   });
 });
 
+describe('highLowLabels setting', () => {
+  async function fresh(saved?: unknown) {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    if (saved !== undefined) {
+      localStorage.setItem('vost.prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, highLowLabels: saved }));
+    }
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore;
+  }
+
+  it('defaults to on; false loads off; invalid values load on', async () => {
+    expect((await fresh()).getState().highLowLabels).toBe(true);
+    expect((await fresh(false)).getState().highLowLabels).toBe(false);
+    for (const bad of ['x', 1, null]) expect((await fresh(bad)).getState().highLowLabels).toBe(true);
+  });
+
+  it('setHighLowLabels saves to prefs.v1', async () => {
+    const useStore = await fresh();
+    useStore.getState().setHighLowLabels(false);
+    useStore.getState().flushPersist();
+    expect(JSON.parse(localStorage.getItem('vost.prefs.v1')!).highLowLabels).toBe(false);
+  });
+});
+
 describe('historyLoading setting', () => {
   async function fresh(saved?: unknown) {
     vi.resetModules();
@@ -562,6 +590,7 @@ describe('chart registry and flat prefs', () => {
     buildTimeframes: true,
     historyLoading: 'all',
     barCountdown: false,
+    highLowLabels: false,
     pineHigherBars: 'finished',
     customTimeframes: ['2h'],
   });
