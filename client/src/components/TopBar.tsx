@@ -10,7 +10,7 @@ import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
-import { BellIcon, GearIcon, InboxIcon, ReplayIcon, StarIcon, UploadIcon } from './Icons';
+import { BellIcon, GearIcon, InboxIcon, RedoIcon, ReplayIcon, StarIcon, UndoIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { LayoutDialogs } from './LayoutDialogs';
 import { LayoutMenu } from './LayoutMenu';
@@ -24,6 +24,7 @@ import { useActiveDrawings } from './chart/activeDrawings';
 import { useChart, useChartStore } from '../state/chartContext';
 
 const ADD_INTERVAL = '__add-interval';
+const UNDO_IN_MORE_MAX = 768;
 
 export function TopBar({
   onImportCsv,
