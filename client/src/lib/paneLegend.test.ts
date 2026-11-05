@@ -97,9 +97,10 @@ describe('priceLegendRows', () => {
     const keep = spec('sma');
     expect(priceLegendRows([off, keep], '5m', {}).map((r) => r.id)).toEqual([keep.id]);
     expect(priceLegendRows([off, keep], '1d', {}).map((r) => r.id)).toEqual([off.id, keep.id]);
-    // The eye wins over the kind: hidden is a dimmed row.
+    // A hidden indicator that is also off for the kind has no row either: Show would draw nothing.
     const hiddenOff = spec('ema', { hideOn: ['minutes'], visible: false });
-    expect(priceLegendRows([hiddenOff], '5m', {}).map((r) => r.hidden)).toEqual([true]);
+    expect(priceLegendRows([hiddenOff], '5m', {})).toEqual([]);
+    expect(priceLegendRows([hiddenOff], '1d', {}).map((r) => r.hidden)).toEqual([true]);
   });
 
   it('shows a Pine script with a pending run by its source name and no values', () => {

@@ -75,7 +75,7 @@ export function priceLegendRows(
 ): LegendRow[] {
   const rows: LegendRow[] = [];
   for (const spec of indicators) {
-    if (spec.visible && !indicatorDrawn(spec, timeframe)) continue;
+    if (!indicatorDrawn({ ...spec, visible: true }, timeframe)) continue; // off for this kind: no row, hidden or not
     const hidden = !spec.visible;
     if (spec.kind === 'pine') {
       const run = pineRuns[spec.id];
