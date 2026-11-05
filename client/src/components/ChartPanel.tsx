@@ -25,12 +25,15 @@ import { legendHtml } from '../lib/legend';
 import { ChartContextMenu } from './ChartContextMenu';
 import { ChartRangeBar } from './ChartRangeBar';
 import { fmtTick } from '../lib/time';
-import { newPaneState, releasePanes, sizePanes, usePaneLegends, type PaneReg, type PaneState } from './usePaneLegends';
+import { newPaneState, releasePanes, sizePanes, usePaneLegends, type OverlayReg, type PaneReg, type PaneState } from './usePaneLegends';
 import { INDICATOR_META, computeIndicator, hexToRgba, type ComputedSeries } from '../lib/indicatorCompute';
 import { indicatorDrawn } from '../lib/indicatorSettings';
 import { getProvider } from '../lib/providers';
 import { useStore } from '../state/store';
 import { canPageOlder, selectDataCandles } from '../state/chart';
+import { IndicatorSettingsDialog } from './IndicatorSettingsDialog';
+import { PaneLegendActions, PriceLegendRows } from './IndicatorLegend';
+import { priceLegendRows } from '../lib/paneLegend';
 import { usePineSeries } from './usePineSeries';
 import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
@@ -124,6 +127,10 @@ export function ChartPanel({
   const paneEpochRef = useRef(0);
   const paneStateRef = useRef<PaneState>(newPaneState());
   const paneLegendsRef = useRef<HTMLDivElement | null>(null);
+  const legendRowsRef = useRef<HTMLDivElement | null>(null);
+  /** The indicator whose settings dialog is open from a legend row. */
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+  const legendRows = useMemo(() => priceLegendRows(indicators, timeframe, pineRuns), [indicators, timeframe, pineRuns]);
 
   const precision = useMemo(() => {
     const last = candles[candles.length - 1];
@@ -212,6 +219,7 @@ export function ChartPanel({
     paneEpochRef.current++; // panes are dropped below: pine series must be rebuilt
     // Keep the sizes the user dragged the sub panes to, per indicator id, before removing series empties and drops them.
     releasePanes(chart, paneStateRef.current, 'all', new Set(indicators.map((i) => i.id)));
+    paneStateRef.current.overlays.clear(); // the Pine ones are rebuilt too: the epoch above says so
 
     for (const { series } of indMapRef.current.values()) {
       try {
@@ -250,6 +258,7 @@ export function ChartPanel({
         subIdx++;
       }
       const legendEntries: PaneReg['entries'] = [];
+      const overlayEntries: OverlayReg['entries'] = [];
       for (const cs of computed) {
         const common = {
           priceLineVisible: false,
@@ -275,6 +284,7 @@ export function ChartPanel({
           }
           indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: 'histogram' });
           if (cs.pane === 'sub') legendEntries.push({ title: cs.title, color: cs.color, series });
+          else overlayEntries.push({ title: cs.title, color: cs.color, series, compact: cs.pane === 'volume' });
         } else {
           const series = chart.addSeries(
             LineSeries,
@@ -293,7 +303,16 @@ export function ChartPanel({
           }
           indMapRef.current.set(`${spec.id}|${cs.key}`, { series, kind: 'line' });
           if (cs.pane === 'sub') legendEntries.push({ title: cs.title, color: cs.color, series });
+          else overlayEntries.push({ title: cs.title, color: cs.color, series });
         }
+      }
+      if (overlayEntries.length > 0) {
+        // One plot: the row's name already says what it is.
+        paneStateRef.current.overlays.set(spec.id, {
+          id: spec.id,
+          source: 'builtin',
+          entries: overlayEntries.length === 1 ? [{ ...overlayEntries[0], title: '' }] : overlayEntries,
+        });
       }
       if (paneIndex > 0 && legendEntries.length > 0) {
         paneStateRef.current.panes.set(spec.id, {
@@ -367,6 +386,39 @@ export function ChartPanel({
     lastLeftEdgeRef.current = chart.timeScale().getVisibleLogicalRange()?.from ?? null;
   }
 
+  /* Older bar time the timeframe's default window needs paged in, or null when none is needed or possible. */
+  function defaultWindowNeed(st: ReturnType<typeof chartStore.getState>): number | null {
+    return canPageOlder(st, useStore.getState().historyLoading) ? historyNeededFrom(resetRangeKey(timeframe), st.candles, timeZone) : null;
+  }
+
+  /* Page older bars in until the timeframe's window is covered, then show it (all data when it does not apply).
+     Shared by Reset view and the load path; abandoned when another series loads meanwhile. */
+  async function showDefaultWindow(key: string) {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const stale = () => chartStore.getState().dataKey !== key || chartRef.current !== chart;
+    carryingRef.current = true;
+    try {
+      const need = defaultWindowNeed(chartStore.getState());
+      if (need != null) {
+        await chartStore.getState().loadHistoryTo(need);
+        if (stale()) return;
+      }
+      // One frame later: a range set in the same frame as new or merged bars is overridden by the chart's own update for them.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (stale()) return;
+      const cs = chartStore.getState().candles;
+      if (cs.length === 0) return;
+      lastLeftEdgeRef.current = null; // showing the window is not a scroll back: do not page for it
+      const range = resetLogicalRange(timeframe, cs, timeZone, RIGHT_OFFSET);
+      if (range) chart.timeScale().setVisibleLogicalRange(range);
+      else chart.timeScale().fitContent();
+      lastLeftEdgeRef.current = chart.timeScale().getVisibleLogicalRange()?.from ?? null;
+    } finally {
+      if (!stale()) carryingRef.current = false;
+    }
+  }
+
   /* ---------------- push data (full or incremental) ---------------- */
   useEffect(() => {
     const chart = chartApi;
@@ -420,8 +472,22 @@ export function ChartPanel({
       } else if (carried) {
         carryingRef.current = true;
         void showCarriedWindow(carried.from, carried.to, carried.needFrom, dataKey);
-      } else {
+      } else if (st0.chartRange != null) {
         ts.fitContent();
+      } else {
+        // A fresh series opens on the Reset view window; fit first so the chart is not blank while older bars page in.
+        const needsPaging = defaultWindowNeed(chartStore.getState()) != null;
+        const range = needsPaging ? null : resetLogicalRange(timeframe, candles, timeZone, RIGHT_OFFSET);
+        if (range) {
+          ts.setVisibleLogicalRange(range);
+          lastLeftEdgeRef.current = range.from;
+        } else {
+          ts.fitContent();
+          if (needsPaging) {
+            carryingRef.current = true;
+            void showDefaultWindow(dataKey);
+          }
+        }
       }
     } else if (incremental && sentBarColorsRef.current === barColors) {
       candleSeries.update(toCandleData(candles[candles.length - 1], barColors));
@@ -708,13 +774,7 @@ export function ChartPanel({
       }
     }
     chartApi.timeScale().applyOptions({ rightOffset: RIGHT_OFFSET });
-    // Page in older bars until the timeframe's window is covered (or the history start stops it).
-    const st = chartStore.getState();
-    const need = canPageOlder(st, useStore.getState().historyLoading) ? historyNeededFrom(resetRangeKey(timeframe), st.candles, timeZone) : null;
-    if (need != null) await st.loadHistoryTo(need);
-    const range = resetLogicalRange(timeframe, chartStore.getState().candles, timeZone, RIGHT_OFFSET);
-    if (range) chartApi.timeScale().setVisibleLogicalRange(range);
-    else chartApi.timeScale().fitContent();
+    await showDefaultWindow(chartStore.getState().dataKey);
   }
 
   const favorites = useStore((s) => s.drawingFavorites);
@@ -743,14 +803,21 @@ export function ChartPanel({
     onDeleteAll: drawings.deleteAll,
   };
 
-  usePaneLegends(chartApi, paneStateRef, paneLegendsRef, [drawn, pineRuns, candles, replayCutoff]);
+  const paneLegends = usePaneLegends(chartApi, paneStateRef, paneLegendsRef, legendRowsRef, setSettingsId, [drawn, pineRuns, candles, replayCutoff]);
+  const paneLabels = new Map([...paneStateRef.current.panes].map(([id, p]) => [id, [p.name, ...p.params].join(' ')] as const));
+  const pineIds = new Set(indicators.filter((i) => i.kind === 'pine').map((i) => i.id));
 
   return (
     <div className="chart-wrap">
       <DrawingRail {...drawingControls} />
       <div className="chart-main">
-      <div className="chart-legend" ref={legendRef} />
+      <div className="chart-legend">
+        <div className="legend-head" ref={legendRef} />
+        <PriceLegendRows rows={legendRows} overlays={paneStateRef.current.overlays} onSettings={setSettingsId} rowsRef={legendRowsRef} />
+      </div>
       <div className="pane-legends" ref={paneLegendsRef} />
+      <PaneLegendActions hosts={paneLegends.actionHosts} pineIds={pineIds} labels={paneLabels} onSettings={setSettingsId} />
+      {settingsId && indicators.some((i) => i.id === settingsId) && <IndicatorSettingsDialog id={settingsId} onClose={() => setSettingsId(null)} />}
       <div className={`chart-container${replayPhase === 'picking' ? ' picking' : ''}`} ref={containerRef} />
       {drawings.editor && (
         <DrawingTextEditor

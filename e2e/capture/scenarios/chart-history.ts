@@ -17,14 +17,14 @@ async function barTimeAt(page: Page, fraction: number): Promise<number> {
 
 export const chartHistory: Scenario = {
   name: 'chart-history',
-  description: 'Binance on the fake upstream opens on its latest 1000 bars with no Bars menu; zooming out with the wheel pages older bars in (paged /api/history?...&to= requests) and the visible time window stays the same through a prepend',
+  description: 'Binance on the fake upstream opens on its latest 1000 bars with no Bars menu; the chart opens on the last 5 days; zooming out with the wheel pages older bars in (paged /api/history?...&to= requests) and the visible time window stays the same through a prepend',
   viewports: ['desktop'],
   async run(ctx) {
     const { page } = ctx;
     const history = () => ctx.requests.filter((u) => u.includes('/api/history?'));
     const param = (u: string, k: string) => new URL(u).searchParams.get(k);
-    // Hold the first older page so the view can be measured before it arrives (the fitted 1000 bars sit at the left edge,
-    // so the page follows by itself).
+    // Hold the first older page so the view can be measured before it arrives (the chart opens on the last 5 days, so
+    // zooming out to the left edge of the loaded 1000 bars asks for it).
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     let held = 0;
@@ -53,8 +53,14 @@ export const chartHistory: Scenario = {
     });
     await ctx.screenshot('opened');
 
-    await ctx.step('the fitted 1000 bars sit at the left edge: the first older page is requested', async () => {
-      for (let i = 0; i < 50 && held === 0; i++) await page.waitForTimeout(100);
+    await ctx.step('zoom out to the left edge of the loaded bars: the first older page is requested', async () => {
+      const box = await page.locator('.chart-container canvas').first().boundingBox();
+      if (!box) throw new Error('chart has no box');
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
+      for (let i = 0; i < 60 && held === 0; i++) {
+        await page.mouse.wheel(0, 300);
+        await page.waitForTimeout(150);
+      }
       if (held === 0) throw new Error('no older page was requested');
       await page.waitForTimeout(500);
     });
@@ -77,10 +83,17 @@ export const chartHistory: Scenario = {
       if (moved > BAR_SECONDS) throw new Error(`the view moved by ${moved / BAR_SECONDS} bars`);
     });
 
-    await ctx.step('zoom out further: more pages arrive and earlier dates show', async () => {
-      for (let i = 0; i < 12; i++) {
-        await page.mouse.wheel(0, 300);
-        await page.waitForTimeout(200);
+    await ctx.step('scroll back further: more pages arrive and earlier dates show', async () => {
+      // The loaded bars already fill the plot at the smallest bar spacing, so drag the chart to the right instead of zooming.
+      const box = await page.locator('.chart-container canvas').first().boundingBox();
+      if (!box) throw new Error('chart has no box');
+      const y = box.y + box.height / 2;
+      for (let i = 0; i < 6; i++) {
+        await page.mouse.move(box.x + box.width * 0.2, y);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.9, y, { steps: 12 });
+        await page.mouse.up();
+        await page.waitForTimeout(700);
       }
       await page.waitForTimeout(1500);
     });

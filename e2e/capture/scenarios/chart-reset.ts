@@ -2,7 +2,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const chartReset: Scenario = {
   name: 'chart-reset',
-  description: 'Video of pan, zoom and price-axis drag, then the Reset view button restoring the timeframe window (last month on the daily chart, last day on a minute chart)',
+  description: 'Video of a fresh chart opening on the timeframe window, then pan, zoom and price-axis drag, then the Reset view button restoring the timeframe window (last month on the daily chart, last day on a minute chart)',
   video: true,
   viewports: ['desktop'],
   async run(ctx) {

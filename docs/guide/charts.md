@@ -8,7 +8,7 @@ A candlestick chart with a volume pane, drawn with TradingView's open-source lig
 
 ## Legend
 
-The one-line legend at the top of the chart shows the symbol, the open, high, low and close under the crosshair, the change and the volume, coloured by direction. The indicator panes below the chart have their own legends (see [Indicators](#indicators)).
+The one-line legend at the top of the chart shows the symbol, the open, high, low and close under the crosshair, the change and the volume, coloured by direction. Under it, every indicator drawn on the price pane (Volume included) has its own row, and the indicator panes below the chart have their own legends (see [Indicator legend rows](#indicator-legend-rows)).
 
 ## Indicators
 
@@ -19,6 +19,22 @@ Each of those panes has a small legend at its top-left with the indicator's name
 A new pane opens at a modest height, so the candles keep most of the chart. Drag the line between two panes to resize them: the size you set stays when you add, remove or hide other indicators or edit a Pine script.
 
 ![RSI, MACD and a Pine script in their own panes with legends and values at the crosshair](../evidence/chart-panes/chart-panes-crosshair-desktop.png)
+
+### Indicator legend rows
+
+Each indicator has a row in the chart's legend: its name and inputs (`EMA 200`, `BB 20, 2`, or a Pine title with its input values), then each plot's value in the plot's colour at the crosshair bar (the last bar with the crosshair away, `-` where there is no value). Rows for the price pane sit under the one-line legend in list order; an RSI, MACD or Pine pane keeps its own legend at the top of its pane.
+
+Hover a row (or tap it on a touch screen) to show its buttons: the eye (**Hide** or **Show**), the gear (**Settings**, which opens the [settings dialog](#indicator-settings)), `{}` (**Source code**, Pine scripts only, which opens the Pine editor on that script), the bin (**Remove**) and `...`, a menu with Settings..., Source code..., Hide or Show and Remove. Escape, a click outside or a choice closes the menu. Double-click the name to open the settings.
+
+A hidden indicator keeps its row, dimmed, with `-` for its values, so you can show it again. An RSI, MACD or Pine pane that is hidden has no pane any more, so its dimmed row is listed with the price pane's rows. An indicator turned off for the current timeframe kind has no row. A Pine script that is still running or failed to run shows its name and no values.
+
+Only the rows themselves take clicks: dragging the chart, drawing and zooming work as before everywhere else, including right below the rows.
+
+![The Volume and SMA 20 rows under the chart legend](../evidence/indicator-legend/indicator-legend-rows-desktop.png)
+
+![A hovered row with its buttons, and the ... menu open](../evidence/indicator-legend/indicator-legend-menu-desktop.png)
+
+![A hidden RSI keeps a dimmed row under the price pane's rows](../evidence/indicator-legend/indicator-legend-rsi-hidden-desktop.png)
 
 ### Indicator settings
 
@@ -54,7 +70,7 @@ The clock at the right of the bar under the chart shows the time in a chosen zon
 
 ## Reset view
 
-**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose provider has no bars that far back. Reset view loads older pages first when the window reaches before the loaded bars. A freshly loaded chart still shows all data.
+**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose provider has no bars that far back. Reset view loads older pages first when the window reaches before the loaded bars. A freshly loaded chart opens on the same window.
 
 ![A chart after Reset view](../evidence/chart-reset/chart-reset-reset-desktop.png)
 
@@ -64,7 +80,7 @@ In the chart toolbar, **Screenshot (PNG)** saves the chart as an image and **Exp
 
 ## Switching symbol
 
-Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at (a chart following the latest bar keeps following the new symbol's latest bar), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, fits all loaded bars.
+Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at (a chart following the latest bar keeps following the new symbol's latest bar), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, opens the chart on the timeframe's window (a chart limited by the Range picker shows its whole range).
 
 ![The same dates after switching symbol](../evidence/symbol-view/symbol-view-back-after-desktop.png)
 
