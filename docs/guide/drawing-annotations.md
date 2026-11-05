@@ -133,7 +133,7 @@ Select a picture to move it by dragging its body. Four corner handles resize it 
 
 ![A sticker rotated and enlarged with its handles](../evidence/drawing-icons/drawing-icons-rotated-desktop.png)
 
-Double-click a picture to open its settings: **Size** in pixels (8 to 512; 40 for icons and emojis, 80 for stickers), **Angle** in degrees, **Opacity**, and for icons **Colour**. Edits show at once and one undo reverts them all. Pictures are saved in your browser with the other drawings. If a saved picture is no longer in the bundled set it shows as a dashed box with a question mark instead of disappearing.
+Double-click a picture to open its settings: **Size** in pixels (8 to 512; 40 for icons and emojis, 80 for stickers), **Angle** in degrees, **Opacity**, and for icons **Colour**. Edits show at once and one undo reverts them all. Pictures are saved with the other drawings. If a saved picture is no longer in the bundled set it shows as a dashed box with a question mark instead of disappearing.
 
 ## Image
 
@@ -147,8 +147,8 @@ The **Image** tool (in the Annotations flyout, in its own **Content** section) p
 
 ![Resized with the ratio kept](../evidence/drawing-image/drawing-image-resized-desktop.png)
 
-A file that is not a PNG, JPEG, GIF or WebP picture (the type and the file's own bytes must both say so), or is over 5 MB, shows a message and adds nothing. The picture store holds up to 50 MB in all.
+A file that is not a PNG, JPEG, GIF or WebP picture (the type and the file's own bytes must both say so), or is over 5 MB, shows a message and adds nothing. The server's picture store holds up to 50 MB in all.
 
 ![A 6 MB file is refused](../evidence/drawing-image/drawing-image-refused-big-desktop.png)
 
-Pictures are kept in your browser's own picture store, apart from the drawings, so a picture is stored once however many times it is used. Undo, redo, clone, copy and paste, lock, reorder and delete work as for any drawing, and a deleted picture comes back with undo. A picture nothing uses any more (no drawing, no undo step, no copy) is removed from the store a day after it was last in use. If the store lacks a picture (you cleared the site's data, or the drawings were copied to another browser) the drawing shows a dashed box labelled **Picture missing**, which you can still select, move and delete. In a browser that cannot keep pictures (some private modes) the Image tool is greyed out.
+Pictures are kept on the Vost server, apart from the drawings, so they are not lost when you clear your browser's site data and they follow the drawings to another browser on the same server. A picture is stored once however many times it is used, so a picture is stored once however many times it is used. Undo, redo, clone, copy and paste, lock, reorder and delete work as for any drawing, and a deleted picture comes back with undo. A picture nothing uses any more (no drawing, no undo step, no copy) is removed from the store a day after it was last in use. If the server no longer has a picture the drawing shows a dashed box labelled **Picture missing**, which you can still select, move and delete. Pictures an older version kept in your browser are moved to the server once, the first time the app starts. When the server cannot store pictures (it is unreachable or its data folder is not writable) the Image tool is greyed out.

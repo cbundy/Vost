@@ -39,7 +39,7 @@ import { NotePopups } from './notePopups';
 import { editorStyle, type EditorTarget } from './textPlacement';
 import { usePublishDrawings } from './activeDrawings';
 import { cellRect, cellUnder } from './tableEditing';
-import { available, createSweeper, registerImageRefs } from '../../lib/drawingImages';
+import { available, createSweeper, migrateBrowserImages, registerImageRefs } from '../../lib/drawingImages';
 import { dragCorner, fitToHalfPane, naturalEnd } from '../../lib/geometry/image';
 import { subscribeBitmaps } from './imageCache';
 import { IMAGE_TOOL, adoptFile, dragHasFiles, droppedFile, getPending, openChooser, pictureFrom, setPending } from './imagePlacement';
@@ -552,11 +552,15 @@ export function useDrawings(
     sync();
   }, [key, sync, getState]);
 
-  /* Pictures: whether the store opens, the references this tab holds, a repaint when a picture is decoded, a first sweep. */
+  /* Pictures: move the ones this browser still holds to the server, then whether the server can store them, the references this tab holds, a repaint when a picture is decoded, a first sweep. */
   useEffect(() => {
     let on = true;
-    void available().then((ok) => on && setImagesAvailable(ok));
-    imageSweeper().schedule();
+    void migrateBrowserImages()
+      .then(() => available())
+      .then((ok) => {
+        if (on) setImagesAvailable(ok);
+        imageSweeper().schedule();
+      });
     const unregister = registerImageRefs(() => [...statesRef.current.values()].flatMap(stateImageKeys));
     const unsubscribe = subscribeBitmaps(sync);
     return () => {

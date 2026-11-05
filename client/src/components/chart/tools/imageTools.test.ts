@@ -107,7 +107,7 @@ describe('image tool', () => {
     expect(entryDisabled(e, { disabled: false, hidden: false })).toBe(false);
     expect(entryDisabled(e, { disabled: false, hidden: false, imagesOff: true })).toBe(true);
     expect(entryDisabled(flag, { disabled: false, hidden: false, imagesOff: true })).toBe(false);
-    expect(entryTitle(e, { imagesOff: true })).toBe("Pictures can't be stored in this browser.");
+    expect(entryTitle(e, { imagesOff: true })).toBe("Pictures can't be saved: the Vost server cannot store them right now.");
     expect(entryTitle(e, {})).toBe('Image');
   });
 });

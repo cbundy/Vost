@@ -2,17 +2,10 @@ import { deflateSync } from 'node:zlib';
 import type { Scenario } from '../scenario.ts';
 import { storedDrawings } from '../saved.ts';
 
-/** How many records the picture store holds (-1 when it cannot be opened). */
-const RECORDS = `new Promise((resolve) => {
-  const open = indexedDB.open('vost-images');
-  open.onerror = () => resolve(-1);
-  open.onsuccess = () => {
-    const db = open.result;
-    if (!db.objectStoreNames.contains('images')) return resolve(0);
-    const req = db.transaction('images').objectStore('images').count();
-    req.onsuccess = () => { db.close(); resolve(req.result); };
-  };
-})`;
+/** How many pictures the server holds (-1 when it cannot be asked). */
+const SERVER_PICTURES = `fetch('/api/images').then((r) => r.json()).then((j) => j.count, () => -1)`;
+/** Whether the browser still has the old picture database. */
+const OLD_DB = `indexedDB.databases().then((l) => l.some((d) => d.name === 'vost-images'))`;
 
 type Stored = { id: string; tool: string; anchors: { time: number; price: number }[]; image?: { key: string; w: number; h: number }; style?: Record<string, unknown> };
 
@@ -65,7 +58,7 @@ export const drawingImage: Scenario = {
   touch: ['narrow'],
   keepPrefs: true,
   description:
-    'Image: pick the tool and upload a generated PNG (and the same one again: one stored record), place it by a click at its natural size and by press-drag-release with a live preview, resize a corner with the ratio kept and with Shift, set opacity and a border in the settings, delete and undo (the picture returns), redo, copy and paste, reload and change the timeframe, refuse a 6 MB file and a text file renamed .png with their messages; at 390 px a tap places it and a reload keeps it',
+    'Image: pick the tool and upload a generated PNG (and the same one again: one stored picture), place it by a click at its natural size and by press-drag-release with a live preview, resize a corner with the ratio kept and with Shift, set opacity and a border in the settings, delete and undo (the picture returns), redo, copy and paste, reload and change the timeframe, refuse a 6 MB file and a text file renamed .png with their messages; at 390 px a tap places it and a reload keeps it; a picture left in an older browser database moves to the server, and a brand-new browser on the same server shows the same picture',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -82,7 +75,8 @@ export const drawingImage: Scenario = {
       await page.waitForTimeout(700);
       return (await storedDrawings(ctx)) as Stored[];
     };
-    const records = () => page.evaluate(RECORDS) as Promise<number>;
+    let baseline = 0; // the server keeps pictures between the viewports' runs, so count from where this one starts
+    const records = async () => ((await page.evaluate(SERVER_PICTURES)) as number) - baseline;
     const box = async () => {
       const b = await page.locator('.chart-container').boundingBox();
       if (!b) throw new Error('chart container has no box');
@@ -116,20 +110,22 @@ export const drawingImage: Scenario = {
       await (await chooser).setFiles(file);
       await page.waitForTimeout(300);
     };
-    const png = { name: 'picture.png', mimeType: 'image/png', buffer: makePng(160, 100) };
+    const pw = narrow ? 120 : 160; // a different picture per viewport, so each run adds its own
+    const png = { name: 'picture.png', mimeType: 'image/png', buffer: makePng(pw, 100) };
     const tap = async (p: { x: number; y: number }) => (narrow ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y));
     const images = async () => (await stored()).filter((d) => d.tool === 'image');
 
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
+    baseline = (await page.evaluate(SERVER_PICTURES)) as number;
 
     await ctx.step('Image: upload a picture and place it by a click at its natural size', async () => {
       await pickImage(png);
       check('nothing is stored before the click', (await images()).length === 0);
-      check('the picture is in the store', (await records()) === 1);
+      check('the picture is on the server', (await records()) === 1, String(await records()));
       await tap(await at({ x: 0.1, y: 0.15 }));
       const list = await images();
-      check('one image drawing with the natural size', list.length === 1 && list[0].image?.w === 160 && list[0].image?.h === 100, JSON.stringify(list));
+      check('one image drawing with the natural size', list.length === 1 && list[0].image?.w === pw && list[0].image?.h === 100, JSON.stringify(list));
       await ctx.screenshot('placed');
     });
 
@@ -203,7 +199,7 @@ export const drawingImage: Scenario = {
         await page.keyboard.press('Control+v');
         const pasted = await images();
         check('paste adds a copy with the same picture', pasted.length === 3 && pasted[2].image?.key === pasted[0].image?.key, JSON.stringify(pasted.map((d) => d.image?.key.slice(0, 6))));
-        check('still one stored record', (await records()) === 1);
+        check('still one stored picture', (await records()) === 1);
         await ctx.screenshot('pasted');
       });
 
@@ -232,13 +228,64 @@ export const drawingImage: Scenario = {
       await ctx.waitForChart();
       await page.waitForTimeout(800);
       check('storage is unchanged', JSON.stringify(await stored()) === before);
-      check('the picture store survived the reload', (await records()) === 1);
+      check('the server still holds the picture after the reload', (await records()) === 1);
       await ctx.screenshot('reloaded');
       if (!narrow) {
         await page.locator('select[title="Timeframe"]').selectOption('1h');
         await page.waitForTimeout(1500);
         check('the pictures are still stored after a timeframe change', JSON.stringify(await stored()) === before);
         await ctx.screenshot('timeframe');
+      }
+    });
+
+    await ctx.step('a picture an older version kept in this browser moves to the server', async () => {
+      const old = makePng(narrow ? 48 : 64, 40); // not the same bytes in both viewports' runs
+      await page.evaluate(
+        (bytes) =>
+          new Promise<void>(async (resolve, reject) => {
+            const data = new Uint8Array(bytes);
+            const key = [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map((b) => b.toString(16).padStart(2, '0')).join('');
+            const open = indexedDB.open('vost-images', 1);
+            open.onupgradeneeded = () => open.result.createObjectStore('images', { keyPath: 'key' });
+            open.onerror = () => reject(open.error);
+            open.onsuccess = () => {
+              const db = open.result;
+              const tx = db.transaction('images', 'readwrite');
+              tx.objectStore('images').put({ key, blob: new Blob([data], { type: 'image/png' }), type: 'image/png', size: data.length, w: 64, h: 40, addedAt: 1, seenAt: 1 });
+              tx.oncomplete = () => {
+                db.close();
+                resolve();
+              };
+            };
+          }),
+        [...old],
+      );
+      check('the old browser database is there', (await page.evaluate(OLD_DB)) === true);
+      const before = await records();
+      await page.reload();
+      await ctx.waitForChart();
+      await page.waitForTimeout(1500);
+      check('the server now has the picture', (await records()) === before + 1, `${before} -> ${await records()}`);
+      check('the browser database is gone', (await page.evaluate(OLD_DB)) === false);
+    });
+
+    await ctx.step('a brand-new browser on the same server shows the same picture', async () => {
+      const browser = page.context().browser();
+      if (!browser) throw new Error('no browser');
+      const fresh = await browser.newContext({ viewport: page.viewportSize() ?? undefined, baseURL: new URL(page.url()).origin });
+      try {
+        const other = await fresh.newPage();
+        const failed: string[] = [];
+        other.on('response', (r) => r.url().includes('/api/images/') && r.status() !== 200 && failed.push(`${r.status()} ${r.url()}`));
+        await other.goto('/');
+        await other.locator('.chart-container canvas').first().waitFor({ state: 'visible' });
+        await other.getByRole('button', { name: 'All', exact: true }).click(); // the picture sits earlier than the latest bars the chart opens on
+        await other.waitForTimeout(1500);
+        check('the new browser fetched the picture from the server', failed.length === 0, failed.join());
+        check('the new browser has no vost-images database', (await other.evaluate(OLD_DB)) === false);
+        await ctx.screenshot('fresh-browser', other);
+      } finally {
+        await fresh.close();
       }
     });
 

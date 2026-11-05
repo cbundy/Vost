@@ -1,15 +1,21 @@
 /**
- * The picture store of the Image drawing: one IndexedDB database (`vost-images`) with one object store keyed by the
- * SHA-256 hex of the picture's bytes, so the same bytes are stored once. Drawings only keep the key and the natural
- * size. A picture is removed only by {@link sweep}, which never removes one that something may still need.
- * No React and no chart here.
+ * The pictures of the Image drawing live on the Vost server (`/api/images`), keyed by the SHA-256 hex of their bytes,
+ * so the same bytes are stored once and every browser on the server shows them. Drawings only keep the key and the
+ * natural size. A picture is removed only by the server's sweep, which never removes one that something may still
+ * need. The only code that touches the old browser picture store (IndexedDB `vost-images`) is
+ * {@link migrateBrowserImages}, which moves its pictures to the server once. No React and no chart here.
  */
+import { isImageType, sniffType } from '../../../shared/imageType.ts';
+
+export { sniffType };
 
 /** The Image tool's id. */
 export const IMAGE_TOOL = 'image';
 
+/** The old browser picture store, read only by the migration. */
 export const DB_NAME = 'vost-images';
 const STORE = 'images';
+const API = '/api/images';
 
 /** Largest picture, and largest store, in bytes. */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -24,7 +30,7 @@ export const MESSAGES = {
   size: 'That picture is over the 5 MB limit.',
   store: 'The picture store is full (50 MB limit). Delete pictures you no longer use and try again.',
   decode: 'That picture could not be read.',
-  unavailable: "Pictures can't be stored in this browser.",
+  unavailable: "Pictures can't be saved: the Vost server cannot store them right now.",
 } as const;
 
 export type ImageErrorCode = keyof typeof MESSAGES;
@@ -37,24 +43,36 @@ export class ImageError extends Error {
   }
 }
 
-export type ImageRecord = { key: string; blob: Blob; type: string; size: number; w: number; h: number; addedAt: number; seenAt: number };
+export type ImageRecord = { key: string; blob: Blob; type: string; size: number };
 export type StoredImage = { key: string; w: number; h: number };
 
 /** A stored key is 64 lowercase hex characters. */
 export const isImageKey = (k: unknown): k is string => typeof k === 'string' && /^[0-9a-f]{64}$/.test(k);
 
-/* ------------------------------ file checks ------------------------------ */
+/* ------------------------------- transport ------------------------------- */
 
-const startsWith = (b: Uint8Array, sig: readonly number[], at = 0) => sig.every((v, i) => b[at + i] === v);
-const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
+export interface ImageResponse {
+  status: number;
+  json: () => Promise<unknown>;
+  blob: () => Promise<Blob>;
+}
+/** `fetch`, narrowed to what this module needs; tests inject their own. */
+export type ImageTransport = (url: string, init?: RequestInit) => Promise<ImageResponse>;
 
-/** The picture type the leading bytes say, or null. */
-export function sniffType(b: Uint8Array): 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | null {
-  if (startsWith(b, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
-  if (startsWith(b, [0xff, 0xd8, 0xff])) return 'image/jpeg';
-  if (startsWith(b, ascii('GIF87a')) || startsWith(b, ascii('GIF89a'))) return 'image/gif';
-  if (startsWith(b, ascii('RIFF')) && startsWith(b, ascii('WEBP'), 8)) return 'image/webp';
-  return null;
+let transport: ImageTransport = (url, init) => fetch(url, init);
+
+/** Replaces the transport (tests); `null` restores `fetch`. */
+export function setImageTransport(t: ImageTransport | null): void {
+  transport = t ?? ((url, init) => fetch(url, init));
+}
+
+async function jsonOf(res: ImageResponse): Promise<Record<string, unknown>> {
+  try {
+    const v = await res.json();
+    return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
 }
 
 /** The natural size of a picture, from the browser. */
@@ -65,145 +83,203 @@ async function browserDecode(blob: Blob): Promise<{ w: number; h: number }> {
   return size;
 }
 
-/* ------------------------------- database ------------------------------- */
+type Stats = { count: number; bytes: number; writable: boolean };
 
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-function openDb(): Promise<IDBDatabase> {
-  dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
-    try {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: 'key' });
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        db.onclose = () => (dbPromise = null);
-        db.onversionchange = () => {
-          db.close();
-          dbPromise = null;
-        };
-        resolve(db);
-      };
-      req.onerror = () => reject(req.error ?? new Error('open failed'));
-      req.onblocked = () => reject(new Error('open blocked'));
-    } catch (err) {
-      reject(err instanceof Error ? err : new Error(String(err)));
-    }
-  });
-  dbPromise.catch(() => (dbPromise = null));
-  return dbPromise;
+async function stats(): Promise<Stats> {
+  let res: ImageResponse;
+  try {
+    res = await transport(API);
+  } catch {
+    throw new ImageError('unavailable');
+  }
+  const body = await jsonOf(res);
+  if (res.status !== 200 || typeof body.count !== 'number' || typeof body.bytes !== 'number') throw new ImageError('unavailable');
+  return { count: body.count, bytes: body.bytes, writable: body.writable === true };
 }
 
-/** Closes the connection (tests, before deleting the database). */
-export async function closeDb(): Promise<void> {
-  const p = dbPromise;
-  dbPromise = null;
-  if (p) (await p.catch(() => null))?.close();
-}
-
-/** Whether pictures can be stored here (the database opens). */
+/** Whether the server can store pictures now (it answers and its data folder is writable). */
 export async function available(): Promise<boolean> {
   try {
-    await openDb();
-    return true;
+    return (await stats()).writable;
   } catch {
     return false;
   }
 }
 
-const done = <T>(req: IDBRequest<T>): Promise<T> =>
-  new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error('request failed'));
-  });
-
-const finished = (tx: IDBTransaction): Promise<void> =>
-  new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('transaction failed'));
-    tx.onabort = () => reject(tx.error ?? new Error('transaction aborted'));
-  });
-
-async function db(): Promise<IDBDatabase> {
-  try {
-    return await openDb();
-  } catch {
-    throw new ImageError('unavailable');
-  }
-}
-
-/** A stored picture, or null when there is none (or the store cannot be read). */
+/** A stored picture, or null when the server has none (or cannot be reached). */
 export async function getImage(key: string): Promise<ImageRecord | null> {
+  if (!isImageKey(key)) return null;
   try {
-    const d = await openDb();
-    const rec = (await done(d.transaction(STORE, 'readonly').objectStore(STORE).get(key))) as ImageRecord | undefined;
-    return rec ?? null;
+    const res = await transport(`${API}/${key}`);
+    if (res.status !== 200) return null;
+    const blob = await res.blob();
+    return { key, blob, type: blob.type, size: blob.size };
   } catch {
     return null;
   }
 }
 
-/** The bytes the store holds. */
+/** The bytes the server's picture store holds. */
 export async function totalSize(): Promise<number> {
-  const d = await db();
-  const all = (await done(d.transaction(STORE, 'readonly').objectStore(STORE).getAll())) as ImageRecord[];
-  return all.reduce((n, r) => n + r.size, 0);
+  return (await stats()).bytes;
 }
 
-/** How many pictures the store holds. */
+/** How many pictures the server's picture store holds. */
 export async function count(): Promise<number> {
-  const d = await db();
-  return done(d.transaction(STORE, 'readonly').objectStore(STORE).count());
+  return (await stats()).count;
 }
 
 export type PutOpts = {
   /** Reads a picture's natural size; defaults to the browser's decoder. */
   decode?: (blob: Blob) => Promise<{ w: number; h: number }>;
-  /** Runs once when the store would pass its limit, to free room before the file is refused. */
+  /** Runs once when the server says its store is full, to free room before the upload is tried again. */
   sweep?: () => Promise<unknown>;
-  now?: number;
 };
 
+const sha256Hex = async (bytes: ArrayBuffer): Promise<string> =>
+  [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/** One upload; the status and the parsed body. A network failure is `unavailable`. */
+async function upload(key: string, body: Blob | ArrayBuffer, type: string, w: number, h: number): Promise<{ status: number; body: Record<string, unknown> }> {
+  let res: ImageResponse;
+  try {
+    res = await transport(`${API}/${key}?w=${w}&h=${h}`, { method: 'PUT', headers: { 'content-type': type }, body });
+  } catch {
+    throw new ImageError('unavailable');
+  }
+  return { status: res.status, body: await jsonOf(res) };
+}
+
 /**
- * Validates a file (its type and its leading bytes must both say PNG, JPEG, GIF or WebP; at most 5 MB; the store must
- * stay within 50 MB), stores it under the hash of its bytes (the same bytes once) and returns its key and natural
- * size. Throws an {@link ImageError} with the message to show.
+ * Validates a file (its type and its leading bytes must both say PNG, JPEG, GIF or WebP; at most 5 MB; it must
+ * decode), uploads it under the hash of its bytes (the same bytes once) and returns its key and natural size. When
+ * the server's store is full it runs `opts.sweep` once and tries again. Throws an {@link ImageError} with the message
+ * to show.
  */
 export async function putImage(file: Blob, opts: PutOpts = {}): Promise<StoredImage> {
-  const now = opts.now ?? Date.now();
   const declared = file.type;
-  if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(declared)) throw new ImageError('type');
+  if (!isImageType(declared)) throw new ImageError('type');
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   if (sniffType(head) !== declared) throw new ImageError('type');
   if (file.size > MAX_IMAGE_BYTES) throw new ImageError('size');
   const bytes = await file.arrayBuffer();
-  const key = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
-  const d = await db();
-  const existing = (await done(d.transaction(STORE, 'readonly').objectStore(STORE).get(key))) as ImageRecord | undefined;
-  if (existing) {
-    const tx = d.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put({ ...existing, seenAt: now });
-    await finished(tx);
-    return { key, w: existing.w, h: existing.h };
-  }
-  const blob = new Blob([bytes], { type: declared });
+  const key = await sha256Hex(bytes);
   let size: { w: number; h: number };
   try {
-    size = await (opts.decode ?? browserDecode)(blob);
+    size = await (opts.decode ?? browserDecode)(new Blob([bytes], { type: declared }));
   } catch {
     throw new ImageError('decode');
   }
   if (![size.w, size.h].every((n) => Number.isInteger(n) && n >= 1 && n <= MAX_SIDE)) throw new ImageError('decode');
-  if ((await totalSize()) + file.size > MAX_STORE_BYTES) {
+  let out = await upload(key, bytes, declared, size.w, size.h);
+  if (out.status === 507) {
     await opts.sweep?.().catch(() => undefined);
-    if ((await totalSize()) + file.size > MAX_STORE_BYTES) throw new ImageError('store');
+    out = await upload(key, bytes, declared, size.w, size.h);
   }
-  const rec: ImageRecord = { key, blob, type: declared, size: file.size, w: size.w, h: size.h, addedAt: now, seenAt: now };
-  const tx = d.transaction(STORE, 'readwrite');
-  tx.objectStore(STORE).put(rec);
-  await finished(tx);
-  return { key, w: size.w, h: size.h };
+  if (out.status === 200 || out.status === 201) {
+    const { w, h } = out.body;
+    return typeof w === 'number' && typeof h === 'number' ? { key, w, h } : { key, w: size.w, h: size.h };
+  }
+  if (out.status === 507) throw new ImageError('store');
+  if (out.status === 413) throw new ImageError('size');
+  if (out.status === 415) throw new ImageError('type');
+  if (out.status === 400) throw new ImageError('decode');
+  throw new ImageError('unavailable');
+}
+
+/* ----------------------- one-time move from the browser ----------------------- */
+
+type OldRecord = { key: string; blob: Blob; type?: string; w: number; h: number };
+
+const idbDone = <T>(req: IDBRequest<T>): Promise<T> =>
+  new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error ?? new Error('request failed'));
+  });
+
+/** Opens the old database only when it exists (never creates it); null when there is none. */
+function openOldDb(): Promise<IDBDatabase | null> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME);
+    let created = false;
+    req.onupgradeneeded = () => {
+      // The database did not exist: undo the creation instead of leaving an empty one behind.
+      created = true;
+      req.transaction?.abort();
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      if (db.objectStoreNames.contains(STORE)) return resolve(db);
+      db.close();
+      resolve(null);
+    };
+    req.onerror = () => (created ? resolve(null) : reject(req.error ?? new Error('open failed')));
+    req.onblocked = () => reject(new Error('open blocked'));
+  });
+}
+
+async function oldDbExists(): Promise<boolean> {
+  if (typeof indexedDB === 'undefined') return false;
+  if (typeof indexedDB.databases === 'function') return (await indexedDB.databases()).some((d) => d.name === DB_NAME);
+  return true; // no way to ask: opening it tells (and creates nothing)
+}
+
+let migrating: Promise<void> | null = null;
+
+/**
+ * Moves the pictures an older version kept in this browser (IndexedDB `vost-images`) to the server, then deletes that
+ * database. It does nothing when there is no such database, and never creates one. A picture the server will always
+ * refuse (400, 413, 415) is logged and skipped; any other failure (network, 503, 507) leaves the database as it is, so
+ * the next call tries again. Concurrent calls share one run. Never throws.
+ */
+export function migrateBrowserImages(): Promise<void> {
+  migrating ??= run().finally(() => (migrating = null));
+  return migrating;
+
+  async function run(): Promise<void> {
+    let db: IDBDatabase | null = null;
+    try {
+      if (!(await oldDbExists())) return;
+      db = await openOldDb();
+      if (!db) return;
+      const records = (await idbDone(db.transaction(STORE, 'readonly').objectStore(STORE).getAll())) as OldRecord[];
+      let allDone = true;
+      for (const rec of records) {
+        const type = rec.type ?? rec.blob?.type ?? '';
+        let status: number;
+        try {
+          status = (await upload(rec.key, rec.blob, type, rec.w, rec.h)).status;
+        } catch {
+          allDone = false;
+          break; // the server is away: try again next start
+        }
+        if (status === 200 || status === 201) continue;
+        if (status === 400 || status === 413 || status === 415) console.warn(`Vost: picture ${rec.key} could not be moved to the server (${status}) and was skipped`);
+        else {
+          allDone = false;
+          if (status === 503 || status === 507) break;
+        }
+      }
+      if (!allDone) {
+        db.close();
+        return;
+      }
+      db.close();
+      const name = DB_NAME;
+      await new Promise<void>((resolve, reject) => {
+        const req = indexedDB.deleteDatabase(name);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error ?? new Error('delete failed'));
+        req.onblocked = () => reject(new Error('delete blocked'));
+      });
+    } catch {
+      try {
+        db?.close();
+      } catch {
+        /* already closed */
+      }
+    }
+  }
 }
 
 /* --------------------------- references and sweep --------------------------- */
@@ -224,24 +300,21 @@ export function inTabRefs(): Set<string> {
 }
 
 /**
- * Stamps `seenAt = now` on every referenced picture and removes each picture that is not referenced and was last seen
- * more than the grace period ago. Runs in one transaction. Returns the removed keys.
+ * Sends the references to the server, which stamps each referenced picture, also counts every picture the stored
+ * settings name, and removes the pictures nothing uses that were last seen over a day ago. Returns the removed keys.
+ * (The server's clock decides what is old; `now` is accepted for the callers' sake.)
  */
 export async function sweep(refs: ReadonlySet<string>, now: number): Promise<string[]> {
-  const d = await db();
-  const tx = d.transaction(STORE, 'readwrite');
-  const store = tx.objectStore(STORE);
-  const all = (await done(store.getAll())) as ImageRecord[];
-  const removed: string[] = [];
-  for (const rec of all) {
-    if (refs.has(rec.key)) store.put({ ...rec, seenAt: now });
-    else if (now - rec.seenAt > GRACE_MS) {
-      store.delete(rec.key);
-      removed.push(rec.key);
-    }
+  void now;
+  let res: ImageResponse;
+  try {
+    res = await transport(`${API}/sweep`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ refs: [...refs] }) });
+  } catch {
+    throw new ImageError('unavailable');
   }
-  await finished(tx);
-  return removed;
+  const body = await jsonOf(res);
+  if (res.status !== 200 || !Array.isArray(body.removed)) throw new ImageError('unavailable');
+  return body.removed.filter((k): k is string => typeof k === 'string');
 }
 
 export type Persisted = { keys: ReadonlySet<string>; newer: boolean } | null;

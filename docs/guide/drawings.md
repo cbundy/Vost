@@ -196,7 +196,7 @@ The dialog fits a phone screen.
 
 Drawings are saved per symbol on the server, and keep their place across zoom, timeframe changes and live bars. Charts on the same market share their drawings. Drawings saved by an older version are carried over, and drawings from a newer version (a tool or a setting this version does not know) are kept as they are and written back unchanged, though this version does not show them.
 
-Pictures added with the [Image tool](drawing-annotations.md#image) are kept in a separate picture store in your browser (IndexedDB), which is cleared with the site's data. A drawing copied to another browser does not carry its picture and shows a "Picture missing" box there.
+Pictures added with the [Image tool](drawing-annotations.md#image) are kept on the Vost server, not in your browser, so they are not lost when you clear the site's data and they show in any browser on the same server. A "Picture missing" box appears only for a picture the server no longer has.
 
 ## On phones
 

@@ -44,7 +44,7 @@ export type DrawingControls = {
   lastTool: Readonly<Record<string, string>>;
   /** No data to draw on. */
   disabled: boolean;
-  /** Pictures cannot be stored in this browser (IndexedDB is unavailable): the Image tool is off. Absent: they can. */
+  /** The server cannot store pictures right now (it is unreachable or its data folder is not writable): the Image tool is off. Absent: it can. */
   imagesOff?: boolean;
   magnet: boolean;
   onMagnet: () => void;

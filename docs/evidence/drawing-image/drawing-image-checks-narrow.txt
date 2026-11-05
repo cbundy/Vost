@@ -1,6 +1,11 @@
 ok   nothing is stored before the click
-ok   the picture is in the store
-ok   one image drawing with the natural size - [{"id":"dmvuua2pr1xxf1","tool":"image","anchors":[{"time":1747872000,"price":233.35672992076042},{"time":1772928000,"price":178.61668698334455}],"image":{"key":"692b123a378c2185955177a77ce3aafb14abd2ee20229016eb21e276580e6782","w":160,"h":100}}]
+ok   the picture is on the server - 1
+ok   one image drawing with the natural size - [{"id":"dmw3lgskp1wsgt","tool":"image","anchors":[{"time":1791417600,"price":68.02116307253641},{"time":1792713600,"price":65.0870821182134}],"image":{"key":"cc2a807b088003fc9ae971a45c2e997727e0910f297b010721bf13bdef2e01b5","w":120,"h":100}}]
 ok   storage is unchanged
-ok   the picture store survived the reload
+ok   the server still holds the picture after the reload
+ok   the old browser database is there
+ok   the server now has the picture - 1 -> 2
+ok   the browser database is gone
+ok   the new browser fetched the picture from the server
+ok   the new browser has no vost-images database
 ok   no console error
