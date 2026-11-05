@@ -6,6 +6,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AlertList } from '../../shared/alerts.ts';
 import type { ApiError } from '../../shared/market.ts';
+import { readBody } from '../body.ts';
 import { HEARTBEAT_MS } from '../live/route.ts';
 import { InputError } from '../providers/errors.ts';
 import type { AlertsService } from './index.ts';
@@ -40,23 +41,6 @@ export function crossSiteReason(req: IncomingMessage): string | null {
     if (!host || host !== req.headers.host) return `origin ${origin} is not this server`;
   }
   return null;
-}
-
-function readBody(req: IncomingMessage): Promise<string | 'too-large'> {
-  return new Promise((resolve, reject) => {
-    const declared = Number(req.headers['content-length']);
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return resolve('too-large');
-    const chunks: Buffer[] = [];
-    let size = 0;
-    let over = false;
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) over = true;
-      else chunks.push(chunk);
-    });
-    req.on('end', () => resolve(over ? 'too-large' : Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
-  });
 }
 
 export async function handleAlerts(req: IncomingMessage, res: ServerResponse, url: URL, alerts: AlertsService, log: (line: string) => void, heartbeatMs = HEARTBEAT_MS): Promise<void> {
@@ -127,7 +111,7 @@ export async function handleAlerts(req: IncomingMessage, res: ServerResponse, ur
       req.resume();
       return (await alerts.remove(id!)) ? reply(res, 204) : refuse(404, `No alert ${id}`);
     }
-    const raw = await readBody(req);
+    const raw = await readBody(req, MAX_BODY_BYTES);
     if (raw === 'too-large') return refuse(413, `Body must be at most ${MAX_BODY_BYTES} bytes`);
     let body: unknown;
     try {

@@ -5,6 +5,7 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ApiError } from '../../shared/market.ts';
+import { readBody } from '../body.ts';
 import { crossSiteReason } from '../alerts/route.ts';
 import { InputError, UpstreamError } from '../providers/errors.ts';
 import { sendJson } from '../respond.ts';
@@ -25,26 +26,6 @@ function replyPlain(res: ServerResponse, status: number, body?: unknown): void {
   }
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(JSON.stringify(body, null, 2));
-}
-
-function readBody(req: IncomingMessage): Promise<string | 'too-large'> {
-  return new Promise((resolve, reject) => {
-    const declared = Number(req.headers['content-length']);
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-      req.resume();
-      return resolve('too-large');
-    }
-    const chunks: Buffer[] = [];
-    let size = 0;
-    let over = false;
-    req.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) over = true;
-      else chunks.push(chunk);
-    });
-    req.on('end', () => resolve(over ? 'too-large' : Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
-  });
 }
 
 export async function handlePineLibraries(req: IncomingMessage, res: ServerResponse, url: URL, libs: Libraries, log: (line: string) => void): Promise<void> {
@@ -119,7 +100,7 @@ export async function handlePineLibraries(req: IncomingMessage, res: ServerRespo
       return (await libs.remove(libPath)) ? replyPlain(res, 204) : fail(404, `No stored library ${libPath}`);
     }
     req.resume();
-    const raw = await readBody(req);
+    const raw = await readBody(req, MAX_BODY_BYTES);
     if (raw === 'too-large') return fail(413, `Body must be at most ${MAX_BODY_BYTES} bytes`);
     let body: unknown;
     try {

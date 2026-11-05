@@ -13,8 +13,9 @@
  *   HOST  (default 0.0.0.0)
  *   VOST_STATUS_INTERVAL  seconds between background health checks of the
  *                         exchanges (default 60; 0 turns them off)
- *   VOST_DATA_DIR  folder for the files the server writes, alerts.json and
- *                  pine-libraries.json (default <repo>/data; /data in the Docker image)
+ *   VOST_DATA_DIR  folder for the files the server writes: alerts.json,
+ *                  pine-libraries.json, the settings/ folder (one file per
+ *                  setting) and the candle store (default <repo>/data; /data in the Docker image)
  *   VOST_ALERT_POLL  seconds between price polls for alerts on providers
  *                    without a live feed (default 60; minimum 10)
  *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
@@ -41,6 +42,8 @@ import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
 import { createApiDeps, handleApi, providerHistory } from './api.ts';
 import { createLibraries } from './pine/libraries.ts';
 import { handlePineLibraries, isPineLibrariesPath } from './pine/route.ts';
+import { handleSettings, isSettingsPath } from './settings/route.ts';
+import { createDocStore } from './settings/store.ts';
 import { createRelay } from './live/relay.ts';
 import { handleLive } from './live/route.ts';
 import { describeRecord, readRecordConfig, recordedFilter } from './candles/recordConfig.ts';
@@ -215,11 +218,18 @@ const alerts = await createAlerts({
 const pineLibraries = createLibraries({ dir: DATA_DIR, fetch: apiDeps.fetch, log: (line) => console.log(line) });
 await pineLibraries.load();
 
+const settings = createDocStore({ dir: path.join(DATA_DIR, 'settings'), log: (line) => console.log(line) });
+const settingsDeps = { store: settings, archiveDir: DATA_DIR, log: (line: string) => console.log(line) };
+const settingsCount = Object.keys(await settings.list()).length;
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 
   // Alerts are same-origin only: no CORS grant, not even on the preflight.
   if (isAlertsPath(url.pathname)) return void alerts.handle(req, res, url);
+
+  // Settings are same-origin only too: no CORS grant on any reply.
+  if (isSettingsPath(url.pathname)) return void handleSettings(req, res, url, settingsDeps);
 
   // Pine libraries: reads get the usual CORS grant, writes are same-origin only.
   if (isPineLibrariesPath(url.pathname)) return void handlePineLibraries(req, res, url, pineLibraries, (line) => console.log(line));
@@ -268,6 +278,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → live candles: /api/live`);
   console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
   console.log(`  → pine libraries: /api/pine/libraries (${pineLibraries.count} stored in ${DATA_DIR})`);
+  console.log(`  → settings: /api/settings (${settingsCount} stored in ${path.join(DATA_DIR, 'settings')})`);
   console.log(`  → candle store: ${`${candles.on ? 'on' : 'off'} (${candles.file})`}`);
   console.log(`  → ${describeRecord(recordConfig, candles.on)}`);
   console.log('');
