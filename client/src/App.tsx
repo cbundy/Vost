@@ -13,6 +13,7 @@ import { SideRail } from './components/SideRail';
 import { Splitter } from './components/Splitter';
 import { DRAWER_QUERY, PINE_DEFAULT, SIDEBAR_DEFAULT, clamp, pineLimits, sidebarLimits } from './lib/paneSizes';
 import { useMediaQuery } from './lib/useMediaQuery';
+import { takeBacktestHandoff } from './lib/backtestHandoff';
 import { useViewportSize } from './lib/useViewportSize';
 import { useAlerts } from './state/alerts';
 import { useStore } from './state/store';
@@ -62,6 +63,10 @@ export default function App() {
 
   useEffect(() => {
     init();
+    const taken = takeBacktestHandoff();
+    if (!taken) return;
+    if (taken.handoff) useStore.getState().applyBacktestHandoff(taken.handoff);
+    else useStore.getState().pushToast('error', 'This strategy maker link could not be read.');
   }, [init]);
 
   useEffect(() => {

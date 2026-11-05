@@ -72,6 +72,20 @@ The work runs in a background worker of the page, so the page stays usable and t
 
 ![The trades a found strategy takes, drawn beside the marks](../evidence/strategy-maker/strategy-maker-found-trades-desktop.png)
 
+## Using a result in the backtester
+
+Under the ranked settings, an actions bar acts on the row you clicked, or on the headline strategy when none is picked, and names it ("For SMA crossover (fast period 8, slow period 34):").
+
+![The actions bar under the ranked settings](../evidence/strategy-maker/strategy-maker-actions-desktop.png)
+
+- **Open in Backtest** opens Vost in a new tab with the Backtest tab filled in with that strategy, its settings, its direction and its risk (fee, slippage, stop loss and take profit). A message says what was set and which data it was found on. It does not run the backtest: run it on the same data to see the same trades, because it is the same strategy code. The address carries the settings after a `#`, so nothing is stored by the strategy maker; Vost reads it once and removes it from the address bar, so a reload applies nothing again. A link that cannot be read changes nothing and says so.
+- **Copy settings** copies plain text: the strategy, every setting by its name, direction, fee and slippage in bps, stop loss and take profit (or "off"), initial capital and position size.
+- **Copy as Pine strategy** copies a Pine v6 `strategy()` script with those settings as `input.*` defaults, the same capital, size and commission, and the stop and target as `strategy.exit`. It takes the same trades as the built-in strategy on the same data (it follows Vost's own indicator maths, and tests check this against the built-in strategies). Two things differ: slippage is not in the script, and a stop or target counts from the bar after the entry, while the Backtest tab also checks the entry bar. After a copy the bar says "Copied". If the browser refuses the clipboard, the text shows in a read-only box, already selected, so you can copy it by hand.
+
+![The Pine script in the box when the clipboard is refused](../evidence/strategy-maker/strategy-maker-copy-fallback-desktop.png)
+
+![The main app opened from Open in Backtest, with the Backtest tab filled in](../evidence/strategy-maker/strategy-maker-handoff-backtest-desktop.png)
+
 ## Teaching it more
 
 The more charts you mark, the more the model has to learn from. Each chart you mark is its own **set**, and **Train on** picks which sets a run learns from.

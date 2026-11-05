@@ -56,6 +56,13 @@ describe('strategy maker boundary', () => {
     expect(bad).toEqual([]);
   });
 
+  it('the hand-off format imports nothing from the folder, state, components or App', () => {
+    const file = path.join(SRC, 'lib', 'backtestHandoff.ts');
+    const src = readFileSync(file, 'utf8');
+    expect(outsideImportsFolder(file, src)).toEqual([]);
+    expect(folderForbiddenImports(file, src)).toEqual([]);
+  });
+
   it('the checks catch violations (fixtures)', () => {
     const f = path.join(SRC, 'lib', 'x.ts');
     expect(outsideImportsFolder(f, `import('../strategyMaker/StrategyMakerPage')`)).toHaveLength(1);

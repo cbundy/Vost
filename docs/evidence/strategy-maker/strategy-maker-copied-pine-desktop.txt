@@ -1,0 +1,40 @@
+//@version=6
+// SMA crossover found by the Vost strategy maker. Fee 10 bps per side, slippage 5 bps (not applied here).
+strategy("SMA crossover (strategy maker)", overlay=true, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.percent, commission_value=0.1, margin_long=0, margin_short=0)
+
+fastLen = input.int(8, "Fast period", minval=1, maxval=500)
+slowLen = input.int(34, "Slow period", minval=2, maxval=1000)
+dir = input.string("Both", "Direction", options=["Long only", "Short only", "Both"])
+
+levelSignal(bool level) =>
+    dir == "Long only" ? (level ? 1.0 : 0.0) : dir == "Short only" ? (level ? 0.0 : -1.0) : (level ? 1.0 : -1.0)
+
+fast = ta.sma(close, fastLen)
+slow = ta.sma(close, slowLen)
+float raw = na
+if not na(fast) and not na(slow)
+    raw := levelSignal(fast > slow)
+
+// Orders: decided on this close, filled on the next open. A stop or target counts from the bar after the entry.
+var float desired = 0
+var float resetSide = 0
+// we wanted a position and it is gone: a stop or target took it out
+if desired != 0 and strategy.position_size == 0
+    resetSide := desired
+float target = raw
+if not na(raw)
+    if resetSide != 0
+        if raw == resetSide
+            target := 0
+        else
+            resetSide := 0
+    if target != desired
+        if target > 0
+            strategy.entry("Long", strategy.long)
+        else if target < 0
+            strategy.entry("Short", strategy.short)
+        else if strategy.position_size > 0
+            strategy.close("Long")
+        else if strategy.position_size < 0
+            strategy.close("Short")
+        desired := target

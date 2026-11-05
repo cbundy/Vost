@@ -386,6 +386,39 @@ export function ChartPanel({
     lastLeftEdgeRef.current = chart.timeScale().getVisibleLogicalRange()?.from ?? null;
   }
 
+  /* Older bar time the timeframe's default window needs paged in, or null when none is needed or possible. */
+  function defaultWindowNeed(st: ReturnType<typeof chartStore.getState>): number | null {
+    return canPageOlder(st, useStore.getState().historyLoading) ? historyNeededFrom(resetRangeKey(timeframe), st.candles, timeZone) : null;
+  }
+
+  /* Page older bars in until the timeframe's window is covered, then show it (all data when it does not apply).
+     Shared by Reset view and the load path; abandoned when another series loads meanwhile. */
+  async function showDefaultWindow(key: string) {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const stale = () => chartStore.getState().dataKey !== key || chartRef.current !== chart;
+    carryingRef.current = true;
+    try {
+      const need = defaultWindowNeed(chartStore.getState());
+      if (need != null) {
+        await chartStore.getState().loadHistoryTo(need);
+        if (stale()) return;
+      }
+      // One frame later: a range set in the same frame as new or merged bars is overridden by the chart's own update for them.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (stale()) return;
+      const cs = chartStore.getState().candles;
+      if (cs.length === 0) return;
+      lastLeftEdgeRef.current = null; // showing the window is not a scroll back: do not page for it
+      const range = resetLogicalRange(timeframe, cs, timeZone, RIGHT_OFFSET);
+      if (range) chart.timeScale().setVisibleLogicalRange(range);
+      else chart.timeScale().fitContent();
+      lastLeftEdgeRef.current = chart.timeScale().getVisibleLogicalRange()?.from ?? null;
+    } finally {
+      if (!stale()) carryingRef.current = false;
+    }
+  }
+
   /* ---------------- push data (full or incremental) ---------------- */
   useEffect(() => {
     const chart = chartApi;
@@ -439,8 +472,22 @@ export function ChartPanel({
       } else if (carried) {
         carryingRef.current = true;
         void showCarriedWindow(carried.from, carried.to, carried.needFrom, dataKey);
-      } else {
+      } else if (st0.chartRange != null) {
         ts.fitContent();
+      } else {
+        // A fresh series opens on the Reset view window; fit first so the chart is not blank while older bars page in.
+        const needsPaging = defaultWindowNeed(chartStore.getState()) != null;
+        const range = needsPaging ? null : resetLogicalRange(timeframe, candles, timeZone, RIGHT_OFFSET);
+        if (range) {
+          ts.setVisibleLogicalRange(range);
+          lastLeftEdgeRef.current = range.from;
+        } else {
+          ts.fitContent();
+          if (needsPaging) {
+            carryingRef.current = true;
+            void showDefaultWindow(dataKey);
+          }
+        }
       }
     } else if (incremental && sentBarColorsRef.current === barColors) {
       candleSeries.update(toCandleData(candles[candles.length - 1], barColors));
@@ -727,13 +774,7 @@ export function ChartPanel({
       }
     }
     chartApi.timeScale().applyOptions({ rightOffset: RIGHT_OFFSET });
-    // Page in older bars until the timeframe's window is covered (or the history start stops it).
-    const st = chartStore.getState();
-    const need = canPageOlder(st, useStore.getState().historyLoading) ? historyNeededFrom(resetRangeKey(timeframe), st.candles, timeZone) : null;
-    if (need != null) await st.loadHistoryTo(need);
-    const range = resetLogicalRange(timeframe, chartStore.getState().candles, timeZone, RIGHT_OFFSET);
-    if (range) chartApi.timeScale().setVisibleLogicalRange(range);
-    else chartApi.timeScale().fitContent();
+    await showDefaultWindow(chartStore.getState().dataKey);
   }
 
   const favorites = useStore((s) => s.drawingFavorites);

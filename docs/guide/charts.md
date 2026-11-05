@@ -70,7 +70,7 @@ The clock at the right of the bar under the chart shows the time in a chosen zon
 
 ## Reset view
 
-**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose provider has no bars that far back. Reset view loads older pages first when the window reaches before the loaded bars. A freshly loaded chart still shows all data.
+**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose provider has no bars that far back. Reset view loads older pages first when the window reaches before the loaded bars. A freshly loaded chart opens on the same window.
 
 ![A chart after Reset view](../evidence/chart-reset/chart-reset-reset-desktop.png)
 
@@ -80,7 +80,7 @@ In the chart toolbar, **Screenshot (PNG)** saves the chart as an image and **Exp
 
 ## Switching symbol
 
-Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at (a chart following the latest bar keeps following the new symbol's latest bar), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, fits all loaded bars.
+Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at (a chart following the latest bar keeps following the new symbol's latest bar), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, opens the chart on the timeframe's window (a chart limited by the Range picker shows its whole range).
 
 ![The same dates after switching symbol](../evidence/symbol-view/symbol-view-back-after-desktop.png)
 

@@ -3186,7 +3186,21 @@ a:hover {
   min-width: 0;
   min-height: 0;
 }
-.pine-compare-link {
+.bt-strategy-row {
+  grid-column: span 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.bt-strategy-row > .form-field {
+  flex: 1;
+  min-width: 0;
+}
+.bt-sm-link {
+  padding-bottom: 6px;
+}
+.pine-compare-link,
+.bt-sm-link {
   font-size: 12px;
   white-space: nowrap;
 }
