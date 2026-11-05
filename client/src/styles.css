@@ -4539,3 +4539,48 @@ table.data-table th.sortable .sort-btn:focus-visible {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* ------------------------- price scale buttons and menu group ------------------------- */
+
+.price-scale-buttons {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  padding-right: 4px;
+}
+.price-scale-buttons button {
+  width: var(--ps-size, 22px);
+  height: var(--ps-size, 22px);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.price-scale-buttons button.on {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.chart-context-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+.chart-context-menu-group {
+  padding: 2px 8px 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.chart-context-menu .menu-check {
+  display: inline-block;
+  width: 14px;
+}

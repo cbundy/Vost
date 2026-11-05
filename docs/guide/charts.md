@@ -81,9 +81,21 @@ The clock at the right of the bar under the chart shows the time in a chosen zon
 
 ## Reset view
 
-**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose provider has no bars that far back. Reset view loads older pages first when the window reaches before the loaded bars. A freshly loaded chart opens on the same window.
+**Reset view** in the chart toolbar restores automatic price scaling on every pane and the default gap at the right edge, and shows a window sized to the timeframe: the last day on minute charts, the last 5 days on hourly charts and the last month on daily charts. Weekly and monthly charts show all the data, and so does any chart whose provider has no bars that far back. Reset view loads older pages first when the window reaches before the loaded bars. A freshly loaded chart opens on the same window. The [price scale mode](#price-scale) you chose is kept.
 
 ![A chart after Reset view](../evidence/chart-reset/chart-reset-reset-desktop.png)
+
+## Price scale
+
+The price scale of the main chart has four modes: **Linear**, **Logarithmic**, **Percent** (the scale shows the change from the first visible bar) and **Indexed to 100** (the first visible bar is 100). Right-click the chart, empty area or price scale, and pick one under **Price scale**; the same group has **Auto (fits data to screen)**. Drawings, alert lines, price lines, the countdown and **Add alert at** stay at the right price in every mode (the price under the pointer, never a percentage). Indicator panes stay linear.
+
+While the pointer is over the price scale, two small buttons show at its bottom: **A** (auto fit, lit while on; dragging the scale turns it off) and **L** (logarithmic, lit while on). They hide when the pointer leaves. On a touch screen, tap the price scale to show them and tap elsewhere to hide them. The mode is remembered per chart, in each saved layout and after a reload; **Reset view** keeps it and turns auto fit on.
+
+![The A and L buttons over the price scale](../evidence/price-scale/price-scale-buttons-desktop.png)
+
+![The right-click menu with the Price scale group](../evidence/price-scale/price-scale-menu-desktop.png)
+
+![The same chart in Percent mode, the trend line still on its candles](../evidence/price-scale/price-scale-percent-desktop.png)
 
 ## Screenshot and CSV export
 

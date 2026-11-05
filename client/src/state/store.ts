@@ -17,6 +17,7 @@ import { browserTimeZone, isValidTimeZone } from '../lib/time';
 import type { SyncChange } from '../lib/layoutSync';
 import { sanitizeTimeRange } from '../lib/timeRange';
 import * as wl from '../lib/watchlist';
+import { sanitizePriceScaleMode } from '../lib/priceScaleMode';
 import { DOCK_DEFAULT, PINE_DEFAULT, SIDEBAR_DEFAULT, sanitizeStoredSize } from '../lib/paneSizes';
 import {
   DEFAULT_ARRANGEMENT_ID,
@@ -75,6 +76,7 @@ interface Prefs {
   showTrades: boolean;
   timeZone?: string;
   btRange?: TimeRange;
+  priceScaleMode?: unknown;
   sidebarWidth?: number;
   pineWidth?: number;
   dockHeight?: number;
@@ -135,6 +137,7 @@ function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
     btConfig: { ...defaultPrefs.btConfig, ...(p.btConfig ?? {}) },
     showTrades: p.showTrades ?? true,
     btRange: sanitizeTimeRange(p.btRange),
+    priceScaleMode: sanitizePriceScaleMode(p.priceScaleMode),
   };
 }
 
@@ -159,6 +162,7 @@ export function layoutSnapshot(s: Pick<AppState, 'arrangementId' | 'activeChartI
         btConfig: c.btConfig,
         showTrades: c.showTrades,
         btRange: c.btRange,
+        ...(c.priceScaleMode === 'linear' ? {} : { priceScaleMode: c.priceScaleMode }),
       };
     }),
     sizes: s.layoutSizes,
@@ -352,6 +356,7 @@ export const useStore = create<AppState>()((set, get) => {
       showTrades: c.showTrades,
       timeZone: s.timeZone,
       btRange: c.btRange,
+      priceScaleMode: c.priceScaleMode,
       sidebarWidth: s.sidebarWidth,
       pineWidth: s.pineWidth,
       dockHeight: s.dockHeight,

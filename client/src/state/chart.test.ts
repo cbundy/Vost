@@ -1947,6 +1947,15 @@ describe('two chart stores stay apart', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it('starts on a linear price scale; setPriceScaleMode sets it and reports one prefs change', () => {
+    const e = stubEnv();
+    const c = make('a', 'AAA', e.env);
+    expect(c.getState().priceScaleMode).toBe('linear');
+    c.getState().setPriceScaleMode('percent');
+    expect(c.getState().priceScaleMode).toBe('percent');
+    expect(e.prefsChanges()).toBe(1);
+  });
+
   it('loads different symbols into separate candles', async () => {
     const p = fakeProvider();
     p.history.set('AAA', async () => series(30, 100));

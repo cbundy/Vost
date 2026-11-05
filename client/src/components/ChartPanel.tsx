@@ -39,6 +39,8 @@ import { PaneLegendActions, PriceLegendRows } from './IndicatorLegend';
 import { builtinParams, priceLegendRows } from '../lib/paneLegend';
 import { usePineSeries } from './usePineSeries';
 import { useBarCountdown } from './chart/useBarCountdown';
+import { usePriceScale } from './chart/usePriceScale';
+import { PriceScaleButtons } from './PriceScaleButtons';
 import { mergeBarColors, sameBarColors } from '../lib/pine/barColors';
 import { useDrawings } from './chart/useDrawings';
 import { DrawingTextEditor } from './DrawingTextEditor';
@@ -109,6 +111,8 @@ export function ChartPanel({
   const btResult = useChart((s) => s.btResult);
   const showTrades = useChart((s) => s.showTrades);
   const setShowTrades = useChart((s) => s.setShowTrades);
+  const priceScaleMode = useChart((s) => s.priceScaleMode);
+  const setPriceScaleMode = useChart((s) => s.setPriceScaleMode);
   const loadState = useChart((s) => s.loadState);
   const pineRuns = useChart((s) => s.pineRuns);
   const providerId = useChart((s) => s.providerId);
@@ -812,6 +816,7 @@ export function ChartPanel({
     plugin.setMarkers(markers);
   }, [btResult, showTrades, chartApi, replayCutoff]);
 
+  const priceScale = usePriceScale(chartApi, containerRef, priceScaleMode);
   const provider = getProvider(providerId);
 
   // Restore the fresh-load view: auto-scale every pane's price scales, default right offset, then show the window for the
@@ -828,6 +833,7 @@ export function ChartPanel({
         }
       }
     }
+    priceScale.refresh();
     chartApi.timeScale().applyOptions({ rightOffset: RIGHT_OFFSET });
     await showDefaultWindow(chartStore.getState().dataKey);
   }
@@ -894,7 +900,8 @@ export function ChartPanel({
       {drawings.settings && <DrawingSettingsDialog key={drawings.settings.drawing.id} model={drawings.settings} />}
       {active && favorites.length > 0 && <FavoritesBar {...drawingControls} />}
       <ChartRangeBar chartApi={chartApi} />
-      <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} drawings={drawings.actions} />
+      <ChartContextMenu containerRef={containerRef} seriesRef={candleSeriesRef} precision={precision} enabled={candles.length > 0} onAddAlert={onAddAlert} drawings={drawings.actions} priceScaleMode={priceScaleMode} onPriceScaleMode={setPriceScaleMode} autoScale={priceScale.auto} onAutoScale={priceScale.setAuto} />
+      <PriceScaleButtons control={priceScale} mode={priceScaleMode} onMode={setPriceScaleMode} disabled={candles.length === 0} />
       <div className="chart-toolbar">
         {narrow && <DrawingMenu {...drawingControls} />}
         <button
