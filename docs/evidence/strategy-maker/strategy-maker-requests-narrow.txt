@@ -1,5 +1,10 @@
-http://127.0.0.1:35821/strategy-maker
-http://127.0.0.1:35821/assets/index-C6jKbVfe.js
-http://127.0.0.1:35821/assets/index-MUoMLWSX.css
-http://127.0.0.1:35821/assets/StrategyMakerPage-DIp04zvf.js
-http://127.0.0.1:35821/assets/StrategyMakerPage-CtNxykHy.css
+http://127.0.0.1:33467/strategy-maker
+http://127.0.0.1:33467/assets/index-HcXmte3B.js
+http://127.0.0.1:33467/assets/index-MUoMLWSX.css
+http://127.0.0.1:33467/assets/StrategyMakerPage-Drvpw20k.js
+http://127.0.0.1:33467/assets/StrategyMakerPage-CGk4z0QP.css
+http://127.0.0.1:33467/strategy-maker
+http://127.0.0.1:33467/assets/index-HcXmte3B.js
+http://127.0.0.1:33467/assets/index-MUoMLWSX.css
+http://127.0.0.1:33467/assets/StrategyMakerPage-Drvpw20k.js
+http://127.0.0.1:33467/assets/StrategyMakerPage-CGk4z0QP.css

@@ -1,11 +1,47 @@
-import { CandlestickSeries, ColorType, createChart, type UTCTimestamp } from 'lightweight-charts';
-import { useEffect, useRef } from 'react';
+import {
+  CandlestickSeries,
+  ColorType,
+  createChart,
+  createSeriesMarkers,
+  type IChartApi,
+  type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type SeriesMarker,
+  type Time,
+  type UTCTimestamp,
+} from 'lightweight-charts';
+import { useEffect, useMemo, useRef } from 'react';
 import type { Candle } from '../../../shared/market.ts';
-import { DOWN_COLOR, UP_COLOR, chartTheme } from '../lib/theme';
+import { DOWN_COLOR, UP_COLOR, chartTheme, theme } from '../lib/theme';
+import { strokeTrade, type HighlightTrade, type Tool } from './brush';
+import { TradeBands } from './tradeBands';
 
-/** The strategy maker's own candle chart: it pans, zooms and resizes with its box. */
-export function CandleChart({ candles }: { candles: Candle[] }) {
+export interface FocusRequest {
+  trade: HighlightTrade;
+  /** A new object each click, so the same row can be clicked twice. */
+  nonce: number;
+}
+
+interface Props {
+  candles: Candle[];
+  trades: readonly HighlightTrade[];
+  tool: Tool | null;
+  /** A finished stroke, from bar index a to bar index b (the page decides what the tool does with it). */
+  onStroke: (a: number, b: number) => void;
+  focus: FocusRequest | null;
+}
+
+/** The strategy maker's own candle chart: it pans, zooms and resizes with its box, and paints marked trades. */
+export function CandleChart({ candles, trades, tool, onStroke, focus }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const bands = useRef(new TradeBands());
+  const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const times = useMemo(() => candles.map((c) => c.time), [candles]);
+  const live = useRef({ tool, onStroke, times });
+  live.current = { tool, onStroke, times };
+  const latest = useRef({ trades, tool });
+  latest.current = { trades, tool };
 
   useEffect(() => {
     const el = ref.current;
@@ -17,8 +53,10 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
       rightPriceScale: { borderColor: chartTheme.scaleBorder },
       timeScale: { borderColor: chartTheme.scaleBorder, timeVisible: true, secondsVisible: false },
       crosshair: { vertLine: { color: chartTheme.crosshair }, horzLine: { color: chartTheme.crosshair } },
+      handleScroll: !latest.current.tool,
+      handleScale: !latest.current.tool,
     });
-    const series = chart.addSeries(CandlestickSeries, {
+    const series: ISeriesApi<'Candlestick'> = chart.addSeries(CandlestickSeries, {
       upColor: UP_COLOR,
       downColor: DOWN_COLOR,
       borderUpColor: UP_COLOR,
@@ -28,8 +66,100 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
     });
     series.setData(candles.map((c) => ({ time: c.time as UTCTimestamp, open: c.open, high: c.high, low: c.low, close: c.close })));
     chart.timeScale().fitContent();
-    return () => chart.remove();
+    const prim = bands.current;
+    series.attachPrimitive(prim);
+    prim.setTrades(latest.current.trades);
+    const mk = createSeriesMarkers(series, markersFor(latest.current.trades));
+    markers.current = mk;
+    chartRef.current = chart;
+
+    // Painting: pointer events on the chart box, only while a tool is active (the chart does not pan then).
+    const indexAt = (e: PointerEvent): number => {
+      const rect = el.getBoundingClientRect();
+      const logical = chart.timeScale().coordinateToLogical(e.clientX - rect.left);
+      return Math.round(logical ?? 0);
+    };
+    let start: number | null = null;
+    let pointer = -1;
+    const clampIdx = (i: number) => Math.max(0, Math.min(live.current.times.length - 1, i));
+    const previewFor = (a: number, b: number): HighlightTrade | null => {
+      const t = live.current.tool;
+      if (!t) return null;
+      if (t.kind === 'eraser') {
+        const lo = clampIdx(Math.min(a, b));
+        const hi = clampIdx(Math.max(a, b));
+        return { side: 'short', entryTime: live.current.times[lo], exitTime: live.current.times[hi] };
+      }
+      return strokeTrade(live.current.times, a, b, t.side);
+    };
+    const down = (e: PointerEvent) => {
+      if (!live.current.tool || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      start = indexAt(e);
+      pointer = e.pointerId;
+      el.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    };
+    const move = (e: PointerEvent) => {
+      if (start === null || e.pointerId !== pointer) return;
+      prim.setPreview(previewFor(start, indexAt(e)));
+    };
+    const end = (e: PointerEvent, commit: boolean) => {
+      if (start === null || e.pointerId !== pointer) return;
+      const a = start;
+      start = null;
+      prim.setPreview(null);
+      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      if (commit && live.current.tool) live.current.onStroke(a, indexAt(e));
+    };
+    const up = (e: PointerEvent) => end(e, true);
+    const cancel = (e: PointerEvent) => end(e, false);
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', cancel);
+    return () => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', cancel);
+      markers.current = null;
+      chartRef.current = null;
+      chart.remove();
+    };
   }, [candles]);
 
-  return <div ref={ref} className="sm-chart" role="img" aria-label="Candle chart" />;
+  // Trades change the bands and markers only; the chart is not rebuilt.
+  useEffect(() => {
+    bands.current.setTrades(trades);
+    markers.current?.setMarkers(markersFor(trades));
+  }, [trades]);
+
+  // A tool turns the chart's own pan and zoom off, and back on when it is left.
+  useEffect(() => {
+    chartRef.current?.applyOptions({ handleScroll: !tool, handleScale: !tool });
+  }, [tool]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!focus || !chart) return;
+    const from = times.findIndex((t) => t >= focus.trade.entryTime);
+    const lastIdx = times.findIndex((t) => t > focus.trade.exitTime);
+    const to = lastIdx === -1 ? times.length - 1 : lastIdx - 1;
+    if (from === -1) return;
+    const pad = Math.max(10, (to - from) * 0.5);
+    chart.timeScale().setVisibleLogicalRange({ from: from - pad, to: to + pad });
+  }, [focus]);
+
+  return <div ref={ref} className={`sm-chart${tool ? ' sm-chart-tool' : ''}`} role="img" aria-label="Candle chart" />;
+}
+
+function markersFor(trades: readonly HighlightTrade[]): SeriesMarker<Time>[] {
+  const out: SeriesMarker<Time>[] = [];
+  for (const t of trades) {
+    const long = t.side === 'long';
+    const color = long ? theme.green : theme.red;
+    out.push({ time: t.entryTime as Time, position: long ? 'belowBar' : 'aboveBar', shape: long ? 'arrowUp' : 'arrowDown', color, text: 'in' });
+    out.push({ time: t.exitTime as Time, position: long ? 'aboveBar' : 'belowBar', shape: 'circle', color, text: 'out' });
+  }
+  return out.sort((x, y) => (x.time as number) - (y.time as number));
 }

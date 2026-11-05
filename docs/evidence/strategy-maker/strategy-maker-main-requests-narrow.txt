@@ -1,6 +1,6 @@
-http://127.0.0.1:35821/
-http://127.0.0.1:35821/assets/index-C6jKbVfe.js
-http://127.0.0.1:35821/assets/index-MUoMLWSX.css
-http://127.0.0.1:35821/api/status
-http://127.0.0.1:35821/api/alerts/events
-http://127.0.0.1:35821/api/alerts
+http://127.0.0.1:33467/
+http://127.0.0.1:33467/assets/index-HcXmte3B.js
+http://127.0.0.1:33467/assets/index-MUoMLWSX.css
+http://127.0.0.1:33467/api/status
+http://127.0.0.1:33467/api/alerts/events
+http://127.0.0.1:33467/api/alerts
