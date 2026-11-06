@@ -1,0 +1,1 @@
+71 markets x 6 timeframes = 15,941,772 combinations (over the limit of 2,000,000)

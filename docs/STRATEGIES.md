@@ -13,17 +13,22 @@ The engine then applies fees, slippage, position sizing, stops/takes and the sin
 
 ## Built-in strategies
 
-| ID | Name | Parameters (defaults) | Notes |
-|---|---|---|---|
-| `sma_cross` | SMA crossover | `fast=10`, `slow=30`, `direction` | Long while fast SMA > slow SMA |
-| `ema_cross` | EMA crossover | `fast=12`, `slow=26`, `direction` | Same idea, EMA reacts sooner |
-| `macd_cross` | MACD | `fast=12`, `slow=26`, `signal=9`, `direction` | Long while histogram > 0 |
-| `rsi_reversion` | RSI mean reversion | `length=14`, `oversold=30`, `overbought=70`, `direction` | Enters long on the cross back up through oversold; exits above overbought |
-| `bollinger` | Bollinger Bands | `length=20`, `mult=2`, `mode`, `direction` | `mode`: 0 = breakout (upper break in, middle cross out), 1 = mean reversion (lower touch in, middle cross out) |
-| `donchian` | Donchian breakout | `entry=20`, `exit=10`, `direction` | Enters on a new N-bar high, exits on the opposite M-bar low |
-| `composed` | Composed (entry + filters) | `entryRule=2`, `direction`, the entry rule's settings, and four filters (all off) | One entry rule plus optional filters that veto entries; see [Composed strategy](#composed-strategy) |
-| `buy_hold` | Buy & hold | — | Benchmark |
-| `custom` | Custom (JavaScript) | your JSON params | See below |
+| ID | Name | Style | Parameters (defaults) | Notes |
+|---|---|---|---|---|
+| `sma_cross` | SMA crossover | trend | `fast=10`, `slow=30`, `direction` | Long while fast SMA > slow SMA |
+| `ema_cross` | EMA crossover | trend | `fast=12`, `slow=26`, `direction` | Same idea, EMA reacts sooner |
+| `macd_cross` | MACD | trend | `fast=12`, `slow=26`, `signal=9`, `direction` | Long while histogram > 0 |
+| `rsi_reversion` | RSI mean reversion | mean reversion | `length=14`, `oversold=30`, `overbought=70`, `direction` | Enters long on the cross back up through oversold; exits above overbought |
+| `bollinger` | Bollinger Bands | breakout, mean reversion | `length=20`, `mult=2`, `mode`, `direction` | `mode`: 0 = breakout (upper break in, middle cross out), 1 = mean reversion (lower touch in, middle cross out) |
+| `donchian` | Donchian breakout | breakout | `entry=20`, `exit=10`, `direction` | Enters on a new N-bar high, exits on the opposite M-bar low |
+| `pullback` | Pullback in trend | continuation, trend | `trend=200`, `length=14`, `dip=40`, `target=70`, `direction` | Long when the close is above the trend EMA and RSI crosses back up through `dip`; exits above `target` or when the close falls under the EMA (mirrored for shorts) |
+| `reversal` | Reversal | reversal | `length=20`, `mult=2`, `direction` | Long when the close comes back inside the lower Bollinger band after closing below it; exits above the middle band (mirrored for shorts) |
+| `momentum_breakout` | Momentum breakout | momentum, breakout | `entry=20`, `exit=10`, `volLen=20`, `volMult=1.5`, `direction` | Donchian breakout that also needs the bar's volume to be at least `volMult` times the average of the `volLen` bars before it |
+| `composed` | Composed (entry + filters) | trend | `entryRule=2`, `direction`, the entry rule's settings, and four filters (all off) | One entry rule plus optional filters that veto entries; see [Composed strategy](#composed-strategy) |
+| `buy_hold` | Buy & hold | - | - | Benchmark |
+| `custom` | Custom (JavaScript) | - | your JSON params | See below |
+
+The style of each strategy is kept in one table (`STRATEGY_STYLES` in `client/src/lib/backtest/strategies.ts`), primary style first.
 
 `direction` is `1` = long only, `2` = short only, `3` = both. Short signals are ignored unless *Shorts* is enabled in the configuration.
 
@@ -161,4 +166,4 @@ A study of a small, local, trainable (non-LLM) tool that would recommend indicat
 
 A second study, [spikes/strategy-search/README.md](spikes/strategy-search/README.md), swept the six built-in families over the top crypto, stocks and indices on every timeframe for strategies that hit 75% at R:R 1 or 50% at R:R 4, and checked what survives on unseen data and against shuffled-return copies.
 
-The engine for that market search is built (`client/src/strategyMaker/sweep/`; no screen yet). Given markets, timeframes, up to four target sets (a strategy passes when it meets any one) and a risk per trade, it tries every signal setting with a grid of stops (the typical bar range times 1, 2 or 4) and take profits (1 to 5 times the stop) on the first 70% of each series, sized by `riskPct` like any backtest. A strategy that meets a set with at least 30 trades is checked on the last 30%, and is "held" when that part meets the same set with at least 10 trades. It ranks held strategies first, gives the closest miss per series, and lists markets that failed to load or were too short. The worker loads the candles itself, at most 3 at a time, and a run above `MAX_SWEEP_COMBOS` combinations is refused before anything loads.
+The market search is built (`client/src/strategyMaker/sweep/`, with a "Search markets" panel on the strategy maker page: see [Searching many markets](guide/strategy-maker.md#searching-many-markets)). Given markets, timeframes, up to four target sets (a strategy passes when it meets any one) and a risk per trade, it tries every signal setting with a grid of stops (the typical bar range times 1, 2 or 4) and take profits (1 to 5 times the stop) on the first 70% of each series, sized by `riskPct` like any backtest. A strategy that meets a set with at least 30 trades is checked on the last 30%, and is "held" when that part meets the same set with at least 10 trades. It ranks held strategies first, gives the closest miss per series, and lists markets that failed to load or were too short. The worker loads the candles itself, at most 3 at a time, and a run above `MAX_SWEEP_COMBOS` combinations is refused before anything loads.

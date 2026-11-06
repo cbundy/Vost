@@ -473,3 +473,68 @@
   font-size: 12px;
   resize: vertical;
 }
+
+/* Search markets */
+.sm-sweep {
+  min-width: 0;
+}
+.sm-sweep-count {
+  margin: 10px 0 0;
+  font-weight: 600;
+}
+.sm-target-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px 10px;
+}
+.sm-or {
+  color: var(--muted);
+  align-self: center;
+}
+.sm-sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sm-sort:hover {
+  text-decoration: underline;
+}
+.sm-sweep .sm-badge {
+  margin-left: 6px;
+}
+.sm-sweep .sm-table th:nth-child(3),
+.sm-sweep .sm-table td:nth-child(3) {
+  text-align: left;
+}
+.sm-sweep .sm-table td:last-child {
+  text-align: right;
+}
+.sm-sweep .sm-table-wrap {
+  max-height: 440px;
+  overflow: auto;
+}
+.sm-sweep .sm-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+.sm-sweep .sm-table th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+.sm-sweep .sm-table th:nth-child(2),
+.sm-sweep .sm-table td:nth-child(2) {
+  text-align: left;
+}
+.sm-sweep .sm-res-block .sm-note {
+  margin: 6px 0;
+}
+.sm-sweep .sm-results .sm-note {
+  align-self: auto;
+}

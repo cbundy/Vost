@@ -138,3 +138,31 @@ describe('handoffSettingsText with composed', () => {
     expect(text).not.toContain('oversold');
   });
 });
+
+describe('market in the hand-off', () => {
+  const market = { providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1d' as const };
+  it('round trips with it, and an old link without it parses as before', () => {
+    const withMarket = { ...base, ...market };
+    expect(parseHandoff(encodeHandoff(withMarket))).toEqual(withMarket);
+    const old = parseHandoff(encodeHandoff(base))!;
+    expect(old).toEqual(base);
+    for (const k of ['providerId', 'symbol', 'timeframe']) expect(k in old).toBe(false);
+  });
+  it('refuses an unknown provider, an empty or too long symbol, an unknown timeframe, and a partial market', () => {
+    for (const patch of [
+      { providerId: 'nope' },
+      { providerId: 7 },
+      { symbol: '' },
+      { symbol: '   ' },
+      { symbol: 'X'.repeat(41) },
+      { symbol: 5 },
+      { timeframe: '1y' },
+      { timeframe: 'x' },
+      { timeframe: '1D' },
+    ]) {
+      expect(parseHandoff(hashOf({ ...base, ...market, ...patch })), JSON.stringify(patch)).toBeNull();
+    }
+    expect(parseHandoff(hashOf({ ...base, providerId: 'binance' }))).toBeNull();
+    expect(parseHandoff(hashOf({ ...base, symbol: 'BTCUSDT', timeframe: '1d' }))).toBeNull();
+  });
+});

@@ -1,0 +1,13 @@
+Closest found
+
+Nothing met a target on these markets; this is the nearest setting on each.
+
+^GSPC 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^NDX 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.90, you asked for at least 20.
+^DJI 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^RUT 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^FTSE 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^GDAXI 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^FCHI 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^N225 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.
+^HSI 1d: SMA crossover (fast period 2, slow period 10, long and short), stop 2.04%, take profit 6.11%. The win-to-loss ratio (R:R) is 14.89, you asked for at least 20.

@@ -27,6 +27,7 @@ import { TargetsForm, type SetChoice } from './TargetsForm';
 import { blocker, defaultForm, readForm, sanitizeForm } from './form';
 import { sourceLabel } from './run';
 import { useFind } from './useFind';
+import { SweepPanel } from './SweepPanel';
 import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary, PROVIDER_BARS, type Loaded } from './data';
 import './strategyMaker.css';
 
@@ -672,6 +673,7 @@ export default function StrategyMakerPage() {
         {find.result && !find.run.running && (
           <Results result={find.result} selected={find.selected} onSelect={(c) => find.select(c, candles)} source={label} />
         )}
+        <SweepPanel getClient={find.getClient} />
       </main>
     </div>
   );

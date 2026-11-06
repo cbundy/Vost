@@ -77,6 +77,14 @@ describe('fake upstream REST, through the real adapters and the real fetch', () 
     expect(((await res.json()) as unknown[]).length).toBe(5);
   });
 
+  it('yahoo has no chart for ^STOXX50E (a skipped market in the market search), and one for its neighbours', async () => {
+    const chart = (symbol: string) => fetch(`${fake.url}/https/query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=0&period2=9999999999`);
+    const gone = await chart('^STOXX50E');
+    expect(gone.status).toBe(404);
+    expect(JSON.stringify(await gone.json())).toContain('No data found');
+    expect((await chart('^FCHI')).status).toBe(200);
+  });
+
   it('answers the market lists: CoinGecko in both orders, CoinMarketCap only with its key', async () => {
     const cg = (order: string) => fetch(`${fake.url}/https/api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=${order}&per_page=100&page=1`).then((r) => r.json() as Promise<Array<{ symbol: string }>>);
     const cap = await cg('market_cap_desc');

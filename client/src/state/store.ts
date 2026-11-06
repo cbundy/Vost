@@ -915,6 +915,11 @@ export const useStore = create<AppState>()((set, get) => {
 
     applyBacktestHandoff(h) {
       const chart = get().charts[get().activeChartId];
+      if (h.providerId && h.symbol && h.timeframe) {
+        // One load: the timeframe is set quietly, then the market opens and loads.
+        chart.getState().setTimeframe(h.timeframe, { load: false, broadcast: false });
+        chart.getState().openWatchItem(h.providerId, h.symbol, { broadcast: false });
+      }
       chart.getState().setBtConfig({
         strategyId: h.strategyId,
         params: { ...DEFAULT_PARAMS[h.strategyId], ...h.params },
@@ -930,9 +935,10 @@ export const useStore = create<AppState>()((set, get) => {
       });
       get().setDockTab('backtest');
       const settings = handoffSettingsText(h);
+      const market = h.providerId && h.symbol && h.timeframe ? ` on ${h.symbol} ${h.timeframe}` : '';
       get().pushToast(
         'info',
-        `Backtest set from the strategy maker: ${getStrategy(h.strategyId).name}${settings ? ` (${settings})` : ''}.${h.source ? ` It was found on ${h.source}; run` : ' Run'} it on the same data to see the same trades.`,
+        `Backtest set from the strategy maker${market}: ${getStrategy(h.strategyId).name}${settings ? ` (${settings})` : ''}.${h.source ? ` It was found on ${h.source}; run` : ' Run'} it on the same data to see the same trades.`,
       );
     },
 

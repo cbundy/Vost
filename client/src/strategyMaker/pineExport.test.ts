@@ -27,6 +27,9 @@ const CASES: Array<[string, Record<string, number>[]]> = [
   ['rsi_reversion', [{ length: 14, oversold: 30, overbought: 70 }, { length: 7, oversold: 35, overbought: 60 }]],
   ['bollinger', [{ length: 20, mult: 2, mode: 0 }, { length: 15, mult: 1.5, mode: 1 }]],
   ['donchian', [{ entry: 20, exit: 10 }, { entry: 30, exit: 8 }]],
+  ['pullback', [{ trend: 20, length: 5, dip: 40, target: 70 }, { trend: 30, length: 7, dip: 45, target: 60 }]],
+  ['reversal', [{ length: 20, mult: 2 }, { length: 10, mult: 1.5 }]],
+  ['momentum_breakout', [{ entry: 20, exit: 10, volLen: 20, volMult: 1 }, { entry: 10, exit: 5, volLen: 10, volMult: 1 }]],
 ];
 
 /** What both sides did, as comparable rows. */
@@ -70,6 +73,24 @@ describe('Pine export trades like the built-in strategy', () => {
         }
       }
     }
+  }
+});
+
+/** A random walk whose volume spikes on some bars, so a volume rule fires on both sides (the sample series has real volume, the synthetic one a flat 1000). */
+function spiky(): Candle[] {
+  const base = synth(1500, 11);
+  return base.map((c, i) => ({ ...c, volume: i % 7 === 0 ? 4000 : 1000 + (i % 5) * 50 }));
+}
+
+describe('momentum_breakout Pine export with volume spikes', () => {
+  for (const direction of ['long', 'short', 'both'] as const) {
+    it(`takes the engine's trades, ${direction}`, async () => {
+      const { engine, pine } = await compare(spiky(), 'momentum_breakout', { entry: 15, exit: 7, volLen: 20, volMult: 2 }, direction, risk());
+      expect(engine.length).toBeGreaterThan(0);
+      if (direction !== 'short') expect(engine.some((t) => t.side === 'long')).toBe(true);
+      if (direction !== 'long') expect(engine.some((t) => t.side === 'short')).toBe(true);
+      expectSame(pine, engine, 1e-6);
+    }, 60000);
   }
 });
 

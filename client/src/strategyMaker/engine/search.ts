@@ -60,6 +60,21 @@ export const DEFAULT_SPACE: Record<string, SweepParam[]> = {
     { key: 'adxFilter', from: 0, to: 1, step: 1 },
     { key: 'adxMin', from: 20, to: 30, step: 10 },
   ],
+  pullback: [
+    { key: 'trend', from: 50, to: 200, step: 50 },
+    { key: 'dip', from: 30, to: 45, step: 5 },
+    { key: 'target', from: 60, to: 80, step: 10 },
+  ],
+  reversal: [
+    { key: 'length', from: 10, to: 50, step: 10 },
+    { key: 'mult', from: 1.5, to: 3, step: 0.5 },
+  ],
+  momentum_breakout: [
+    { key: 'entry', from: 10, to: 40, step: 10 },
+    { key: 'exit', from: 5, to: 20, step: 5 },
+    { key: 'volMult', from: 1.5, to: 2.5, step: 0.5 },
+    { key: 'volLen', from: 10, to: 30, step: 10 },
+  ],
 };
 
 /** Composed: the entry rule's own ordering holds, and settings that do nothing stay at their default (no duplicate runs). */
@@ -87,6 +102,7 @@ export function validParams(strategyId: string, p: Record<string, number>): bool
   if (strategyId === 'sma_cross' || strategyId === 'ema_cross' || strategyId === 'macd_cross') return p.fast < p.slow;
   if (strategyId === 'rsi_reversion') return p.oversold < p.overbought;
   if (strategyId === 'composed') return validComposed(p);
+  if (strategyId === 'pullback') return p.dip < p.target;
   return true;
 }
 

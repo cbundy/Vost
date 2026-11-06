@@ -168,5 +168,5 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
     [result],
   );
 
-  return { run, result, error, selected, found, start, retrain, cancel, select, clearSelection };
+  return { run, result, error, selected, found, start, retrain, cancel, select, clearSelection, getClient };
 }
