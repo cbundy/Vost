@@ -1,9 +1,9 @@
 import { MessageChannel } from 'node:worker_threads';
 import { describe, expect, it } from 'vitest';
-import { runAnyBacktest } from '../lib/backtest/runner';
-import type { BacktestConfig } from '../lib/backtest/types';
-import { synth } from '../strategyMaker/engine/synthetic';
-import type { SweepInput } from '../strategyMaker/sweep/types';
+import { runAnyBacktest } from '../../lib/backtest/runner';
+import type { BacktestConfig } from '../../lib/backtest/types';
+import { synth } from '../engine/synthetic';
+import type { SweepInput } from '../sweep/types';
 import { attachBridge, type FromEngine, type ToEngine } from './bridge';
 
 const candles = synth(400, 5);

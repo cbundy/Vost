@@ -7,7 +7,7 @@ const SERVER = path.resolve(import.meta.dirname, '..');
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = path.join(dir, name);
-    if (statSync(p).isDirectory()) return sources(p);
+    if (statSync(p).isDirectory()) return name === 'dist' ? [] : sources(p); // dist holds the built engine bundle, which is never read as a server source
     return /\.(ts|mjs)$/.test(name) && !/\.test\.ts$/.test(name) && name !== 'testing.ts' ? [p] : [];
   });
 }

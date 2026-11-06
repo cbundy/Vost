@@ -12,14 +12,14 @@
  * Asks: `history` (`provider`, `req`: a HistoryRequest) is answered with candles, `library` (`path`) with the
  * library source or null. Each ask has its own correlation id `rid`; a failure comes back as `ok: false`.
  */
-import { MAX_BARS } from '../../../shared/market.ts';
-import { createBacktestHandler, type WorkerRequest, type WorkerResponse } from '../lib/workers/backtestHandler';
-import { createHost } from '../strategyMaker/engineHost';
-import type { Reply, Request } from '../strategyMaker/protocol';
-import type { HistoryRequest } from '../lib/providers';
-import { createMarketFeed, type MarketFeed } from '../lib/pine/marketFeed';
-import type { SweepLoad } from '../strategyMaker/sweep/types';
-import type { Candle } from '../types';
+import { MAX_BARS } from '../../../../shared/market.ts';
+import { createBacktestHandler, type WorkerRequest, type WorkerResponse } from '../../lib/workers/backtestHandler';
+import { createHost } from '../engineHost';
+import type { Reply, Request } from '../protocol';
+import type { HistoryRequest } from '../../lib/providers';
+import { createMarketFeed, type MarketFeed } from '../../lib/pine/marketFeed';
+import type { SweepLoad } from '../sweep/types';
+import type { Candle } from '../../types';
 
 export type ToEngine =
   | { proto: 'backtest'; msg: WorkerRequest }

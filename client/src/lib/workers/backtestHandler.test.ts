@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { synth } from '../../strategyMaker/engine/synthetic';
+import { mulberry32 } from '../random';
+import type { Candle } from '../../types';
 import { runAnyBacktest } from '../backtest/runner';
 import type { BacktestConfig } from '../backtest/types';
 import { createBacktestHandler, type WorkerRequest, type WorkerResponse } from './backtestHandler';
 
-const candles = synth(400, 5);
+const rand = mulberry32(5);
+let price = 100;
+const candles: Candle[] = Array.from({ length: 400 }, (_, i) => {
+  const open = price;
+  price = Math.max(1, open * (1 + 0.04 * Math.sin(i / 9) + (rand() - 0.5) * 0.01));
+  return { time: 1_600_000_000 + i * 3600, open, high: Math.max(open, price) * 1.002, low: Math.min(open, price) * 0.998, close: price, volume: 1000 };
+});
 const config: BacktestConfig = {
   strategyId: 'sma_cross',
   params: { fast: 5, slow: 20, direction: 1 },

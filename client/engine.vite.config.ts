@@ -11,7 +11,7 @@ export default defineConfig({
   publicDir: false,
   ssr: { noExternal: true, target: 'node' },
   build: {
-    ssr: 'src/serverEngine/entry.ts',
+    ssr: 'src/strategyMaker/serverEngine/entry.ts',
     outDir,
     emptyOutDir: true,
     target: 'node22',

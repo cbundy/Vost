@@ -1,6 +1,6 @@
 /**
  * The backtest worker's dispatch, free of any worker global so the browser worker and the server's engine bundle
- * (`client/src/serverEngine`) share it. `opts` carries the Pine resolver and feed the server bundle injects.
+ * (`client/src/strategyMaker/serverEngine`) share it. `opts` carries the Pine resolver and feed the server bundle injects.
  */
 import type { Candle } from '../../types';
 import type { MarketFeed } from '../pine/marketFeed';
