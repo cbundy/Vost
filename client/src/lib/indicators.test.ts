@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bollinger, crossover, ema, highest, lowest, macd, rsi, sma, stdev, vwap } from './indicators';
+import { adx, bollinger, crossover, ema, highest, indicatorHelpers, lowest, macd, rsi, sma, stdev, volumeSma, vwap } from './indicators';
 import type { Candle } from '../types';
 
 describe('sma', () => {
@@ -79,5 +79,64 @@ describe('crossover', () => {
     const b = [3, 3, 3];
     expect(crossover(a, b, 1)).toBe(false);
     expect(crossover(a, b, 2)).toBe(true);
+  });
+});
+
+describe('volumeSma', () => {
+  const bar = (volume: number): Candle => ({
+    time: 0,
+    open: 1,
+    high: 1,
+    low: 1,
+    close: 1,
+    volume,
+  });
+  it('averages bar volume with a null warm-up', () => {
+    expect(volumeSma([10, 20, 60, 30].map(bar), 2)).toEqual([null, 15, 40, 45]);
+  });
+  it('is reachable through indicatorHelpers', () => {
+    const candles = [10, 20, 60].map(bar);
+    expect(indicatorHelpers(candles, false).volumeSma(2)).toEqual([null, 15, 40]);
+  });
+});
+
+describe('adx', () => {
+  // Hand-computed with Wilder smoothing, period 3.
+  const H = [10, 11, 12, 11.5, 12.5, 13, 12.8, 13.5, 14, 13.2];
+  const L = [9, 9.8, 10.5, 10.2, 11, 11.6, 11.5, 12, 12.9, 12.1];
+  const C = [9.5, 10.8, 11.8, 10.8, 12.2, 12.9, 12.0, 13.4, 13.1, 12.4];
+  const candles: Candle[] = C.map((close, i) => ({
+    time: i,
+    open: close,
+    high: H[i],
+    low: L[i],
+    close,
+    volume: 1,
+  }));
+
+  it('is null through the warm-up, then matches the hand-computed values', () => {
+    const out = adx(candles, 3);
+    expect(out.slice(0, 5)).toEqual([null, null, null, null, null]);
+    const want = [81.98027622576632, 79.9108413159899, 81.78110972994074, 84.48189363432532, 59.72223138724291];
+    want.forEach((v, k) => expect(out[5 + k] as number).toBeCloseTo(v, 9));
+  });
+
+  it('is 0 on a flat series and null when there are too few bars', () => {
+    const flat: Candle[] = Array.from({ length: 12 }, (_, i) => ({
+      time: i,
+      open: 5,
+      high: 5,
+      low: 5,
+      close: 5,
+      volume: 1,
+    }));
+    const out = adx(flat, 3);
+    expect(out.slice(0, 5)).toEqual([null, null, null, null, null]);
+    expect(out.slice(5)).toEqual(new Array(7).fill(0));
+    expect(adx(candles.slice(0, 5), 3).every((v) => v === null)).toBe(true);
+  });
+
+  it('is reachable through indicatorHelpers', () => {
+    expect(indicatorHelpers(candles, false).adx(3)).toEqual(adx(candles, 3));
   });
 });

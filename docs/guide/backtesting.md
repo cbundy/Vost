@@ -13,6 +13,7 @@ Open the **Backtest** tab in the bottom dock. Pick a **Strategy** and set its pa
 - RSI mean reversion (length, oversold, overbought, direction)
 - Bollinger (length, mult, mode: breakout or reversion, direction)
 - Donchian breakout (entry, exit, direction)
+- Composed (entry + filters): see [Composed strategy](#composed-strategy)
 - Pullback in trend (trend EMA length, RSI length, dip, target, direction)
 - Reversal (length, mult, direction)
 - Momentum breakout (entry, exit, volume average length, volume multiple, direction)
@@ -60,6 +61,12 @@ The Results tab names the modes in its badges (for example `SL 2 ATR`, `TP 3R`, 
 
 ![A trailing stop row in the exit reasons table](../evidence/bt-results/bt-results-exits-trades-desktop.png)
 
+## Composed strategy
+
+**Composed** takes its entries from one rule (SMA or EMA crossover, MACD, RSI, Bollinger or Donchian) and lets up to four filters veto them: trend (price above or below an SMA or EMA), volume (at least a multiple of its recent average), volatility (ATR as a percent of price inside a band) and trend strength (ADX at least a level). Choose the **Entry rule**, then switch filters on; only the chosen rule's settings and the enabled filters' settings show. A blocked entry is skipped for the rest of that signal run, and exits are the entry rule's own. With every filter off it equals the entry rule alone. Rules in [Composed strategy](../STRATEGIES.md#composed-strategy).
+
+![Composed with an EMA entry and the trend and volume filters on](../evidence/bt-results/bt-results-composed-settings-desktop.png)
+
 ## Risk per trade
 
 **Position sizing** has two choices. **Percent of equity** is the default: each trade commits that share of your equity. **Risk per trade (%)** sizes each trade so that hitting its stop loss loses that percent of your equity at that moment:
@@ -100,6 +107,10 @@ The **Max DD duration** card shows the longest drawdown in bars and, under it, t
 ![The metric grid with the Max DD duration card](../evidence/bt-results/bt-results-metric-grid-desktop.png)
 
 ![The equity chart with the Buy & hold line](../evidence/bt-results/bt-results-equity-desktop.png)
+
+When the strategy is Composed, a line under the metric grid counts the entry signals and how many each enabled filter blocked, for example `Filters: 3689 entry signals, 1033 taken - trend blocked 1620, volume blocked 1863`. A signal vetoed by two filters counts for both.
+
+![The filter line in Results](../evidence/bt-results/bt-results-composed-filters-desktop.png)
 
 Every figure in the tab has this help, including the breakdown rows, streaks, exit reasons, the chart legend and the Monte Carlo figures. Press Escape to close it.
 

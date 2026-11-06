@@ -1,6 +1,6 @@
 /** The search: tries the built-in strategies over ranges of settings and scores them against the highlights. */
 import { gridSize, MAX_GRID_COMBOS, paramValues, type SweepParam } from '../../lib/backtest/optimizer';
-import { buildSignals, DEFAULT_PARAMS, getStrategy } from '../../lib/backtest/strategies';
+import { buildSignals, composedEntryKeys, DEFAULT_PARAMS, getStrategy } from '../../lib/backtest/strategies';
 import { defaultBacktestConfig, type BacktestConfig } from '../../lib/backtest/types';
 import { splitBars } from '../../lib/backtest/validation';
 import { gapSize, gapsOf, runParts } from './backtest';
@@ -51,6 +51,15 @@ export const DEFAULT_SPACE: Record<string, SweepParam[]> = {
     { key: 'entry', from: 10, to: 60, step: 5 },
     { key: 'exit', from: 5, to: 30, step: 5 },
   ],
+  // At most 400 raw combinations: 3 x 3 x 3 x 3 x 2 x 2 = 324.
+  composed: [
+    { key: 'fast', from: 5, to: 15, step: 5 },
+    { key: 'slow', from: 20, to: 60, step: 20 },
+    { key: 'trendFilter', from: 0, to: 2, step: 1 },
+    { key: 'trendLen', from: 100, to: 200, step: 50 },
+    { key: 'adxFilter', from: 0, to: 1, step: 1 },
+    { key: 'adxMin', from: 20, to: 30, step: 10 },
+  ],
   pullback: [
     { key: 'trend', from: 50, to: 200, step: 50 },
     { key: 'dip', from: 30, to: 45, step: 5 },
@@ -68,10 +77,31 @@ export const DEFAULT_SPACE: Record<string, SweepParam[]> = {
   ],
 };
 
+/** Composed: the entry rule's own ordering holds, and settings that do nothing stay at their default (no duplicate runs). */
+function validComposed(p: Record<string, number>): boolean {
+  const rule = Math.round(p.entryRule);
+  if (rule < 1 || rule > 6) return false;
+  if (rule <= 3 && !(p.fast < p.slow)) return false;
+  if (rule === 4 && !(p.oversold < p.overbought)) return false;
+  const used = new Set(composedEntryKeys(rule));
+  const specs = getStrategy('composed').params;
+  const unused = (key: string, gate: string, on: number[]): boolean => !on.includes(Math.round(p[gate]));
+  for (const spec of specs) {
+    if (spec.key === 'entryRule' || spec.key === 'direction') continue;
+    const entryKey = ['fast', 'slow', 'signal', 'length', 'oversold', 'overbought', 'mult', 'mode', 'entry', 'exit'].includes(spec.key);
+    const idle = entryKey
+      ? !used.has(spec.key)
+      : spec.visibleWhen != null && unused(spec.key, spec.visibleWhen.key, spec.visibleWhen.values);
+    if (idle && p[spec.key] !== spec.default) return false;
+  }
+  return true;
+}
+
 /** Whether a parameter set makes sense for the family (a fast average must be faster than the slow one). */
 export function validParams(strategyId: string, p: Record<string, number>): boolean {
   if (strategyId === 'sma_cross' || strategyId === 'ema_cross' || strategyId === 'macd_cross') return p.fast < p.slow;
   if (strategyId === 'rsi_reversion') return p.oversold < p.overbought;
+  if (strategyId === 'composed') return validComposed(p);
   if (strategyId === 'pullback') return p.dip < p.target;
   return true;
 }

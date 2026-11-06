@@ -199,7 +199,7 @@ describe('default grids of the new families', () => {
   });
   it('keep a default search over every family within the budget', () => {
     const total = SIGNAL_FAMILIES.reduce((a, id) => a + size(id), 0);
-    expect(total).toBe(1187);
+    expect(total).toBe(1511);
     expect(total).toBeLessThan(MAX_GRID_COMBOS);
   });
 });

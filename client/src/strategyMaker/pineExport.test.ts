@@ -7,7 +7,7 @@ import { buildSignals, getStrategy } from '../lib/backtest/strategies';
 import { runPine } from '../lib/pine/runtime';
 import type { Candle } from '../types';
 import { synth } from './engine/synthetic';
-import { pineStrategyText, settingsPlain } from './pineExport';
+import { hasPine, pineStrategyText, settingsPlain } from './pineExport';
 import { configFor, type FindInputs } from './run';
 
 const sample = candlesFromCsvText(readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8')).candles;
@@ -194,5 +194,18 @@ describe('risk sized export', () => {
     const out = await runPine(pineStrategyText(cand, risky), sample);
     if (!out.ok) throw new Error(out.error.message);
     expect(out.trades.length).toBeGreaterThan(0);
+  });
+});
+
+describe('composed has no Pine export', () => {
+  it('is not offered, and its settings list shows only the visible ones', () => {
+    expect(hasPine('composed')).toBe(false);
+    const text = settingsPlain(
+      { strategyId: 'composed', params: { entryRule: 2, direction: 1, fast: 12, slow: 26, trendFilter: 0, trendLen: 100 } },
+      { direction: 'long', risk: risk() },
+    );
+    expect(text).toContain('Entry rule: EMA crossover');
+    expect(text).not.toContain('Trend average length');
+    expect(text).not.toContain('Oversold');
   });
 });

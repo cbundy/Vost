@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { strategies } from './backtest/strategies';
-import { encodeHandoff, HANDOFF_PREFIX, parseHandoff, takeBacktestHandoff, type Handoff } from './backtestHandoff';
+import { encodeHandoff, handoffSettingsText, HANDOFF_PREFIX, parseHandoff, takeBacktestHandoff, type Handoff } from './backtestHandoff';
 
 const base: Handoff = {
   v: 1,
@@ -18,7 +18,7 @@ const base: Handoff = {
 const hashOf = (o: unknown): string => HANDOFF_PREFIX + btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 describe('encodeHandoff and parseHandoff', () => {
-  for (const id of ['sma_cross', 'ema_cross', 'macd_cross', 'rsi_reversion', 'bollinger', 'donchian']) {
+  for (const id of ['sma_cross', 'ema_cross', 'macd_cross', 'rsi_reversion', 'bollinger', 'donchian', 'composed']) {
     it(`round trip: ${id}`, () => {
       const params = Object.fromEntries(strategies.find((s) => s.id === id)!.params.map((p) => [p.key, p.default]));
       const h = { ...base, strategyId: id, params };
@@ -28,7 +28,12 @@ describe('encodeHandoff and parseHandoff', () => {
     });
   }
   it('keeps a source with non-latin text and null stop and target', () => {
-    const h = { ...base, source: 'Zürich - 日本', stopLossPct: null, takeProfitPct: null };
+    const h = {
+      ...base,
+      source: 'Zürich - 日本',
+      stopLossPct: null,
+      takeProfitPct: null,
+    };
     expect(parseHandoff(encodeHandoff(h))).toEqual(h);
   });
   it('rejects a wrong version, and pine, custom and unknown strategies', () => {
@@ -66,7 +71,12 @@ describe('encodeHandoff and parseHandoff', () => {
     expect(parseHandoff('')).toBeNull();
   });
   it('drops unknown parameter keys and clamps to the limits', () => {
-    const h = parseHandoff(hashOf({ ...base, params: { fast: 9999, slow: -5, direction: 3, evil: 1 } }));
+    const h = parseHandoff(
+      hashOf({
+        ...base,
+        params: { fast: 9999, slow: -5, direction: 3, evil: 1 },
+      }),
+    );
     expect(h?.params).toEqual({ fast: 500, slow: 2, direction: 3 });
   });
 });
@@ -109,6 +119,23 @@ describe('riskPct in the hand-off', () => {
   });
   it('refuses 0, negative, over 100, NaN (null in JSON) and text', () => {
     for (const riskPct of [0, -1, 101, null, 'x', '2', true]) expect(parseHandoff(hashOf({ ...base, riskPct }))).toBeNull();
+  });
+});
+
+describe('handoffSettingsText with composed', () => {
+  it('names only the chosen entry rule and the enabled filters', () => {
+    const params = {
+      ...Object.fromEntries(strategies.find((s) => s.id === 'composed')!.params.map((p) => [p.key, p.default])),
+      trendFilter: 1,
+      trendLen: 150,
+    };
+    const text = handoffSettingsText({ strategyId: 'composed', params });
+    expect(text).toContain('ema crossover');
+    expect(text).toContain('fast period 12');
+    expect(text).toContain('trend average length 150');
+    expect(text).not.toContain('volume average');
+    expect(text).not.toContain('adx');
+    expect(text).not.toContain('oversold');
   });
 });
 

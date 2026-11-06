@@ -109,7 +109,7 @@ describe('no look-ahead', () => {
 
 describe('style table', () => {
   it('gives every searchable family a style and uses every style', () => {
-    for (const id of ['sma_cross', 'ema_cross', 'macd_cross', 'rsi_reversion', 'bollinger', 'donchian', 'pullback', 'reversal', 'momentum_breakout']) expect(stylesOf(id).length).toBeGreaterThan(0);
+    for (const id of ['sma_cross', 'ema_cross', 'macd_cross', 'rsi_reversion', 'bollinger', 'donchian', 'composed', 'pullback', 'reversal', 'momentum_breakout']) expect(stylesOf(id).length).toBeGreaterThan(0);
     const used = new Set<StrategyStyle>(Object.values(STRATEGY_STYLES).flat());
     expect([...used].sort()).toEqual(['breakout', 'continuation', 'mean_reversion', 'momentum', 'reversal', 'trend']);
   });

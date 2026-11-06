@@ -140,6 +140,64 @@ export function atr(candles: Candle[], period = 14): Series {
   return out;
 }
 
+/** Simple moving average of bar volume; null until `period` bars exist. */
+export function volumeSma(candles: Candle[], period: number): Series {
+  return sma(
+    candles.map((c) => c.volume),
+    period,
+  );
+}
+
+/**
+ * Average directional index (Wilder). +DM, -DM and true range are Wilder-smoothed over `period`
+ * (first value = sum of bars 1..period), DX = 100 x |+DI - -DI| / (+DI + -DI) (0 when the sum is 0),
+ * and ADX is the mean of the first `period` DX values, then Wilder-averaged. First value at index 2 x period - 1.
+ */
+export function adx(candles: Candle[], period = 14): Series {
+  const n = candles.length;
+  const out: Series = new Array(n).fill(null);
+  if (period < 1 || n < 2 * period) return out;
+  let sTr = 0;
+  let sPlus = 0;
+  let sMinus = 0;
+  let dxSum = 0;
+  let prevAdx = 0;
+  for (let i = 1; i < n; i++) {
+    const c = candles[i];
+    const prev = candles[i - 1];
+    const tr = Math.max(c.high - c.low, Math.abs(c.high - prev.close), Math.abs(c.low - prev.close));
+    const up = c.high - prev.high;
+    const down = prev.low - c.low;
+    const plus = up > down && up > 0 ? up : 0;
+    const minus = down > up && down > 0 ? down : 0;
+    if (i <= period) {
+      sTr += tr;
+      sPlus += plus;
+      sMinus += minus;
+    } else {
+      sTr = sTr - sTr / period + tr;
+      sPlus = sPlus - sPlus / period + plus;
+      sMinus = sMinus - sMinus / period + minus;
+    }
+    if (i < period) continue;
+    const pdi = sTr === 0 ? 0 : (100 * sPlus) / sTr;
+    const mdi = sTr === 0 ? 0 : (100 * sMinus) / sTr;
+    const sum = pdi + mdi;
+    const dx = sum === 0 ? 0 : (100 * Math.abs(pdi - mdi)) / sum;
+    if (i < 2 * period - 1) {
+      dxSum += dx;
+    } else if (i === 2 * period - 1) {
+      dxSum += dx;
+      prevAdx = dxSum / period;
+      out[i] = prevAdx;
+    } else {
+      prevAdx = (prevAdx * (period - 1) + dx) / period;
+      out[i] = prevAdx;
+    }
+  }
+  return out;
+}
+
 /**
  * VWAP. When `resetDaily` is true (intraday charts) it resets at every UTC day
  * boundary; otherwise it is a rolling VWAP over the last `rollingPeriod` bars.
@@ -250,6 +308,8 @@ export function indicatorHelpers(candles: Candle[], intraday: boolean) {
     macd: (fast: number, slow: number, signal: number) => macd(closes, fast, slow, signal),
     bollinger: (period: number, mult: number) => bollinger(closes, period, mult),
     atr: (period: number) => atr(candles, period),
+    adx: (period: number) => adx(candles, period),
+    volumeSma: (period: number) => volumeSma(candles, period),
     vwap: () => vwap(candles, intraday),
     highest,
     lowest,

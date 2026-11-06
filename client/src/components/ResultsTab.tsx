@@ -2,7 +2,7 @@ import { downloadFile, rowsToCsv, sanitizeFileName } from '../lib/export';
 import { fmtCompact, fmtDurationBarCount, fmtDurationUnits, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
 import { medianBarSeconds } from '../lib/backtest/metrics';
 import { exitModeLabels } from '../lib/backtest/exits';
-import { getStrategy } from '../lib/backtest/strategies';
+import { getStrategy, visibleParams } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
 import { MonteCarloPanel } from './MonteCarloPanel';
 import { EquityChart } from './EquityChart';
@@ -37,8 +37,10 @@ export function ResultsTab() {
 
   const m = btResult.metrics;
   const strategy = getStrategy(btResult.config.strategyId);
+  const shown = new Set(visibleParams(strategy, btResult.config.params).map((p) => p.key));
+  const hidden = new Set(strategy.params.filter((p) => !shown.has(p.key)).map((p) => p.key));
   const paramText = Object.entries(btResult.config.params)
-    .filter(([k]) => !k.startsWith('__'))
+    .filter(([k]) => !k.startsWith('__') && !hidden.has(k))
     .map(([k, v]) => `${k}=${v}`)
     .join(', ');
 
@@ -137,6 +139,14 @@ export function ResultsTab() {
           <Metric key={c.help} {...c} />
         ))}
       </div>
+
+      {btResult.filters && (
+        <p className="filters-line mono" data-testid="filters-line">
+          Filters: {btResult.filters.signals} entry signals, {btResult.filters.taken} taken
+          {btResult.filters.blocked.length > 0 &&
+            ` - ${btResult.filters.blocked.map((b) => `${b.label} blocked ${b.blocked}`).join(', ')}`}
+        </p>
+      )}
 
       <BreakdownTables trades={btResult.trades} />
 

@@ -9,7 +9,7 @@
  * - `candles`: Candle[] (time in seconds, o/h/l/c/v)
  * - `params`:   flat object of numbers from the Backtest panel
  * - `indicators`: helper functions (sma, ema, rsi, macd, bollinger, atr,
- *   vwap, highest, lowest, stdev, crossover, crossunder)
+ *   adx, volumeSma, vwap, highest, lowest, stdev, crossover, crossunder)
  *
  * Return an array of the same length as `candles` with:
  *   1 = long, 0 = flat, -1 = short (shorts need to be enabled in the config)
@@ -20,7 +20,8 @@ import type { Candle } from '../../types';
 import type { Signal } from './types';
 
 export const DEFAULT_CUSTOM_CODE = `// Available: candles, params, indicators
-//   indicators: sma, ema, rsi, macd, bollinger, atr, vwap, highest, lowest,
+//   indicators: sma, ema, rsi, macd, bollinger, atr, adx(period), volumeSma(period),
+//               vwap, highest, lowest,
 //               stdev, crossover(a, b, i), crossunder(a, b, i)
 // Return an array of signals: 1 = long, 0 = flat, -1 = short (null = warm-up)
 const fastPeriod = params.fast || 10;

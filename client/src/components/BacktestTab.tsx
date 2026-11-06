@@ -6,7 +6,7 @@ import { isTextInput } from '../lib/pine/inputs';
 import type { BacktestConfig } from '../lib/backtest/types';
 import { DEFAULT_ATR_LENGTH } from '../lib/backtest/exits';
 import { PineInputList } from './PineInputControl';
-import { getStrategy, strategies } from '../lib/backtest/strategies';
+import { getStrategy, strategies, visibleParams } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
@@ -113,7 +113,7 @@ export function BacktestTab() {
           </a>
         </div>
 
-        {strategy.params.map((p) =>
+        {visibleParams(strategy, btConfig.params).map((p) =>
           p.type === 'select' ? (
             <label className="form-field" key={p.key}>
               <span>{p.label}</span>

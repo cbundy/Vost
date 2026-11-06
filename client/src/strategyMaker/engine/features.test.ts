@@ -9,7 +9,8 @@ describe('features', () => {
     expect(FEATURES.length).toBeLessThan(100);
     expect(new Set(FEATURES.map((f) => f.id)).size).toBe(FEATURES.length);
     expect(new Set(FEATURES.map((f) => f.label)).size).toBe(FEATURES.length);
-    for (const family of SIGNAL_FAMILIES) expect(FEATURES.some((f) => f.family === family)).toBe(true);
+    // Composed is built from the other families' readings, so it has no feature of its own.
+    for (const family of SIGNAL_FAMILIES.filter((f) => f !== 'composed')) expect(FEATURES.some((f) => f.family === family)).toBe(true);
     expect(FEATURES.some((f) => f.family === null)).toBe(true);
   });
 
