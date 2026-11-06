@@ -7,12 +7,12 @@ const CSV = 'time,open,high,low,close,volume\n' +
     return `${1700000000 + i * 3600},${base.toFixed(2)},${(base + 2).toFixed(2)},${(base - 2).toFixed(2)},${(base + Math.sin(i) * 1.5).toFixed(2)},${100 + i}`;
   }).join('\n');
 
-const BIG_BARS = 100_000;
-const BIG_NAME = 'big.csv';
+export const BIG_BARS = 100_000;
+export const BIG_NAME = 'big.csv';
 const T0 = 1_600_000_000;
 
 /** 100,000 seeded hourly bars, and the long trades of a hidden 8/34 SMA cross (some marks shifted, some dropped, like a hand-made set). */
-function bigSet(): { csv: string; candles: Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }>; trades: Array<{ side: 'long'; entryTime: number; exitTime: number }> } {
+export function bigSet(): { csv: string; candles: Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }>; trades: Array<{ side: 'long'; entryTime: number; exitTime: number }> } {
   let seed = 20260101;
   const rand = () => {
     seed = (seed + 0x6d2b79f5) | 0;

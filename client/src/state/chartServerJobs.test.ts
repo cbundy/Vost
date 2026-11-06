@@ -12,8 +12,8 @@ const server = vi.hoisted(() => ({
   cancelled: [] as string[],
   started: [] as string[],
 }));
-vi.mock('./serverJobs', async (orig) => {
-  const actual = await orig<typeof import('./serverJobs')>();
+vi.mock('../lib/serverJobs', async (orig) => {
+  const actual = await orig<typeof import('../lib/serverJobs')>();
   const { createBacktestHandler } = await import('../lib/workers/backtestHandler');
   const notify = (id: string) => {
     const { result: _r, ...summary } = server.jobs.get(id)!;

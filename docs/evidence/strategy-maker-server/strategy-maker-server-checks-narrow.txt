@@ -1,0 +1,20 @@
+job record after the result: 404
+/api/jobs requests: 18
+/api/jobs
+/api/jobs/22a33f9f-14c6-4c50-afae-9590b3be7240
+/api/jobs/events
+/api/jobs/22a33f9f-14c6-4c50-afae-9590b3be7240
+/api/jobs/22a33f9f-14c6-4c50-afae-9590b3be7240
+/api/jobs/22a33f9f-14c6-4c50-afae-9590b3be7240
+/api/jobs/events
+/api/jobs/22a33f9f-14c6-4c50-afae-9590b3be7240
+/api/jobs/22a33f9f-14c6-4c50-afae-9590b3be7240
+/api/jobs
+/api/jobs/80f370ae-1558-48d7-b517-cd9ce056d200
+/api/jobs/events
+/api/jobs/80f370ae-1558-48d7-b517-cd9ce056d200
+/api/jobs/80f370ae-1558-48d7-b517-cd9ce056d200
+/api/jobs/80f370ae-1558-48d7-b517-cd9ce056d200
+/api/jobs/events
+/api/jobs/80f370ae-1558-48d7-b517-cd9ce056d200
+/api/jobs/80f370ae-1558-48d7-b517-cd9ce056d200

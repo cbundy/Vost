@@ -14,6 +14,8 @@ import {
   TP_MULT_OPTIONS,
   type SweepForm,
 } from './sweepForm';
+import type { JobKeeper, ReattachPlan } from './reattach';
+import { ON_SERVER } from './TargetsForm';
 import { useSweep } from './useSweep';
 
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -23,15 +25,26 @@ const count = (n: number): string => n.toLocaleString('en-US');
 interface Props {
   /** The page's engine client: a Find or a Search replaces the run before it. */
   getClient: () => EngineClient;
+  /** Keeps the record of the server job a market search waits for. */
+  keeper?: JobKeeper;
+  /** The server could not take the search, so it runs in the browser. */
+  onFallback?: (reason: string) => void;
+  /** The search the page was waiting for when it was closed, to follow or show. */
+  reattach?: ReattachPlan | null;
 }
 
 type Lists = { state: 'loading' } | { state: 'error'; error: string } | { state: 'ok'; lists: MarketList[] };
 
-export function SweepPanel({ getClient }: Props) {
+export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
   const [form, setForm] = useState<SweepForm>(defaultSweepForm);
   const [lists, setLists] = useState<Lists>({ state: 'loading' });
-  const sweep = useSweep(getClient);
+  const sweep = useSweep(getClient, { keeper, onFallback });
   const running = sweep.run.running;
+  const adopt = sweep.adopt;
+
+  useEffect(() => {
+    if (reattach) void adopt(reattach);
+  }, [reattach, adopt]);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -219,6 +232,7 @@ export function SweepPanel({ getClient }: Props) {
           <span>
             {Math.round(sweep.run.pct * 100)}%{sweep.run.label ? ` - ${sweep.run.label}` : ''}
           </span>
+          {sweep.run.onServer && <span className="sm-note">{ON_SERVER}</span>}
         </div>
       )}
       {sweep.error && (

@@ -144,6 +144,24 @@ The results start with how many combinations were tried, how many met a target a
 
 ![The main app opened on the result's market and timeframe, with risk per trade set](../evidence/strategy-search/strategy-search-handoff-backtest-desktop.png)
 
+## Where Find and the market search run
+
+By default Find, Retrain and **Search markets** run in your browser, in a background worker of the page, and stop when the page closes. In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup) and [Where heavy jobs run](backtesting.md#where-heavy-jobs-run)). A choice applies to the next run; a run already going is not moved.
+
+On **Server**, the run goes to the Vost server and shows the same progress bar, **Cancel** and results as in the browser. While it runs, the progress line says "Running on the server; it keeps going if you close the page."
+
+![A Find running on the server](../evidence/strategy-maker-server/strategy-maker-server-find-running-desktop.png)
+
+A server run keeps going when you close the page or reload it. Open the page again and it shows the progress of a run still going, then the result; a run that finished while the page was closed shows its result at once, with a note ("Find finished on the server while the page was closed"). A model trained while the page was closed is saved with the marks it was trained on, so Saved model still tells you when your marks have changed since. **Cancel** stops the run on the server; pressing Find, Retrain or Search again also stops the run before it. If the server restarts during a run, the run is gone and the page says "stopped: the server restarted".
+
+![The same Find after reloading the page, with its progress back](../evidence/strategy-maker-server/strategy-maker-server-find-reloaded-desktop.png)
+
+![A market search after reloading the page, with its progress back](../evidence/strategy-maker-server/strategy-maker-server-search-reloaded-desktop.png)
+
+![The market search result after the reload](../evidence/strategy-maker-server/strategy-maker-server-search-result-desktop.png)
+
+If the server cannot take a run (its engine is missing, its data folder cannot be written, the request is too big or it cannot be reached), the run happens in the browser instead and the page says why ("Server jobs unavailable (...); running in the browser"). With **Browser** picked, nothing is sent to the server. Trades shown on the chart for a result row always come from the page.
+
 ## Teaching it more
 
 The more charts you mark, the more the model has to learn from. Each chart you mark is its own **set**, and **Train on** picks which sets a run learns from.

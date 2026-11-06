@@ -115,11 +115,11 @@ describe('/api/strategy-maker sets', () => {
   });
 });
 
-describe('/api/strategy-maker inputs and model', () => {
-  it.each(['inputs', 'model'])('gets, puts and deletes %s', async (kind) => {
+describe('/api/strategy-maker inputs, model and job', () => {
+  it.each(['inputs', 'model', 'job'])('gets, puts and deletes %s', async (kind) => {
     await boot();
     expect((await fetch(api(kind))).status).toBe(404);
-    const rec = { id: kind === 'inputs' ? 'find-inputs' : 'model', version: 1, x: [1] };
+    const rec = { id: kind === 'inputs' ? 'find-inputs' : kind, version: 1, x: [1] };
     expect((await send('PUT', api(kind), rec)).status).toBe(204);
     expect(await (await fetch(api(kind))).json()).toEqual(rec);
     expect(await listIds()).toEqual([]);

@@ -33,7 +33,7 @@ export interface ScenarioContext {
     get(name: string): Promise<unknown>;
     put(name: string, value: unknown): Promise<void>;
   };
-  /** The server's strategy maker data (marked trades, find form, trained model). */
+  /** The server's strategy maker data (marked trades, find form, trained model, running job). */
   strategyMaker: {
     /** Stores a set of marked trades. */
     putSet(set: { id: string }): Promise<void>;
@@ -218,6 +218,7 @@ export function strategyMakerClient(baseUrl: string) {
       for (const id of await setIds()) await write('DELETE', `sets/${encodeURIComponent(id)}`);
       await write('DELETE', 'inputs');
       await write('DELETE', 'model');
+      await write('DELETE', 'job');
     },
   };
 }

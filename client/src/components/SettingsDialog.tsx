@@ -10,7 +10,7 @@ const PINE_OPTIONS: { value: 'forming' | 'finished'; label: string; hint: string
 
 const JOB_OPTIONS: { value: JobPlace; label: string; hint: string }[] = [
   { value: 'browser', label: 'Browser', hint: 'Runs in this tab and stops when the tab closes.' },
-  { value: 'server', label: 'Server', hint: 'Keeps running when the tab closes; the result shows when you reopen the chart.' },
+  { value: 'server', label: 'Server', hint: 'Keeps running when the tab closes; the result shows when you reopen the chart or the strategy maker.' },
 ];
 
 const HISTORY_OPTIONS: { value: HistoryLoading; label: string; hint: string }[] = [
@@ -90,7 +90,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <Section title="Heavy jobs">
         <p className="hint">Pine and custom-code strategies and chart indicators always run in the browser.</p>
         <fieldset className="settings-row">
-          <legend>Run backtests, optimizer and Monte Carlo on</legend>
+          <legend>Run backtests, optimizer, Monte Carlo and the strategy maker on</legend>
           {JOB_OPTIONS.map((o) => (
             <label key={o.value} className="settings-radio">
               <input type="radio" name="jobPlace" value={o.value} checked={jobPlace === o.value} onChange={() => setJobPlace(o.value)} />

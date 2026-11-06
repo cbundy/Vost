@@ -7,19 +7,31 @@ import { loadFromDataset, loadFromProvider } from './data';
 import type { Candidate, TrainResult } from './engine';
 import { createEngineClient, type EngineClient } from './engineClient';
 import { candidateKey } from './Results';
-import { runFind, runRetrain, sourceLabel, tooFewMessage, type FindInputs, type FindResult, type FoundTrade, type Loaders } from './run';
-import type { HighlightSet } from './store';
+import { trainedOnOf } from './useModel';
+import { presentOutcome, type JobKeeper, type ReattachPlan } from './reattach';
+import { runFind, runRetrain, sourceLabel, tooFewMessage, type EngineOutcome, type FindInputs, type FindResult, type FoundTrade, type Loaders, type TrainedOutcome } from './run';
+import type { HighlightSet, JobContext, JobRecord, ModelRecord } from './store';
 import type { RunState } from './TargetsForm';
 import type { FindStage } from './run';
 
-const IDLE: RunState = { running: false, pct: 0, stage: 'Loading data', onPage: false };
+const IDLE: RunState = { running: false, pct: 0, stage: 'Loading data', onPage: false, onServer: false };
 
 const isAbort = (e: unknown): boolean => e instanceof Error && e.name === 'AbortError';
 
-/** Called with each model a run trained (not one it reused) and the sets it was trained on, in training order. */
-export type OnTrained = (model: TrainResult, usedSets: HighlightSet[]) => void;
+/**
+ * Called with each model a run trained (not one it reused) and the sets it was trained on, in training order.
+ * `trainedOn` is given for a run that finished while the page was closed: the stamps of the marks it was trained on.
+ */
+export type OnTrained = (model: TrainResult, usedSets: HighlightSet[], trainedOn?: ModelRecord['trainedOn']) => void;
 
-export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained) {
+export interface FindHooks {
+  /** Keeps the record of the server job the run is waiting for. */
+  keeper?: JobKeeper;
+  /** The server could not take the run, so it happens in the browser. */
+  onFallback?: (reason: string) => void;
+}
+
+export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained, hooks: FindHooks = {}) {
   const [run, setRun] = useState<RunState>(IDLE);
   const [result, setResult] = useState<FindResult | null>(null);
   const [error, setError] = useState('');
@@ -32,16 +44,23 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
   libraryRef.current = library;
   const trainedRef = useRef(onTrained);
   trainedRef.current = onTrained;
+  const hooksRef = useRef(hooks);
+  hooksRef.current = hooks;
+  /** The run whose server job the record names. */
+  const serverJob = useRef<AbortController | null>(null);
+  const unmounted = useRef(false);
   const getClient = (): EngineClient => (client.current ??= createEngineClient());
 
-  useEffect(
-    () => () => {
-      ctl.current?.abort();
+  useEffect(() => {
+    unmounted.current = false;
+    return () => {
+      unmounted.current = true;
+      // A run on the server keeps going when the page closes: it is let go, not cancelled.
+      if (!serverJob.current) ctl.current?.abort();
       client.current?.dispose();
       client.current = null;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const clearSelection = useCallback(() => {
     token.current++;
@@ -60,6 +79,23 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
     [bars],
   );
   const label = (s: HighlightSet['source']): string => sourceLabel(s, (id) => libraryRef.current.find((d) => d.id === id)?.name);
+
+  /** Forgets the record of the server job `mine` started. */
+  const release = (mine: AbortController): void => {
+    if (serverJob.current !== mine) return;
+    serverJob.current = null;
+    if (!unmounted.current) hooksRef.current.keeper?.clear();
+  };
+  const serverHooks = (mine: AbortController, kind: JobRecord['kind'], context: () => JobContext | null) => ({
+    onServerJob: (jobId: string) => {
+      const c = context();
+      if (mine.signal.aborted || !c) return;
+      serverJob.current = mine;
+      setRun((s) => ({ ...s, onServer: true }));
+      hooksRef.current.keeper?.put({ id: 'job', version: 1, jobId, kind, started: Date.now(), context: c });
+    },
+    onFallback: (reason: string) => hooksRef.current.onFallback?.(reason),
+  });
 
   const begin = (): AbortController => {
     ctl.current?.abort();
@@ -87,6 +123,8 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
     async (sets: HighlightSet[], inputs: FindInputs, model?: TrainResult) => {
       const mine = begin();
       const loaders = loadersFor();
+      let context: JobContext | null = null;
+      const server = serverHooks(mine, 'find', () => context);
       try {
         const r = await runFind({
           sets,
@@ -95,8 +133,18 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
           label,
           model,
           signal: mine.signal,
+          onLoaded: (info) =>
+            (context = {
+              kind: 'find',
+              inputs,
+              seriesLabels: info.seriesLabels,
+              skippedSets: info.skippedSets,
+              usedSetIds: info.usedSets.map((x) => x.id),
+              reused: info.reused,
+              trainedOn: trainedOnOf(info.usedSets),
+            }),
           engine: (series, inp, signal, onProgress, trained) =>
-            getClient().find(series, inp, { signal, model: trained, onProgress: track(onProgress) }),
+            getClient().find(series, inp, { signal, model: trained, onProgress: track(onProgress), ...server }),
           onProgress: (pct, stage) => setRun((s) => (s.running ? { ...s, pct: Math.max(s.pct, pct), stage } : s)),
         });
         if (mine.signal.aborted) return;
@@ -107,6 +155,7 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
         if (mine.signal.aborted || isAbort(e)) return;
         setError(`The search stopped: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
+        release(mine);
         end(mine);
       }
     },
@@ -117,13 +166,17 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
   const retrain = useCallback(
     async (sets: HighlightSet[]) => {
       const mine = begin();
+      let context: JobContext | null = null;
+      const server = serverHooks(mine, 'train', () => context);
       try {
         const r = await runRetrain({
           sets,
           loaders: loadersFor(),
           label,
           signal: mine.signal,
-          trainer: (series, signal, onProgress) => getClient().train(series, { signal, onProgress: track(onProgress) }),
+          onLoaded: (info) =>
+            (context = { kind: 'train', usedSetIds: info.usedSets.map((x) => x.id), skippedSets: info.skippedSets, trainedOn: trainedOnOf(info.usedSets) }),
+          trainer: (series, signal, onProgress) => getClient().train(series, { signal, onProgress: track(onProgress), ...server }),
           onProgress: (pct, stage) => setRun((s) => (s.running ? { ...s, pct: Math.max(s.pct, pct), stage } : s)),
         });
         if (mine.signal.aborted) return;
@@ -134,6 +187,7 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
         if (mine.signal.aborted || isAbort(e)) return;
         setError(`The training stopped: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
+        release(mine);
         end(mine);
       }
     },
@@ -145,6 +199,57 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
     ctl.current?.abort();
     ctl.current = null;
     setRun(IDLE);
+  }, []);
+
+  /** Shows what a find or a train job returned, rebuilt from the context kept when it started. */
+  const present = (c: Extract<JobContext, { kind: 'find' | 'train' }>, outcome: EngineOutcome | TrainedOutcome, all: HighlightSet[]): void => {
+    const p = presentOutcome(c, outcome, all);
+    if (p.result) {
+      clearSelection();
+      setResult(p.result);
+    }
+    if (p.error) setError(p.error);
+    if (p.trained) trainedRef.current?.(p.trained.model, p.trained.usedSets, p.trained.trainedOn);
+  };
+
+  /**
+   * Picks up the run the page was waiting for when it was closed: follows it, shows its result or its error.
+   * `all` is every saved set, to rebuild the sets the run used.
+   */
+  const adopt = useCallback(async (plan: ReattachPlan, all: HighlightSet[]): Promise<void> => {
+    if (plan.action !== 'follow' && plan.action !== 'show' && plan.action !== 'failed') return;
+    const { record } = plan;
+    const c = record.context;
+    if (c.kind === 'sweep') return;
+    const stopped = (e: unknown): string => `${c.kind === 'find' ? 'The search' : 'The training'} stopped: ${e instanceof Error ? e.message : String(e)}`;
+    if (plan.action === 'failed') {
+      setError(stopped(new Error(plan.message)));
+      hooksRef.current.keeper?.clear();
+      return;
+    }
+    if (plan.action === 'show') {
+      present(c, (plan.result as { outcome: EngineOutcome | TrainedOutcome }).outcome, all);
+      hooksRef.current.keeper?.clear();
+      return;
+    }
+    const mine = begin();
+    serverJob.current = mine;
+    setRun({ running: true, pct: plan.job.progress, stage: (plan.job.stage as FindStage | undefined) ?? 'Training', onPage: false, onServer: true });
+    try {
+      const o = {
+        signal: mine.signal,
+        onProgress: track((pct: number, stage: FindStage) => setRun((s) => (s.running ? { ...s, pct: Math.max(s.pct, pct), stage } : s))),
+      };
+      const outcome = c.kind === 'find' ? await getClient().resume('find', record.jobId, o) : await getClient().resume('train', record.jobId, o);
+      if (mine.signal.aborted) return;
+      present(c, outcome, all);
+    } catch (e) {
+      if (mine.signal.aborted || isAbort(e)) return;
+      setError(stopped(e));
+    } finally {
+      release(mine);
+      end(mine);
+    }
   }, []);
 
   const select = useCallback(
@@ -168,5 +273,5 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained)
     [result],
   );
 
-  return { run, result, error, selected, found, start, retrain, cancel, select, clearSelection, getClient };
+  return { run, result, error, selected, found, start, retrain, adopt, cancel, select, clearSelection, getClient };
 }
