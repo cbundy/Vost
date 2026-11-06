@@ -14,8 +14,8 @@ export interface SweepMarket {
   symbol: string;
 }
 
-/** How an exit is placed: a stop sized by the typical bar range, by the ATR, or an ATR trailing stop. */
-export type ExitKind = 'range' | 'atr' | 'atr_trail';
+/** How an exit is placed: a stop sized by the typical bar range, by the ATR, an ATR trailing stop, or a TradingView indicator's plot (Composed only). */
+export type ExitKind = 'range' | 'atr' | 'atr_trail' | 'pine';
 
 /** Stops are `stopMults` times the typical bar range (percent of close) or the ATR; take profits are `tpMults` times the stop. */
 export interface ExitGrid {
@@ -23,6 +23,8 @@ export interface ExitGrid {
   tpMults: number[];
   /** The kinds to try; absent or empty reads as `['range']`. */
   kinds?: ExitKind[];
+  /** The stop of the `'pine'` kind: one stop role (fixed inputs, a level plot, at entry or trailing). Ignored without that kind. */
+  pineStop?: Omit<PineRole, 'source'>;
 }
 
 /** One exit the search tries, with the backtest settings it sets. */
@@ -30,6 +32,8 @@ export interface SweepExit {
   kind: ExitKind;
   stopMult: number;
   tpMult: number;
+  /** The `'pine'` kind: the stop role, with no source. */
+  pineStop?: Omit<PineRole, 'source'>;
   config: Partial<BacktestConfig>;
 }
 

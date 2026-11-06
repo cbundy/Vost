@@ -566,3 +566,22 @@ describe('chance baseline', () => {
     expect(sawBaseline).toBe(true);
   });
 });
+
+describe('the TradingView indicator stop kind', () => {
+  const stop = { indicatorId: 'st', name: 'Supertrend', inputs: {}, role: 'stop' as const, mode: 'at-entry' as const, rule: { type: 'level' as const, plot: 'Supertrend' } };
+  it('is refused without a valid stop role, or with a non-stop role, before anything loads', async () => {
+    const load = vi.fn<SweepLoad>(async () => long);
+    const exits = { stopMults: [1], tpMults: [1], kinds: ['pine' as const] };
+    await expect(runSweep({ ...base, exits }, load)).rejects.toThrow(/TradingView indicator stop/);
+    await expect(runSweep({ ...base, exits: { ...exits, pineStop: { ...stop, role: 'filter' } as never } }, load)).rejects.toThrow(/TradingView indicator stop/);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('a stop without the kind is ignored, and a plain family search counts no indicator exits', async () => {
+    const a = await runSweep({ ...base, markets: [A] }, fixed({ AAA: long }));
+    const b = await runSweep({ ...base, markets: [A], exits: { ...base.exits, pineStop: stop } }, fixed({ AAA: long }));
+    expect(b).toEqual(a);
+    const withKind = { ...base, exits: { ...base.exits, kinds: ['range' as const, 'pine' as const], pineStop: stop } };
+    expect(sweepCombos(withKind)).toBe(sweepCombos(base));
+  });
+});

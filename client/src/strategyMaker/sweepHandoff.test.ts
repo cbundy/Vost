@@ -96,6 +96,19 @@ describe('sweepHandoff', () => {
     expect(sweepHandoff(old, risk)).toMatchObject({ stopLossPct: 2.123456789, takeProfitPct: 4.246913578 });
   });
 
+  it('adds the TradingView indicator stop to the roles with the R target, and survives the address', () => {
+    const stop = { indicatorId: 'st', name: 'Supertrend', inputs: { Factor: 3 }, role: 'stop' as const, mode: 'trailing' as const, rule: { type: 'level' as const, plot: 'Supertrend' } };
+    const [exit] = exitsOf(2, { stopMults: [1], tpMults: [2], kinds: ['pine'], pineStop: stop });
+    const filter = { indicatorId: 'f', name: 'F', inputs: {}, role: 'filter' as const, label: 'trend' as const, rule: { type: 'above' as const, a: { kind: 'close' as const }, b: { kind: 'close' as const } } };
+    for (const roles of [undefined, [filter]]) {
+      const c: SweepCandidate = { ...candidate({ entryRule: 2, direction: 1 }), strategyId: 'composed', exit, stopLossPct: null, takeProfitPct: null, ...(roles && { pineRoles: roles }) };
+      const h = sweepHandoff(c, risk);
+      expect(h.pineRoles).toEqual([...(roles ?? []), stop]);
+      expect(h).toMatchObject({ stopLossPct: null, takeProfitPct: null, takeProfitMode: 'r', takeProfitR: 2 });
+      expect(parseHandoff(encodeHandoff(h))).toEqual(h);
+    }
+  });
+
   describe('with TradingView indicators', () => {
     const SMA_CROSS = '//@version=6\nindicator("Two SMAs", overlay=true)\nfast = input.int(10, "Fast")\nslow = input.int(50, "Slow")\nplot(ta.sma(close, fast), "fast")\nplot(ta.sma(close, slow), "slow")\n';
     const roleOf = (): SweepCandidate['pineRoles'] => [

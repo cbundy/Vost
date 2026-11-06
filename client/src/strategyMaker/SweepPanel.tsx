@@ -5,7 +5,7 @@ import { fetchMarketLists } from './marketLists';
 import { withPineSources } from './pineSources';
 import { MAX_PINE_RUNS } from './sweep/pineSpace';
 import { MAX_SWEEP_COMBOS } from './sweep/sweep';
-import { SweepPineRoles } from './SweepPineRoles';
+import { SweepPineRoles, SweepPineStop } from './SweepPineRoles';
 import { SweepResults } from './SweepResults';
 import {
   BEAT_BUY_HOLD_OPTIONS,
@@ -287,6 +287,7 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
               {o.label}
             </label>
           ))}
+          {form.exitKinds.includes('pine') && <SweepPineStop stop={form.pineStop} onChange={(v) => set('pineStop', v)} disabled={running} />}
         </fieldset>
         <fieldset disabled={running}>
           <legend>Stop (times the typical bar range or the ATR)</legend>
@@ -312,7 +313,7 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
         {form.timeframes.length === 1 ? '' : 's'} = {count(plan.combos)} combinations
         {form.baseline ? ' (twice: the shuffled copies are searched too)' : ''}
         {plan.combos > MAX_SWEEP_COMBOS ? ` (over the limit of ${count(MAX_SWEEP_COMBOS)})` : ''}
-        {form.composedOn && form.composedPine.length > 0 && (
+        {((form.composedOn && form.composedPine.length > 0) || (form.composedOn && form.exitKinds.includes('pine') && form.pineStop)) && (
           <>
             ; {count(plan.pineRuns)} TradingView script run{plan.pineRuns === 1 ? '' : 's'}
             {plan.pineRuns > MAX_PINE_RUNS ? ` (over the limit of ${count(MAX_PINE_RUNS)})` : ` (limit ${count(MAX_PINE_RUNS)})`}

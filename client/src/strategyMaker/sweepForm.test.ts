@@ -4,7 +4,7 @@ import { DEFAULT_SWEEP_INPUT, MAX_SWEEP_COMBOS } from './sweep/sweep';
 import { composedCount } from './sweep/composedSpace';
 import { sweepCombos } from './sweep/sweep';
 import type { SweepPineRole } from './sweep/types';
-import { defaultSweepForm, marketsOf, planSweep, readSweepForm, SWEEP_FAMILIES, SWEEP_FAMILY_NOTES, SWEEP_TIMEFRAME_NOTES, SWEEP_TIMEFRAMES } from './sweepForm';
+import { defaultSweepForm, EXIT_KIND_OPTIONS, marketsOf, planSweep, readSweepForm, SWEEP_FAMILIES, SWEEP_FAMILY_NOTES, SWEEP_TIMEFRAME_NOTES, SWEEP_TIMEFRAMES } from './sweepForm';
 
 const entry = (symbol: string, provider: 'binance' | 'yahoo' = 'binance'): MarketListEntry => ({ provider, symbol, name: symbol, rank: 1 });
 const list = (id: string, symbols: string[], over: Partial<MarketList> = {}): MarketList => ({
@@ -189,5 +189,37 @@ describe('search form with TradingView indicators', () => {
     expect(plan.blocker).toMatch(/step above 0/);
     expect(Number.isFinite(plan.combos)).toBe(true);
     expect(plan.pineRuns).toBe(0);
+  });
+});
+
+describe('search form: the TradingView indicator stop', () => {
+  const stop = { indicatorId: 'st', name: 'Supertrend', inputs: {}, role: 'stop' as const, mode: 'trailing' as const, rule: { type: 'level' as const, plot: 'Supertrend' } };
+  const composedPicked = (over: Partial<ReturnType<typeof defaultSweepForm>> = {}) => picked({ composedOn: true, composedRules: [2], composedFilters: [], composedTrendTfs: [], ...over });
+
+  it('is offered as an exit kind and starts with no stop picked', () => {
+    expect(defaultSweepForm().pineStop).toBeNull();
+    expect(EXIT_KIND_OPTIONS.map((o) => o.id)).toEqual(['range', 'atr', 'atr_trail', 'pine']);
+  });
+
+  it('blocks Run without a plot picked, and without Composed', () => {
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'] }), lists).blocker).toMatch(/stop with a plot/);
+    expect(planSweep(picked({ exitKinds: ['range', 'pine'], pineStop: stop }), lists).blocker).toMatch(/Composed only/);
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: stop }), lists).blocker).toBeNull();
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: { ...stop, rule: { type: 'level', plot: '' } } }), lists).blocker).toMatch(/stop with a plot/);
+  });
+
+  it('adds the exits and the script runs to the plan, and ignores a stop without the kind', () => {
+    const without = planSweep(composedPicked(), lists);
+    expect(planSweep(composedPicked({ pineStop: stop }), lists)).toMatchObject({ combos: without.combos, pineRuns: 0 });
+    const plan = planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: stop }), lists);
+    expect(plan.combos).toBe(sweepCombos(plan.input));
+    expect(plan.combos).toBeGreaterThan(without.combos);
+    expect(plan.pineRuns).toBe(2 * plan.input.timeframes.length * 2);
+    expect(plan.input.exits.pineStop).toEqual(stop);
+  });
+
+  it('with only this kind, the stop multiples are not needed', () => {
+    expect(planSweep(composedPicked({ exitKinds: ['pine'], pineStop: stop, stopMults: [] }), lists).blocker).toBeNull();
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: stop, stopMults: [] }), lists).blocker).toMatch(/stop and one take-profit/);
   });
 });

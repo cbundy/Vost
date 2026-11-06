@@ -5,7 +5,7 @@ const RUN_LIMIT_MS = 60_000;
 export const strategySearch: Scenario = {
   name: 'strategy-search',
   description:
-    'Strategy maker "Search markets" panel (/strategy-maker): the lists and defaults, the combination count, an over-budget choice refused, a run in progress (the page wraps the Worker, test side only, to hold back the final result message so the bar can be caught), Cancel back to idle, the ATR stop and ATR trailing stop exit kinds that triple the count, the Composed fieldsets (entry rules, filters, trend timeframes) with the larger count, the Beat buy and hold choice, the study notes on 1m to 30m, RSI reversion and Bollinger, a finished run on the Indices list with a held row, a closest-found row and a skipped market, a finished small Composed run with the chance baseline on (the header line and the Buy & hold column), a stored TradingView indicator added as a Composed entry rule with a range on its ATR length (the TradingView indicators section, the script-run count, the script-run limit refusing a larger range, a results row naming the indicator and its input, and the main app opened from it with the indicator named), and the main app opened from Open in Backtest on that result\'s market and timeframe with the risk per trade set',
+    'Strategy maker "Search markets" panel (/strategy-maker): the lists and defaults, the combination count, an over-budget choice refused, a run in progress (the page wraps the Worker, test side only, to hold back the final result message so the bar can be caught), Cancel back to idle, the ATR stop and ATR trailing stop exit kinds that triple the count, the Composed fieldsets (entry rules, filters, trend timeframes) with the larger count, the Beat buy and hold choice, the study notes on 1m to 30m, RSI reversion and Bollinger, a finished run on the Indices list with a held row, a closest-found row and a skipped market, a finished small Composed run with the chance baseline on (the header line and the Buy & hold column), a stored TradingView indicator added as a Composed entry rule with a range on its ATR length (the TradingView indicators section, the script-run count, the script-run limit refusing a larger range, a results row naming the indicator and its input, and the main app opened from it with the indicator named), the TradingView indicator stop exit kind picked as a trailing stop with its count and a result line naming it, and the main app opened from Open in Backtest on that result\'s market and timeframe with the risk per trade set',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -316,6 +316,31 @@ export const strategySearch: Scenario = {
     await panel.locator('.sm-table-wrap').evaluate((el) => (el.scrollLeft = 0));
     await panel.getByRole('region', { name: 'Search results' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await ctx.screenshot('pine-results');
+    await ctx.step('the indicator stop kind: Supertrend as a trailing stop on every Composed setting, with a result line naming it', async () => {
+      const kinds = panel.getByRole('group', { name: 'Exit kinds' });
+      await kinds.getByLabel('TradingView indicator stop').check();
+      // Only this kind, so every Composed row on the page is one of its exits.
+      await kinds.getByLabel('Stop sized by the typical bar range').uncheck();
+      const stopBox = kinds.getByRole('group', { name: 'TradingView indicator stop' });
+      await stopBox.getByRole('button', { name: 'Use as the stop' }).click();
+      await stopBox.getByLabel('Stop mode').selectOption('trailing');
+      await stopBox.getByRole('group', { name: 'Input Factor' }).getByLabel('Value').fill('0.3');
+      await stopBox.getByLabel('Plot').selectOption('Supertrend');
+      await panel.getByLabel('Min hit rate').nth(0).fill('30');
+      const after = (await count.innerText()).replace(/\s+/g, ' ');
+      await ctx.writeText('pine-stop-count', after + '\n');
+      if (await run.isDisabled()) throw new Error('Run is off with the indicator stop picked');
+      await kinds.scrollIntoViewIfNeeded();
+      await ctx.screenshot('pine-stop-section');
+      await run.click();
+      await panel.getByText(/^Tried \d+ combinations/).waitFor({ timeout: RUN_LIMIT_MS });
+      const line = panel.getByText(/trailing stop at Supertrend Supertrend, take profit [\d.]+R/).first();
+      await line.waitFor({ timeout: RUN_LIMIT_MS });
+      // The fake candles give these stops no wins, so the exit shows on the closest-found lines, worded as `exitWords` words it.
+      await ctx.writeText('pine-stop-results', (await line.innerText()) + '\n');
+      await line.scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('pine-stop-results');
     await ctx.step('the main app opens on that row with the indicator named, fetching its source itself', async () => {
       await page.goto('about:blank');
       await page.goto(openedPine);

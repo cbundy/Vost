@@ -1,6 +1,6 @@
 /** The "TradingView indicators" fieldset of the market search: stored indicators as Composed entry rules or filters, with ranges on their number inputs. */
 import { useEffect, useRef, useState } from 'react';
-import { MAX_FILTER_ROLES } from '../lib/backtest/pineRole';
+import { MAX_FILTER_ROLES, type PineRole } from '../lib/backtest/pineRole';
 import { convertToV6 } from '../lib/pine/convert';
 import { runPine } from '../lib/pine/runtime';
 import type { PineInput, PineInputValue, PinePlot } from '../lib/pine/types';
@@ -78,7 +78,7 @@ function NumberCell({ label, value, onChange, disabled }: { label: string; value
   );
 }
 
-function InputRow({ input, p, onChange, disabled }: { input: PineInput; p: SweepPineRole; onChange: (p: SweepPineRole) => void; disabled: boolean }) {
+function InputRow({ input, p, onChange, disabled, fixedOnly }: { input: PineInput; p: SweepPineRole; onChange: (p: SweepPineRole) => void; disabled: boolean; fixedOnly?: boolean }) {
   const range = p.ranges.find((r) => r.input === input.name);
   const value = p.role.inputs[input.name] ?? input.defval;
   const setValue = (v: PineInputValue) => {
@@ -109,9 +109,11 @@ function InputRow({ input, p, onChange, disabled }: { input: PineInput; p: Sweep
         ) : (
           <>
             <NumberCell label="Value" value={numberOr(value, 0)} disabled={disabled} onChange={setValue} />
-            <button type="button" className="ghost" disabled={disabled} onClick={() => setRange(firstRange(input, numberOr(value, 0)))}>
-              Search a range
-            </button>
+            {!fixedOnly && (
+              <button type="button" className="ghost" disabled={disabled} onClick={() => setRange(firstRange(input, numberOr(value, 0)))}>
+                Search a range
+              </button>
+            )}
           </>
         )}
       </div>
@@ -238,5 +240,90 @@ export function SweepPineRoles({ pine, onChange, disabled }: { pine: SweepPineRo
         </div>
       )}
     </fieldset>
+  );
+}
+
+/**
+ * The picker of the TradingView indicator stop: one stored indicator, its line plot, at entry or trailing, and its fixed
+ * inputs. The search tries the plot as the stop of every Composed setting with each take profit multiple.
+ */
+export function SweepPineStop({ stop, onChange, disabled }: { stop: Omit<PineRole, 'source'> | null; onChange: (stop: Omit<PineRole, 'source'> | null) => void; disabled: boolean }) {
+  const [stored, setStored] = useState<StoredIndicator[] | null>(null);
+  const [pick, setPick] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchStoredIndicators(ctl.signal).then(
+      (list) => setStored(list),
+      () => !ctl.signal.aborted && setStored([]),
+    );
+    return () => ctl.abort();
+  }, []);
+  const probe = useProbe(stop?.indicatorId ?? '', stop?.inputs ?? {});
+  const chosen = stored?.find((s) => s.scriptId === (pick || stored[0]?.scriptId));
+  const choose = async () => {
+    if (!chosen) return;
+    setError('');
+    const first = await probeIndicator(chosen.scriptId, {});
+    if (first.state === 'error') return setError(`${chosen.name}: ${first.message}`);
+    const rule = defaultRule('stop', first.plots);
+    if ('error' in rule) return setError(`${chosen.name}: ${rule.error}`);
+    onChange({ indicatorId: chosen.scriptId, name: chosen.name, inputs: {}, role: 'stop', mode: 'at-entry', rule: rule.rule });
+  };
+  const asRole: SweepPineRole | null = stop ? { role: stop, ranges: [] } : null;
+  return (
+    <div className="sm-pine" role="group" aria-label="TradingView indicator stop">
+      <span className="sm-note">
+        The stop sits at one plot of a stored indicator, fixed at the entry bar or trailing it. It is tried on Composed settings only, with each take profit
+        multiple below as a multiple of the stop distance.
+      </span>
+      {stored !== null && stored.length === 0 && <span className="sm-note">No TradingView indicators are stored. Add one from the Pine pane in Vost (TradingView indicators).</span>}
+      {stop && asRole && (
+        <div className="sm-pine-role">
+          <div className="sm-pine-head">
+            <strong>{stop.name}</strong>
+            <span className="sm-badge">stop</span>
+            <button type="button" className="ghost" disabled={disabled} onClick={() => onChange(null)}>
+              Remove
+            </button>
+          </div>
+          {probe.state === 'loading' && <span className="sm-note">Reading the indicator...</span>}
+          {probe.state === 'error' && (
+            <p className="sm-field-error" role="alert">
+              {probe.message}
+            </p>
+          )}
+          <div className="sm-pine-grid">
+            <RuleFields role={stop} plots={probe.plots} onChange={(role) => onChange(role)} />
+          </div>
+          {probe.inputs.length > 0 && (
+            <div className="sm-pine-inputs">
+              {probe.inputs.map((i) => (
+                <InputRow key={i.name} input={i} p={asRole} fixedOnly onChange={(next) => onChange(next.role)} disabled={disabled} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {error && (
+        <p className="sm-field-error" role="alert">
+          {error}
+        </p>
+      )}
+      {!stop && stored !== null && stored.length > 0 && (
+        <div className="sm-pine-add">
+          <select aria-label="TradingView indicator for the stop" value={chosen?.scriptId ?? ''} onChange={(e) => setPick(e.target.value)}>
+            {stored.map((s) => (
+              <option key={s.scriptId} value={s.scriptId}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => void choose()}>
+            Use as the stop
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

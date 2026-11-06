@@ -5,7 +5,8 @@ import type { SearchDirection } from './engine/types';
 import { num } from './form';
 import { DEFAULT_SWEEP_INPUT, MAX_SWEEP_COMBOS, sweepCombos } from './sweep/sweep';
 import { COMPOSED_ENTRY_RULES, COMPOSED_FILTERS, COMPOSED_TREND_TFS, type ComposedFilter } from './sweep/composedSpace';
-import { checkPine, MAX_PINE_RUNS, pineEntries, pineRunCount } from './sweep/pineSpace';
+import { checkPine, checkPineStop, MAX_PINE_RUNS, pineEntries, pineRunCount, pineStopOn } from './sweep/pineSpace';
+import type { PineRole } from '../lib/backtest/pineRole';
 import type { BeatBuyHold, ExitKind, SweepInput, SweepMarket, SweepPineRole, TargetSet } from './sweep/types';
 
 /** Timeframes both the Binance and the Yahoo provider serve. */
@@ -62,6 +63,7 @@ export const EXIT_KIND_OPTIONS: Array<{ id: ExitKind; label: string }> = [
   { id: 'range', label: 'Stop sized by the typical bar range' },
   { id: 'atr', label: 'ATR stop' },
   { id: 'atr_trail', label: 'ATR trailing stop' },
+  { id: 'pine', label: 'TradingView indicator stop' },
 ];
 /** Rows of "hit rate / R:R" targets the form shows. */
 export const TARGET_ROWS = 2;
@@ -85,6 +87,8 @@ export interface SweepForm {
   stopMults: number[];
   tpMults: number[];
   exitKinds: ExitKind[];
+  /** The stop of the TradingView indicator exit kind: a stored indicator's line plot, when picked. */
+  pineStop: Omit<PineRole, 'source'> | null;
   /** Composed (entry + filters) on, and its picks. */
   composedOn: boolean;
   composedRules: number[];
@@ -112,6 +116,7 @@ export function defaultSweepForm(): SweepForm {
     stopMults: [...d.exits.stopMults],
     tpMults: [...d.exits.tpMults],
     exitKinds: [...(d.exits.kinds ?? ['range'])],
+    pineStop: null,
     composedOn: false,
     composedRules: [2],
     composedFilters: ['trend'],
@@ -155,7 +160,7 @@ export function readSweepForm(f: SweepForm): { input: Omit<SweepInput, 'markets'
       direction: f.direction,
       targetSets,
       risk: { initialCapital, riskPct, feeBps, slippageBps },
-      exits: { stopMults: f.stopMults, tpMults: f.tpMults, kinds: f.exitKinds },
+      exits: { stopMults: f.stopMults, tpMults: f.tpMults, kinds: f.exitKinds, ...(f.exitKinds.includes('pine') && f.pineStop ? { pineStop: f.pineStop } : {}) },
       ...(f.composedOn
         ? {
             composed: {
@@ -207,10 +212,19 @@ export const sweepBlocker = (errors: SweepErrors, f: SweepForm, markets: SweepMa
   if (f.families.length === 0 && !f.composedOn) return 'Pick at least one indicator family.';
   if (input.targetSets.length === 0) return 'Give at least one target row.';
   if (f.exitKinds.length === 0) return 'Pick at least one exit kind.';
-  if (f.stopMults.length === 0 || f.tpMults.length === 0) return 'Pick at least one stop and one take-profit multiple.';
-  if (input.composed?.pine?.length) {
+  const onlyPine = f.exitKinds.every((k) => k === 'pine');
+  if (f.tpMults.length === 0 || (f.stopMults.length === 0 && !onlyPine)) return onlyPine ? 'Pick at least one take-profit multiple.' : 'Pick at least one stop and one take-profit multiple.';
+  if (f.exitKinds.includes('pine')) {
     try {
-      checkPine(input.composed);
+      checkPineStop(input.exits);
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+    if (!f.composedOn) return 'The TradingView indicator stop is tried on Composed only. Turn Composed on, or leave this exit kind off.';
+  }
+  if (input.composed?.pine?.length || pineStopOn(input.exits)) {
+    try {
+      if (input.composed?.pine?.length) checkPine(input.composed);
     } catch (e) {
       return e instanceof Error ? e.message : String(e);
     }

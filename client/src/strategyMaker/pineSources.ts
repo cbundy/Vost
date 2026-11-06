@@ -1,4 +1,5 @@
 /** Fetching the stored TradingView indicators the market search can use, and attaching their sources to a request. */
+import { pineStopOn } from './sweep/pineSpace';
 import type { SweepInput } from './sweep/types';
 
 export interface StoredIndicator {
@@ -24,12 +25,13 @@ export async function fetchIndicatorSource(id: string, signal?: AbortSignal): Pr
 
 /**
  * The input with each picked indicator's source attached, fetched now and never saved. An indicator that is gone is left
- * without a source, so the run skips each market naming it. Nothing is fetched when no indicator is picked.
+ * without a source, so the run skips each market naming it. The stop of the TradingView indicator exit is fetched too, with or without other indicators. Nothing is fetched when no indicator is picked.
  */
 export async function withPineSources(input: SweepInput, signal?: AbortSignal): Promise<SweepInput> {
-  const pine = input.composed?.pine;
-  if (!input.composed || !pine?.length) return input;
-  const ids = [...new Set(pine.map((p) => p.role.indicatorId))];
+  const pine = input.composed?.pine ?? [];
+  const stopId = pineStopOn(input.exits) ? input.exits.pineStop.indicatorId : null;
+  if (!input.composed || (!pine.length && stopId === null)) return input;
+  const ids = [...new Set([...pine.map((p) => p.role.indicatorId), ...(stopId === null ? [] : [stopId])])];
   const sources: Record<string, string> = {};
   await Promise.all(
     ids.map(async (id) => {

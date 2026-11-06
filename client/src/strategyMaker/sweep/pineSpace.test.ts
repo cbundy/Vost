@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkPine, inputSettingCount, inputSettingsOf, MAX_PINE_RUNS, pineRunCount, rolesOfPine, runKeyOf } from './pineSpace';
+import { checkPine, checkPineStop, inputSettingCount, inputSettingsOf, MAX_PINE_RUNS, pineRunCount, rolesOfPine, runKeyOf } from './pineSpace';
 import type { SweepComposed, SweepInput, SweepPineRole } from './types';
 
 const cross = { type: 'cross', a: { kind: 'close' }, b: { kind: 'plot', plot: 'EMA' } } as const;
@@ -126,5 +126,40 @@ describe('pineRunCount', () => {
   it('keys a run by indicator and inputs, whatever the order', () => {
     expect(runKeyOf({ indicatorId: 'a', inputs: { x: 1, y: 2 } })).toBe(runKeyOf({ indicatorId: 'a', inputs: { y: 2, x: 1 } }));
     expect(runKeyOf({ indicatorId: 'a', inputs: { x: 1 } })).not.toBe(runKeyOf({ indicatorId: 'b', inputs: { x: 1 } }));
+  });
+});
+
+describe('the TradingView indicator stop', () => {
+  const stopRole = (over: object = {}) => ({ indicatorId: 'ema', name: 'My EMA', inputs: {}, role: 'stop' as const, mode: 'at-entry' as const, rule: { type: 'level' as const, plot: 'EMA' }, ...over });
+  const withStop = (c: SweepComposed, stop = stopRole()): SweepInput => input(c, { exits: { stopMults: [1], tpMults: [1], kinds: ['range', 'pine'], pineStop: stop } });
+
+  it('counts once, even when composed.pine is empty', () => {
+    const c = { entryRules: [2], filters: [], trendTfs: [] };
+    expect(pineRunCount(input(c))).toBe(0);
+    expect(pineRunCount(withStop(c))).toBe(2 * 2 * 1 * 2);
+    expect(pineRunCount(withStop({ ...c, pine: [] }))).toBe(8);
+  });
+
+  it('is deduplicated against a role of the same indicator and inputs, and counted beside another', () => {
+    const c = composed([filter()], { entryRules: [2] });
+    expect(pineRunCount(input(c))).toBe(8);
+    expect(pineRunCount(withStop(c))).toBe(8);
+    expect(pineRunCount(withStop(c, stopRole({ inputs: { Length: 5 } })))).toBe(16);
+    expect(pineRunCount(withStop(c, stopRole({ indicatorId: 'other' })))).toBe(16);
+  });
+
+  it('counts none when no Composed setting is built, or without the kind', () => {
+    expect(pineRunCount(withStop({ entryRules: [], filters: [], trendTfs: [] }))).toBe(0);
+    const c = { entryRules: [2], filters: [], trendTfs: [] };
+    expect(pineRunCount(input(c, { exits: { stopMults: [1], tpMults: [1], pineStop: stopRole() } }))).toBe(0);
+  });
+
+  it('is refused unless the kind comes with a stop role that has a plot', () => {
+    const g = { stopMults: [1], tpMults: [1], kinds: ['pine' as const] };
+    expect(() => checkPineStop(g)).toThrow(/stop with a plot/);
+    expect(() => checkPineStop({ ...g, pineStop: stopRole({ role: 'filter' }) as never })).toThrow(/stop with a plot/);
+    expect(() => checkPineStop({ ...g, pineStop: stopRole({ rule: { type: 'level', plot: '' } }) })).toThrow(/stop with a plot/);
+    expect(() => checkPineStop({ ...g, pineStop: stopRole() })).not.toThrow();
+    expect(() => checkPineStop({ stopMults: [1], tpMults: [1], kinds: ['range'] })).not.toThrow();
   });
 });

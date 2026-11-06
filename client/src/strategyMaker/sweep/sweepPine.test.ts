@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Candle } from '../../types';
 import { synth } from '../engine/synthetic';
+import { runAnyBacktest } from '../../lib/backtest/runner';
+import { SELECTION_PCT } from '../engine/search';
+import { parseHandoff, encodeHandoff } from '../../lib/backtestHandoff';
+import { sweepHandoff } from '../sweepHandoff';
+import { sweepCombos, sweepConfig } from './sweep';
+import type { PineRole } from '../../lib/backtest/pineRole';
 import { MAX_PINE_RUNS } from './pineSpace';
 import { runSweep } from './sweep';
 import type { SweepCandidate, SweepComposed, SweepInput, SweepLoad, SweepMarket, SweepPineRole } from './types';
@@ -176,5 +182,111 @@ describe('market search with TradingView indicators', () => {
     expect(b).toEqual(a);
     expect(JSON.stringify(a)).not.toContain('pineRoles');
     expect(runs.calls.length).toBeGreaterThan(0); // earlier tests ran the script; these two did not add a run
+  }, 120_000);
+});
+
+const CHANNEL = `//@version=6
+indicator("Channel", overlay=true)
+len = input.int(10, "Length")
+plot(ta.lowest(low, len), "Low line")
+`;
+const BAD_STOP = `//@version=6
+indicator("Channel", overlay=true)
+len = input.int(10, "Length")
+if syminfo.ticker == "BBB"
+    runtime.error("no channel here")
+plot(ta.lowest(low, len), "Low line")
+`;
+const Y: SweepMarket = { provider: 'yahoo', symbol: 'AAA' };
+const stop = (mode: 'at-entry' | 'trailing', over: Partial<Omit<PineRole, 'source'>> = {}): Omit<PineRole, 'source'> => ({
+  indicatorId: 'chan', name: 'Channel', inputs: { Length: 10 }, role: 'stop', mode, rule: { type: 'level', plot: 'Low line' }, ...over,
+});
+const stopInput = (mode: 'at-entry' | 'trailing', over: Partial<SweepInput> = {}, sources: Record<string, string> = { chan: CHANNEL }): SweepInput =>
+  input({ entryRules: [2], filters: [], trendTfs: [], pineSources: sources }, { markets: [Y], exits: { stopMults: [1], tpMults: [1, 2], kinds: ['range', 'pine'], pineStop: stop(mode) }, ...over });
+
+describe('market search with a TradingView indicator stop', () => {
+  for (const mode of ['at-entry', 'trailing'] as const) {
+    it(`${mode}: tries the plot as the stop of Composed settings only, counts exactly, and a row's hand-off takes the same trades`, async () => {
+      runs.calls.length = 0;
+      const plain = { ...stopInput(mode), families: ['sma_cross'] };
+      const out = await runSweep(plain, fixed({ AAA: data }));
+      // Plain settings take the range exits only; Composed settings add the indicator exits.
+      expect(out.tried).toBe(sweepCombos(plain));
+      expect(out.skipped).toEqual([]);
+      const rows = [...out.candidates, ...out.closest];
+      expect(rows.some((c) => c.exit?.kind === 'pine')).toBe(true);
+      expect(rows.filter((c) => c.exit?.kind === 'pine').every((c) => c.strategyId === 'composed')).toBe(true);
+      expect(rows.some((c) => c.strategyId === 'sma_cross')).toBe(true);
+      // One script run per part, however many settings and exits read it.
+      expect(runs.calls).toHaveLength(2);
+
+      const cut = Math.floor((data.length * SELECTION_PCT) / 100);
+      const risk = plain.risk;
+      const pineRows = out.candidates.filter((c) => c.exit?.kind === 'pine');
+      expect(pineRows.length).toBeGreaterThan(0);
+      for (const c of pineRows.slice(0, 3)) {
+        expect(c.exit!.config).toMatchObject({ stopLossPct: null, takeProfitPct: null, takeProfitMode: 'r', takeProfitR: c.exit!.tpMult });
+        const h = parseHandoff(encodeHandoff(sweepHandoff(c, risk)))!;
+        expect(h.pineRoles!.filter((r) => r.role === 'stop')).toEqual([stop(mode)]);
+        const filled = {
+          ...sweepConfig(risk, 'x', {}, c.exit!), strategyId: h.strategyId, params: h.params, feeBps: h.feeBps, slippageBps: h.slippageBps, stopLossPct: h.stopLossPct,
+          takeProfitPct: h.takeProfitPct, allowShort: h.allowShort, initialCapital: h.initialCapital, positionSizePct: h.positionSizePct, riskPct: h.riskPct,
+          takeProfitMode: h.takeProfitMode, takeProfitR: h.takeProfitR,
+          pineRoles: h.pineRoles!.map((r) => ({ ...r, source: CHANNEL })),
+          market: { providerId: h.providerId!, symbol: h.symbol!, interval: h.timeframe },
+        };
+        const sel = await runAnyBacktest(data.slice(0, cut), filled as never);
+        const hold = await runAnyBacktest(data.slice(cut), filled as never);
+        expect(sel.trades.length).toBe(c.selection.trades);
+        expect(sel.equity[sel.equity.length - 1].equity).toBe(c.selection.finalEquity);
+        expect(hold.trades.length).toBe(c.heldOut.trades);
+        expect(hold.equity[hold.equity.length - 1].equity).toBe(c.heldOut.finalEquity);
+        expect(c.selection.trades).toBeGreaterThan(0);
+      }
+    }, 120_000);
+  }
+
+  it('the stop plot changes the trades: a trailing stop and a fixed one differ', async () => {
+    const a = await runSweep(stopInput('at-entry'), fixed({ AAA: data }));
+    const b = await runSweep(stopInput('trailing'), fixed({ AAA: data }));
+    const key = (o: typeof a) => JSON.stringify(o.candidates.filter((c) => c.exit?.kind === 'pine').map((c) => c.selection.finalEquity));
+    expect(key(a)).not.toBe(key(b));
+  }, 120_000);
+
+  it('works with built-in Composed rules only, and shares the run with a role of the same indicator and inputs', async () => {
+    runs.calls.length = 0;
+    const same: SweepComposed = { entryRules: [2], filters: [], trendTfs: [], pine: [{ role: { ...stop('at-entry'), role: 'filter', label: 'trend', rule: { type: 'above', a: { kind: 'close' }, b: { kind: 'plot', plot: 'Low line' } }, mode: undefined }, ranges: [] }], pineSources: { chan: CHANNEL } };
+    const out = await runSweep({ ...stopInput('at-entry'), composed: same }, fixed({ AAA: data }));
+    expect(out.skipped).toEqual([]);
+    expect(runs.calls).toHaveLength(2);
+  }, 120_000);
+
+  it('a stop script that fails skips that market, naming the indicator, and the other market goes on', async () => {
+    const i = stopInput('at-entry', { markets: [A, B] }, { chan: BAD_STOP });
+    const out = await runSweep(i, fixed({ AAA: data, BBB: data }));
+    expect(out.skipped).toHaveLength(1);
+    expect(out.skipped[0].market).toEqual(B);
+    expect(out.skipped[0].reason).toContain('Channel');
+    expect(out.skipped[0].reason).toContain('no channel here');
+    expect(out.tried).toBe(sweepCombos(i));
+  }, 120_000);
+
+  it('a missing source skips the market, and a plain-family search counts no indicator exits', async () => {
+    const out = await runSweep(stopInput('at-entry'), fixed({ AAA: data }));
+    expect(out.skipped).toEqual([]);
+    const gone = await runSweep(stopInput('at-entry', {}, {}), fixed({ AAA: data }));
+    expect(gone.skipped[0].reason).toContain('no longer stored');
+    const plainOnly: SweepInput = { ...stopInput('at-entry'), composed: undefined, families: ['sma_cross'] };
+    const p = await runSweep(plainOnly, fixed({ AAA: data }));
+    expect(p.tried).toBe(sweepCombos(plainOnly));
+    expect([...p.candidates, ...p.closest].some((c) => c.exit?.kind === 'pine')).toBe(false);
+  }, 120_000);
+
+  it('with the baseline the shuffled copy runs the stop too and the counts add up', async () => {
+    const i = stopInput('at-entry', { baseline: true });
+    const out = await runSweep(i, fixed({ AAA: data }));
+    expect(out.tried).toBe(sweepCombos(i));
+    expect(out.baseline?.series).toBe(1);
+    expect(out.baseline!.tried).toBe(sweepCombos(i) / 2);
   }, 120_000);
 });

@@ -2,9 +2,10 @@
 import type { Candle } from '../../types';
 import { DEFAULT_ATR_LENGTH } from '../../lib/backtest/exits';
 import type { BacktestConfig } from '../../lib/backtest/types';
+import { pineStopOn, runKeyOf } from './pineSpace';
 import type { ExitGrid, ExitKind, SweepCandidate, SweepExit } from './types';
 
-export const EXIT_KINDS: readonly ExitKind[] = ['range', 'atr', 'atr_trail'];
+export const EXIT_KINDS: readonly ExitKind[] = ['range', 'atr', 'atr_trail', 'pine'];
 
 export const DEFAULT_EXITS: ExitGrid = { stopMults: [1, 2, 4], tpMults: [1, 1.5, 2, 3, 4, 5], kinds: ['range'] };
 
@@ -15,7 +16,14 @@ export function kindsOf(g: ExitGrid): ExitKind[] {
   return out.length ? out : ['range'];
 }
 
-export const exitCount = (g: ExitGrid): number => kindsOf(g).length * g.stopMults.length * g.tpMults.length;
+const sizedKinds = (g: ExitGrid): ExitKind[] => kindsOf(g).filter((k) => k !== 'pine');
+
+/** How many exits a setting tries: the plain families skip the TradingView indicator stop, which only Composed settings take. */
+export const exitCount = (g: ExitGrid, composed = false): number =>
+  sizedKinds(g).length * g.stopMults.length * g.tpMults.length + (composed && pineStopOn(g) ? g.tpMults.length : 0);
+
+/** The exits a setting tries out of `exitsOf`: all of them for a Composed setting, the others for a plain one. */
+export const exitsFor = (exits: SweepExit[], composed: boolean): SweepExit[] => (composed ? exits : exits.filter((x) => x.kind !== 'pine'));
 
 /** The median of (high - low) / close over the candles, in percent. 0 without candles. */
 export function typicalRangePct(candles: Candle[]): number {
@@ -26,10 +34,10 @@ export function typicalRangePct(candles: Candle[]): number {
   return r.length % 2 ? r[m] : (r[m - 1] + r[m]) / 2;
 }
 
-/** Every exit the grid asks for: kinds outermost (range, ATR, trailing), then stop, then take profit. */
+/** Every exit the grid asks for: kinds outermost (range, ATR, trailing), then stop, then take profit; the TradingView indicator stop last. */
 export function exitsOf(range: number, g: ExitGrid): SweepExit[] {
   const out: SweepExit[] = [];
-  for (const kind of kindsOf(g)) {
+  for (const kind of sizedKinds(g)) {
     for (const s of g.stopMults) {
       for (const t of g.tpMults) {
         const config: Partial<BacktestConfig> =
@@ -40,6 +48,11 @@ export function exitsOf(range: number, g: ExitGrid): SweepExit[] {
               : { stopLossPct: null, takeProfitPct: null, trailMode: 'atr', trailAtrMult: s, takeProfitMode: 'r', takeProfitR: t, atrLength: DEFAULT_ATR_LENGTH };
         out.push({ kind, stopMult: s, tpMult: t, config });
       }
+    }
+  }
+  if (pineStopOn(g)) {
+    for (const t of g.tpMults) {
+      out.push({ kind: 'pine', stopMult: 0, tpMult: t, pineStop: g.pineStop, config: { stopLossPct: null, takeProfitPct: null, takeProfitMode: 'r', takeProfitR: t } });
     }
   }
   return out;
@@ -63,20 +76,28 @@ export function exitOfCandidate(c: Pick<SweepCandidate, 'exit' | 'stopLossPct' |
 const num = (n: number): string => String(Number(n.toFixed(4)));
 const pct2 = (n: number | null | undefined): string => `${(n ?? 0).toFixed(2)}%`;
 
-/** The exit in words: `stop 2.10%, take profit 4.20%`, `stop 2 ATR, take profit 3R`, `trailing stop 2 ATR, take profit 3R`. */
+/** The indicator and plot of a TradingView indicator stop: `Supertrend Supertrend line`. */
+const plotName = (x: SweepExit): string => `${x.pineStop?.name ?? ''} ${x.pineStop?.rule.type === 'level' ? x.pineStop.rule.plot : ''}`.trim();
+
+/** The exit in words: `stop 2.10%, take profit 4.20%`, `stop 2 ATR, take profit 3R`, `trailing stop 2 ATR, take profit 3R`, `stop at Supertrend Supertrend line, take profit 3R`. */
 export function exitWords(x: SweepExit): string {
   if (x.kind === 'range') return `stop ${pct2(x.config.stopLossPct)}, take profit ${pct2(x.config.takeProfitPct)}`;
+  if (x.kind === 'pine') return `${x.pineStop?.mode === 'trailing' ? 'trailing stop' : 'stop'} at ${plotName(x)}, take profit ${num(x.tpMult)}R`;
   return `${x.kind === 'atr' ? 'stop' : 'trailing stop'} ${num(x.stopMult)} ATR, take profit ${num(x.tpMult)}R`;
 }
 
-/** The exit in a table cell: `2.10% / 4.20%`, `2 ATR / 3R`, `2 ATR trailing / 3R`. */
+/** The exit in a table cell: `2.10% / 4.20%`, `2 ATR / 3R`, `2 ATR trailing / 3R`, `Supertrend Supertrend stop / 3R`. */
 export function exitShort(x: SweepExit): string {
   if (x.kind === 'range') return `${pct2(x.config.stopLossPct)} / ${pct2(x.config.takeProfitPct)}`;
+  if (x.kind === 'pine') return `${plotName(x)} ${x.pineStop?.mode === 'trailing' ? 'trailing' : 'stop'} / ${num(x.tpMult)}R`;
   return `${num(x.stopMult)} ATR${x.kind === 'atr_trail' ? ' trailing' : ''} / ${num(x.tpMult)}R`;
 }
 
-/** A sort value that orders by kind (range, ATR, trailing), then by stop. */
-export const exitSortValue = (x: SweepExit): number => EXIT_KINDS.indexOf(x.kind) * 1e9 + (x.kind === 'range' ? x.config.stopLossPct ?? 0 : x.stopMult);
+/** A sort value that orders by kind (range, ATR, trailing, TradingView indicator), then by stop (by take profit for the indicator stop). */
+export const exitSortValue = (x: SweepExit): number =>
+  EXIT_KINDS.indexOf(x.kind) * 1e9 + (x.kind === 'range' ? x.config.stopLossPct ?? 0 : x.kind === 'pine' ? x.tpMult : x.stopMult);
 
 /** A key that is unique per exit. */
-export const exitKey = (x: SweepExit): string => `${x.kind}|${x.config.stopLossPct ?? ''}|${x.config.takeProfitPct ?? ''}|${x.stopMult}|${x.tpMult}`;
+export const exitKey = (x: SweepExit): string =>
+  `${x.kind}|${x.config.stopLossPct ?? ''}|${x.config.takeProfitPct ?? ''}|${x.stopMult}|${x.tpMult}` +
+  (x.pineStop ? `|${runKeyOf(x.pineStop)}|${x.pineStop.rule.type === 'level' ? x.pineStop.rule.plot : ''}|${x.pineStop.mode ?? 'at-entry'}` : '');

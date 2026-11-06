@@ -1,4 +1,4 @@
-import { withoutSources } from '../lib/backtest/pineRole';
+import { withoutSources, type PineRole } from '../lib/backtest/pineRole';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { Handoff } from '../lib/backtestHandoff';
 import { exitOfCandidate } from './sweep/exits';
@@ -16,15 +16,18 @@ function handoffExit(x: SweepExit): Pick<Handoff, 'stopLossPct' | 'takeProfitPct
 /** What the main app needs to open a search result on its market and timeframe with the sizing it was tried with (matches `sweepConfig`). */
 export function sweepHandoff(c: SweepCandidate, risk: SweepRisk): Handoff {
   const cfg = defaultBacktestConfig();
+  const exit = exitOfCandidate(c);
+  // A TradingView indicator stop is one more role of the run; its R target comes with the exit's settings.
+  const roles = [...(c.pineRoles ?? []), ...(exit.pineStop ? [exit.pineStop as PineRole] : [])];
   return {
     v: 1,
     strategyId: c.strategyId,
     params: c.params,
     feeBps: risk.feeBps,
     slippageBps: risk.slippageBps,
-    ...handoffExit(exitOfCandidate(c)),
+    ...handoffExit(exit),
     allowShort: (c.params.direction ?? 1) !== 1,
-    ...(c.pineRoles?.length && { pineRoles: withoutSources(c.pineRoles) }),
+    ...(roles.length && { pineRoles: withoutSources(roles) }),
     initialCapital: risk.initialCapital,
     positionSizePct: cfg.positionSizePct,
     riskPct: risk.riskPct,

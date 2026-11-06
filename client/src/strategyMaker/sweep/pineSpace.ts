@@ -4,7 +4,7 @@
  * role's fixed inputs. Counts are worked out without building the settings.
  */
 import { MAX_FILTER_ROLES, parsePineRole, type PineRole } from '../../lib/backtest/pineRole';
-import type { SweepComposed, SweepInput, SweepPineRange, SweepPineRole } from './types';
+import type { ExitGrid, SweepComposed, SweepInput, SweepPineRange, SweepPineRole } from './types';
 
 /** Most script runs one search may need (each distinct indicator and input setting, on each part of each market and timeframe). */
 export const MAX_PINE_RUNS = 2_000;
@@ -90,17 +90,33 @@ export function checkPine(c: SweepComposed): void {
   if (pineFilters(c).length > MAX_FILTER_ROLES) throw new Error(`The search takes at most ${MAX_FILTER_ROLES} TradingView indicator filters.`);
 }
 
+/** Refuses a `'pine'` exit kind without a valid stop role (a stop with a plot). A stop without the kind is ignored. */
+export function checkPineStop(g: ExitGrid): void {
+  if (!(g.kinds ?? []).includes('pine')) return;
+  const role = g.pineStop && typeof g.pineStop === 'object' ? parsePineRole(g.pineStop) : null;
+  if (!role || role.role !== 'stop') throw new Error('The TradingView indicator stop needs a stored indicator stop with a plot picked.');
+}
+
+/** Whether the grid asks for the TradingView indicator stop and names one. */
+export const pineStopOn = (g: ExitGrid): g is ExitGrid & { pineStop: Omit<PineRole, 'source'> } => (g.kinds ?? []).includes('pine') && !!g.pineStop;
+
+/** Whether some setting of Composed is built (an entry rule is picked). */
+const composedBuilt = (c: SweepComposed | undefined): boolean => !!c && (c.entryRules.length > 0 || pineEntries(c).length > 0);
+
 /**
  * Script runs a search needs: markets x timeframes x the distinct (indicator, input setting) pairs x the two parts, twice
- * with the baseline. An indicator used as an entry and as a filter with the same inputs counts once. Zero when Composed has
+ * with the baseline. An indicator used as an entry and as a filter with the same inputs counts once. The stop of the TradingView
+ * indicator exit counts once too. Zero when Composed has
  * no entry rule (no setting is built, so no script runs).
  */
 export function pineRunCount(input: SweepInput): number {
   const c = input.composed;
-  if (!c?.pine?.length || (c.entryRules.length === 0 && pineEntries(c).length === 0)) return 0;
+  const stop = pineStopOn(input.exits);
+  if (!composedBuilt(c) || (!c?.pine?.length && !stop)) return 0;
   // A role with more settings than the limit is over it on its own: nothing is built.
-  if (c.pine.some((p) => inputSettingCount(p) > MAX_PINE_RUNS)) return Infinity;
+  if (c?.pine?.some((p) => inputSettingCount(p) > MAX_PINE_RUNS)) return Infinity;
   const distinct = new Set<string>();
-  for (const p of c.pine) for (const r of rolesOfPine(p)) distinct.add(runKeyOf(r));
+  if (stop) distinct.add(runKeyOf(input.exits.pineStop as Omit<PineRole, 'source'>));
+  for (const p of c?.pine ?? []) for (const r of rolesOfPine(p)) distinct.add(runKeyOf(r));
   return input.markets.length * input.timeframes.length * distinct.size * 2 * (input.baseline ? 2 : 1);
 }
