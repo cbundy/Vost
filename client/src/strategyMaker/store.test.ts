@@ -122,6 +122,7 @@ describe('server-backed store', () => {
   const form: FindForm = {
     direction: 'both',
     families: ['sma_cross'],
+    useStyle: true,
     feeBps: '10',
     slippageBps: '5',
     stopLossPct: '',

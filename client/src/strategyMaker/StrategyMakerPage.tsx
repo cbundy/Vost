@@ -16,6 +16,8 @@ import {
   type Side,
   type Tool,
 } from './brush';
+import type { TradeStyleLabel } from './engine';
+import { styleKey } from './StyleBlock';
 import { openStore, setId, whyNotSaved, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
 import { buildExport, EXPORT_FILE, parseExchange, planImport, setsToWrite, setStamp, type ImportPlan } from './exchange';
 import { SetsPanel, type SetRow } from './SetsPanel';
@@ -197,6 +199,14 @@ export default function StrategyMakerPage() {
   const times = useMemo(() => candles.map((c) => c.time), [candles]);
   const trades = history.present;
   const id = source ? setId(source) : null;
+  const findResult = find.result;
+  const tradeStyles = useMemo(() => {
+    const m = new Map<string, { style: TradeStyleLabel; reason: string }>();
+    if (!findResult || findResult.outcome.kind !== 'ok' || !findResult.outcome.style) return m;
+    const at = findResult.usedSets.findIndex((u) => u.id === id);
+    for (const t of findResult.outcome.style.trades) if (t.series === at) m.set(styleKey(t.side, t.entryTime), t);
+    return m;
+  }, [findResult, id]);
   const total = Object.entries(counts).reduce((n, [k, v]) => (k === id ? n : n + v), 0) + trades.length;
 
   /** Puts the saved marks of a set on the chart, unless another chart was loaded meanwhile. */
@@ -609,6 +619,7 @@ export default function StrategyMakerPage() {
                 <TradeList
                   trades={trades}
                   times={times}
+                  styles={tradeStyles}
                   onFocus={(t) => setFocus((f) => ({ trade: t, nonce: (f?.nonce ?? 0) + 1 }))}
                   onDelete={(t) => setHistory((h) => commit(h, h.present.filter((x) => x !== t)))}
                 />

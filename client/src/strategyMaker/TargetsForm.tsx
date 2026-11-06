@@ -122,6 +122,10 @@ export function TargetsForm({ form, onChange, sets, chosen, onChosen, errors, tr
               {familyName(f)}
             </label>
           ))}
+          <label className="sm-check">
+            <input type="checkbox" checked={form.useStyle} onChange={() => set('useStyle', !form.useStyle)} />
+            Use the style of my trades
+          </label>
         </fieldset>
         <fieldset>
           <legend>Risk (always on)</legend>

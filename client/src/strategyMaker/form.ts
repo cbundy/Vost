@@ -12,6 +12,7 @@ export function defaultForm(): FindForm {
   return {
     direction: 'both',
     families: [...SIGNAL_FAMILIES],
+    useStyle: true,
     feeBps: String(cfg.feeBps),
     slippageBps: String(cfg.slippageBps),
     stopLossPct: '',
@@ -41,6 +42,7 @@ export function sanitizeForm(raw: unknown): FindForm {
   return {
     direction: r.direction === 'long' || r.direction === 'short' || r.direction === 'both' ? r.direction : d.direction,
     families: Array.isArray(r.families) ? r.families.filter((f): f is string => (SIGNAL_FAMILIES as readonly string[]).includes(f as string)) : d.families,
+    useStyle: typeof r.useStyle === 'boolean' ? r.useStyle : d.useStyle,
     feeBps: str('feeBps'),
     slippageBps: str('slippageBps'),
     stopLossPct: str('stopLossPct'),
@@ -148,6 +150,7 @@ export function readForm(f: FindForm): { inputs: FindInputs; errors: FormErrors 
     inputs: {
       direction: f.direction,
       families: f.families,
+      useStyle: f.useStyle,
       risk: {
         feeBps: fee.value ?? cfg.feeBps,
         slippageBps: slip.value ?? cfg.slippageBps,

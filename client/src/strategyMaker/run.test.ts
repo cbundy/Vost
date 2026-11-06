@@ -67,6 +67,50 @@ describe('runEngine', () => {
     expect(new Set(out.search.recommendations.map((c) => c.strategyId))).toEqual(new Set(['donchian']));
   }, 120_000);
 
+  it('still recommends the hidden sma_cross with the style choice on, and reports the mix of the used trades', async () => {
+    const out = await runEngine([{ candles, trades }], inputs({ useStyle: true }));
+    if (out.kind !== 'ok') throw new Error(`expected ok, got ${out.kind}`);
+    expect(out.search.bestMatch.strategyId).toBe('sma_cross');
+    const style = out.style;
+    expect(style).toBeDefined();
+    const sum = Object.values(style!.counts).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(out.search.usedTrades);
+    expect(style!.trades).toHaveLength(out.search.usedTrades);
+  }, 120_000);
+
+  it('searches the allowed families as before, and does not narrow, with the style choice off or absent', async () => {
+    for (const useStyle of [undefined, false]) {
+      const out = await runEngine([{ candles, trades }], inputs({ families: ['donchian', 'rsi_reversion'], useStyle }));
+      if (out.kind !== 'ok') throw new Error(`expected ok, got ${out.kind}`);
+      expect(out.style?.applied).toBe(false);
+      expect(out.style?.families).toEqual(['donchian', 'rsi_reversion']);
+      for (const c of out.search.recommendations) expect(['donchian', 'rsi_reversion']).toContain(c.strategyId);
+    }
+  }, 120_000);
+
+  it('narrows to the families of the leading style, and falls back with a note when none are allowed', async () => {
+    // buy-the-dip trades: every entry follows a sharp drop in an uptrend, so they read as mean reversion
+    const rise = Array.from({ length: 4000 }, (_, i) => 100 * 1.0004 ** i);
+    const closes = rise.map((c, i) => (i % 100 === 99 ? c * 0.92 : c));
+    const c2 = closes.map((close, i) => {
+      const open = i ? closes[i - 1] : close;
+      return { time: 1_600_000_000 + i * 3600, open, high: Math.max(open, close) * 1.001, low: Math.min(open, close) * 0.999, close, volume: 1 };
+    });
+    const dips: HighlightTrade[] = [];
+    for (let i = 299; i + 5 < c2.length; i += 100) dips.push({ side: 'long', entryTime: c2[i].time, exitTime: c2[i + 5].time });
+    const narrowed = await runEngine([{ candles: c2, trades: dips }], inputs({ useStyle: true }));
+    if (narrowed.kind !== 'ok') throw new Error(`expected ok, got ${narrowed.kind}`);
+    expect(narrowed.style?.leading).toEqual(['mean_reversion']);
+    expect(narrowed.style?.applied).toBe(true);
+    expect(narrowed.style?.families).toEqual(['rsi_reversion', 'bollinger']);
+    const fallback = await runEngine([{ candles: c2, trades: dips }], inputs({ useStyle: true, families: ['sma_cross', 'ema_cross'] }));
+    if (fallback.kind !== 'ok') throw new Error(`expected ok, got ${fallback.kind}`);
+    expect(fallback.style?.applied).toBe(false);
+    expect(fallback.style?.families).toEqual(['sma_cross', 'ema_cross']);
+    expect(fallback.style?.note).toContain('None of the allowed families');
+    for (const x of fallback.search.recommendations) expect(['sma_cross', 'ema_cross']).toContain(x.strategyId);
+  }, 120_000);
+
   it('rejects with an AbortError when the signal is aborted, before and during the run', async () => {
     const ctl = new AbortController();
     ctl.abort();
