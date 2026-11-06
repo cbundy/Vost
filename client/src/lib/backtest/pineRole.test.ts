@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Candle } from '../../types';
 import { runOptimizeAsync } from './optimizer';
-import { sanitizePineRoles, validatePineRoles, type PineRole } from './pineRole';
+import { computePineRoleContext, pineRoleWords, rolesInUse, sanitizePineRoles, validatePineRoles, type PineRole } from './pineRole';
 import { runAnyBacktest, runFullBacktest } from './runner';
 import { DEFAULT_PARAMS } from './strategies';
 import { defaultBacktestConfig, type BacktestConfig } from './types';
@@ -250,5 +250,83 @@ describe('the memo', () => {
     expect(out.combos).toBe(9);
     expect(out.rows.length).toBe(9);
     expect(pineSpy.calls).toBe(1);
+  });
+});
+
+describe('Pine role as the stop or the target', () => {
+  const candles = walk();
+  const CHANNEL = `${header}indicator("Channel", overlay=true)\nplot(ta.lowest(low, 10), "low channel")\nplot(ta.highest(high, 10), "high channel")\n`;
+  const level = (p: string) => ({ type: 'level', plot: p }) as const;
+  const stopRole = (over: Partial<PineRole> = {}) => role({ source: CHANNEL, name: 'Channel', role: 'stop', mode: 'trailing', rule: level('low channel'), ...over });
+
+  it('parses, sanitises and validates stop and target roles', () => {
+    const stop = stopRole();
+    const target = role({ source: CHANNEL, role: 'target', rule: level('high channel') });
+    expect(sanitizePineRoles([stop, target])).toEqual([stop, target]);
+    // absent mode reads as at-entry and stays absent
+    const { mode: _m, ...noMode } = stop;
+    expect(sanitizePineRoles([noMode])).toEqual([noMode]);
+    // unknown or malformed values are dropped
+    expect(sanitizePineRoles([{ ...stop, mode: 'sideways' }, { ...stop, rule: { type: 'level', plot: '' } }, { ...target, rule: { type: 'above', a: plot('x'), b: plot('y') } }])).toEqual([]);
+    // at most one of each
+    expect(sanitizePineRoles([stop, stopRole({ name: 'Other' }), target, target])).toEqual([stop, target]);
+    expect(() => validatePineRoles([stop, stop])).toThrow('Composed takes at most one TradingView indicator stop');
+    expect(() => validatePineRoles([target, target])).toThrow('Composed takes at most one TradingView indicator target');
+    expect(() => validatePineRoles([{ ...stop, mode: 'x' }])).toThrow('malformed');
+  });
+
+  it('rolesInUse includes stop and target for any entry rule', () => {
+    const target = role({ role: 'target', rule: level('high channel') });
+    const entry = role({ role: 'entry', rule: { type: 'cross', a: plot('fast'), b: plot('slow') } });
+    const c = composedCfg({ params: { entryRule: 1 }, pineRoles: [entry, stopRole(), target] });
+    expect(rolesInUse(c).map((r) => r.role)).toEqual(['stop', 'target']);
+    expect(rolesInUse({ ...c, params: { ...c.params, entryRule: 7 } }).map((r) => r.role)).toEqual(['entry', 'stop', 'target']);
+  });
+
+  it('words', () => {
+    expect(pineRoleWords(stopRole({ name: 'Supertrend', rule: level('Supertrend line') }))).toBe('"Supertrend" stop at Supertrend line, trailing');
+    expect(pineRoleWords(stopRole({ mode: 'at-entry' }))).toBe('"Channel" stop at low channel');
+    expect(pineRoleWords(role({ role: 'target', name: 'Pivots', rule: level('R1') }))).toBe('"Pivots" target at R1');
+  });
+
+  it('computePineRoleContext builds the arrays and names the indicator on a missing plot', async () => {
+    const ctx = await computePineRoleContext(candles, [stopRole(), role({ source: CHANNEL, role: 'target', rule: level('high channel') })], undefined);
+    expect(ctx.stop).toMatchObject({ name: 'Channel', plot: 'low channel', mode: 'trailing' });
+    expect(ctx.stop!.values).toHaveLength(candles.length);
+    expect(ctx.stop!.values[0]).toBeNull();
+    expect(ctx.stop!.values[50]).toBeCloseTo(Math.min(...candles.slice(41, 51).map((c) => c.low)), 6);
+    expect(ctx.target!.values[50]).toBeCloseTo(Math.max(...candles.slice(41, 51).map((c) => c.high)), 6);
+    await expect(computePineRoleContext(candles, [stopRole({ rule: level('nope') })], undefined)).rejects.toThrow('"Channel" has no plot titled "nope"');
+  });
+
+  it('a stop script that trails exits at the previous bar plot value', async () => {
+    const config = composedCfg({ feeBps: 0, slippageBps: 0, params: { entryRule: 1, fast: 10, slow: 30 }, pineRoles: [stopRole()] });
+    const plain = await runAnyBacktest(candles, { ...config, pineRoles: undefined });
+    const out = await runAnyBacktest(candles, config);
+    expect(out.trades.some((t) => t.exitReason === 'stop_loss')).toBe(true);
+    expect(tradeKey(out)).not.toEqual(tradeKey(plain));
+    for (const t of out.trades.filter((x) => x.exitReason === 'stop_loss' && x.side === 'long')) {
+      const j = t.exitBar;
+      const lvl = Math.min(...candles.slice(j - 10, j).map((c) => c.low));
+      expect(t.exitPrice).toBeCloseTo(candles[j].open <= lvl ? candles[j].open : lvl, 9);
+    }
+    // the result's config carries no source
+    expect(out.config.pineRoles![0].source).toBeUndefined();
+  });
+
+  it('a stop role alone lets the R target and the risk sizing work', async () => {
+    const config = composedCfg({
+      feeBps: 0,
+      slippageBps: 0,
+      params: { entryRule: 1, fast: 10, slow: 30 },
+      riskPct: 1,
+      takeProfitMode: 'r',
+      takeProfitR: 2,
+      takeProfitPct: null,
+      pineRoles: [stopRole({ mode: 'at-entry' })],
+    });
+    const out = await runAnyBacktest(candles, config);
+    expect(out.trades.length).toBeGreaterThan(3);
+    expect(out.trades.some((t) => t.leverage != null)).toBe(true);
   });
 });

@@ -2,7 +2,7 @@
  * The fields that edit the rule of a TradingView indicator role (its label, rule type and operands). They hold no state and
  * import nothing from the app, so the Backtest tab and the strategy maker's market search share them.
  */
-import type { PineOperand, PineRole, PineRoleLabel, PineRule } from './backtest/pineRole';
+import type { PineOperand, PineRole, PineRoleKind, PineRoleLabel, PineRule, PineStopMode } from './backtest/pineRole';
 import type { PinePlot } from './pine/types';
 
 export const isShapeKind = (p: PinePlot) => p.kind === 'plotshape' || p.kind === 'plotarrow';
@@ -17,8 +17,12 @@ export const ROLE_LABELS: Array<{ value: PineRoleLabel; text: string }> = [
 ];
 
 /** A first rule for a new role from the indicator's plots, or a plain reason there is none. */
-export function defaultRule(role: 'entry' | 'filter', plots: PinePlot[]): { rule: PineRule } | { error: string } {
+export function defaultRule(role: PineRoleKind, plots: PinePlot[]): { rule: PineRule } | { error: string } {
   const line = plots.find(isLine);
+  if (role === 'stop' || role === 'target') {
+    if (line) return { rule: { type: 'level', plot: line.name } };
+    return { error: `This indicator has no line plot to use as a ${role}.` };
+  }
   if (role === 'entry') {
     if (line) return { rule: { type: 'cross', a: { kind: 'close' }, b: { kind: 'plot', plot: line.name } } };
     const shapes = plots.filter(isShapeKind);
@@ -109,6 +113,40 @@ export function RuleFields<R extends Omit<PineRole, 'source'>>({ role, plots, on
     } else if (type === 'above' || type === 'below') set({ type, a, b });
     else if (type === 'inside') set({ type, a, lo: { kind: 'level', value: 0 }, hi: { kind: 'level', value: 100 } });
   };
+
+  if (role.role === 'stop' || role.role === 'target') {
+    const titles = plots.filter(isLine).map((p) => p.name);
+    const plot = rule.type === 'level' ? rule.plot : '';
+    if (plot && !titles.includes(plot)) titles.push(plot);
+    return (
+      <>
+        <label className="form-field">
+          <span>Plot</span>
+          <select aria-label="Plot" value={plot} onChange={(e) => set({ type: 'level', plot: e.target.value })}>
+            {titles.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        {role.role === 'stop' && (
+          <label className="form-field">
+            <span>Stop</span>
+            <select aria-label="Stop mode" value={role.mode ?? 'at-entry'} onChange={(e) => onChange({ ...role, mode: e.target.value as PineStopMode })}>
+              <option value="at-entry">Fixed at entry</option>
+              <option value="trailing">Trailing with the plot</option>
+            </select>
+          </label>
+        )}
+        <p className="hint wide-row">
+          {role.role === 'stop'
+            ? 'The stop sits at the plot value of the bar before. A level on the wrong side of the price places no stop (no trade opens without one at entry).'
+            : 'The take profit sits at the plot value of the bar before, when it is on the profit side of the price.'}
+        </p>
+      </>
+    );
+  }
 
   return (
     <>

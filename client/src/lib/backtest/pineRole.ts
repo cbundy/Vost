@@ -1,5 +1,5 @@
 /**
- * TradingView indicator roles for the Composed strategy: a stored Pine indicator can be the entry rule or a filter.
+ * TradingView indicator roles for the Composed strategy: a stored Pine indicator can be the entry rule, a filter, the stop or the target.
  * The indicator runs once (async) before the signals are built; the Composed code then reads the mapped plots
  * synchronously, bar for bar, through a `PineRoleContext`.
  */
@@ -18,9 +18,14 @@ export type PineRule =
   | { type: 'shape'; long?: string; short?: string }
   | { type: 'above'; a: PineOperand; b: PineOperand }
   | { type: 'below'; a: PineOperand; b: PineOperand }
-  | { type: 'inside'; a: PineOperand; lo: PineOperand; hi: PineOperand };
+  | { type: 'inside'; a: PineOperand; lo: PineOperand; hi: PineOperand }
+  /** A stop or target role: the price level is the value of one line plot, by title. */
+  | { type: 'level'; plot: string };
 
 export type PineRoleLabel = 'trend' | 'volume' | 'volatility' | 'strength' | 'custom';
+
+export type PineRoleKind = 'entry' | 'filter' | 'stop' | 'target';
+export type PineStopMode = 'at-entry' | 'trailing';
 
 export interface PineRole {
   /** The stored indicator's scriptId. */
@@ -30,7 +35,9 @@ export interface PineRole {
   /** Attached only when a run is requested, never saved. */
   source?: string;
   inputs: Record<string, PineInputValue>;
-  role: 'entry' | 'filter';
+  role: PineRoleKind;
+  /** A stop role only: fixed at the entry bar's level, or following the plot bar by bar. Absent reads as at-entry. */
+  mode?: PineStopMode;
   label?: PineRoleLabel;
   rule: PineRule;
 }
@@ -55,6 +62,10 @@ export interface ResolvedFilter {
 export interface PineRoleContext {
   entry?: ResolvedEntry;
   filters: ResolvedFilter[];
+  /** The stop plot's values, aligned to the candles (na and non-finite as null). */
+  stop?: { name: string; plot: string; mode: PineStopMode; values: Array<number | null> };
+  /** The target plot's values, aligned to the candles. */
+  target?: { name: string; plot: string; values: Array<number | null> };
 }
 
 /* ------------------------------ validation ------------------------------ */
@@ -69,8 +80,11 @@ function parseOperand(v: unknown): PineOperand | null {
   return null;
 }
 
-function parseRule(role: 'entry' | 'filter', v: unknown): PineRule | null {
+function parseRule(role: PineRoleKind, v: unknown): PineRule | null {
   if (!isObj(v)) return null;
+  if (role === 'stop' || role === 'target') {
+    return v.type === 'level' && typeof v.plot === 'string' && v.plot !== '' ? { type: 'level', plot: v.plot } : null;
+  }
   if (role === 'entry') {
     if (v.type === 'cross') {
       const a = parseOperand(v.a);
@@ -102,7 +116,7 @@ function parseRule(role: 'entry' | 'filter', v: unknown): PineRule | null {
 export function parsePineRole(v: unknown): PineRole | null {
   if (!isObj(v)) return null;
   if (typeof v.indicatorId !== 'string' || v.indicatorId === '' || typeof v.name !== 'string') return null;
-  if (v.role !== 'entry' && v.role !== 'filter') return null;
+  if (v.role !== 'entry' && v.role !== 'filter' && v.role !== 'stop' && v.role !== 'target') return null;
   if (!isObj(v.inputs)) return null;
   const inputs: Record<string, PineInputValue> = {};
   for (const [k, x] of Object.entries(v.inputs)) {
@@ -110,6 +124,7 @@ export function parsePineRole(v: unknown): PineRole | null {
     inputs[k] = x as PineInputValue;
   }
   if (v.label !== undefined && !(typeof v.label === 'string' && LABELS.includes(v.label))) return null;
+  if (v.mode !== undefined && v.mode !== 'at-entry' && v.mode !== 'trailing') return null;
   const rule = parseRule(v.role, v.rule);
   if (!rule) return null;
   return {
@@ -118,6 +133,7 @@ export function parsePineRole(v: unknown): PineRole | null {
     ...(typeof v.source === 'string' && { source: v.source }),
     inputs,
     role: v.role,
+    ...(v.role === 'stop' && v.mode !== undefined && { mode: v.mode as PineStopMode }),
     ...(v.label !== undefined && { label: v.label as PineRoleLabel }),
     rule,
   };
@@ -129,11 +145,17 @@ export function sanitizePineRoles(raw: unknown): PineRole[] {
   const out: PineRole[] = [];
   let entries = 0;
   let filters = 0;
+  let stops = 0;
+  let targets = 0;
   for (const r of raw) {
     const role = parsePineRole(r);
     if (!role) continue;
     if (role.role === 'entry') {
       if (entries++ >= 1) continue;
+    } else if (role.role === 'stop') {
+      if (stops++ >= 1) continue;
+    } else if (role.role === 'target') {
+      if (targets++ >= 1) continue;
     } else if (filters++ >= MAX_FILTER_ROLES) continue;
     out.push(role);
   }
@@ -153,14 +175,16 @@ export function validatePineRoles(raw: unknown): PineRole[] {
   if (roles.filter((r) => r.role === 'filter').length > MAX_FILTER_ROLES) {
     throw new Error(`Composed takes at most ${MAX_FILTER_ROLES} TradingView indicator filters.`);
   }
+  if (roles.filter((r) => r.role === 'stop').length > 1) throw new Error('Composed takes at most one TradingView indicator stop.');
+  if (roles.filter((r) => r.role === 'target').length > 1) throw new Error('Composed takes at most one TradingView indicator target.');
   return roles;
 }
 
-/** The roles this run reads: the entry role only counts while the entry rule is the TradingView indicator (7). */
+/** The roles this run reads: the entry role only counts while the entry rule is the TradingView indicator (7); filters, stop and target always count. */
 export function rolesInUse(config: { strategyId: string; params?: Record<string, number>; pineRoles?: PineRole[] }): PineRole[] {
   if (config.strategyId !== 'composed' || !config.pineRoles?.length) return [];
   const rule7 = Math.round(Number(config.params?.entryRule)) === ENTRY_RULE_PINE;
-  return validatePineRoles(config.pineRoles).filter((r) => r.role === 'filter' || rule7);
+  return validatePineRoles(config.pineRoles).filter((r) => r.role !== 'entry' || rule7);
 }
 
 export const ENTRY_RULE_PINE = 7;
@@ -193,16 +217,20 @@ export function pineRuleWords(rule: PineRule): string {
       return `${operandWords(rule.a)} ${rule.type} ${operandWords(rule.b)}`;
     case 'inside':
       return `${operandWords(rule.a)} inside ${operandWords(rule.lo)} to ${operandWords(rule.hi)}`;
+    case 'level':
+      return `at ${rule.plot}`;
   }
 }
 
-/** A role in words: the indicator's name (and a filter's label), its rule and the input values set, for example `"My EMA" close crosses EMA, length 20`. */
+/** A role in words: the indicator's name (and a filter's label), its rule and the input values set, for example `"My EMA" close crosses EMA, length 20` or `"Supertrend" stop at Supertrend line, trailing`. */
 export function pineRoleWords(role: Omit<PineRole, 'source'>): string {
   const label = role.role === 'filter' && role.label && role.label !== 'custom' ? ` (${role.label})` : '';
   const inputs = Object.entries(role.inputs)
     .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
     .map(([k, v]) => `${k.toLowerCase()} ${typeof v === 'number' ? fmt(v) : String(v)}`);
-  return [`"${role.name}"${label} ${pineRuleWords(role.rule)}`, ...inputs].join(', ');
+  const kind = role.role === 'stop' ? 'stop ' : role.role === 'target' ? 'target ' : '';
+  const mode = role.role === 'stop' && role.mode === 'trailing' ? ['trailing'] : [];
+  return [`"${role.name}"${label} ${kind}${pineRuleWords(role.rule)}`, ...mode, ...inputs].join(', ');
 }
 
 /* ------------------------------ running ------------------------------ */
@@ -263,7 +291,13 @@ export async function computePineRoleContext(
       };
     };
     const rule = role.rule;
-    if (role.role === 'entry') {
+    if (role.role === 'stop' || role.role === 'target') {
+      if (rule.type !== 'level') throw new Error(`${label}: a ${role.role} needs a plot.`);
+      const raw = plotOf(rule.plot).values;
+      const values = Array.from(raw, (v) => (v == null || !Number.isFinite(v) ? null : v));
+      if (role.role === 'stop') ctx.stop = { name: role.name, plot: rule.plot, mode: role.mode ?? 'at-entry', values };
+      else ctx.target = { name: role.name, plot: rule.plot, values };
+    } else if (role.role === 'entry') {
       ctx.entry = { name: role.name, signals: entrySignals(candles.length, rule, series, plotOf, label) };
     } else {
       ctx.filters.push({ name: role.name, label: role.label && role.label !== 'custom' ? `${role.name} (${role.label})` : role.name, check: filterCheck(rule, series) });

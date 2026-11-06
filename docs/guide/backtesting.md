@@ -47,9 +47,10 @@ How each trade gets its levels:
 - **Fixed at entry.** Every trade works out its own levels from its entry fill price (slippage included): an ATR stop is entry minus (a long) or plus (a short) the multiple times the ATR, an ATR target the other way round, and a target in times the stop is that many times the initial stop distance.
 - **The ATR is the one on the signal bar**, the bar before the entry fills, so it never includes the entry bar or anything later. With a longer ATR timeframe it is the ATR of the newest longer bar that had closed by the signal bar's close, so a longer bar still forming is never used; the rule is the one for [the Composed strategy's higher timeframe](../STRATEGIES.md#composed-strategy). A multiple that is not a valid timeframe, or bars a week or longer, use the loaded bars. The ATR needs `ATR length` bars of history: until it is known, a trade that needs it does not open. It opens on the first later bar whose signal still asks for that side.
 - **Trailing.** The distance is fixed at entry (a percent of the entry price, or a multiple of the signal-bar ATR). The trail starts that far behind the entry and, after each bar, moves to that distance behind the best price since entry (the highest high for a long, the lowest low for a short). It never moves back. A bar checks the stop set by earlier bars first, so its own high never tightens a stop that the same bar then hits.
-- **The stop in force** is the tighter of the fixed stop and the trail. If one bar reaches both the stop and the target, the stop wins. A gap through the level fills at the open. After a stop or a target, the signal has to leave that side before the next entry.
+- **The stop in force** is the tightest of the fixed stop, the trail and, for [Composed](#composed-strategy), a TradingView indicator stop. If one bar reaches both the stop and the target, the stop wins. A gap through the level fills at the open. After a stop or a target, the signal has to leave that side before the next entry.
 - **Exit reasons.** An exit at the trail is a **trailing stop** in the trades list and the exit reasons table; an exit at the fixed stop is a stop loss.
-- **Times the stop needs a stop.** A take profit in times the stop with no stop loss and no trailing stop is refused with a message, and nothing starts (the optimizer too).
+- **A TradingView indicator as the stop or the target.** A Composed strategy can use an indicator's line plot as its stop (fixed at entry, or trailing with the plot) or as its take profit; see [Composed strategy](#composed-strategy). The level in force on a bar is the plot's value on the bar before, so nothing reads a later bar. A stop with no usable level at entry (no value, or on the wrong side of the price) opens no trade, like an ATR stop during its warm-up. On later bars, or for a target, no usable level just means that stop or target is not in force on that bar. Exits at the plot are a stop loss or a take profit in the trades list.
+- **Times the stop needs a stop.** A take profit in times the stop with no stop loss, no trailing stop and no indicator stop is refused with a message, and nothing starts (the optimizer too).
 
 [Risk per trade](#risk-per-trade) sizes each trade from its own initial stop distance, the tighter of the fixed stop and the trail's starting level, so an ATR stop or a trailing stop alone is enough.
 
@@ -72,6 +73,14 @@ A stored **TradingView indicator** (added in the Pine pane) can also be the entr
 ![The Composed settings with a TradingView indicator as the entry and as a filter](../evidence/bt-pine-role/bt-pine-role-picker-desktop.png)
 
 ![The Results line counting the indicator filter's blocked entries](../evidence/bt-pine-role/bt-pine-role-results-desktop.png)
+
+A stored indicator can also be the Composed strategy's **stop** or **take profit**: **Add TradingView indicator stop** and **Add TradingView indicator target** (one of each, each button off once it is used) give a card with the indicator, a line plot and, for the stop, **Fixed at entry** or **Trailing with the plot** (for example a Supertrend line). The stop sits at the plot's value on the bar before the one being simulated: a fixed stop keeps the value of the signal bar, a trailing one follows the plot bar by bar (it can loosen as well as tighten). A long stop must be below the price and a short stop above it; a target must be on the profit side. The stop in force is the tightest of the fixed stop, the trailing stop and the indicator stop, and the target is the nearer of the fixed target and the indicator target. The indicator stop also sizes [risk per trade](#risk-per-trade) and a take profit in times the stop, so it can be the only stop. The Results badges read `SL <indicator> <plot>` or `Trail <indicator> <plot>`, and `TP <indicator> <plot>`.
+
+![The Composed settings with an indicator trailing stop and target](../evidence/bt-pine-role/bt-pine-role-stop-picker-desktop.png)
+
+![The Results badges for the indicator stop and target](../evidence/bt-pine-role/bt-pine-role-stop-results-desktop.png)
+
+![Exits at the indicator stop shown as stop loss in the exit reasons](../evidence/bt-pine-role/bt-pine-role-stop-trades-desktop.png)
 
 ## Risk per trade
 

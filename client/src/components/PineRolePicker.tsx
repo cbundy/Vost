@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PineInput, PineInputValue, PinePlot } from '../lib/pine/types';
-import { MAX_FILTER_ROLES, type PineRole } from '../lib/backtest/pineRole';
+import { MAX_FILTER_ROLES, type PineRole, type PineRoleKind } from '../lib/backtest/pineRole';
 import { convertToV6 } from '../lib/pine/convert';
 import { workerCall } from '../state/worker';
 import type { Candle } from '../types';
@@ -58,15 +58,23 @@ function useProbe(id: string, inputs: Record<string, PineInputValue>, candles: C
 }
 
 /** Build a role for an indicator (reads its plots first); the error is shown to the user. */
-export async function makeRole(role: 'entry' | 'filter', indicator: Stored, candles: Candle[]): Promise<PineRole | string> {
+export async function makeRole(role: PineRoleKind, indicator: Stored, candles: Candle[]): Promise<PineRole | string> {
   const probe = await probeIndicator(indicator.scriptId, {}, candles);
   if (probe.state === 'error') return probe.message;
   const first = defaultRule(role, probe.plots);
   if ('error' in first) return first.error;
-  return { indicatorId: indicator.scriptId, name: indicator.name, inputs: {}, role, ...(role === 'filter' && { label: 'trend' as const }), rule: first.rule };
+  return {
+    indicatorId: indicator.scriptId,
+    name: indicator.name,
+    inputs: {},
+    role,
+    ...(role === 'stop' && { mode: 'at-entry' as const }),
+    ...(role === 'filter' && { label: 'trend' as const }),
+    rule: first.rule,
+  };
 }
 
-/** The Composed settings' TradingView indicator roles: the entry rule's indicator and the indicator filters. */
+/** The Composed settings' TradingView indicator roles: the entry rule's indicator, the indicator filters, stop and target. */
 export function PineRolePicker({
   roles,
   entryIsPine,
@@ -93,9 +101,11 @@ export function PineRolePicker({
 
   const entry = roles.find((r) => r.role === 'entry');
   const filters = roles.filter((r) => r.role === 'filter');
+  const stop = roles.find((r) => r.role === 'stop');
+  const target = roles.find((r) => r.role === 'target');
   const replace = (old: PineRole, next: PineRole) => onChange(roles.map((r) => (r === old ? next : r)));
   const remove = (old: PineRole) => onChange(roles.filter((r) => r !== old));
-  const create = async (kind: 'entry' | 'filter', scriptId: string, old?: PineRole) => {
+  const create = async (kind: PineRoleKind, scriptId: string, old?: PineRole) => {
     const indicator = stored?.find((s) => s.scriptId === scriptId);
     if (!indicator) return;
     setError('');
@@ -138,6 +148,18 @@ export function PineRolePicker({
           <RoleEditor role={f} stored={stored ?? []} candles={candles} onChange={(r) => replace(f, r)} onPick={(id) => void create('filter', id, f)} onRemove={() => remove(f)} />
         </div>
       ))}
+      {stop && (
+        <div className="bt-role" aria-label="Indicator stop">
+          <div className="section-title">Indicator stop</div>
+          <RoleEditor role={stop} stored={stored ?? []} candles={candles} onChange={(r) => replace(stop, r)} onPick={(id) => void create('stop', id, stop)} onRemove={() => remove(stop)} />
+        </div>
+      )}
+      {target && (
+        <div className="bt-role" aria-label="Indicator target">
+          <div className="section-title">Indicator target</div>
+          <RoleEditor role={target} stored={stored ?? []} candles={candles} onChange={(r) => replace(target, r)} onPick={(id) => void create('target', id, target)} onRemove={() => remove(target)} />
+        </div>
+      )}
       {error && (
         <p className="hint bt-role-error" role="alert">
           {error}
@@ -151,6 +173,24 @@ export function PineRolePicker({
         onClick={() => stored?.[0] && void create('filter', stored[0].scriptId)}
       >
         Add TradingView indicator filter
+      </button>
+      <button
+        className="btn"
+        type="button"
+        title={empty ? 'Add an indicator from the Pine pane (TradingView indicators) first' : undefined}
+        disabled={empty || stored === null || stop != null}
+        onClick={() => stored?.[0] && void create('stop', stored[0].scriptId)}
+      >
+        Add TradingView indicator stop
+      </button>
+      <button
+        className="btn"
+        type="button"
+        title={empty ? 'Add an indicator from the Pine pane (TradingView indicators) first' : undefined}
+        disabled={empty || stored === null || target != null}
+        onClick={() => stored?.[0] && void create('target', stored[0].scriptId)}
+      >
+        Add TradingView indicator target
       </button>
     </div>
   );

@@ -23,6 +23,7 @@ export function runFullBacktest(candles: Candle[], config: BacktestConfig, onPro
     signals,
     config,
     onProgress && ((p) => onProgress(0.2 + p * 0.75, 'simulating')),
+    ctx && (ctx.stop || ctx.target) ? { ...(ctx.stop && { stop: ctx.stop }), ...(ctx.target && { target: ctx.target }) } : undefined,
   );
   onProgress?.(0.95, 'metrics');
   const metrics = computeMetrics(candles, equity, trades, config.initialCapital, exposureBars, signalsFired);

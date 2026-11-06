@@ -3,7 +3,7 @@ import { showSideSection } from '../side-panel.ts';
 
 export const btPineRole: Scenario = {
   name: 'bt-pine-role',
-  description: 'Composed with a stored TradingView indicator: the entry rule and a filter picked from the Backtest tab, the Results line counting its blocks, the empty-library hint and the failure when the indicator is removed',
+  description: 'Composed with a stored TradingView indicator: the entry rule, a filter, a trailing stop and a target picked from the Backtest tab, the Results line counting its blocks, the stop-loss exits and badges, the empty-library hint and the failure when the indicator is removed',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -27,6 +27,8 @@ export const btPineRole: Scenario = {
     };
     const entry = page.locator('.bt-role[aria-label="Entry indicator"]');
     const filter = page.locator('.bt-role[aria-label="Indicator filter 1"]');
+    const stop = page.locator('.bt-role[aria-label="Indicator stop"]');
+    const target = page.locator('.bt-role[aria-label="Indicator target"]');
 
     await ctx.step('open app', () => page.goto('/'));
     await ctx.waitForChart();
@@ -86,6 +88,38 @@ export const btPineRole: Scenario = {
       await line.evaluate((el) => el.scrollIntoView({ block: 'center' }));
     });
     await ctx.screenshot('results');
+    await ctx.step('add the indicator as a trailing stop and as a target, then run', async () => {
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
+      await page.getByRole('button', { name: 'Add TradingView indicator stop' }).click();
+      await stop.getByLabel('Stop mode').waitFor();
+      await stop.getByLabel('Stop mode').selectOption('trailing');
+      await page.getByRole('button', { name: 'Add TradingView indicator target' }).click();
+      await target.getByLabel('Plot').waitFor();
+      await stop.scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('stop-picker');
+    await ctx.step('run and see the badges and a stop-loss exit at the plot', async () => {
+      await page.getByRole('button', { name: /Run backtest/ }).click({ timeout: 60000 });
+      await page.getByText(/Backtest finished/).waitFor({ timeout: 60000 });
+      const close = page.locator('.toast button');
+      if ((await close.count()) > 0) await close.last().click({ timeout: 2000 }).catch(() => {});
+      await page.locator('.dock-tab', { hasText: 'Results' }).click();
+      await page.getByText('Trail Supertrend Supertrend').first().waitFor();
+      await page.getByText('TP Supertrend Supertrend').first().waitFor();
+      await page.getByText('Trail Supertrend Supertrend').first().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    });
+    await ctx.screenshot('stop-results');
+    await ctx.step('scroll to the trades list: an exit at the stop plot is a stop loss', async () => {
+      const cell = page.getByRole('cell', { name: 'stop loss', exact: true }).first();
+      await cell.waitFor();
+      await cell.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    });
+    await ctx.screenshot('stop-trades');
+    await ctx.step('remove the stop and the target again', async () => {
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
+      await stop.getByRole('button', { name: 'Remove' }).click();
+      await target.getByRole('button', { name: 'Remove' }).click();
+    });
     await ctx.step('remove the indicator from the library: the run fails naming it', async () => {
       await openDialog();
       await dialog.getByRole('button', { name: 'Remove Supertrend' }).click();
