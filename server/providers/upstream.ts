@@ -47,6 +47,8 @@ export interface RequestInitLite {
   method?: 'GET' | 'POST';
   /** Serialised as JSON with `content-type: application/json`. */
   body?: unknown;
+  /** Extra request headers, merged after the defaults (a caller's header wins). */
+  headers?: Record<string, string>;
 }
 
 /**
@@ -75,6 +77,7 @@ async function request<T>(provider: string, url: string, ctx: UpstreamContext, r
           'user-agent': USER_AGENT,
           accept: 'application/json, text/csv, text/plain, */*',
           'accept-language': 'en-US,en;q=0.9',
+          ...init.headers,
         },
       });
       if (res.ok) return await read(res);

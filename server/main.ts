@@ -21,6 +21,8 @@
  *                    without a live feed (default 60; minimum 10)
  *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
  *                       fires is also sent to that Telegram chat (the token is a secret)
+ *   VOST_COINMARKETCAP_API_KEY  optional free CoinMarketCap key (a secret, never logged or
+ *                       returned): the crypto market lists try CoinMarketCap first, then CoinGecko
  *   VOST_RECORD  the markets the server records at all times (history filled
  *                from the exchange, then every closed candle written to the
  *                candle store): entries separated by commas or spaces, each
@@ -197,7 +199,7 @@ const status = createStatusService({
 const DATA_DIR = path.resolve(process.env.VOST_DATA_DIR || path.join(ROOT, 'data'));
 const candles = await openCandleStore({ dir: DATA_DIR });
 const recordConfig = readRecordConfig(process.env, (line) => console.warn(line));
-const apiDeps = createApiDeps({ candles, isRecorded: recordedFilter(recordConfig), onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
+const apiDeps = createApiDeps({ candles, coinMarketCapKey: process.env.VOST_COINMARKETCAP_API_KEY?.trim() || undefined, isRecorded: recordedFilter(recordConfig), onOutcome: (provider, feed, result) => status.registry.record(provider, feed, result, 'traffic') });
 
 const recorder = createRecorder({
   config: recordConfig,
