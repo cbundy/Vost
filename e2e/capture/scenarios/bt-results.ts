@@ -120,5 +120,31 @@ export const btResults: Scenario = {
       await page.getByText('Risk per trade needs a stop loss').waitFor();
     });
     await ctx.screenshot('risk-refused');
+    await ctx.step('pick Composed with an EMA entry, switch on the trend and volume filters and see only their settings', async () => {
+      await page.getByLabel('Stop loss (%)').fill('2');
+      await page.getByLabel('Strategy').selectOption('composed');
+      await page.getByLabel('Trend filter').selectOption('1');
+      await page.getByLabel('Volume filter').selectOption('1');
+      await page.getByLabel('Trend average length').waitFor();
+      await page.getByLabel('Volume multiple').waitFor();
+      if ((await page.getByLabel('ADX minimum').count()) !== 0) throw new Error('ADX minimum shows while the trend-strength filter is off');
+      if ((await page.getByLabel('Oversold').count()) !== 0) throw new Error('Oversold shows for an EMA entry');
+      await page.getByLabel('Entry rule').scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('composed-settings');
+    await ctx.step('run and see the filter line in Results', async () => {
+      await page.getByRole('button', { name: /Run backtest/ }).click();
+      await page.getByText(/Backtest finished/).waitFor();
+      await page.locator('.toast button').last().click();
+      await page.locator('.dock-tab', { hasText: 'Results' }).click();
+      const line = page.getByTestId('filters-line');
+      await line.waitFor();
+      const text = (await line.textContent()) ?? '';
+      if (!/Filters: \d+ entry signals, \d+ taken - trend blocked \d+, volume blocked \d+/.test(text)) throw new Error(`Unexpected filter line: ${text}`);
+      await line.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      const noScroll = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+      if (!noScroll) throw new Error('The filter line causes horizontal page scroll');
+    });
+    await ctx.screenshot('composed-filters');
   },
 };

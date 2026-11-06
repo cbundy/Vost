@@ -1593,6 +1593,13 @@ button.icon {
   gap: 8px;
 }
 
+.filters-line {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 .metric-card {
   background: var(--panel);
   border: 1px solid var(--border);

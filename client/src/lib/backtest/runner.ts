@@ -23,7 +23,8 @@ export function runFullBacktest(candles: Candle[], config: BacktestConfig, onPro
   onProgress?.(0.95, 'metrics');
   const metrics = computeMetrics(candles, equity, trades, config.initialCapital, exposureBars);
   onProgress?.(1, 'metrics');
-  return { trades, equity, metrics, buyHold: buyHoldCurve(candles, config.initialCapital), config, signals };
+  const filters = getStrategy(config.strategyId).report?.(candles, config.params ?? {});
+  return { trades, equity, metrics, buyHold: buyHoldCurve(candles, config.initialCapital), config, signals, ...(filters ? { filters } : {}) };
 }
 
 /** Async entry: Pine scripts run through the Pine runtime, everything else through the signal engine. */

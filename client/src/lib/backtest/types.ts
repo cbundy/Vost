@@ -111,6 +111,21 @@ export interface BacktestResult {
   buyHold: number[];
   config: BacktestConfig;
   signals?: Signal[];
+  /** Composed strategy only: how many entry signals the enabled filters blocked. */
+  filters?: BacktestFilters;
+}
+
+export interface BacktestFilters {
+  /** Fresh entry signals from the entry rule. */
+  signals: number;
+  /** Signals every enabled filter agreed with. */
+  taken: number;
+  /** Per enabled filter, signals it vetoed (a double veto counts for both). */
+  blocked: Array<{
+    key: 'trend' | 'volume' | 'volatility' | 'strength';
+    label: string;
+    blocked: number;
+  }>;
 }
 
 export function defaultBacktestConfig(): BacktestConfig {

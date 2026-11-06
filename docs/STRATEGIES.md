@@ -21,10 +21,30 @@ The engine then applies fees, slippage, position sizing, stops/takes and the sin
 | `rsi_reversion` | RSI mean reversion | `length=14`, `oversold=30`, `overbought=70`, `direction` | Enters long on the cross back up through oversold; exits above overbought |
 | `bollinger` | Bollinger Bands | `length=20`, `mult=2`, `mode`, `direction` | `mode`: 0 = breakout (upper break in, middle cross out), 1 = mean reversion (lower touch in, middle cross out) |
 | `donchian` | Donchian breakout | `entry=20`, `exit=10`, `direction` | Enters on a new N-bar high, exits on the opposite M-bar low |
+| `composed` | Composed (entry + filters) | `entryRule=2`, `direction`, the entry rule's settings, and four filters (all off) | One entry rule plus optional filters that veto entries; see [Composed strategy](#composed-strategy) |
 | `buy_hold` | Buy & hold | — | Benchmark |
 | `custom` | Custom (JavaScript) | your JSON params | See below |
 
 `direction` is `1` = long only, `2` = short only, `3` = both. Short signals are ignored unless *Shorts* is enabled in the configuration.
+
+## Composed strategy
+
+`composed` takes the entries from one of the other strategies and lets up to four filters veto them. Pick the **entry rule** (`entryRule`: 1 SMA crossover, 2 EMA crossover, 3 MACD, 4 RSI mean reversion, 5 Bollinger Bands, 6 Donchian breakout) and its settings (`fast`, `slow`, `signal`, `length`, `oversold`, `overbought`, `mult`, `mode`, `entry`, `exit`; only the chosen rule's settings show). The entry rule is run as that strategy with the same settings, so with every filter off `composed` equals it.
+
+**Entries.** A fresh entry is a bar where the rule's exposure turns long (the bar before was not long) or short (not short). It is taken only if every enabled filter agrees on that same bar. A blocked signal stays flat until the next fresh signal: `composed` never joins part-way through a run. An open position exits when the rule's exposure leaves its side (the rule's own exit; stop loss and take profit apply as usual). A direct flip closes the position and the opposite signal is a new entry that must pass the filters.
+
+**Filters** (each read only on the entry bar, no look-ahead):
+
+| Filter | Settings | Passes when |
+|---|---|---|
+| Trend (`trendFilter`: 0 off, 1 SMA, 2 EMA) | `trendLen` | Long: close > average. Short: close < average |
+| Volume (`volumeFilter`: 0/1) | `volumeLen`, `volumeMult` | Bar volume >= `volumeMult` x its `volumeLen`-bar average (including the bar); an average of 0 blocks |
+| Volatility (`atrFilter`: 0/1) | `atrLen`, `atrMinPct`, `atrMaxPct` | ATR / close x 100 within the band, edges included |
+| Trend strength (`adxFilter`: 0/1) | `adxLen`, `adxMin` | ADX >= `adxMin` |
+
+**Warm-up.** The signal is null until the entry rule and every enabled filter have values.
+
+**Blocked counts.** The Results tab shows one line, for example `Filters: 40 entry signals, 22 taken - trend blocked 12, volume blocked 9`. It lists the enabled filters only. A signal vetoed by two filters counts once for each, so `signals - taken` is the number blocked by at least one. The strategy maker can search `composed` too; it has no Pine export.
 
 ## Custom (JavaScript) strategies
 
@@ -46,6 +66,8 @@ In the **Backtest** tab choose the *Custom (JavaScript)* strategy. Your code is 
 | `indicators.macd(fast, slow, signal)` | `{ macd, signal, histogram }` (Series each) |
 | `indicators.bollinger(period, mult)` | `{ upper, middle, lower }` |
 | `indicators.atr(period)` | Series |
+| `indicators.adx(period)` | Series (0-100, Wilder; null until bar `2 x period - 1`) |
+| `indicators.volumeSma(period)` | Series (average bar volume) |
 | `indicators.vwap()` | Series (daily reset on intraday bars, rolling otherwise) |
 | `indicators.highest(values, period)` / `lowest(values, period)` | Series (rolling extremes, inclusive of current bar) |
 | `indicators.stdev(values, period)` | Series |

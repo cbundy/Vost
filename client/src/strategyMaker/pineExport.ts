@@ -2,7 +2,7 @@
  * A result as text: the plain settings, and a Pine v6 `strategy()` script that trades like the built-in
  * strategy. Where Pine's own `ta.*` function and Vost's indicator would differ, the script follows Vost.
  */
-import { getStrategy, type ParamSpec } from '../lib/backtest/strategies';
+import { getStrategy, visibleParams, type ParamSpec } from '../lib/backtest/strategies';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { Candidate } from './engine';
 import type { FindInputs } from './run';
@@ -25,7 +25,7 @@ export function settingsPlain(c: Pick2, run: Run): string {
   const cfg = defaultBacktestConfig();
   return [
     s.name,
-    ...s.params.map((p) => `${p.label}: ${valueText(p, c.params[p.key] ?? p.default)}`),
+    ...visibleParams(s, c.params).map((p) => `${p.label}: ${valueText(p, c.params[p.key] ?? p.default)}`),
     `Fee: ${run.risk.feeBps} bps per side`,
     `Slippage: ${run.risk.slippageBps} bps per fill`,
     `Stop loss: ${onOff(run.risk.stopLossPct, '%')}`,

@@ -3,7 +3,7 @@ import { getStrategy } from '../lib/backtest/strategies';
 import { encodeHandoff } from '../lib/backtestHandoff';
 import type { Candidate } from './engine';
 import { handoffOf } from './handoffOf';
-import { pineStrategyText, settingsPlain } from './pineExport';
+import { hasPine, pineStrategyText, settingsPlain } from './pineExport';
 import type { FindInputs } from './run';
 
 interface Props {
@@ -49,14 +49,16 @@ export function ResultActions({ candidate, title, run, source }: Props) {
       <button type="button" className="ghost" onClick={() => void copy('Settings copied', settingsPlain(candidate, run))}>
         Copy settings
       </button>
-      <button
-        type="button"
-        className="ghost"
-        onClick={() => void copy('Pine strategy copied', pineStrategyText(candidate, run))}
-        title={`A Pine v6 script of ${getStrategy(candidate.strategyId).name} with these settings`}
-      >
-        Copy as Pine strategy
-      </button>
+      {hasPine(candidate.strategyId) && (
+        <button
+          type="button"
+          className="ghost"
+            onClick={() => void copy('Pine strategy copied', pineStrategyText(candidate, run))}
+          title={`A Pine v6 script of ${getStrategy(candidate.strategyId).name} with these settings`}
+        >
+          Copy as Pine strategy
+        </button>
+      )}
       <span role="status" className="sm-copied">
         {copied ? 'Copied' : ''}
       </span>

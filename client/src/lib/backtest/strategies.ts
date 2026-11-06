@@ -12,8 +12,9 @@
  */
 import type { Candle } from '../../types';
 import { bollinger, crossover, crossunder, ema, highest, lowest, macd, rsi, sma } from '../indicators';
+import { COMPOSED_DEFAULTS, composeSignals } from './composed';
 import { compileCustomStrategy, DEFAULT_CUSTOM_CODE } from './custom';
-import type { Signal } from './types';
+import type { BacktestFilters, Signal } from './types';
 
 export interface ParamSpec {
   key: string;
@@ -25,6 +26,8 @@ export interface ParamSpec {
   step?: number;
   options?: Array<{ value: number; label: string }>;
   hint?: string;
+  /** Shown only while the setting `key` holds one of `values` (Composed strategy). */
+  visibleWhen?: { key: string; values: number[] };
 }
 
 export type Direction = 1 | 2 | 3; // 1 = long only, 2 = short only, 3 = both
@@ -50,6 +53,8 @@ export interface StrategyDef {
   /** Pine Script strategy: runs through the Pine runtime, params are the script's inputs. */
   pine?: boolean;
   build(candles: Candle[], params: Record<string, number>): Signal[];
+  /** Extra result data from the same pass that builds the signals (Composed: blocked entry counts). */
+  report?(candles: Candle[], params: Record<string, number>): BacktestFilters;
 }
 
 /* ------------------------------------------------------------------ */
@@ -266,6 +271,313 @@ const donchian: StrategyDef = {
   },
 };
 
+/* Composed: one family gives the entries, up to four filters can veto them. */
+
+const ENTRY_RULES: Array<{
+  value: number;
+  label: string;
+  id: string;
+  keys: string[];
+}> = [
+  { value: 1, label: 'SMA crossover', id: 'sma_cross', keys: ['fast', 'slow'] },
+  { value: 2, label: 'EMA crossover', id: 'ema_cross', keys: ['fast', 'slow'] },
+  {
+    value: 3,
+    label: 'MACD',
+    id: 'macd_cross',
+    keys: ['fast', 'slow', 'signal'],
+  },
+  {
+    value: 4,
+    label: 'RSI mean reversion',
+    id: 'rsi_reversion',
+    keys: ['length', 'oversold', 'overbought'],
+  },
+  {
+    value: 5,
+    label: 'Bollinger Bands',
+    id: 'bollinger',
+    keys: ['length', 'mult', 'mode'],
+  },
+  {
+    value: 6,
+    label: 'Donchian breakout',
+    id: 'donchian',
+    keys: ['entry', 'exit'],
+  },
+];
+
+/** The entry rule's own setting keys in Composed (without direction). */
+export function composedEntryKeys(rule: number): string[] {
+  return (ENTRY_RULES.find((r) => r.value === Math.round(rule)) ?? ENTRY_RULES[1]).keys;
+}
+
+const entryWhen = (...values: number[]) => ({ key: 'entryRule', values });
+const onWhen = (key: string) => ({ key, values: [1] });
+const OFF_ON = [
+  { value: 0, label: 'Off' },
+  { value: 1, label: 'On' },
+];
+
+function composedRun(candles: Candle[], p: Record<string, number>) {
+  const rule = ENTRY_RULES.find((r) => r.value === Math.round(Number(p.entryRule))) ?? ENTRY_RULES[1];
+  const family = getStrategy(rule.id);
+  const own: Record<string, number> = { direction: p.direction };
+  for (const k of rule.keys) own[k] = p[k];
+  // Settings the caller left out take the Composed defaults.
+  const defaults = Object.fromEntries(composedDef.params.map((s) => [s.key, s.default]));
+  for (const k of Object.keys(own)) if (!Number.isFinite(Number(own[k]))) own[k] = defaults[k];
+  const entry = normalizeSignals(family.build(candles, own), candles.length);
+  const full = { ...COMPOSED_DEFAULTS, ...p };
+  return composeSignals(candles, entry, full);
+}
+
+const composedDef: StrategyDef = {
+  id: 'composed',
+  name: 'Composed (entry + filters)',
+  description:
+    "Pick an entry rule, then switch on filters (trend, volume, volatility, trend strength) that veto entries. Exits are the entry rule's own.",
+  params: [
+    {
+      key: 'entryRule',
+      label: 'Entry rule',
+      type: 'select',
+      default: 2,
+      options: ENTRY_RULES.map((r) => ({ value: r.value, label: r.label })),
+    },
+    {
+      key: 'direction',
+      label: 'Direction',
+      type: 'select',
+      default: 1,
+      options: DIRECTION_OPTIONS,
+    },
+    {
+      key: 'fast',
+      label: 'Fast period',
+      type: 'int',
+      default: 12,
+      min: 1,
+      max: 500,
+      visibleWhen: entryWhen(1, 2, 3),
+    },
+    {
+      key: 'slow',
+      label: 'Slow period',
+      type: 'int',
+      default: 26,
+      min: 2,
+      max: 1000,
+      visibleWhen: entryWhen(1, 2, 3),
+    },
+    {
+      key: 'signal',
+      label: 'Signal EMA',
+      type: 'int',
+      default: 9,
+      min: 1,
+      max: 200,
+      visibleWhen: entryWhen(3),
+    },
+    {
+      key: 'length',
+      label: 'Length',
+      type: 'int',
+      default: 20,
+      min: 2,
+      max: 400,
+      visibleWhen: entryWhen(4, 5),
+    },
+    {
+      key: 'oversold',
+      label: 'Oversold',
+      type: 'float',
+      default: 30,
+      min: 1,
+      max: 49,
+      step: 1,
+      visibleWhen: entryWhen(4),
+    },
+    {
+      key: 'overbought',
+      label: 'Overbought',
+      type: 'float',
+      default: 70,
+      min: 51,
+      max: 99,
+      step: 1,
+      visibleWhen: entryWhen(4),
+    },
+    {
+      key: 'mult',
+      label: 'Std dev mult',
+      type: 'float',
+      default: 2,
+      min: 0.1,
+      max: 6,
+      step: 0.1,
+      visibleWhen: entryWhen(5),
+    },
+    {
+      key: 'mode',
+      label: 'Mode',
+      type: 'select',
+      default: 0,
+      options: [
+        { value: 0, label: 'Breakout' },
+        { value: 1, label: 'Mean reversion' },
+      ],
+      visibleWhen: entryWhen(5),
+    },
+    {
+      key: 'entry',
+      label: 'Entry period',
+      type: 'int',
+      default: 20,
+      min: 2,
+      max: 400,
+      visibleWhen: entryWhen(6),
+    },
+    {
+      key: 'exit',
+      label: 'Exit period',
+      type: 'int',
+      default: 10,
+      min: 1,
+      max: 400,
+      visibleWhen: entryWhen(6),
+    },
+    {
+      key: 'trendFilter',
+      label: 'Trend filter',
+      type: 'select',
+      default: 0,
+      options: [
+        { value: 0, label: 'Off' },
+        { value: 1, label: 'Price vs SMA' },
+        { value: 2, label: 'Price vs EMA' },
+      ],
+      hint: 'Long entries need the close above the average, short entries below it.',
+    },
+    {
+      key: 'trendLen',
+      label: 'Trend average length',
+      type: 'int',
+      default: COMPOSED_DEFAULTS.trendLen,
+      min: 2,
+      max: 1000,
+      visibleWhen: { key: 'trendFilter', values: [1, 2] },
+    },
+    {
+      key: 'volumeFilter',
+      label: 'Volume filter',
+      type: 'select',
+      default: 0,
+      options: OFF_ON,
+      hint: 'The entry bar needs volume of at least the multiple of its recent average.',
+    },
+    {
+      key: 'volumeLen',
+      label: 'Volume average length',
+      type: 'int',
+      default: COMPOSED_DEFAULTS.volumeLen,
+      min: 1,
+      max: 1000,
+      visibleWhen: onWhen('volumeFilter'),
+    },
+    {
+      key: 'volumeMult',
+      label: 'Volume multiple',
+      type: 'float',
+      default: COMPOSED_DEFAULTS.volumeMult,
+      min: 0,
+      max: 20,
+      step: 0.1,
+      visibleWhen: onWhen('volumeFilter'),
+    },
+    {
+      key: 'atrFilter',
+      label: 'Volatility filter',
+      type: 'select',
+      default: 0,
+      options: OFF_ON,
+      hint: 'ATR as a percent of the close must be within the band.',
+    },
+    {
+      key: 'atrLen',
+      label: 'ATR length',
+      type: 'int',
+      default: COMPOSED_DEFAULTS.atrLen,
+      min: 1,
+      max: 500,
+      visibleWhen: onWhen('atrFilter'),
+    },
+    {
+      key: 'atrMinPct',
+      label: 'ATR min (% of close)',
+      type: 'float',
+      default: COMPOSED_DEFAULTS.atrMinPct,
+      min: 0,
+      max: 100,
+      step: 0.1,
+      visibleWhen: onWhen('atrFilter'),
+    },
+    {
+      key: 'atrMaxPct',
+      label: 'ATR max (% of close)',
+      type: 'float',
+      default: COMPOSED_DEFAULTS.atrMaxPct,
+      min: 0,
+      max: 100,
+      step: 0.1,
+      visibleWhen: onWhen('atrFilter'),
+    },
+    {
+      key: 'adxFilter',
+      label: 'Trend-strength filter',
+      type: 'select',
+      default: 0,
+      options: OFF_ON,
+      hint: 'ADX must be at least the minimum.',
+    },
+    {
+      key: 'adxLen',
+      label: 'ADX length',
+      type: 'int',
+      default: COMPOSED_DEFAULTS.adxLen,
+      min: 1,
+      max: 200,
+      visibleWhen: onWhen('adxFilter'),
+    },
+    {
+      key: 'adxMin',
+      label: 'ADX minimum',
+      type: 'float',
+      default: COMPOSED_DEFAULTS.adxMin,
+      min: 0,
+      max: 100,
+      step: 1,
+      visibleWhen: onWhen('adxFilter'),
+    },
+  ],
+  build(candles, p) {
+    return composedRun(candles, p).signals;
+  },
+  report(candles, p) {
+    return composedRun(candles, p).filters;
+  },
+};
+
+/** The settings to show for the current values: a setting with `visibleWhen` shows only while its switch matches. */
+export function visibleParams(strategy: Pick<StrategyDef, 'params'>, params: Record<string, number>): ParamSpec[] {
+  return strategy.params.filter((p) => {
+    if (!p.visibleWhen) return true;
+    const gate = strategy.params.find((x) => x.key === p.visibleWhen!.key);
+    const v = params[p.visibleWhen.key] ?? gate?.default;
+    return v != null && p.visibleWhen.values.includes(Math.round(Number(v)));
+  });
+}
+
 const customStrategy: StrategyDef = {
   id: 'custom',
   name: 'Custom (JavaScript)',
@@ -299,6 +611,7 @@ export const strategies: StrategyDef[] = [
   rsiReversion,
   bollingerStrategy,
   donchian,
+  composedDef,
   buyHold,
   customStrategy,
   pineStrategy,

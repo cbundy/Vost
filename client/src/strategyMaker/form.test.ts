@@ -6,7 +6,7 @@ describe('find form', () => {
     const { inputs, errors } = readForm(defaultForm());
     expect(errors).toEqual({});
     expect(inputs.direction).toBe('both');
-    expect(inputs.families).toHaveLength(6);
+    expect(inputs.families).toHaveLength(7);
     expect(inputs.risk).toEqual({ feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null });
     expect(inputs.targets).toEqual({});
   });
