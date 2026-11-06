@@ -11,6 +11,7 @@ const env: ChartEnv = {
   buildTimeframes: () => false,
   historyLoading: () => 'scroll',
   pineHigherBars: () => 'forming',
+  jobPlace: () => 'browser',
   datasets: () => [],
   addDataset: () => {},
   removeDataset: () => {},

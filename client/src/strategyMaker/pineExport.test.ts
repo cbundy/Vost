@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { candlesFromCsvText } from '../lib/csv';
 import { runBacktest } from '../lib/backtest/engine';
+import { atr } from '../lib/indicators';
 import { buildSignals, getStrategy } from '../lib/backtest/strategies';
 import { runPine } from '../lib/pine/runtime';
 import type { Candle } from '../types';
@@ -41,7 +42,7 @@ async function compare(candles: Candle[], strategyId: string, base: Record<strin
   if (!out.ok) throw new Error(out.error.message);
   const pine = [...out.trades].sort((a, b) => a.entryIndex - b.entryIndex);
   const row = (t: { side: string; entryBar: number; exitBar: number | null; entryPrice: number; exitPrice: number | null }) => t;
-  const exits = engine.flatMap((t) => (t.exitReason === 'stop_loss' || t.exitReason === 'take_profit' ? [t.exitReason, ...(t.exitBar > t.entryBar ? [`inner-${t.exitReason}`] : [])] : []));
+  const exits = engine.flatMap((t) => (t.exitReason === 'stop_loss' || t.exitReason === 'take_profit' || t.exitReason === 'trailing_stop' ? [t.exitReason, ...(t.exitBar > t.entryBar ? [`inner-${t.exitReason}`] : [])] : []));
   return {
     exits,
     engine: engine.map((t) => row({ side: t.side, entryBar: t.entryBar, exitBar: t.exitReason === 'end_of_data' ? null : t.exitBar, entryPrice: t.entryPrice, exitPrice: t.exitReason === 'end_of_data' ? null : t.exitPrice })),
@@ -194,6 +195,118 @@ describe('risk sized export', () => {
     const out = await runPine(pineStrategyText(cand, risky), sample);
     if (!out.ok) throw new Error(out.error.message);
     expect(out.trades.length).toBeGreaterThan(0);
+  });
+});
+
+const exitRisk = (x: Partial<Run['risk']>): Run['risk'] => ({ ...risk(), ...x });
+
+describe('Pine export with ATR, times-the-stop and trailing exits', () => {
+  const groups: Array<[string, Run['risk']]> = [
+    ['ATR stop and ATR target', exitRisk({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'atr', takeProfitAtrMult: 3, atrLength: 14 })],
+    ['percent stop and 2R target', exitRisk({ stopLossPct: 1.5, takeProfitMode: 'r', takeProfitR: 2 })],
+    ['ATR trail alone', exitRisk({ trailMode: 'atr', trailAtrMult: 1.5, atrLength: 10 })],
+    ['percent trail alone', exitRisk({ trailMode: 'pct', trailPct: 1.2 })],
+    ['ATR trail, percent stop and R target', exitRisk({ stopLossPct: 3, trailMode: 'atr', trailAtrMult: 2, takeProfitMode: 'r', takeProfitR: 1.5, atrLength: 20 })],
+  ];
+  const seen = new Set<string>();
+  for (const [name, r] of groups) {
+    for (const [id, settings] of CASES) {
+      for (const direction of ['long', 'short', 'both'] as const) {
+        for (const [label, candles] of series) {
+          it(`${name}: ${id} ${direction} on ${label}`, async () => {
+            const { engine, pine, exits } = await compare(candles, id, settings[0], direction, r);
+            expect(engine.length).toBeGreaterThan(0);
+            expectSameWithStops(pine, engine, 0.01);
+            exits.forEach((x) => seen.add(x));
+          }, 60000);
+        }
+      }
+    }
+  }
+  it('the cases above exercise stops, trailing stops and targets, some after the entry bar', () => {
+    for (const x of ['stop_loss', 'trailing_stop', 'take_profit', 'inner-stop_loss', 'inner-trailing_stop', 'inner-take_profit']) expect([...seen]).toContain(x);
+  });
+
+  for (const [label, candles] of series) {
+    it(`computes the ATR as Vost does on ${label}`, async () => {
+      const len = 14;
+      // Lift the script's own ATR lines into an indicator and plot them.
+      const text = pineStrategyText({ strategyId: 'sma_cross', params: { fast: 8, slow: 34, direction: 3 } }, { direction: 'both', risk: exitRisk({ stopMode: 'atr', stopAtrMult: 2, atrLength: len }) });
+      const probe = text.replace('strategy(', 'indicator(').split('\n');
+      const start = probe.findIndex((l) => l.startsWith('var float atrState'));
+      const end = probe.findIndex((l) => l.startsWith('bool atrOk'));
+      const script = ['//@version=6', 'indicator("probe")', `atrLength = ${len}`, ...probe.slice(start, end), 'plot(atrV, "atr")'].join('\n');
+      const out = await runPine(script, candles);
+      if (!out.ok) throw new Error(out.error.message);
+      const got = out.plots[0];
+      const want = atr(candles, len);
+      expect(got.values.length).toBe(want.length);
+      let checked = 0;
+      want.forEach((v, i) => {
+        const g = got.values[i];
+        if (v == null) {
+          expect(g == null || Number.isNaN(g)).toBe(true);
+        } else {
+          expect(Math.abs((g as number) - v)).toBeLessThan(1e-9);
+          checked++;
+        }
+      });
+      expect(checked).toBeGreaterThan(100);
+    });
+  }
+});
+
+describe('exit options in the copied texts', () => {
+  const cand = { strategyId: 'sma_cross', params: { fast: 8, slow: 34, direction: 3 } };
+  const base = risk(null, null);
+  it('settingsPlain names the modes', () => {
+    const t = settingsPlain(cand, { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'atr', takeProfitAtrMult: 3, trailMode: 'atr', trailAtrMult: 2.5, atrLength: 20 } });
+    for (const part of ['Stop loss: 2 x ATR', 'Take profit: 3 x ATR', 'Trailing stop: 2.5 x ATR', 'ATR length: 20']) expect(t).toContain(part);
+    const r = settingsPlain(cand, { direction: 'both', risk: { ...base, stopLossPct: 2, takeProfitMode: 'r', takeProfitR: 2, trailMode: 'pct', trailPct: 1.5 } });
+    for (const part of ['Stop loss: 2%', 'Take profit: 2 x the stop', 'Trailing stop: 1.5%']) expect(r).toContain(part);
+    expect(r).not.toContain('ATR length');
+  });
+  it('settingsPlain is unchanged with every option off', () => {
+    const t = settingsPlain(cand, { direction: 'both', risk: { ...base, stopLossPct: 2 } });
+    expect(t).not.toMatch(/Trailing|ATR/);
+    expect(settingsPlain(cand, { direction: 'both', risk: { ...base, stopLossPct: 2, stopMode: 'pct', takeProfitMode: 'pct', trailMode: 'off' } })).toBe(t);
+  });
+  it('the script is identical with the modes spelled out as off', () => {
+    const plain = { ...base, stopLossPct: 2, takeProfitPct: 4, riskPct: 1 };
+    expect(pineStrategyText(cand, { direction: 'both', risk: { ...plain, stopMode: 'pct', takeProfitMode: 'pct', trailMode: 'off' } })).toBe(pineStrategyText(cand, { direction: 'both', risk: plain }));
+    expect(pineStrategyText(cand, { direction: 'both', risk: plain })).not.toMatch(/ATR|atr|trail/i);
+  });
+  it('an ATR script has its own ATR and an atrLength input, never ta.atr', () => {
+    const t = pineStrategyText(cand, { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, atrLength: 14 } });
+    expect(t).toContain('atrLength = input.int(14,');
+    expect(t).toContain('stopAtr = input.float(2,');
+    expect(t).not.toContain('ta.atr(');
+    expect(t).toContain('not ta.atr');
+    expect(t).toContain('target == 0 or atrOk');
+  });
+  it('a trailing script moves a stop and uses no trail_offset', () => {
+    const t = pineStrategyText(cand, { direction: 'both', risk: { ...base, trailMode: 'pct', trailPct: 2 } });
+    expect(t).not.toContain('trail_offset');
+    expect(t).not.toContain('trail_price');
+    expect(t).toContain('stop=trailLvl');
+  });
+  it('risk sizing divides by the stop distance of whichever stops are on', () => {
+    const atrStop = pineStrategyText(cand, { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, atrLength: 14, riskPct: 1 } });
+    expect(atrStop).toContain('qty=strategy.equity * riskPct / 100 / (stopAtr * orderAtr)');
+    const both = pineStrategyText(cand, { direction: 'both', risk: { ...base, stopLossPct: 3, trailMode: 'atr', trailAtrMult: 2, atrLength: 14, riskPct: 1 } });
+    expect(both).toContain('/ math.min(close * stopPct / 100, trailAtr * orderAtr)');
+    const trailOnly = pineStrategyText(cand, { direction: 'both', risk: { ...base, trailMode: 'pct', trailPct: 2, riskPct: 1 } });
+    expect(trailOnly).toContain('/ (close * trailPct / 100)');
+  });
+  it('a risk-sized ATR script runs in the Pine runtime', async () => {
+    const run: Run = { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, atrLength: 14, riskPct: 1 } };
+    const out = await runPine(pineStrategyText(cand, run), sample);
+    if (!out.ok) throw new Error(out.error.message);
+    expect(out.trades.length).toBeGreaterThan(0);
+    // The first trade is sized as equity * risk / (2 x ATR), as the engine sizes it.
+    const engine = runBacktest(sample, buildSignals(sample, cand.strategyId, { ...cand.params, direction: DIR.both }), configFor(run)).trades;
+    const first = [...out.trades].sort((a, b) => a.entryIndex - b.entryIndex)[0];
+    expect(Math.abs(first.size / engine[0].qty - 1)).toBeLessThan(0.05);
   });
 });
 

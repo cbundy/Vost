@@ -147,6 +147,9 @@ export function hasAnyStop(config: Partial<BacktestConfig>): boolean {
   return s.stop != null || s.trail != null;
 }
 
+/** The message shown when a take profit in R has no stop. */
+export const R_NEEDS_STOP = 'A take profit in times the stop needs a stop loss or a trailing stop';
+
 /** True when the take profit is a multiple of the stop and there is no stop to multiply. */
 export function rTargetNeedsStop(config: Partial<BacktestConfig>): boolean {
   return readExitSettings(config).target?.kind === 'r' && !hasAnyStop(config);

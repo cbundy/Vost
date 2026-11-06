@@ -165,7 +165,7 @@ Pick **Pine Script** in the Backtest panel to backtest a Pine v6 `strategy()` sc
 
 ## Strategy maker (research)
 
-A study of a small, local, trainable (non-LLM) tool that would recommend indicators and settings from entries and exits the user highlights is in [spikes/strategy-maker/README.md](spikes/strategy-maker/README.md). The first part is built: the optional `/strategy-maker` page, which loads candles on a chart of its own and is kept apart from the rest of the app (see [the guide page](guide/strategy-maker.md)). The recommending itself is not built yet.
+A study of a small, local, trainable (non-LLM) tool that would recommend indicators and settings from entries and exits the user highlights is in [spikes/strategy-maker/README.md](spikes/strategy-maker/README.md). The first part is built: the optional `/strategy-maker` page, which loads candles on a chart of its own and is kept apart from the rest of the app (see [the guide page](guide/strategy-maker.md)). The Find form carries the Backtest tab's exits (stop loss and take profit in percent or ATR, a target as a multiple of the stop, and a trailing stop): the search, Open in Backtest, Copy settings and Copy as Pine all use them, and the Pine script computes Vost's ATR itself and moves the trailing stop as a plain stop at each bar close. The recommending itself is not built yet.
 
 A second study, [spikes/strategy-search/README.md](spikes/strategy-search/README.md), swept the six built-in families over the top crypto, stocks and indices on every timeframe for strategies that hit 75% at R:R 1 or 50% at R:R 4, and checked what survives on unseen data and against shuffled-return copies.
 

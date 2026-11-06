@@ -193,6 +193,21 @@ export const strategyMaker: Scenario = {
     await page.waitForTimeout(900);
     await page.getByRole('heading', { name: 'Find a strategy' }).scrollIntoViewIfNeeded();
     await ctx.screenshot('find-ready');
+    await ctx.step('the Risk fieldset takes an ATR stop, a times-the-stop target and an ATR trail, then goes back to off', async () => {
+      await page.getByLabel('Stop loss mode').selectOption({ label: 'ATR multiple' });
+      await page.getByLabel('Stop loss (ATR multiple)').fill('2');
+      await page.getByLabel('Take profit mode').selectOption({ label: 'Times the stop' });
+      await page.getByLabel('Take profit (times the stop)').fill('2');
+      await page.getByLabel('Trailing stop mode').selectOption({ label: 'ATR multiple' });
+      await page.getByLabel('Trailing stop (ATR multiple)').fill('1.5');
+      await page.getByLabel('ATR length').waitFor();
+      await ctx.screenshot('find-exits');
+      await page.getByLabel('Stop loss mode').selectOption({ label: 'Percent' });
+      await page.getByLabel('Take profit mode').selectOption({ label: 'Percent' });
+      await page.getByLabel('Trailing stop mode').selectOption({ label: 'Off' });
+      await page.getByLabel('Stop loss (%)').fill('');
+      await page.getByLabel('Take profit (%)').fill('');
+    });
 
     const watchLongTasks = () =>
       page.evaluate(() => {

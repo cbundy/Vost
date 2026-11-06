@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SIGNAL_FAMILIES, trainModel } from './engine';
 import { highlights, synth } from './engine/synthetic';
-import { loadSeries, moreNeeded, runEngine, runFind, runRetrain, runTrain, tooFewMessage, tradesOf, type FindInputs, type Loaders } from './run';
+import { loadSeries, moreNeeded, runEngine, runFind, runRetrain, runTrain, tooFewMessage, tradesOf, configFor, type FindInputs, type Loaders } from './run';
 import { setId, type HighlightSet } from './store';
 import type { HighlightTrade } from './brush';
 
@@ -123,6 +123,22 @@ describe('loadSeries and tradesOf', () => {
     const t = tradesOf(candles.slice(0, 2000), 'sma_cross', { fast: 8, slow: 34, direction: 1 }, inputs());
     expect(t.length).toBeGreaterThan(5);
     expect(t.every((x) => x.side === 'long' && x.exitTime >= x.entryTime && x.entryPrice > 0)).toBe(true);
+  });
+});
+
+describe('exits in a find run', () => {
+  const cand = { fast: 8, slow: 34, direction: 1 };
+  const slice = candles.slice(0, 2000);
+  it('configFor carries an ATR stop and a trail into the engine config', () => {
+    const c = configFor(inputs({ risk: { feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null, stopMode: 'atr', stopAtrMult: 2, trailMode: 'atr', trailAtrMult: 3, atrLength: 10 } }));
+    expect(c).toMatchObject({ stopMode: 'atr', stopAtrMult: 2, trailMode: 'atr', trailAtrMult: 3, atrLength: 10 });
+  });
+  it('a candidate takes different trades with an ATR stop, and the same ones with the modes off', () => {
+    const plain = tradesOf(slice, 'sma_cross', cand, inputs());
+    const atr = tradesOf(slice, 'sma_cross', cand, inputs({ risk: { feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null, stopMode: 'atr', stopAtrMult: 1, takeProfitMode: 'r', takeProfitR: 2 } }));
+    const off = tradesOf(slice, 'sma_cross', cand, inputs({ risk: { feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null, stopMode: 'pct', takeProfitMode: 'pct', trailMode: 'off' } }));
+    expect(atr).not.toEqual(plain);
+    expect(off).toEqual(plain);
   });
 });
 
