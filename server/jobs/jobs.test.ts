@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDocStore } from '../settings/store.ts';
 import { createJobs, KEEP_FINISHED, type JobSummary, type Jobs } from './jobs.ts';
 import { UNAVAILABLE } from './pool.ts';
@@ -159,7 +159,9 @@ describe('job manager', () => {
     await flush();
     expect(await jobs.get('job-1')).toMatchObject({ state: 'failed', error: 'bad config' });
     expect(await jobs.get('job-2')).toMatchObject({ state: 'failed', error: 'engine worker crashed: boom' });
-    expect(JSON.parse(await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8')).summary.state).toBe('failed');
+    await vi.waitFor(async () => {
+      expect(JSON.parse(await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8')).summary.state).toBe('failed');
+    });
   });
 
   it('cancels a queued job without calling the pool, and a running one through its handle', async () => {
