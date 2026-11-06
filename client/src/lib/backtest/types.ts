@@ -60,6 +60,8 @@ export interface BacktestConfig {
   trailAtrMult?: number | null;
   /** ATR period for every ATR exit (integer 1 to 500, default 14). The ATR is read on the signal bar, so a trade waits until it is known. */
   atrLength?: number;
+  /** Which bars the ATR of every ATR exit is measured on: a multiple of the loaded bar length (1, 2, 3, 4, 6, 8, 12 or 24, default 1 = the loaded bars). A longer bar counts only once it has closed by the signal bar's close. */
+  atrTimeframe?: number;
   /** Pine only: the chart's symbol, timeframe and market details. Added when a run is requested, never saved. */
   market?: PineMarket;
 }

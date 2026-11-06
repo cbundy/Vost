@@ -49,3 +49,15 @@ export function higherTimeframe(candles: Candle[], interval: Interval): HigherTi
   }
   return { bars, lastClosed };
 }
+
+/** The multiples of the loaded bar length a setting may ask for (1 = the loaded bars). */
+export const ATR_TIMEFRAME_MULTIPLES = [1, 2, 3, 4, 6, 8, 12, 24] as const;
+
+/** The higher timeframe `k` times the loaded bars, or null to run on the loaded bars (k not above 1, no candles, bars a week or longer, an invalid multiple). */
+export function higherOfMultiple(candles: Candle[], k: number): HigherTimeframe | null {
+  if (!(k > 1) || candles.length === 0) return null;
+  const base = barSeconds(candles);
+  if (base >= 604800) return null;
+  const iv = multipleInterval(base, k);
+  return iv ? higherTimeframe(candles, iv) : null;
+}

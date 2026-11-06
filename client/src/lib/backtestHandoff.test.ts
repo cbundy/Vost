@@ -179,7 +179,12 @@ describe('volatility exits in the hand-off', () => {
     });
     const old = parseHandoff(encodeHandoff(base))!;
     expect(old).toEqual(base);
-    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitR', 'trailMode', 'trailPct', 'trailAtrMult', 'atrLength']) expect(k in old).toBe(false);
+    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitR', 'trailMode', 'trailPct', 'trailAtrMult', 'atrLength', 'atrTimeframe']) expect(k in old).toBe(false);
+  });
+  it('carries the ATR timeframe when it is a listed multiple, and refuses anything else', () => {
+    expect(parseHandoff(encodeHandoff({ ...base, stopMode: 'atr', stopAtrMult: 2, atrTimeframe: 4 }))).toMatchObject({ atrTimeframe: 4 });
+    expect('atrTimeframe' in parseHandoff(encodeHandoff({ ...base, stopMode: 'atr', stopAtrMult: 2 }))!).toBe(false);
+    for (const atrTimeframe of [0, 5, 2.5, '4', -4, Number.NaN]) expect(parseHandoff(hashOf({ ...base, atrTimeframe }))).toBeNull();
   });
   it('refuses an unknown mode or a value not above 0', () => {
     for (const patch of [

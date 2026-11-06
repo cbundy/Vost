@@ -112,6 +112,7 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
           ...(c.exits.takeProfit ? [`take profit mode: ${c.exits.takeProfit}`] : []),
           ...(c.exits.trailingStop ? [`trailing stop: ${c.exits.trailingStop}`] : []),
           ...(c.exits.atrLength != null ? [`ATR length: ${c.exits.atrLength}`] : []),
+          ...(c.exits.atrTimeframe != null ? [`ATR timeframe: ${c.exits.atrTimeframe}x the chart`] : []),
         ]
       : []),
     `shorts: ${c.allowShort ? 'yes' : 'no'}`,

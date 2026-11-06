@@ -239,9 +239,100 @@ describe('settings helpers', () => {
   });
   it('names the modes and the optimizer context', () => {
     const c = cfg({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 3, trailMode: 'atr', trailAtrMult: 1.5, atrLength: 20 });
-    expect(exitModeLabels(c)).toEqual({ stop: 'SL 2 ATR', target: 'TP 3R', trail: 'Trail 1.5 ATR', atrLength: 20 });
-    expect(exitModeLabels(cfg({ stopLossPct: 2, takeProfitPct: 4 }))).toEqual({ stop: 'SL 2%', target: 'TP 4%', trail: null, atrLength: null });
+    expect(exitModeLabels(c)).toEqual({ stop: 'SL 2 ATR', target: 'TP 3R', trail: 'Trail 1.5 ATR', atrLength: 20, atrTimeframe: null });
+    expect(exitModeLabels(cfg({ stopLossPct: 2, takeProfitPct: 4 }))).toEqual({ stop: 'SL 2%', target: 'TP 4%', trail: null, atrLength: null, atrTimeframe: null });
     expect(exitContext(c)).toEqual({ exits: { stopLoss: '2 x ATR', takeProfit: '3 x stop', trailingStop: '1.5 x ATR', atrLength: 20 } });
     expect(exitContext(cfg({ stopLossPct: 2 }))).toEqual({});
+  });
+});
+
+describe('ATR timeframe', () => {
+  const invalid: unknown[] = [undefined, 1, 5, 0, -4, 2.5, '4', Number.NaN, null, 48];
+  const atrExits: Partial<BacktestConfig> = { stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'atr', takeProfitAtrMult: 3, trailMode: 'atr', trailAtrMult: 1.5, atrLength: 10 };
+
+  it('reads 1 for every invalid value and the value for each listed multiple', () => {
+    for (const v of invalid) expect(readExitSettings(cfg({ atrTimeframe: v as number })).atrTimeframe).toBe(1);
+    for (const k of [1, 2, 3, 4, 6, 8, 12, 24]) expect(readExitSettings(cfg({ atrTimeframe: k })).atrTimeframe).toBe(k);
+  });
+
+  it('leaves every trade as it is with the field absent, 1 or invalid', () => {
+    const candles = generateDemoCandles({ bars: 1500, timeframe: '1h', seed: 7 });
+    const base = cfg({ strategyId: 'rsi_reversion', params: {}, allowShort: true, ...atrExits });
+    const signals = buildSignals(candles, base.strategyId, base.params);
+    const ref = runBacktest(candles, signals, base);
+    expect(ref.trades.length).toBeGreaterThan(0);
+    for (const v of invalid) expect(runBacktest(candles, signals, { ...base, atrTimeframe: v as number }).trades).toEqual(ref.trades);
+    // a real multiple does change the trades, so the equality above is not vacuous
+    expect(runBacktest(candles, signals, { ...base, atrTimeframe: 4 }).trades).not.toEqual(ref.trades);
+  });
+
+  // 1h bars from a 4h UTC boundary; 4h bucket b has bars [100, 100 + a, 100 - a, 100] with a = 5, 10, 15, 20 ...
+  // so the 4h true range is 2a (10, 20, 30, 40) and the Wilder ATR(2) of the 4h bars is 25 at bucket 2 and 32.5 at bucket 3.
+  const H = 3600;
+  const T0 = 1_600_041_600;
+  function hourly(n: number, over: Record<number, Bar> = {}): Candle[] {
+    return Array.from({ length: n }, (_, h) => {
+      const a = 5 * (Math.floor(h / 4) + 1);
+      const [open, high, low, close] = over[h] ?? [100, 100 + a, 100 - a, 100];
+      return { time: T0 + h * H, open, high, low, close, volume: 1000 };
+    });
+  }
+  const from = (n: number, start: number): Signal[] => Array.from({ length: n }, (_, i) => (i >= start ? 1 : 0)) as Signal[];
+  const c4 = (over: Partial<BacktestConfig>): BacktestConfig => cfg({ atrLength: 2, atrTimeframe: 4, ...over });
+
+  it('trails by the closed 4h ATR of the signal bar', () => {
+    const candles = hourly(20, { 12: [100, 100, 100, 100], 13: [100, 100, 40, 100] });
+    const { trades } = runBacktest(candles, from(20, 0), c4({ trailMode: 'atr', trailAtrMult: 2 }));
+    // third 4h bar closes at bar 11, so the first signal with an ATR is bar 11 and the trade opens on bar 12
+    expect(trades[0]).toMatchObject({ entryBar: 12, entryPrice: 100, exitBar: 13, exitPrice: 50, exitReason: 'trailing_stop' });
+    // on the loaded bars the ATR is known from bar 2, so the trade would open on bar 3
+    const one = runBacktest(candles, from(20, 0), cfg({ atrLength: 2, trailMode: 'atr', trailAtrMult: 2 })).trades[0];
+    expect(one.entryBar).toBe(3);
+  });
+
+  it('uses the 4h ATR for an ATR stop and an ATR take profit', () => {
+    const stop = runBacktest(hourly(20, { 12: [100, 100, 100, 100], 13: [100, 100, 40, 100] }), from(20, 0), c4({ stopMode: 'atr', stopAtrMult: 2 }));
+    expect(stop.trades[0]).toMatchObject({ entryBar: 12, exitPrice: 50, exitReason: 'stop_loss' });
+    const tp = runBacktest(hourly(20, { 12: [100, 100, 100, 100], 13: [100, 170, 100, 100] }), from(20, 0), c4({ takeProfitMode: 'atr', takeProfitAtrMult: 2 }));
+    expect(tp.trades[0]).toMatchObject({ entryBar: 12, exitPrice: 150, exitReason: 'take_profit' });
+  });
+
+  it('waits while no 4h bar has closed enough, then opens on the first later bar that still asks for long', () => {
+    const candles = hourly(20, { 12: [100, 100, 100, 100], 13: [100, 100, 40, 100] });
+    const early = Array.from({ length: 20 }, (_, i) => (i <= 10 ? 1 : 0)) as Signal[];
+    expect(runBacktest(candles, early, c4({ stopMode: 'atr', stopAtrMult: 2 })).trades).toHaveLength(0);
+    const late = runBacktest(candles, from(20, 5), c4({ stopMode: 'atr', stopAtrMult: 2 }));
+    expect(late.trades[0].entryBar).toBe(12);
+  });
+
+  it('never lets bars after the signal bar move the levels, including the rest of its 4h bucket', () => {
+    // signal bar 13 sits inside bucket 3, which is not closed; the ATR comes from buckets 0..2 only
+    const calm = hourly(24, { 14: [100, 100, 100, 100], 15: [100, 100, 40, 100] });
+    const wild = hourly(24, { 14: [100, 100, 100, 100], 15: [100, 900, 0, 100], 16: [100, 900, 0, 100], 17: [900, 900, 900, 900] });
+    const pick = (cs: Candle[]) => runBacktest(cs, from(24, 13), c4({ stopMode: 'atr', stopAtrMult: 2 })).trades[0];
+    const a = pick(calm);
+    const b = pick(wild);
+    expect(a).toMatchObject({ entryBar: 14, entryPrice: 100, exitPrice: 50 });
+    expect({ entryBar: b.entryBar, entryPrice: b.entryPrice, exitPrice: b.exitPrice, exitReason: b.exitReason }).toEqual({
+      entryBar: a.entryBar,
+      entryPrice: a.entryPrice,
+      exitPrice: a.exitPrice,
+      exitReason: a.exitReason,
+    });
+  });
+
+  it('uses the loaded bars when they are a week or longer', () => {
+    const weekly: Candle[] = Array.from({ length: 12 }, (_, i) => ({ time: T0 + i * 604800, open: 100, high: 105, low: 95, close: 100, volume: 1 }));
+    const run = (k?: number) => runBacktest(weekly, long(12), cfg({ stopMode: 'atr', stopAtrMult: 2, atrLength: 2, atrTimeframe: k })).trades;
+    expect(run(4).length).toBeGreaterThan(0);
+    expect(run(4)).toEqual(run(1));
+  });
+
+  it('names the multiple in the labels and the optimizer context only above 1', () => {
+    expect(exitModeLabels(cfg({ ...atrExits })).atrTimeframe).toBeNull();
+    expect(exitModeLabels(cfg({ ...atrExits, atrTimeframe: 4 })).atrTimeframe).toBe(4);
+    expect(exitContext(cfg({ ...atrExits, atrTimeframe: 4 })).exits?.atrTimeframe).toBe(4);
+    expect(exitContext(cfg({ ...atrExits, atrTimeframe: 1 })).exits).not.toHaveProperty('atrTimeframe');
+    expect(exitContext(cfg({ stopLossPct: 2, atrTimeframe: 4 }))).toEqual({});
   });
 });
