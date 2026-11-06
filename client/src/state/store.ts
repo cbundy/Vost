@@ -925,6 +925,7 @@ export const useStore = create<AppState>()((set, get) => {
         allowShort: h.allowShort,
         initialCapital: h.initialCapital,
         positionSizePct: h.positionSizePct,
+        riskPct: h.riskPct,
         pineInputs: undefined,
       });
       get().setDockTab('backtest');

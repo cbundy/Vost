@@ -106,3 +106,14 @@ describe('applyBacktestHandoff', () => {
     expect(run(cfg, cfg.params)).toEqual(shown);
   });
 });
+
+describe('applyBacktestHandoff risk sizing', () => {
+  it('sets riskPct from the hand-off, and one without it clears a stale one', async () => {
+    const useStore = await setup();
+    useStore.getState().init();
+    useStore.getState().applyBacktestHandoff(handoff({ riskPct: 2 }));
+    expect(chartOf(useStore).getState().btConfig.riskPct).toBe(2);
+    useStore.getState().applyBacktestHandoff(handoff());
+    expect(chartOf(useStore).getState().btConfig.riskPct).toBeUndefined();
+  });
+});

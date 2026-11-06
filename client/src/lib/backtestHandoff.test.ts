@@ -98,3 +98,16 @@ describe('takeBacktestHandoff', () => {
     }
   });
 });
+
+describe('riskPct in the hand-off', () => {
+  it('round trips with it, and an old link without it parses as before', () => {
+    const withRisk = { ...base, riskPct: 2 };
+    expect(parseHandoff(encodeHandoff(withRisk))).toEqual(withRisk);
+    expect(parseHandoff(encodeHandoff(base))).toEqual(base);
+    expect('riskPct' in parseHandoff(encodeHandoff(base))!).toBe(false);
+    expect(parseHandoff(encodeHandoff({ ...base, riskPct: 100 }))?.riskPct).toBe(100);
+  });
+  it('refuses 0, negative, over 100, NaN (null in JSON) and text', () => {
+    for (const riskPct of [0, -1, 101, null, 'x', '2', true]) expect(parseHandoff(hashOf({ ...base, riskPct }))).toBeNull();
+  });
+});

@@ -718,6 +718,27 @@ describe('btRange', () => {
     expect(s.toasts.some((t) => t.kind === 'error' && t.text.includes('From is later than To'))).toBe(true);
   });
 
+  it('risk per trade without a stop loss starts nothing and says why, for the backtest and the optimizer', async () => {
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    const posts: unknown[] = [];
+    class SpyWorker {
+      onmessage: ((e: unknown) => void) | null = null;
+      postMessage(m: unknown) { posts.push(m); }
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', SpyWorker);
+    st().setBtConfig({ riskPct: 2, stopLossPct: null });
+    await st().runBacktest();
+    await st().runOptimizer();
+    const refusals = snap(useStore).toasts.filter((t) => t.kind === 'error' && t.text === 'Risk per trade needs a stop loss');
+    expect(refusals).toHaveLength(2);
+    expect(posts).toHaveLength(0);
+    expect(st().btResult).toBeNull();
+    expect(st().btRunning).toBe(false);
+    expect(st().optRunning).toBe(false);
+  });
+
   it('a range with fewer than 3 bars starts nothing', async () => {
     const { useStore, candles } = await setup();
     chartOf(useStore).getState().setBtRange({ from: candles[5].time, to: candles[6].time });

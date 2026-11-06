@@ -16,6 +16,8 @@ export interface Handoff {
   allowShort: boolean;
   initialCapital: number;
   positionSizePct: number;
+  /** Risk sizing: percent of equity lost at the stop. Written only when set. */
+  riskPct?: number;
   /** The strategy maker's label for the data it was found on. */
   source: string;
 }
@@ -93,6 +95,7 @@ export function parseHandoff(hash: string): Handoff | null {
   if (!isNum(positionSizePct) || positionSizePct < 1 || positionSizePct > 100) return null;
   for (const v of [stopLossPct, takeProfitPct]) if (v !== null && (!isNum(v) || v <= 0)) return null;
   if (typeof r.allowShort !== 'boolean') return null;
+  if (r.riskPct !== undefined && (!isNum(r.riskPct) || r.riskPct <= 0 || r.riskPct > 100)) return null;
   return {
     v: 1,
     strategyId: strategy.id,
@@ -104,6 +107,7 @@ export function parseHandoff(hash: string): Handoff | null {
     allowShort: r.allowShort,
     initialCapital,
     positionSizePct,
+    ...(r.riskPct !== undefined && { riskPct: r.riskPct as number }),
     source: typeof r.source === 'string' ? r.source.slice(0, MAX_SOURCE) : '',
   };
 }

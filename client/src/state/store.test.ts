@@ -642,6 +642,24 @@ describe('chart registry and flat prefs', () => {
     expect(getActiveChart().getState().btConfig.pineInputs).toEqual({ Src: 'hl2' });
   });
 
+  it('restores a saved riskPct, and settings saved without it have none', async () => {
+    seedRaw('prefs.v1', JSON.stringify({ ...seed(), btConfig: { ...seed().btConfig, riskPct: 2.5, stopLossPct: 2 } }));
+    const { useStore, getActiveChart } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    expect(getActiveChart().getState().btConfig).toMatchObject({ riskPct: 2.5, stopLossPct: 2 });
+    getActiveChart().getState().setBtConfig({ riskPct: undefined });
+    expect(JSON.stringify(getActiveChart().getState().btConfig)).not.toContain('riskPct');
+  });
+
+  it('old backtest settings load with no riskPct', async () => {
+    seedRaw('prefs.v1', JSON.stringify(seed()));
+    const { useStore, getActiveChart } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    expect(getActiveChart().getState().btConfig.riskPct).toBeUndefined();
+  });
+
   it('old backtest settings load with no pineInputs', async () => {
     seedRaw('prefs.v1', JSON.stringify(seed()));
     const { useStore, getActiveChart } = await import('./store');

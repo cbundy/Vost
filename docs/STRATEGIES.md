@@ -128,7 +128,7 @@ Pick **Pine Script** in the Backtest panel to backtest a Pine v6 `strategy()` sc
 
 - Fills at the **next bar's open**, with slippage applied *against* you (`buy = open × (1 + slip)`, `sell = open × (1 − slip)`).
 - Fees (`feeBps` per side) charged on entry and exit notional.
-- Position size = `positionSizePct` of current equity; one position at a time; re-entry after a stop requires the signal to leave that side first.
+- Position size = `positionSizePct` of current equity, or with `riskPct` set (and a stop on) `equity x riskPct / stopLossPct`, uncapped, so that hitting the stop loses `riskPct` of equity; one position at a time; re-entry after a stop requires the signal to leave that side first.
 - Stops/takes are checked against bar highs/lows. If both could trigger within one bar, the **stop wins** (conservative). Gaps fill at the open.
 - Equity is marked to market on every close; max drawdown is peak-to-trough of that curve.
 - Sharpe/Sortino are annualised from per-bar returns using the median bar interval of the dataset — comparable across timeframes, approximate across markets (crypto trades 365 days, stocks ~252).

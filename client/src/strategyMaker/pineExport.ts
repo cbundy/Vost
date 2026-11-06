@@ -31,7 +31,7 @@ export function settingsPlain(c: Pick2, run: Run): string {
     `Stop loss: ${onOff(run.risk.stopLossPct, '%')}`,
     `Take profit: ${onOff(run.risk.takeProfitPct, '%')}`,
     `Initial capital: ${cfg.initialCapital}`,
-    `Position size: ${cfg.positionSizePct}% of equity`,
+    run.risk.riskPct != null ? `Position size: risk ${run.risk.riskPct}% of equity at the stop` : `Position size: ${cfg.positionSizePct}% of equity`,
   ].join('\n');
 }
 
@@ -167,14 +167,18 @@ export function pineStrategyText(c: Pick2, run: Run): string {
   if (!body || !names) throw new Error(`No Pine export for ${c.strategyId}`);
   const cfg = defaultBacktestConfig();
   const { stopLossPct: stop, takeProfitPct: take, feeBps } = run.risk;
+  const riskSized = run.risk.riskPct != null && stop != null;
+  const qtyArg = riskSized ? ', qty=strategy.equity * riskPct / 100 / (close * stopPct / 100)' : '';
   const usesLevel = body.some((l) => l.includes('levelSignal'));
   const head = [
     '//@version=6',
     `// ${s.name} found by the Vost strategy maker. Fee ${feeBps} bps per side, slippage ${run.risk.slippageBps} bps (not applied here).`,
+    ...(riskSized ? ['// Position size is by risk: each entry risks riskPct of the equity at the stop, with no cap on the size (leverage can be high).'] : []),
     `strategy(${q(`${s.name} (strategy maker)`)}, overlay=true, initial_capital=${cfg.initialCapital}, default_qty_type=strategy.percent_of_equity, default_qty_value=${cfg.positionSizePct}, commission_type=strategy.commission.percent, commission_value=${feeBps / 100}, margin_long=0, margin_short=0)`,
     '',
     ...s.params.map((p) => inputLine(names[p.key], p, c.params[p.key] ?? p.default)),
     ...(stop != null ? [`stopPct = input.float(${stop}, "Stop loss %", minval=0.01)`] : []),
+    ...(riskSized ? [`riskPct = input.float(${run.risk.riskPct}, "Risk per trade %", minval=0.01, maxval=100)`] : []),
     ...(take != null ? [`takePct = input.float(${take}, "Take profit %", minval=0.01)`] : []),
     '',
     ...(usesLevel ? [...LEVEL_FN, ''] : []),
@@ -195,9 +199,9 @@ export function pineStrategyText(c: Pick2, run: Run): string {
     '            resetSide := 0',
     '    if target != desired',
     '        if target > 0',
-    '            strategy.entry("Long", strategy.long)',
+    `            strategy.entry("Long", strategy.long${qtyArg})`,
     '        else if target < 0',
-    '            strategy.entry("Short", strategy.short)',
+    `            strategy.entry("Short", strategy.short${qtyArg})`,
     '        else if strategy.position_size > 0',
     '            strategy.close("Long")',
     '        else if strategy.position_size < 0',

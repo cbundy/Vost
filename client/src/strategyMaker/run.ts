@@ -20,7 +20,7 @@ import type { HighlightSet, SetSource } from './store';
 export interface FindInputs {
   direction: SearchDirection;
   families: string[];
-  risk: Required<Pick<RiskInput, 'feeBps' | 'slippageBps'>> & { stopLossPct: number | null; takeProfitPct: number | null };
+  risk: Required<Pick<RiskInput, 'feeBps' | 'slippageBps'>> & { stopLossPct: number | null; takeProfitPct: number | null; riskPct?: number };
   targets: Targets;
 }
 

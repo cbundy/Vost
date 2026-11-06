@@ -17,6 +17,7 @@ export function handoffOf(c: Pick<Candidate, 'strategyId' | 'params'>, run: Pick
     allowShort: run.direction !== 'long',
     initialCapital: cfg.initialCapital,
     positionSizePct: cfg.positionSizePct,
+    ...(run.risk.riskPct != null && { riskPct: run.risk.riskPct }),
     source,
   };
 }

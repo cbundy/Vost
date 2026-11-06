@@ -33,7 +33,7 @@ export interface Targets {
 }
 
 export type RiskInput = Partial<
-  Pick<BacktestConfig, 'initialCapital' | 'positionSizePct' | 'feeBps' | 'slippageBps' | 'stopLossPct' | 'takeProfitPct'>
+  Pick<BacktestConfig, 'initialCapital' | 'positionSizePct' | 'riskPct' | 'feeBps' | 'slippageBps' | 'stopLossPct' | 'takeProfitPct'>
 >;
 
 export interface SearchInput {

@@ -22,6 +22,8 @@ export interface OptimizeRunContext {
   bars: number;
   initialCapital: number;
   positionSizePct: number;
+  /** Risk sizing (percent of equity lost at the stop); replaces the position size line when set. */
+  riskPct?: number;
   feeBps: number;
   slippageBps: number;
   stopLossPct: number | null;
@@ -93,7 +95,7 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
     `range to: ${iso(c.rangeTo)}`,
     `bars: ${c.bars}`,
     `initial capital: ${c.initialCapital}`,
-    `position size %: ${c.positionSizePct}`,
+    c.riskPct != null ? `risk per trade %: ${c.riskPct}` : `position size %: ${c.positionSizePct}`,
     `fee bps: ${c.feeBps}`,
     `slippage bps: ${c.slippageBps}`,
     `stop loss %: ${off(c.stopLossPct)}`,
