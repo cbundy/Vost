@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { runBacktest } from '../../lib/backtest/engine';
 import type { Candle } from '../../types';
-import { synth } from '../engine/synthetic';
+import { mulberry32 } from '../../lib/random';
+import { normal, synth } from '../engine/synthetic';
 import { exitsOf, typicalRangePct } from './exits';
 import { MAX_LOADS, MAX_SWEEP_COMBOS, rankCandidates, runSweep, sweepCombos, sweepConfig } from './sweep';
 import type { SweepCandidate, SweepInput, SweepLoad, SweepMarket } from './types';
@@ -42,19 +43,36 @@ const flatTail = (c: Candle[], keep: number, total: number): Candle[] => {
 };
 
 describe('runSweep', () => {
-  it('finds a planted strategy on two markets and holds it on the hold-out', async () => {
-    const out = await runSweep(base, fixed({ AAA: synth(4000, 7), BBB: synth(4000, 11) }));
+  it('finds a planted edge on one market, not on a random walk, and holds it on the hold-out', async () => {
+    // Market A is a noisy 70-bar cycle, which the moving-average crossovers ride. Market B is a plain random walk.
+    const rand = mulberry32(1);
+    const cycle: Candle[] = Array.from({ length: 4000 }, (_, i) => {
+      const c = 100 * Math.exp(0.15 * Math.sin((2 * Math.PI * i) / 70) + normal(rand) * 0.002);
+      return { time: 1_600_000_000 + i * 3600, open: c, high: c * 1.001, low: c * 0.999, close: c, volume: 1000 };
+    });
+    const input: SweepInput = {
+      ...base,
+      targetSets: [{ minHitRatePct: 80 }],
+      space: {
+        sma_cross: [
+          { key: 'fast', from: 4, to: 16, step: 4 },
+          { key: 'slow', from: 20, to: 60, step: 10 },
+        ],
+      },
+    };
+    const out = await runSweep(input, fixed({ AAA: cycle, BBB: synth(4000, 11) }));
     expect(out.skipped).toEqual([]);
-    expect(out.tried).toBe(2 * 1 * 4);
+    expect(out.tried).toBe(2 * 20 * 4);
     expect(out.met).toBeGreaterThan(0);
+    expect(out.met).toBeLessThan(out.tried);
     expect(out.held).toBeGreaterThan(0);
-    expect(new Set(out.candidates.map((c) => c.market.symbol))).toEqual(new Set(['AAA', 'BBB']));
+    expect(out.candidates.every((c) => c.market.symbol === 'AAA')).toBe(true);
     const c = out.candidates[0];
     expect(c.held).toBe(true);
-    expect(c.params).toMatchObject({ fast: 8, slow: 34 });
+    expect(c.selection.winRatePct).toBeGreaterThanOrEqual(80);
     expect(c.selection.trades).toBeGreaterThanOrEqual(30);
     expect(c.heldOut.trades).toBeGreaterThanOrEqual(10);
-    expect(out.closest).toEqual([]);
+    expect(out.closest.map((x) => x.market.symbol)).toEqual(['BBB']);
   });
 
   it('a candidate that meets only the second set passes and names it', async () => {
