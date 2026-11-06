@@ -26,6 +26,15 @@ export function medianBarSeconds(equity: EquityPoint[]): number {
   return diffs[Math.floor(diffs.length / 2)];
 }
 
+/**
+ * Time the bars span, for per-day rates: the bar count times one bar's length.
+ * medianBarSeconds samples every step-th point, so it is the length of `step` bars; divide it back.
+ */
+export function barsSpanSeconds(equity: EquityPoint[]): number {
+  const step = Math.max(1, Math.floor(equity.length / 2000));
+  return (equity.length * medianBarSeconds(equity)) / step;
+}
+
 /** Signals per 100 bars and per day (`seconds` is the span: bars times the median bar length). Null with no bars or no time. */
 export function signalRates(
   fired: number,
@@ -133,7 +142,7 @@ export function computeMetrics(
     trades: trades.length,
     signalsFired: signalsFired ?? null,
     ...(signalsFired != null
-      ? signalRates(signalsFired, equity.length, equity.length * barSeconds)
+      ? signalRates(signalsFired, equity.length, barsSpanSeconds(equity))
       : { signalsPer100Bars: null, signalsPerDay: null }),
     winRatePct,
     profitFactor,

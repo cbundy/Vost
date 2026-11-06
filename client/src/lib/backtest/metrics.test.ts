@@ -58,6 +58,15 @@ describe('signal rates', () => {
     expect(r.signalsPerDay).toBeCloseTo(1.2, 9);
   });
 
+  it('keeps the per-day rate right on runs of 4000 bars or more', () => {
+    for (const n of [200, 3999, 4000, 5000, 20000]) {
+      const eq = points(hourly(n), new Array(n).fill(0));
+      const m = computeMetrics([], eq, [], 10000, 0, n / 100);
+      expect(m.signalsPer100Bars).toBeCloseTo(1, 9);
+      expect(m.signalsPerDay).toBeCloseTo(0.24, 9);
+    }
+  });
+
   it('is null without bars or time', () => {
     expect(signalRates(0, 0, 0)).toEqual({ signalsPer100Bars: null, signalsPerDay: null });
     expect(signalRates(3, 10, 0)).toEqual({ signalsPer100Bars: null, signalsPerDay: null });

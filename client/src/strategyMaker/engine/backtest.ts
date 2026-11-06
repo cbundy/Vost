@@ -1,6 +1,6 @@
 /** Backtests one candidate over parts of the series and pools the figures. */
 import { runBacktest } from '../../lib/backtest/engine';
-import { computeMetrics, medianBarSeconds, signalRates } from '../../lib/backtest/metrics';
+import { computeMetrics, barsSpanSeconds, signalRates } from '../../lib/backtest/metrics';
 import { buildSignals } from '../../lib/backtest/strategies';
 import type { BacktestConfig, Metrics, Trade } from '../../lib/backtest/types';
 import type { Candle } from '../../types';
@@ -37,7 +37,7 @@ export function runParts(parts: Candle[][], base: BacktestConfig, strategyId: st
     ran++;
     fired += out.signalsFired;
     bars += out.equity.length;
-    seconds += out.equity.length * medianBarSeconds(out.equity);
+    seconds += barsSpanSeconds(out.equity);
     trades.push(...out.trades);
   }
   const wins = trades.filter((t) => t.pnl > 0);
