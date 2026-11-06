@@ -90,9 +90,11 @@ describe('job manager', () => {
     const got = await jobs.get('job-1');
     expect(got).toMatchObject({ state: 'done', progress: 1, finished: 1500, result: { type: 'result', metrics: { a: 1 } } });
     expect(events.map((e) => e.state)).toEqual(['queued', 'running', 'done']);
-    const text = await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8');
-    expect(text).not.toContain('candles');
-    expect(JSON.parse(text).summary.state).toBe('done');
+    await vi.waitFor(async () => {
+      const text = await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8');
+      expect(text).not.toContain('candles');
+      expect(JSON.parse(text).summary.state).toBe('done');
+    });
     expect(logs.some((l) => l === '[jobs] job-1 run done in 500 ms (queued 0 ms)')).toBe(true);
   });
 
