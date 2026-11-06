@@ -1,0 +1,18 @@
+/api/jobs requests with Browser picked: 0
+/api/jobs requests: 16
+/api/jobs
+/api/jobs/6c02e154-dc55-44c9-924a-f59999d009f9
+/api/jobs/events
+/api/jobs/6c02e154-dc55-44c9-924a-f59999d009f9
+/api/jobs/6c02e154-dc55-44c9-924a-f59999d009f9
+/api/jobs
+/api/jobs/1ed32641-21fc-4d50-9ede-735894e009ce
+/api/jobs/events
+/api/jobs/1ed32641-21fc-4d50-9ede-735894e009ce
+/api/jobs/6c02e154-dc55-44c9-924a-f59999d009f9
+/api/jobs/6c02e154-dc55-44c9-924a-f59999d009f9
+/api/jobs/1ed32641-21fc-4d50-9ede-735894e009ce
+/api/jobs/1ed32641-21fc-4d50-9ede-735894e009ce
+/api/jobs/events
+/api/jobs/1ed32641-21fc-4d50-9ede-735894e009ce
+/api/jobs/1ed32641-21fc-4d50-9ede-735894e009ce

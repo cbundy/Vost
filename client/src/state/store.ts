@@ -50,6 +50,7 @@ import { sanitizeDefaults } from '../lib/drawingStyle';
 import { toolSettings } from '../components/chart/tools';
 import { canonicalInterval } from '../../../shared/market.ts';
 import type { TimeRange } from '../lib/timeRange';
+import type { JobPlace } from './jobs';
 
 
 export interface Toast {
@@ -102,6 +103,7 @@ interface Prefs {
   barCountdown?: boolean;
   highLowLabels?: boolean;
   pineHigherBars?: 'forming' | 'finished';
+  jobPlace?: JobPlace;
   customTimeframes?: Interval[];
 }
 
@@ -219,6 +221,8 @@ export interface AppState {
   highLowLabels: boolean;
   /** Pine: whether the live bar sees the forming higher-timeframe bar or only finished ones. */
   pineHigherBars: 'forming' | 'finished';
+  /** Where backtests, optimizer runs and Monte Carlo runs run: in this tab or on the server. */
+  jobPlace: JobPlace;
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
   customTimeframes: Interval[];
 
@@ -297,6 +301,7 @@ export interface AppState {
   setBarCountdown(v: boolean): void;
   setHighLowLabels(v: boolean): void;
   setPineHigherBars(v: 'forming' | 'finished'): void;
+  setJobPlace(v: JobPlace): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
   addCustomTimeframe(iv: Interval): void;
   /** Forgets a custom interval and moves every chart showing it to its provider's default timeframe. */
@@ -384,6 +389,7 @@ export const useStore = create<AppState>()((set, get) => {
       barCountdown: s.barCountdown,
       highLowLabels: s.highLowLabels,
       pineHigherBars: s.pineHigherBars,
+      jobPlace: s.jobPlace,
       customTimeframes: s.customTimeframes,
     } satisfies Prefs);
   }, 400);
@@ -498,6 +504,7 @@ export const useStore = create<AppState>()((set, get) => {
     buildTimeframes: () => get().buildTimeframes,
     historyLoading: () => get().historyLoading,
     pineHigherBars: () => get().pineHigherBars,
+    jobPlace: () => get().jobPlace,
     indicatorDefault: (kind) => get().indicatorDefaults[kind] ?? null,
     datasets: () => get().datasets,
     addDataset(dataset) {
@@ -584,6 +591,7 @@ export const useStore = create<AppState>()((set, get) => {
     barCountdown: true,
     highLowLabels: true,
     pineHigherBars: 'forming',
+    jobPlace: 'browser',
     customTimeframes: [],
     charts: firstCharts,
     activeChartId: FIRST_CHART_ID,
@@ -693,6 +701,7 @@ export const useStore = create<AppState>()((set, get) => {
         barCountdown: prefs.barCountdown !== false,
         highLowLabels: prefs.highLowLabels !== false,
         pineHigherBars: prefs.pineHigherBars === 'finished' ? 'finished' : 'forming',
+        jobPlace: prefs.jobPlace === 'server' ? 'server' : 'browser',
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
         ...fields,
@@ -875,6 +884,11 @@ export const useStore = create<AppState>()((set, get) => {
       persistPrefs();
       if (was === next) return;
       for (const chart of Object.values(get().charts)) chart.getState().rerunPine();
+    },
+
+    setJobPlace(v) {
+      set({ jobPlace: v === 'server' ? 'server' : 'browser' });
+      persistPrefs();
     },
 
     setBuildTimeframes(v) {

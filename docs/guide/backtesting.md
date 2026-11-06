@@ -98,6 +98,24 @@ When the range starts before the bars the chart has loaded (the chart opens on t
 
 ![A backtest range](../evidence/bt-range/bt-range-range-desktop.png)
 
+## Where heavy jobs run
+
+By default a backtest, an optimizer run and a Monte Carlo run run in your browser tab and stop when the tab closes. In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup)). A choice applies to the next job; a job already running is not moved.
+
+On **Server**, a run of a built-in strategy goes to the Vost server and shows the same progress bar and the same results as in the browser. Pine and custom-code strategies, and chart indicators, always run in the browser. The finish message says where the run happened ("Backtest finished on the server in 1,898 ms ...").
+
+![A backtest finished on the server](../evidence/server-jobs/server-jobs-backtest-desktop.png)
+
+A server run keeps going when you close the tab or reload. Open the chart again and it shows the progress of a run still going, or the finished result; a run that ended while Vost was closed adds a note to the inbox under Backtest ("... finished on the server while Vost was closed"). A Monte Carlo run is picked up again only while the backtest it ran on is the one shown. **Cancel** on a server optimizer run stops it on the server and brings back the previous result. If the server restarts during a run, the run is gone and a message says so.
+
+![An optimizer run going on the server](../evidence/server-jobs/server-jobs-running-desktop.png)
+
+![The same run after reloading the page, with its progress back](../evidence/server-jobs/server-jobs-reloaded-desktop.png)
+
+![The finished result after the reload](../evidence/server-jobs/server-jobs-result-desktop.png)
+
+If the server cannot take a job (its engine is missing, its data folder cannot be written, the request is too big or the server cannot be reached), the job runs in the browser instead and one message says why ("Server jobs unavailable (...); running in the browser"), in a toast and in the inbox under Backtest. With **Browser** picked, nothing is sent to the server.
+
 ## Results
 
 The **Results** tab shows 20+ metrics (return against Buy & hold, CAGR, Sharpe, Sortino, Calmar, max drawdown and its duration, profit factor, exposure, expectancy and more; hover, focus or tap any figure for what it means, how to read it and what it relates to), the equity and underwater chart and the full trade log. **Export trades CSV** and **Export equity CSV** save them. The equity chart draws a dashed grey **Buy & hold** line next to the strategy's equity, starting from the same capital, with a legend naming both lines and their final values. Buy & hold ignores fees and slippage. **Export equity CSV** has a `buy_hold` column with the same curve.

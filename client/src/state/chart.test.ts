@@ -1958,6 +1958,7 @@ describe('two chart stores stay apart', () => {
       buildTimeframes: () => false,
       historyLoading: () => 'all',
       pineHigherBars: () => 'forming',
+      jobPlace: () => 'browser',
       datasets: () => [],
       addDataset: () => {},
       removeDataset: () => {},
