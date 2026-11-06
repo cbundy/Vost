@@ -59,6 +59,7 @@ vi.mock('./serverJobs', async (orig) => {
 });
 
 import { createBacktestHandler } from '../lib/workers/backtestHandler';
+import { demoProvider } from '../lib/providers';
 import { createChartStore, defaultChartInitial, type ChartEnv } from './chart';
 import type { JobPlace } from './jobs';
 import { putJobRecord } from './jobRecord';
@@ -70,7 +71,7 @@ const bars: Candle[] = Array.from({ length: 160 }, (_, i) => {
   return { time: T0 + i * 3600, open: close - 1, high: close + 2, low: close - 2, close, volume: 10 };
 });
 
-function make(place: JobPlace, id = 'chart-1') {
+function make(place: JobPlace, id = 'chart-1', provider = 'fake') {
   const toasts: string[] = [];
   const messages: string[] = [];
   const env: ChartEnv = {
@@ -87,8 +88,8 @@ function make(place: JobPlace, id = 'chart-1') {
     onPrefsChange: () => {},
     onSync: () => {},
   };
-  const store = createChartStore(id, { ...defaultChartInitial(), providerId: 'fake', symbol: 'AAA', timeframe: '1h', bars: 160 }, env);
-  store.setState({ candles: bars, historyStart: true });
+  const store = createChartStore(id, { ...defaultChartInitial(), providerId: provider, symbol: 'AAA', timeframe: '1h', bars: 160 }, env);
+  if (provider === 'fake') store.setState({ candles: bars, historyStart: true });
   return { store, toasts, messages };
 }
 /** A Worker that runs the engine handler in place, so the browser path works under Node. */
@@ -216,6 +217,21 @@ describe('reattach on load', () => {
     await flush();
     expect(third.messages).toEqual([]);
     same(third.store.getState().btResult, expected);
+  });
+
+  it('a finished result restored before the bars arrive survives the bars loading', async () => {
+    const first = make('server');
+    await first.store.getState().runBacktest();
+    const expected = first.store.getState().btResult;
+    putJobRecord('chart-1', 'run', { id: 'job1', symbol: 'AAA', timeframe: '1h', strategyId: first.store.getState().btConfig.strategyId, started: 1, seen: false });
+    vi.spyOn(demoProvider, 'fetchHistory').mockImplementation(() => new Promise((r) => setTimeout(() => r(bars), 30)));
+    const reopened = make('browser', 'chart-1', demoProvider.id);
+    const loading = reopened.store.getState().loadData();
+    await flush();
+    same(reopened.store.getState().btResult, expected);
+    await loading;
+    same(reopened.store.getState().btResult, expected);
+    vi.restoreAllMocks();
   });
 
   it('a run still going shows its progress and the result when it ends', async () => {

@@ -167,6 +167,8 @@ export interface ReattachTarget {
   done(kind: RecordKind, record: JobRecord, body: Record<string, unknown>): void;
   /** A job ended without a result. */
   failed(kind: RecordKind, error: Error): void;
+  /** A followed job ended with nothing to show (cancelled elsewhere, or its result could not be read): clear the running state. */
+  stopped?(kind: RecordKind): void;
   note(text: string): void;
   api?: ServerJobs;
 }
@@ -206,10 +208,12 @@ export async function reattachJobs(target: ReattachTarget): Promise<void> {
         try {
           full = await api.getJob(rec.id);
         } catch {
+          target.stopped?.(kind);
           return;
         }
         if (!full || full.result === undefined) {
           removeJobRecord(chartId, kind, rec.id);
+          target.stopped?.(kind);
           return;
         }
         if (!followed && !rec.seen) target.note(`${FINISHED_LABEL[kind]} finished on the server while Vost was closed`);
@@ -220,6 +224,7 @@ export async function reattachJobs(target: ReattachTarget): Promise<void> {
       removeJobRecord(chartId, kind, rec.id);
       if (s.state === 'interrupted') target.failed(kind, new ServerRestartedError(kind));
       else if (s.state === 'failed') target.failed(kind, new Error(s.error ?? 'The job failed on the server'));
+      else target.stopped?.(kind);
     };
     if (!isTerminal(job.state)) {
       let over = false;

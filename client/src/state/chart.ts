@@ -378,6 +378,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     env.pushToast('info', text);
     env.pushMessage(source, 'info', text);
   };
+  /** A result shown by a reattach before the chart's first bars arrived: the bars' arrival must not clear it. */
+  let restoredBeforeBars = false;
   const reattachServerJobs = (): void => {
     const failText = (restarted: boolean, label: string, err: Error): string => (restarted ? err.message : `${label} failed: ${err.message}`);
     void reattachJobs({
@@ -395,13 +397,18 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         if (kind === 'run') {
           const result = body.result as BacktestResult;
           btRun = { result, id: record.id };
+          if (get().candles.length === 0) restoredBeforeBars = true;
           set({ btResult: result, btRunning: false, btProgress: 0, btStage: null });
         } else if (kind === 'montecarlo') {
           const source = get().btResult;
           if (!source || shownRunId() !== record.sourceRunId) return set({ mcRunning: false });
           set({ mcResult: { source, result: body.result as MonteCarloResult, options: record.options ?? get().mcConfig }, mcRunning: false });
-        } else if (record.context) {
+        } else if (!record.context) {
           optRun = null;
+          set({ optRunning: false, optProgress: 0 });
+        } else {
+          optRun = null;
+          if (get().candles.length === 0) restoredBeforeBars = true;
           const b = body as unknown as NonNullable<ChartState['optResult']>;
           set({
             optResult: { rows: b.rows, keys: b.keys, metric: b.metric, combos: b.combos, errored: b.errored, validation: b.validation, walkForward: b.walkForward, context: record.context },
@@ -419,6 +426,14 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           set({ optRunning: false, optProgress: 0 });
         }
         env.pushToast('error', failText(restarted, kind === 'run' ? 'Backtest' : kind === 'optimize' ? 'Optimizer' : 'Monte Carlo', err));
+      },
+      stopped(kind) {
+        if (kind === 'run') set({ btRunning: false, btProgress: 0, btStage: null });
+        else if (kind === 'montecarlo') set({ mcRunning: false });
+        else {
+          optRun = null;
+          set({ optRunning: false, optProgress: 0 });
+        }
       },
       note: (text) => env.pushMessage('Backtest', 'info', text),
     });
@@ -566,6 +581,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
     dropReplay();
     if (activeDatasetId != null && (get().live || liveHandle)) stopLive(); // a local dataset never streams
+    const keepResults = restoredBeforeBars && get().candles.length === 0;
+    restoredBeforeBars = false;
     set({
       candles,
       chartRange: null,
@@ -576,9 +593,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       dataLabel,
       activeDatasetId,
       loadState: 'ready',
-      btResult: null,
-      btError: null,
-      optResult: null,
+      ...(keepResults ? {} : { btResult: null, btError: null, optResult: null }),
       historyStart: false,
       olderLoading: false,
     });
