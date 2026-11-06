@@ -1,9 +1,16 @@
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { Handoff } from '../lib/backtestHandoff';
-import type { SweepCandidate, SweepRisk } from './sweep/types';
+import { exitOfCandidate } from './sweep/exits';
+import type { SweepCandidate, SweepExit, SweepRisk } from './sweep/types';
 
 /** The label of a result's market, for the hand-off's source and the table. */
 export const marketLabel = (c: Pick<SweepCandidate, 'market' | 'timeframe'>): string => `${c.market.symbol} ${c.timeframe}`;
+
+/** The exit fields of the link: the exit's settings, with the percents null when it sets none. */
+function handoffExit(x: SweepExit): Pick<Handoff, 'stopLossPct' | 'takeProfitPct'> & Partial<Handoff> {
+  const { stopLossPct, takeProfitPct, ...modes } = x.config;
+  return { ...modes, stopLossPct: stopLossPct ?? null, takeProfitPct: takeProfitPct ?? null } as Pick<Handoff, 'stopLossPct' | 'takeProfitPct'> & Partial<Handoff>;
+}
 
 /** What the main app needs to open a search result on its market and timeframe with the sizing it was tried with (matches `sweepConfig`). */
 export function sweepHandoff(c: SweepCandidate, risk: SweepRisk): Handoff {
@@ -14,8 +21,7 @@ export function sweepHandoff(c: SweepCandidate, risk: SweepRisk): Handoff {
     params: c.params,
     feeBps: risk.feeBps,
     slippageBps: risk.slippageBps,
-    stopLossPct: c.stopLossPct,
-    takeProfitPct: c.takeProfitPct,
+    ...handoffExit(exitOfCandidate(c)),
     allowShort: (c.params.direction ?? 1) !== 1,
     initialCapital: risk.initialCapital,
     positionSizePct: cfg.positionSizePct,

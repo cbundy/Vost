@@ -40,6 +40,12 @@ describe('search form', () => {
     expect(plan.blocker).toBe('Fix the numbers marked above.');
   });
 
+  it('starts with the range kind only, and every kind chosen triples the count', () => {
+    expect(defaultSweepForm().exitKinds).toEqual(['range']);
+    const one = planSweep(picked(), lists).combos;
+    expect(planSweep(picked({ exitKinds: ['range', 'atr', 'atr_trail'] }), lists).combos).toBe(one * 3);
+  });
+
   it('can run once a list is picked', () => {
     expect(planSweep(picked(), lists).blocker).toBeNull();
   });
@@ -50,6 +56,7 @@ describe('search form', () => {
     expect(planSweep(picked({ families: [] }), lists).blocker).toMatch(/indicator/);
     expect(planSweep(picked({ targets: [{ hit: '', rr: '' }, { hit: '', rr: '' }] }), lists).blocker).toMatch(/target row/);
     expect(planSweep(picked({ stopMults: [] }), lists).blocker).toMatch(/stop/);
+    expect(planSweep(picked({ exitKinds: [] }), lists).blocker).toBe('Pick at least one exit kind.');
   });
 
   it('a list with an error cannot count', () => {

@@ -1,509 +1,509 @@
-Tried 116,100 combinations: 9,162 met a target, 5,078 also held on unseen data.
+Tried 348,300 combinations: 31,932 met a target, 22,015 also held on unseen data.
 
 Many combinations were tried, so a result that meets a target can be luck. The ones that held on unseen data - the last part of each market, kept out of the search - are the ones to trust more.
 
 Ranked results
 Market	Timeframe	Strategy	Stop / take profit	Trades	Signals / 100 bars	Hit rate	R:R	Final equity	Max drawdown	Held on unseen data	
-^GDAXI	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	81%	10.21	2,699	1.9%	yes	Open in Backtest
-^FTSE	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	81%	10.18	2,689	1.9%	yes	Open in Backtest
-^FCHI	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	81%	10.09	2,664	1.9%	yes	Open in Backtest
-^HSI	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	10.72	2,637	1.9%	yes	Open in Backtest
-^RUT	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	10.64	2,636	1.9%	yes	Open in Backtest
-^NDX	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	8.71	2,618	2.0%	yes	Open in Backtest
-^GSPC	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	8.71	2,618	2.0%	yes	Open in Backtest
-^DJI	1d	SMA crossover
-fast period 2, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	8.71	2,618	2.0%	yes	Open in Backtest
 ^N225	1d	SMA crossover
 fast period 2, slow period 10, long and short
 	0.51% / 2.55%	21	4.7
 21 fired · 0.05 / day
-	76%	8.69	2,618	2.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 16, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.12	2,596	2.2%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.12	2,596	2.2%	yes	Open in Backtest
-^GDAXI	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	81%	6.59	2,595	2.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 8, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.21	2,589	2.2%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 16, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.09	2,587	2.2%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.09	2,587	2.2%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 36, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	5.41	2,586	2.6%	yes	Open in Backtest
+	81%	10.20	2,696	1.9%	yes	Open in Backtest
 ^FTSE	1d	SMA crossover
-fast period 4, slow period 10, long and short
+fast period 2, slow period 10, long and short
 	0.51% / 2.55%	21	4.7
 21 fired · 0.05 / day
-	81%	6.57	2,585	2.1%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 8, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.19	2,580	2.2%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 36, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	5.39	2,577	2.6%	yes	Open in Backtest
-^GDAXI	1d	MACD
+	81%	10.15	2,680	1.9%	yes	Open in Backtest
+^NDX	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	10.13	2,675	1.9%	yes	Open in Backtest
+^GSPC	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	10.13	2,675	1.9%	yes	Open in Backtest
+^DJI	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	10.13	2,675	1.9%	yes	Open in Backtest
+^GDAXI	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	76%	12.43	2,648	1.9%	yes	Open in Backtest
+^FCHI	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	76%	9.51	2,626	1.9%	yes	Open in Backtest
+^HSI	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	76%	9.32	2,625	1.9%	yes	Open in Backtest
+^RUT	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	76%	8.49	2,616	2.1%	yes	Open in Backtest
+^N225	1d	MACD
 fast ema 4, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
+	1 ATR / 5R	20	4.4
 20 fired · 0.04 / day
-	75%	5.56	2,577	3.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 40, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	5.50	2,569	2.6%	yes	Open in Backtest
-^GDAXI	1d	MACD
+	75%	6.44	2,605	1.9%	yes	Open in Backtest
+^N225	1d	MACD
 fast ema 6, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
+	1 ATR / 5R	20	4.4
 20 fired · 0.04 / day
-	75%	5.26	2,567	3.1%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	5.54	2,567	3.1%	yes	Open in Backtest
-^FCHI	1d	MACD
+	75%	6.02	2,597	1.9%	yes	Open in Backtest
+^N225	1d	MACD
 fast ema 4, slow ema 16, signal ema 9, long and short
 	0.51% / 2.55%	20	4.4
 20 fired · 0.04 / day
-	75%	6.04	2,563	2.2%	yes	Open in Backtest
-^FCHI	1d	MACD
+	75%	6.11	2,593	2.2%	yes	Open in Backtest
+^N225	1d	MACD
 fast ema 6, slow ema 20, signal ema 5, long and short
 	0.51% / 2.55%	20	4.4
 20 fired · 0.04 / day
-	75%	6.04	2,563	2.2%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	5.41	2,562	2.2%	yes	Open in Backtest
-^FCHI	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	81%	6.51	2,562	2.1%	yes	Open in Backtest
+	75%	6.11	2,593	2.2%	yes	Open in Backtest
 ^FTSE	1d	MACD
-fast ema 4, slow ema 40, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	5.48	2,559	2.6%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	5.24	2,558	3.1%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 8, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	6.13	2,556	2.2%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 36, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	5.34	2,553	2.6%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	5.39	2,553	2.2%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 28, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.82	2,548	3.0%	yes	Open in Backtest
-^FCHI	1d	MACD
 fast ema 4, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
+	1 ATR / 5R	20	4.4
 20 fired · 0.04 / day
-	75%	5.49	2,543	3.1%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 28, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.80	2,539	3.0%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 40, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	5.43	2,536	2.6%	yes	Open in Backtest
-^HSI	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	7.40	2,535	2.1%	yes	Open in Backtest
-^RUT	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	7.36	2,534	2.1%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	5.20	2,534	3.1%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	5.34	2,529	2.2%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 10, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.83	2,521	2.6%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 8, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.76	2,518	2.6%	yes	Open in Backtest
-^DJI	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	6.37	2,517	2.1%	yes	Open in Backtest
-^GSPC	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	6.37	2,517	2.1%	yes	Open in Backtest
-^NDX	1d	SMA crossover
-fast period 4, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	76%	6.37	2,517	2.1%	yes	Open in Backtest
+	75%	6.41	2,592	1.9%	yes	Open in Backtest
 ^N225	1d	SMA crossover
 fast period 4, slow period 10, long and short
 	0.51% / 2.55%	21	4.7
 21 fired · 0.05 / day
-	76%	6.35	2,517	2.1%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 28, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.76	2,515	3.0%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 32, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.25	2,512	3.0%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 10, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.82	2,512	2.6%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 8, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.74	2,509	2.6%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 16, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.42	2,504	2.6%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.24	2,504	3.1%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 32, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.24	2,503	3.0%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 16, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.41	2,495	2.6%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.23	2,495	3.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 28, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.24	2,490	3.0%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 10, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.77	2,489	2.6%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 8, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.70	2,486	2.6%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 20, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.99	2,483	3.1%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 28, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.23	2,481	3.0%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 32, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.20	2,480	3.0%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 20, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.98	2,473	3.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 32, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.28	2,473	3.0%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 16, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.37	2,472	2.6%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.19	2,472	3.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 36, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	3.39	2,464	3.7%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 32, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.26	2,464	3.0%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 28, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.19	2,458	3.0%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 36, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	3.38	2,456	3.7%	yes	Open in Backtest
-^GDAXI	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	71%	6.73	2,455	2.5%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 20, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.94	2,451	3.1%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 16, signal ema 13, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.50	2,449	3.5%	yes	Open in Backtest
-^FTSE	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	71%	6.70	2,446	2.5%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 32, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	4.22	2,441	3.0%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 16, signal ema 13, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.48	2,440	3.5%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 40, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	3.35	2,437	3.9%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 4, slow ema 24, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.57	2,436	3.5%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 36, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	3.35	2,433	3.7%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 40, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	3.34	2,428	3.9%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 4, slow ema 24, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.55	2,427	3.5%	yes	Open in Backtest
-^FCHI	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	71%	6.64	2,424	2.5%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 12, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.49	2,420	3.7%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 16, signal ema 13, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.45	2,418	3.5%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 12, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.47	2,411	3.7%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 8, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.22	2,410	3.7%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 6, slow ema 40, signal ema 5, long and short
-	0.51% / 2.55%	19	4.2
-19 fired · 0.04 / day
-	79%	3.31	2,406	3.9%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 4, slow ema 24, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.52	2,405	3.5%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 8, slow ema 24, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.21	2,402	3.7%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 10, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.21	2,399	3.9%	yes	Open in Backtest
-^HSI	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	67%	7.23	2,398	2.5%	yes	Open in Backtest
-^RUT	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	67%	7.21	2,398	2.5%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 10, slow ema 20, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.20	2,390	3.9%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 6, slow ema 20, signal ema 9, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.05	2,389	3.7%	yes	Open in Backtest
-^FCHI	1d	MACD
-fast ema 12, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.44	2,389	3.7%	yes	Open in Backtest
-^GDAXI	1d	MACD
-fast ema 14, slow ema 16, signal ema 5, long and short
-	0.51% / 2.55%	20	4.4
-20 fired · 0.04 / day
-	75%	3.32	2,387	3.7%	yes	Open in Backtest
-^NDX	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	67%	6.56	2,382	2.5%	yes	Open in Backtest
-^DJI	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	67%	6.56	2,382	2.5%	yes	Open in Backtest
-^GSPC	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
-21 fired · 0.05 / day
-	67%	6.56	2,382	2.5%	yes	Open in Backtest
+	81%	6.58	2,592	2.1%	yes	Open in Backtest
 ^N225	1d	SMA crossover
-fast period 6, slow period 10, long and short
-	0.51% / 2.55%	21	4.7
+fast period 2, slow period 10, long and short
+	1 ATR / 5R	21	4.7
 21 fired · 0.05 / day
-	67%	6.55	2,381	2.5%	yes	Open in Backtest
-^FTSE	1d	MACD
-fast ema 6, slow ema 20, signal ema 9, long and short
+	81%	9.27	2,592	1.7%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	6.39	2,588	1.9%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	6.39	2,588	1.9%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	6.39	2,588	1.9%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
 	0.51% / 2.55%	20	4.4
 20 fired · 0.04 / day
-	75%	3.04	2,381	3.7%	yes	Open in Backtest
+	75%	6.20	2,586	2.2%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 6, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.99	2,584	1.9%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.40	2,583	2.6%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.38	2,583	2.0%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.82	2,581	1.9%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.82	2,581	1.9%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 6, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.98	2,580	1.9%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 6, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.98	2,580	1.9%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 6, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.98	2,580	1.9%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.08	2,579	2.2%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.08	2,579	2.2%	yes	Open in Backtest
+^FTSE	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	1 ATR / 5R	21	4.7
+21 fired · 0.05 / day
+	81%	9.21	2,577	1.7%	yes	Open in Backtest
+^FTSE	1d	SMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	6.55	2,577	2.1%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.91	2,575	1.9%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.73	2,575	2.0%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.55	2,574	3.1%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.06	2,573	2.2%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.06	2,573	2.2%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.06	2,573	2.2%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.06	2,573	2.2%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.06	2,573	2.2%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.06	2,573	2.2%	yes	Open in Backtest
+^NDX	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	1 ATR / 5R	21	4.7
+21 fired · 0.05 / day
+	81%	9.19	2,572	1.7%	yes	Open in Backtest
+^GSPC	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	1 ATR / 5R	21	4.7
+21 fired · 0.05 / day
+	81%	9.19	2,572	1.7%	yes	Open in Backtest
+^DJI	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	1 ATR / 5R	21	4.7
+21 fired · 0.05 / day
+	81%	9.19	2,572	1.7%	yes	Open in Backtest
+^DJI	1d	SMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	6.53	2,572	2.1%	yes	Open in Backtest
+^GSPC	1d	SMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	6.53	2,572	2.1%	yes	Open in Backtest
+^NDX	1d	SMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	81%	6.53	2,572	2.1%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.17	2,571	2.2%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	5.16	2,571	2.3%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.33	2,570	2.0%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.37	2,568	2.6%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.79	2,568	1.9%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.79	2,568	1.9%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.16	2,566	2.2%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.16	2,566	2.2%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	6.16	2,566	2.2%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.49	2,566	2.6%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.32	2,565	2.0%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.32	2,565	2.0%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.32	2,565	2.0%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 6, slow ema 16, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.25	2,564	3.1%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.77	2,564	1.9%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.77	2,564	1.9%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.77	2,564	1.9%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.77	2,564	1.9%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.77	2,564	1.9%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.77	2,564	1.9%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.36	2,563	2.6%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.36	2,563	2.6%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.36	2,563	2.6%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.88	2,563	1.9%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.68	2,563	2.0%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR trailing / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.60	2,562	1.9%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR trailing / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.64	2,561	2.0%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR trailing / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.64	2,561	2.0%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 24, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.40	2,559	2.2%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.52	2,559	3.1%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.87	2,558	1.9%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.87	2,558	1.9%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.87	2,558	1.9%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	5.13	2,558	2.3%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.66	2,558	2.0%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.66	2,558	2.0%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	1 ATR trailing / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	7.66	2,558	2.0%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	5.12	2,554	2.3%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	5.12	2,554	2.3%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 36, signal ema 5, long and short
+	1 ATR / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	5.12	2,554	2.3%	yes	Open in Backtest
+^NDX	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.51	2,553	3.1%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.51	2,553	3.1%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 20, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.51	2,553	3.1%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	1 ATR / 5R	19	4.2
+19 fired · 0.04 / day
+	79%	5.27	2,553	2.4%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.46	2,551	2.6%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 6, slow ema 16, signal ema 5, long and short
+	0.51% / 2.55%	20	4.4
+20 fired · 0.04 / day
+	75%	5.23	2,550	3.1%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 8, slow ema 16, signal ema 5, long and short
+	1 ATR trailing / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.57	2,549	1.9%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 4, slow ema 16, signal ema 9, long and short
+	1 ATR trailing / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.61	2,549	2.0%	yes	Open in Backtest
+^FTSE	1d	MACD
+fast ema 6, slow ema 20, signal ema 5, long and short
+	1 ATR trailing / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.61	2,549	2.0%	yes	Open in Backtest
+^GDAXI	1d	SMA crossover
+fast period 2, slow period 10, long and short
+	1 ATR / 5R	21	4.7
+21 fired · 0.05 / day
+	76%	11.27	2,547	1.7%	yes	Open in Backtest
+^N225	1d	MACD
+fast ema 4, slow ema 24, signal ema 5, long and short
+	1 ATR / 5R	20	4.4
+20 fired · 0.04 / day
+	75%	5.15	2,546	2.0%	yes	Open in Backtest
+^GSPC	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.45	2,546	2.6%	yes	Open in Backtest
+^DJI	1d	MACD
+fast ema 4, slow ema 40, signal ema 5, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	79%	5.45	2,546	2.6%	yes	Open in Backtest
 
 Rows held on unseen data show the figures from that unseen part; the others show the part that was searched. Account size 1,000, risk 2% per trade. Signals are the times a setting turned to a new side; the trades column counts the ones that were taken.
 

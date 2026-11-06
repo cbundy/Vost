@@ -13,7 +13,7 @@ import { defaultBacktestConfig, type BacktestConfig } from '../../lib/backtest/t
 import { gapSize, gapsOf } from '../engine/backtest';
 import { candidatesOf, DEFAULT_SPACE, SELECTION_PCT } from '../engine/search';
 import { SIGNAL_FAMILIES, type Gap } from '../engine/types';
-import { exitCount, exitsOf, typicalRangePct, DEFAULT_EXITS } from './exits';
+import { exitCount, exitFields, exitsOf, typicalRangePct, DEFAULT_EXITS } from './exits';
 import type {
   ClosestCandidate,
   PartFigures,
@@ -23,6 +23,7 @@ import type {
   SweepLoad,
   SweepMarket,
   SweepProgress,
+  SweepExit,
   SweepResult,
   SweepRisk,
 } from './types';
@@ -61,8 +62,7 @@ export function sweepConfig(
   risk: SweepRisk,
   strategyId: string,
   params: Record<string, number>,
-  stopLossPct: number,
-  takeProfitPct: number,
+  exit: SweepExit,
 ): BacktestConfig {
   return {
     ...defaultBacktestConfig(),
@@ -73,8 +73,7 @@ export function sweepConfig(
     riskPct: risk.riskPct,
     feeBps: risk.feeBps,
     slippageBps: risk.slippageBps,
-    stopLossPct,
-    takeProfitPct,
+    ...exit.config,
   };
 }
 
@@ -244,7 +243,7 @@ export async function runSweep(
       const selSignals = buildSignals(sel, s.strategyId, s.params);
       let outSignals: unknown[] | null = null;
       for (const x of exits) {
-        const config = sweepConfig(risk, s.strategyId, s.params, x.stopLossPct, x.takeProfitPct);
+        const config = sweepConfig(risk, s.strategyId, s.params, x);
         const a = figuresOf(runBacktest(sel, selSignals, config), risk.initialCapital);
         tried++;
         if (a.trades < MIN_SELECTION_TRADES) continue;
@@ -267,7 +266,7 @@ export async function runSweep(
             best = {
               gaps: nearestGaps,
               size: nearestSize,
-              c: { market, timeframe, strategyId: s.strategyId, params: s.params, ...x, setIndex: nearest, gaps: nearestGaps, selection: a },
+              c: { market, timeframe, strategyId: s.strategyId, params: s.params, ...exitFields(x), setIndex: nearest, gaps: nearestGaps, selection: a },
             };
           }
           continue;
@@ -277,7 +276,7 @@ export async function runSweep(
         const b = figuresOf(runBacktest(out, outSignals, config), risk.initialCapital);
         const isHeld = b.trades >= MIN_HELD_TRADES && gapsOf(b, targetSets[setIndex]).length === 0;
         if (isHeld) held++;
-        found.push({ market, timeframe, strategyId: s.strategyId, params: s.params, ...x, setIndex, held: isHeld, selection: a, heldOut: b });
+        found.push({ market, timeframe, strategyId: s.strategyId, params: s.params, ...exitFields(x), setIndex, held: isHeld, selection: a, heldOut: b });
       }
       report(label);
       await breathe();

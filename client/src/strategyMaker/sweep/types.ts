@@ -1,5 +1,6 @@
 /** Types of the market search (the sweep): many markets and timeframes, a grid of signal settings and exits. */
 import type { Interval } from '../../../../shared/market.ts';
+import type { BacktestConfig } from '../../lib/backtest/types';
 import type { SweepParam } from '../../lib/backtest/optimizer';
 import type { Candle } from '../../types';
 import type { CandidateStats, Gap, SearchDirection, Targets } from '../engine/types';
@@ -12,10 +13,23 @@ export interface SweepMarket {
   symbol: string;
 }
 
-/** Stops are `stopMults` times the typical bar range (percent of close); take profits are `tpMults` times the stop. */
+/** How an exit is placed: a stop sized by the typical bar range, by the ATR, or an ATR trailing stop. */
+export type ExitKind = 'range' | 'atr' | 'atr_trail';
+
+/** Stops are `stopMults` times the typical bar range (percent of close) or the ATR; take profits are `tpMults` times the stop. */
 export interface ExitGrid {
   stopMults: number[];
   tpMults: number[];
+  /** The kinds to try; absent or empty reads as `['range']`. */
+  kinds?: ExitKind[];
+}
+
+/** One exit the search tries, with the backtest settings it sets. */
+export interface SweepExit {
+  kind: ExitKind;
+  stopMult: number;
+  tpMult: number;
+  config: Partial<BacktestConfig>;
 }
 
 export interface SweepRisk {
@@ -58,9 +72,11 @@ export interface SweepCandidate {
   timeframe: Interval;
   strategyId: string;
   params: Record<string, number>;
-  /** The exit used, in percent of entry price. */
-  stopLossPct: number;
-  takeProfitPct: number;
+  /** The exit used. Absent in a result stored before exit kinds existed: read it with `exitOfCandidate`. */
+  exit?: SweepExit;
+  /** The exit in percent of entry price; null for the ATR kinds. */
+  stopLossPct: number | null;
+  takeProfitPct: number | null;
   /** Index into `targetSets` of the set it met. */
   setIndex: number;
   held: boolean;
@@ -73,8 +89,9 @@ export interface ClosestCandidate {
   timeframe: Interval;
   strategyId: string;
   params: Record<string, number>;
-  stopLossPct: number;
-  takeProfitPct: number;
+  exit?: SweepExit;
+  stopLossPct: number | null;
+  takeProfitPct: number | null;
   /** The nearest set and the gaps of the selection figures against it. */
   setIndex: number;
   gaps: Gap[];
