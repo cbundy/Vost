@@ -1,7 +1,7 @@
 /** The find form: its defaults, its numbers read with a message for each bad one, and what Find needs. */
 import { SIGNAL_FAMILIES } from './engine';
 import { defaultBacktestConfig } from '../lib/backtest/types';
-import { DEFAULT_ATR_LENGTH } from '../lib/backtest/exits';
+import { DEFAULT_ATR_LENGTH, R_NEEDS_STOP } from '../lib/backtest/exits';
 import { MIN_TRADES } from './brush';
 import type { FindForm } from './store';
 import type { FindInputs } from './run';
@@ -80,8 +80,6 @@ export type FormErrors = Partial<
   >
 >;
 
-/** The same wording as the Backtest tab. */
-const R_NEEDS_STOP = 'A take profit in times the stop needs a stop loss or a trailing stop';
 
 export type Num = { value: number | null; error?: string };
 

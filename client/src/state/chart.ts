@@ -18,7 +18,7 @@ import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/opt
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
 import type { MonteCarloOptions, MonteCarloResult } from '../lib/backtest/monteCarlo';
 import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
-import { exitContext, hasAnyStop, rTargetNeedsStop } from '../lib/backtest/exits';
+import { exitContext, hasAnyStop, R_NEEDS_STOP, rTargetNeedsStop } from '../lib/backtest/exits';
 import { getStrategy } from '../lib/backtest/strategies';
 import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
@@ -327,7 +327,6 @@ export type ChartStore = StoreApi<ChartState>;
 
 /** A spec with an empty `hideOn` list stored as no list at all. */
 const RISK_NEEDS_STOP = 'Risk per trade needs a stop loss';
-const R_NEEDS_STOP = 'A take profit in times the stop needs a stop loss or a trailing stop';
 
 /** Risk sizing is set but no stop loss is on (Pine sizes in its own script, so it is exempt). */
 function riskNeedsStop(c: BacktestConfig): boolean {

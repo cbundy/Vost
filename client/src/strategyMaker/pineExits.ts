@@ -143,7 +143,7 @@ export function pineExits(risk: Risk): PineExits | null {
     atrLines,
     entryGate: s.needsAtr ? 'atrOk' : null,
     captureLines: s.needsAtr ? ['orderAtr := atrV'] : [],
-    riskDistance: sizeParts.length ? tighter(sizeParts) : null,
+    riskDistance: sizeParts.length ? (sizeParts.length === 1 ? `(${sizeParts[0]})` : tighter(sizeParts)) : null,
     exitLines,
   };
 }

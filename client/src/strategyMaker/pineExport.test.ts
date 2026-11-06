@@ -292,16 +292,21 @@ describe('exit options in the copied texts', () => {
   });
   it('risk sizing divides by the stop distance of whichever stops are on', () => {
     const atrStop = pineStrategyText(cand, { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, atrLength: 14, riskPct: 1 } });
-    expect(atrStop).toContain('qty=strategy.equity * riskPct / 100 / stopAtr * orderAtr');
+    expect(atrStop).toContain('qty=strategy.equity * riskPct / 100 / (stopAtr * orderAtr)');
     const both = pineStrategyText(cand, { direction: 'both', risk: { ...base, stopLossPct: 3, trailMode: 'atr', trailAtrMult: 2, atrLength: 14, riskPct: 1 } });
     expect(both).toContain('/ math.min(close * stopPct / 100, trailAtr * orderAtr)');
     const trailOnly = pineStrategyText(cand, { direction: 'both', risk: { ...base, trailMode: 'pct', trailPct: 2, riskPct: 1 } });
-    expect(trailOnly).toContain('/ close * trailPct / 100');
+    expect(trailOnly).toContain('/ (close * trailPct / 100)');
   });
   it('a risk-sized ATR script runs in the Pine runtime', async () => {
-    const out = await runPine(pineStrategyText(cand, { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, atrLength: 14, riskPct: 1 } }), sample);
+    const run: Run = { direction: 'both', risk: { ...base, stopMode: 'atr', stopAtrMult: 2, atrLength: 14, riskPct: 1 } };
+    const out = await runPine(pineStrategyText(cand, run), sample);
     if (!out.ok) throw new Error(out.error.message);
     expect(out.trades.length).toBeGreaterThan(0);
+    // The first trade is sized as equity * risk / (2 x ATR), as the engine sizes it.
+    const engine = runBacktest(sample, buildSignals(sample, cand.strategyId, { ...cand.params, direction: DIR.both }), configFor(run)).trades;
+    const first = [...out.trades].sort((a, b) => a.entryIndex - b.entryIndex)[0];
+    expect(Math.abs(first.size / engine[0].qty - 1)).toBeLessThan(0.05);
   });
 });
 
