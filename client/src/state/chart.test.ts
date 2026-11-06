@@ -739,6 +739,40 @@ describe('btRange', () => {
     expect(st().optRunning).toBe(false);
   });
 
+  it('risk per trade runs with an ATR stop or only a trailing stop', async () => {
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    for (const over of [
+      { stopMode: 'atr' as const, stopAtrMult: 2 },
+      { trailMode: 'pct' as const, trailPct: 3 },
+    ]) {
+      st().setBtConfig({ riskPct: 2, stopLossPct: null, ...over });
+      await st().runBacktest();
+      expect(snap(useStore).toasts.filter((t) => t.kind === 'error' && t.text === 'Risk per trade needs a stop loss')).toHaveLength(0);
+      expect(st().btResult).not.toBeNull();
+      st().clearBacktest();
+    }
+  });
+
+  it('a take profit in times the stop with no stop starts nothing and says why, for the backtest and the optimizer', async () => {
+    const { useStore } = await setup();
+    const st = () => chartOf(useStore).getState();
+    const posts: unknown[] = [];
+    class SpyWorker {
+      onmessage: ((e: unknown) => void) | null = null;
+      postMessage(m: unknown) { posts.push(m); }
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', SpyWorker);
+    st().setBtConfig({ takeProfitMode: 'r', takeProfitR: 2, stopLossPct: null, trailMode: 'off' });
+    await st().runBacktest();
+    await st().runOptimizer();
+    const refusals = snap(useStore).toasts.filter((t) => t.kind === 'error' && t.text === 'A take profit in times the stop needs a stop loss or a trailing stop');
+    expect(refusals).toHaveLength(2);
+    expect(posts).toHaveLength(0);
+    expect(st().btResult).toBeNull();
+  });
+
   it('a range with fewer than 3 bars starts nothing', async () => {
     const { useStore, candles } = await setup();
     chartOf(useStore).getState().setBtRange({ from: candles[5].time, to: candles[6].time });

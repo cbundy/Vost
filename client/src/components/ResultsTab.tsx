@@ -1,6 +1,7 @@
 import { downloadFile, rowsToCsv, sanitizeFileName } from '../lib/export';
 import { fmtCompact, fmtDurationBarCount, fmtDurationUnits, fmtMoney, fmtNum, fmtPct, pnlClass } from '../lib/format';
 import { medianBarSeconds } from '../lib/backtest/metrics';
+import { exitModeLabels } from '../lib/backtest/exits';
 import { getStrategy } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
 import { MonteCarloPanel } from './MonteCarloPanel';
@@ -70,6 +71,8 @@ export function ResultsTab() {
     cards.push({ help: 'maxLeverage', label: 'Max leverage', value: `${fmtNum(Math.max(...leverages), 1)}x` });
   }
 
+  const exitBadges = exitModeLabels(btResult.config);
+
   const exportTrades = () => {
     const rows = btResult.trades.map((t) => [
       t.id,
@@ -116,8 +119,8 @@ export function ResultsTab() {
         <span className="badge">
           fees {btResult.config.feeBps} bps · slippage {btResult.config.slippageBps} bps
         </span>
-        {btResult.config.stopLossPct != null && <span className="badge">SL {btResult.config.stopLossPct}%</span>}
-        {btResult.config.takeProfitPct != null && <span className="badge">TP {btResult.config.takeProfitPct}%</span>}
+        {[exitBadges.stop, exitBadges.target, exitBadges.trail].map((label) => label && <span key={label} className="badge">{label}</span>)}
+        {exitBadges.atrLength != null && <span className="badge">ATR {exitBadges.atrLength}</span>}
         <div className="dock-spacer" />
         <label className="row" style={{ fontSize: 12.5, gap: 6, cursor: 'pointer' }} title="Draw entry/exit markers on the chart">
           <input type="checkbox" checked={showTrades} onChange={(e) => setShowTrades(e.target.checked)} /> Trades on chart

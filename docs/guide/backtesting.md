@@ -25,11 +25,40 @@ A Pine strategy shows all of its inputs under **Script inputs**, with the same c
 
 ![Script inputs in the Pine pane, the same controls as in the Backtest pane](../evidence/pine-pane/pine-pane-inputs-desktop.png)
 
-Risk controls: initial capital, position sizing (a percent of equity, or [risk per trade](#risk-per-trade)), fees and slippage in bps per side, stop loss %, take profit % and long and short. Then press **Run backtest**.
+Risk controls: initial capital, position sizing (a percent of equity, or [risk per trade](#risk-per-trade)), fees and slippage in bps per side, [stop loss, take profit and trailing stop](#stops-take-profits-and-trailing-stops) and long and short. Then press **Run backtest**.
 
 While it runs, a progress bar under the button (and in the Results tab) shows the stage and a percent: computing signals, simulating trades, running the Pine script, then computing metrics. It goes away when the run ends.
 
 ![The progress bar mid-run](../evidence/bt-progress/bt-progress-backtest-tab-desktop.png)
+
+## Stops, take profits and trailing stops
+
+Each exit has a mode select beside its value:
+
+- **Stop loss**: **Percent** (the distance from the entry price) or **ATR multiple** (that many times the ATR).
+- **Take profit**: **Percent**, **ATR multiple**, or **Times the stop** (for example 3 gives a 3R target: three times the distance to the stop).
+- **Trailing stop**: **Off**, **Percent** or **ATR multiple**.
+
+The **ATR length** field (default 14, 1 to 500) appears when any exit uses an ATR multiple. Pine strategies set their exits in the script, so these fields are disabled for them.
+
+How each trade gets its levels:
+
+- **Fixed at entry.** Every trade works out its own levels from its entry fill price (slippage included): an ATR stop is entry minus (a long) or plus (a short) the multiple times the ATR, an ATR target the other way round, and a target in times the stop is that many times the initial stop distance.
+- **The ATR is the one on the signal bar**, the bar before the entry fills, so it never includes the entry bar or anything later. The ATR needs `ATR length` bars of history: until it is known, a trade that needs it does not open. It opens on the first later bar whose signal still asks for that side.
+- **Trailing.** The distance is fixed at entry (a percent of the entry price, or a multiple of the signal-bar ATR). The trail starts that far behind the entry and, after each bar, moves to that distance behind the best price since entry (the highest high for a long, the lowest low for a short). It never moves back. A bar checks the stop set by earlier bars first, so its own high never tightens a stop that the same bar then hits.
+- **The stop in force** is the tighter of the fixed stop and the trail. If one bar reaches both the stop and the target, the stop wins. A gap through the level fills at the open. After a stop or a target, the signal has to leave that side before the next entry.
+- **Exit reasons.** An exit at the trail is a **trailing stop** in the trades list and the exit reasons table; an exit at the fixed stop is a stop loss.
+- **Times the stop needs a stop.** A take profit in times the stop with no stop loss and no trailing stop is refused with a message, and nothing starts (the optimizer too).
+
+[Risk per trade](#risk-per-trade) sizes each trade from its own initial stop distance, the tighter of the fixed stop and the trail's starting level, so an ATR stop or a trailing stop alone is enough.
+
+![An ATR stop, a take profit of 3 times the stop and a 1.5 ATR trailing stop set](../evidence/bt-results/bt-results-exits-setting-desktop.png)
+
+The Results tab names the modes in its badges (for example `SL 2 ATR`, `TP 3R`, `Trail 1.5 ATR`), and the optimizer's CSV names them in its settings lines.
+
+![The Results badges for the exit modes](../evidence/bt-results/bt-results-exits-badges-desktop.png)
+
+![A trailing stop row in the exit reasons table](../evidence/bt-results/bt-results-exits-trades-desktop.png)
 
 ## Risk per trade
 
@@ -37,10 +66,12 @@ While it runs, a progress bar under the button (and in the Results tab) shows th
 
 position = equity x risk % / stop %
 
+The stop is the trade's own initial stop distance as a percent of its entry price: the fixed percent, or the ATR multiple worked out at entry.
+
 From $1,000 at 2% risk, a stopped-out trade loses $20.00 and the next one $19.60, whatever the stop distance. A 2% stop is a position the size of the account; a 0.04% stop is a position 50 times the account.
 
 - **There is no cap on the position.** A tight stop can mean a leverage of 50x or more. Each trade records the leverage it used, and the Results tab shows the largest one as the **Max leverage** card, so check that your exchange would allow it.
-- **It needs a stop loss.** With no stop, the run is refused with "Risk per trade needs a stop loss" and nothing starts (the optimizer too).
+- **It needs a stop**: a percent or ATR stop loss, or a trailing stop. With none, the run is refused with "Risk per trade needs a stop loss" and nothing starts (the optimizer too).
 - The loss can be larger than the risk percent: fees count on top of it, and a gap through the stop fills at the open, past the stop. On a leveraged position a big gap can wipe the account out; the run still finishes and opens no new trade once the equity is gone.
 - It is saved with the backtest settings, comes across from the strategy maker, and is named in its settings text and Pine export (each entry is sized by `qty=`). Pine strategies size in their own script, so the setting does not apply to them.
 

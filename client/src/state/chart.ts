@@ -18,6 +18,7 @@ import type { OptimizeConfig, OptimizeRow, MetricKey } from '../lib/backtest/opt
 import { defaultOptimizeConfig } from '../lib/backtest/optimizer';
 import type { MonteCarloOptions, MonteCarloResult } from '../lib/backtest/monteCarlo';
 import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
+import { exitContext, hasAnyStop, rTargetNeedsStop } from '../lib/backtest/exits';
 import { getStrategy } from '../lib/backtest/strategies';
 import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
@@ -326,10 +327,18 @@ export type ChartStore = StoreApi<ChartState>;
 
 /** A spec with an empty `hideOn` list stored as no list at all. */
 const RISK_NEEDS_STOP = 'Risk per trade needs a stop loss';
+const R_NEEDS_STOP = 'A take profit in times the stop needs a stop loss or a trailing stop';
 
 /** Risk sizing is set but no stop loss is on (Pine sizes in its own script, so it is exempt). */
 function riskNeedsStop(c: BacktestConfig): boolean {
-  return c.riskPct != null && c.strategyId !== 'pine' && !(c.stopLossPct != null && c.stopLossPct > 0);
+  return c.riskPct != null && c.strategyId !== 'pine' && !hasAnyStop(c);
+}
+
+/** The reason a run cannot start from its exit settings, or null. */
+function exitsProblem(c: BacktestConfig): string | null {
+  if (riskNeedsStop(c)) return RISK_NEEDS_STOP;
+  if (c.strategyId !== 'pine' && rTargetNeedsStop(c)) return R_NEEDS_STOP;
+  return null;
 }
 
 function withoutEmptyHideOn(spec: IndicatorSpec): IndicatorSpec {
@@ -1207,8 +1216,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', 'Load some data before running a backtest.');
         return;
       }
-      if (riskNeedsStop(btConfig)) {
-        env.pushToast('error', RISK_NEEDS_STOP);
+      const exitsError = exitsProblem(btConfig);
+      if (exitsError) {
+        env.pushToast('error', exitsError);
         return;
       }
       let loadedHistory = false;
@@ -1323,8 +1333,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', 'Load some data before optimizing.');
         return;
       }
-      if (riskNeedsStop(btConfig)) {
-        env.pushToast('error', RISK_NEEDS_STOP);
+      const exitsError = exitsProblem(btConfig);
+      if (exitsError) {
+        env.pushToast('error', exitsError);
         return;
       }
       const previous = optRun ? optRun.previous : get().optResult;
@@ -1387,6 +1398,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         slippageBps: btConfig.slippageBps,
         stopLossPct: btConfig.stopLossPct,
         takeProfitPct: btConfig.takeProfitPct,
+        ...exitContext(btConfig),
         allowShort: btConfig.allowShort,
         sweeps: optConfig.sweeps.map((sw) => ({ ...sw })),
       };

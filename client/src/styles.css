@@ -1560,6 +1560,27 @@ button.icon {
   font-family: var(--mono);
 }
 
+/* A field with a mode select beside its value (the Backtest exits): two grid columns. */
+.form-field .exit-row {
+  display: flex;
+  gap: 6px;
+}
+
+.form-field .exit-row select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.form-field .exit-row input {
+  flex: 0 0 72px;
+  width: 72px;
+  min-width: 0;
+}
+
+.form-field.wide {
+  grid-column: span 2;
+}
+
 .form-row {
   display: flex;
   gap: 8px;

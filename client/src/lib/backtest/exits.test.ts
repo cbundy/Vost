@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
 import { generateDemoCandles } from '../providers/demo';
 import { runBacktest } from './engine';
-import { activeStop, hitTest, levelsAtEntry, readExitSettings, updateTrail } from './exits';
+import { activeStop, exitContext, exitModeLabels, hasAnyStop, hitTest, levelsAtEntry, rTargetNeedsStop, readExitSettings, updateTrail } from './exits';
 import { buildSignals } from './strategies';
 import { defaultBacktestConfig, type BacktestConfig, type Signal } from './types';
 
@@ -222,4 +222,26 @@ describe('unchanged defaults', () => {
       expect(b).toEqual(a);
     });
   }
+});
+
+describe('settings helpers', () => {
+  it('any stop counts a percent, ATR or trailing stop', () => {
+    expect(hasAnyStop(cfg({ stopLossPct: null }))).toBe(false);
+    expect(hasAnyStop(cfg({ stopLossPct: 2 }))).toBe(true);
+    expect(hasAnyStop(cfg({ stopMode: 'atr', stopAtrMult: 2 }))).toBe(true);
+    expect(hasAnyStop(cfg({ trailMode: 'pct', trailPct: 3 }))).toBe(true);
+    expect(hasAnyStop(cfg({ stopMode: 'atr', stopAtrMult: 0, trailMode: 'atr', trailAtrMult: Number.NaN }))).toBe(false);
+  });
+  it('an R target needs a stop', () => {
+    expect(rTargetNeedsStop(cfg({ takeProfitMode: 'r', takeProfitR: 2 }))).toBe(true);
+    expect(rTargetNeedsStop(cfg({ takeProfitMode: 'r', takeProfitR: 2, trailMode: 'pct', trailPct: 2 }))).toBe(false);
+    expect(rTargetNeedsStop(cfg({ takeProfitMode: 'r', takeProfitR: 0 }))).toBe(false);
+  });
+  it('names the modes and the optimizer context', () => {
+    const c = cfg({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 3, trailMode: 'atr', trailAtrMult: 1.5, atrLength: 20 });
+    expect(exitModeLabels(c)).toEqual({ stop: 'SL 2 ATR', target: 'TP 3R', trail: 'Trail 1.5 ATR', atrLength: 20 });
+    expect(exitModeLabels(cfg({ stopLossPct: 2, takeProfitPct: 4 }))).toEqual({ stop: 'SL 2%', target: 'TP 4%', trail: null, atrLength: null });
+    expect(exitContext(c)).toEqual({ exits: { stopLoss: '2 x ATR', takeProfit: '3 x stop', trailingStop: '1.5 x ATR', atrLength: 20 } });
+    expect(exitContext(cfg({ stopLossPct: 2 }))).toEqual({});
+  });
 });

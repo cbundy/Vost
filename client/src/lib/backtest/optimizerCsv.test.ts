@@ -115,6 +115,16 @@ describe('optimizeResultToCsv', () => {
   });
 });
 
+describe('optimizeContextLines with volatility exits', () => {
+  it('names the ATR, R and trailing modes and the ATR length, and none for percent exits only', () => {
+    const plain = optimizeContextLines(ctx, result);
+    expect(plain.some((l) => /mode|trailing|ATR/.test(l))).toBe(false);
+    const lines = optimizeContextLines({ ...ctx, exits: { stopLoss: '2 x ATR', takeProfit: '3 x stop', trailingStop: '1.5 x ATR', atrLength: 20 } }, result);
+    const at = lines.indexOf('# take profit %: 5');
+    expect(lines.slice(at + 1, at + 5)).toEqual(['# stop loss mode: 2 x ATR', '# take profit mode: 3 x stop', '# trailing stop: 1.5 x ATR', '# ATR length: 20']);
+  });
+});
+
 describe('optimizeResultToCsv with a split validation', () => {
   const span = (from: number, to: number, bars: number) => ({ from, to, bars });
   const splitCtx: OptimizeRunContext = {

@@ -931,6 +931,16 @@ export const useStore = create<AppState>()((set, get) => {
         initialCapital: h.initialCapital,
         positionSizePct: h.positionSizePct,
         riskPct: h.riskPct,
+        // A link without the volatility exits clears them.
+        stopMode: h.stopMode,
+        stopAtrMult: h.stopAtrMult,
+        takeProfitMode: h.takeProfitMode,
+        takeProfitAtrMult: h.takeProfitAtrMult,
+        takeProfitR: h.takeProfitR,
+        trailMode: h.trailMode,
+        trailPct: h.trailPct,
+        trailAtrMult: h.trailAtrMult,
+        atrLength: h.atrLength,
         pineInputs: undefined,
       });
       get().setDockTab('backtest');

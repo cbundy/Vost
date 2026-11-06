@@ -140,3 +140,46 @@ export function updateTrail(side: -1 | 1, lv: TradeLevels, bar: { high: number; 
     if (t < lv.trail) lv.trail = t;
   }
 }
+
+/** True when the config has a stop of any kind: percent, ATR or trailing. */
+export function hasAnyStop(config: Partial<BacktestConfig>): boolean {
+  const s = readExitSettings(config);
+  return s.stop != null || s.trail != null;
+}
+
+/** True when the take profit is a multiple of the stop and there is no stop to multiply. */
+export function rTargetNeedsStop(config: Partial<BacktestConfig>): boolean {
+  return readExitSettings(config).target?.kind === 'r' && !hasAnyStop(config);
+}
+
+/** Short labels for the modes in use, e.g. `SL 2 ATR`, `TP 3R`, `Trail 1.5 ATR`. */
+export function exitModeLabels(config: Partial<BacktestConfig>): { stop: string | null; target: string | null; trail: string | null; atrLength: number | null } {
+  const s = readExitSettings(config);
+  const num = (n: number): string => String(Number(n.toFixed(4)));
+  return {
+    stop: s.stop ? (s.stop.kind === 'atr' ? `SL ${num(s.stop.mult)} ATR` : `SL ${num(s.stop.pct)}%`) : null,
+    target: s.target ? (s.target.kind === 'atr' ? `TP ${num(s.target.mult)} ATR` : s.target.kind === 'r' ? `TP ${num(s.target.r)}R` : `TP ${num(s.target.pct)}%`) : null,
+    trail: s.trail ? (s.trail.kind === 'atr' ? `Trail ${num(s.trail.mult)} ATR` : `Trail ${num(s.trail.pct)}%`) : null,
+    atrLength: s.needsAtr ? s.atrLength : null,
+  };
+}
+
+/** The volatility exits of a run for the optimizer file's context: only the ATR, R and trailing ones (the percent ones have their own lines). */
+export interface ExitContext {
+  stopLoss?: string;
+  takeProfit?: string;
+  trailingStop?: string;
+  atrLength?: number;
+}
+
+export function exitContext(config: Partial<BacktestConfig>): { exits?: ExitContext } {
+  const s = readExitSettings(config);
+  const out: ExitContext = {};
+  if (s.stop?.kind === 'atr') out.stopLoss = `${s.stop.mult} x ATR`;
+  if (s.target?.kind === 'atr') out.takeProfit = `${s.target.mult} x ATR`;
+  if (s.target?.kind === 'r') out.takeProfit = `${s.target.r} x stop`;
+  if (s.trail) out.trailingStop = s.trail.kind === 'atr' ? `${s.trail.mult} x ATR` : `${s.trail.pct}%`;
+  if (Object.keys(out).length === 0) return {};
+  if (s.needsAtr) out.atrLength = s.atrLength;
+  return { exits: out };
+}

@@ -4,6 +4,7 @@
  * never imports the strategy maker. Only built-in signal strategies can be handed over.
  */
 import { canonicalInterval, type Interval } from '../../../shared/market.ts';
+import type { BacktestConfig } from './backtest/types';
 import { getStrategy, strategies } from './backtest/strategies';
 import { providers } from './providers';
 
@@ -20,6 +21,16 @@ export interface Handoff {
   positionSizePct: number;
   /** Risk sizing: percent of equity lost at the stop. Written only when set. */
   riskPct?: number;
+  /** Volatility exits, each written only when set (see `BacktestConfig`). */
+  stopMode?: 'atr';
+  stopAtrMult?: number;
+  takeProfitMode?: 'atr' | 'r';
+  takeProfitAtrMult?: number;
+  takeProfitR?: number;
+  trailMode?: 'pct' | 'atr';
+  trailPct?: number;
+  trailAtrMult?: number;
+  atrLength?: number;
   /** The market search names the market the strategy was found on; the main app then switches to it. All three or none. */
   providerId?: string;
   symbol?: string;
@@ -49,6 +60,39 @@ function fromBase64Url(s: string): string {
 
 export function encodeHandoff(h: Handoff): string {
   return HANDOFF_PREFIX + toBase64Url(JSON.stringify(h));
+}
+
+/** The handoff fields that carry the volatility exits, as they are in `BacktestConfig`. */
+export const HANDOFF_EXIT_KEYS = [
+  'stopMode',
+  'stopAtrMult',
+  'takeProfitMode',
+  'takeProfitAtrMult',
+  'takeProfitR',
+  'trailMode',
+  'trailPct',
+  'trailAtrMult',
+  'atrLength',
+] as const satisfies readonly (keyof Handoff & keyof BacktestConfig)[];
+
+const EXIT_MODES: Record<string, readonly string[]> = { stopMode: ['atr'], takeProfitMode: ['atr', 'r'], trailMode: ['pct', 'atr'] };
+
+/** The exit fields of a raw link that are present, or null when one is not valid. */
+function parseExits(r: Record<string, unknown>): Partial<Pick<Handoff, (typeof HANDOFF_EXIT_KEYS)[number]>> | null {
+  const out: Record<string, unknown> = {};
+  for (const k of HANDOFF_EXIT_KEYS) {
+    const v = r[k];
+    if (v === undefined) continue;
+    if (k in EXIT_MODES) {
+      if (typeof v !== 'string' || !EXIT_MODES[k].includes(v)) return null;
+    } else if (k === 'atrLength') {
+      if (!isNum(v) || !Number.isInteger(v) || v < 1 || v > 500) return null;
+    } else if (!isNum(v) || v <= 0) {
+      return null;
+    }
+    out[k] = v;
+  }
+  return out;
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -103,6 +147,8 @@ export function parseHandoff(hash: string): Handoff | null {
   for (const v of [stopLossPct, takeProfitPct]) if (v !== null && (!isNum(v) || v <= 0)) return null;
   if (typeof r.allowShort !== 'boolean') return null;
   if (r.riskPct !== undefined && (!isNum(r.riskPct) || r.riskPct <= 0 || r.riskPct > 100)) return null;
+  const exits = parseExits(r);
+  if (!exits) return null;
   const hasMarket = r.providerId !== undefined || r.symbol !== undefined || r.timeframe !== undefined;
   if (hasMarket) {
     if (typeof r.providerId !== 'string' || !providers.some((p) => p.id === r.providerId)) return null;
@@ -121,6 +167,7 @@ export function parseHandoff(hash: string): Handoff | null {
     initialCapital,
     positionSizePct,
     ...(r.riskPct !== undefined && { riskPct: r.riskPct as number }),
+    ...exits,
     ...(hasMarket && { providerId: r.providerId as string, symbol: r.symbol as string, timeframe: r.timeframe as Interval }),
     source: typeof r.source === 'string' ? r.source.slice(0, MAX_SOURCE) : '',
   };

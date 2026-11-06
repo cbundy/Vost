@@ -108,6 +108,26 @@ describe('applyBacktestHandoff', () => {
 });
 
 describe('applyBacktestHandoff risk sizing', () => {
+  it('sets the volatility exits from the hand-off, and one without them clears stale ones', async () => {
+    const useStore = await setup();
+    useStore.getState().init();
+    useStore.getState().applyBacktestHandoff(
+      handoff({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 3, trailMode: 'atr', trailAtrMult: 1.5, atrLength: 20 }),
+    );
+    expect(chartOf(useStore).getState().btConfig).toMatchObject({
+      stopMode: 'atr',
+      stopAtrMult: 2,
+      takeProfitMode: 'r',
+      takeProfitR: 3,
+      trailMode: 'atr',
+      trailAtrMult: 1.5,
+      atrLength: 20,
+    });
+    useStore.getState().applyBacktestHandoff(handoff());
+    const c = chartOf(useStore).getState().btConfig;
+    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitR', 'trailMode', 'trailAtrMult', 'atrLength'] as const) expect(c[k]).toBeUndefined();
+  });
+
   it('sets riskPct from the hand-off, and one without it clears a stale one', async () => {
     const useStore = await setup();
     useStore.getState().init();
