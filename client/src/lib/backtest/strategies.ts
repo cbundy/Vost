@@ -266,6 +266,135 @@ const donchian: StrategyDef = {
   },
 };
 
+const pullback: StrategyDef = {
+  id: 'pullback',
+  name: 'Pullback in trend',
+  description: 'Buy a dip inside an uptrend: close above the trend EMA and RSI crossing back up through the dip level; exit above the target or when the trend breaks (mirrored for shorts).',
+  params: [
+    { key: 'trend', label: 'Trend EMA length', type: 'int', default: 200, min: 2, max: 1000 },
+    { key: 'length', label: 'RSI length', type: 'int', default: 14, min: 2, max: 200 },
+    { key: 'dip', label: 'Dip level', type: 'float', default: 40, min: 1, max: 49, step: 1 },
+    { key: 'target', label: 'Target level', type: 'float', default: 70, min: 51, max: 99, step: 1 },
+    { key: 'direction', label: 'Direction', type: 'select', default: 1, options: DIRECTION_OPTIONS },
+  ],
+  build(candles, p) {
+    const closes = candles.map((c) => c.close);
+    const trend = ema(closes, int(p.trend, 200));
+    const r = rsi(closes, int(p.length, 14));
+    const dip = num(p.dip, 40);
+    const target = num(p.target, 70);
+    const dir = direction(p.direction);
+    const dipLine = constSeries(dip, candles.length);
+    const mirrorDipLine = constSeries(100 - dip, candles.length);
+    const out: Signal[] = new Array(candles.length).fill(null);
+    let pos: -1 | 0 | 1 = 0;
+    for (let i = 0; i < candles.length; i++) {
+      const v = r[i];
+      const t = trend[i];
+      if (v == null || t == null) continue;
+      const c = closes[i];
+      if (dir !== 2) {
+        if (pos === 0 && c > t && crossover(r, dipLine, i)) pos = 1;
+        else if (pos === 1 && (v > target || c < t)) pos = 0;
+      }
+      if (dir !== 1) {
+        if (pos === 0 && c < t && crossunder(r, mirrorDipLine, i)) pos = -1;
+        else if (pos === -1 && (v < 100 - target || c > t)) pos = 0;
+      }
+      out[i] = pos;
+    }
+    return out;
+  },
+};
+
+const reversal: StrategyDef = {
+  id: 'reversal',
+  name: 'Reversal',
+  description: 'Buy when price closes back inside the lower Bollinger band after closing below it; exit at the middle band (mirrored for shorts with the upper band).',
+  params: [
+    { key: 'length', label: 'Length', type: 'int', default: 20, min: 2, max: 400 },
+    { key: 'mult', label: 'Std dev mult', type: 'float', default: 2, min: 0.1, max: 6, step: 0.1 },
+    { key: 'direction', label: 'Direction', type: 'select', default: 1, options: DIRECTION_OPTIONS },
+  ],
+  build(candles, p) {
+    const closes = candles.map((c) => c.close);
+    const { upper, middle, lower } = bollinger(closes, int(p.length, 20), num(p.mult, 2));
+    const dir = direction(p.direction);
+    const out: Signal[] = new Array(candles.length).fill(null);
+    let pos: -1 | 0 | 1 = 0;
+    for (let i = 0; i < candles.length; i++) {
+      const u = upper[i];
+      const m = middle[i];
+      const l = lower[i];
+      if (u == null || m == null || l == null) continue;
+      const c = closes[i];
+      const pu = i > 0 ? upper[i - 1] : null;
+      const pl = i > 0 ? lower[i - 1] : null;
+      const pc = i > 0 ? closes[i - 1] : 0;
+      if (dir !== 2) {
+        if (pos === 0 && pl != null && pc < pl && c > l) pos = 1;
+        else if (pos === 1 && c > m) pos = 0;
+      }
+      if (dir !== 1) {
+        if (pos === 0 && pu != null && pc > pu && c < u) pos = -1;
+        else if (pos === -1 && c < m) pos = 0;
+      }
+      out[i] = pos;
+    }
+    return out;
+  },
+};
+
+const momentumBreakout: StrategyDef = {
+  id: 'momentum_breakout',
+  name: 'Momentum breakout',
+  description: 'Buy a new N-bar high only when volume is well above its recent average; exit on a new M-bar low (mirrored for shorts).',
+  params: [
+    { key: 'entry', label: 'Entry period', type: 'int', default: 20, min: 2, max: 400 },
+    { key: 'exit', label: 'Exit period', type: 'int', default: 10, min: 1, max: 400 },
+    { key: 'volLen', label: 'Volume average length', type: 'int', default: 20, min: 2, max: 400 },
+    { key: 'volMult', label: 'Volume multiple', type: 'float', default: 1.5, min: 1, max: 10, step: 0.1 },
+    { key: 'direction', label: 'Direction', type: 'select', default: 1, options: DIRECTION_OPTIONS },
+  ],
+  build(candles, p) {
+    const highs = candles.map((c) => c.high);
+    const lows = candles.map((c) => c.low);
+    const closes = candles.map((c) => c.close);
+    const volumes = candles.map((c) => c.volume);
+    const entry = int(p.entry, 20);
+    const exit = int(p.exit, 10);
+    const hh = highest(highs, entry);
+    const ll = lowest(lows, exit);
+    const lEntry = lowest(lows, entry);
+    const hhExit = highest(highs, exit);
+    const avgVol = sma(volumes, int(p.volLen, 20));
+    const volMult = num(p.volMult, 1.5);
+    const dir = direction(p.direction);
+    const out: Signal[] = new Array(candles.length).fill(null);
+    let pos: -1 | 0 | 1 = 0;
+    for (let i = 1; i < candles.length; i++) {
+      const upLevel = hh[i - 1];
+      const downLevel = ll[i - 1];
+      const downBreak = lEntry[i - 1];
+      const upBreak = hhExit[i - 1];
+      const av = avgVol[i - 1];
+      if (upLevel == null || downLevel == null || downBreak == null || upBreak == null || av == null) continue;
+      const c = closes[i];
+      const loud = volumes[i] >= volMult * av;
+      if (dir !== 2) {
+        if (pos === 0 && c > upLevel && loud) pos = 1;
+        else if (pos === 1 && c < downLevel) pos = 0;
+      }
+      if (dir !== 1) {
+        if (pos === 0 && c < downBreak && loud) pos = -1;
+        else if (pos === -1 && c > upBreak) pos = 0;
+      }
+      out[i] = pos;
+    }
+    return out;
+  },
+};
+
 const customStrategy: StrategyDef = {
   id: 'custom',
   name: 'Custom (JavaScript)',
@@ -299,10 +428,32 @@ export const strategies: StrategyDef[] = [
   rsiReversion,
   bollingerStrategy,
   donchian,
+  pullback,
+  reversal,
+  momentumBreakout,
   buyHold,
   customStrategy,
   pineStrategy,
 ];
+
+export type StrategyStyle = 'trend' | 'continuation' | 'mean_reversion' | 'reversal' | 'breakout' | 'momentum';
+
+/** The trading style of each searchable strategy, primary style first. The one place styles are kept. */
+export const STRATEGY_STYLES: Record<string, readonly StrategyStyle[]> = {
+  sma_cross: ['trend'],
+  ema_cross: ['trend'],
+  macd_cross: ['trend'],
+  rsi_reversion: ['mean_reversion'],
+  bollinger: ['breakout', 'mean_reversion'],
+  donchian: ['breakout'],
+  pullback: ['continuation', 'trend'],
+  reversal: ['reversal'],
+  momentum_breakout: ['momentum', 'breakout'],
+};
+
+export function stylesOf(id: string): readonly StrategyStyle[] {
+  return STRATEGY_STYLES[id] ?? [];
+}
 
 export function getStrategy(id: string): StrategyDef {
   return strategies.find((s) => s.id === id) ?? strategies[0];

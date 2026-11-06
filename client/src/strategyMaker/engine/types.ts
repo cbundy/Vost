@@ -7,7 +7,7 @@ import type { Candle } from '../../types';
 export const MIN_TRADES = 30;
 
 /** The built-in strategies that are plain signal templates; the only ids the engine accepts. */
-export const SIGNAL_FAMILIES = ['sma_cross', 'ema_cross', 'macd_cross', 'rsi_reversion', 'bollinger', 'donchian'] as const;
+export const SIGNAL_FAMILIES = ['sma_cross', 'ema_cross', 'macd_cross', 'rsi_reversion', 'bollinger', 'donchian', 'pullback', 'reversal', 'momentum_breakout'] as const;
 
 export type SearchDirection = 'long' | 'short' | 'both';
 

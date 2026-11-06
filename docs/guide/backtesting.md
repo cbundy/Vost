@@ -13,6 +13,9 @@ Open the **Backtest** tab in the bottom dock. Pick a **Strategy** and set its pa
 - RSI mean reversion (length, oversold, overbought, direction)
 - Bollinger (length, mult, mode: breakout or reversion, direction)
 - Donchian breakout (entry, exit, direction)
+- Pullback in trend (trend EMA length, RSI length, dip, target, direction)
+- Reversal (length, mult, direction)
+- Momentum breakout (entry, exit, volume average length, volume multiple, direction)
 - Buy & hold
 - Custom (JS) and Pine strategies: see [Custom strategies](../STRATEGIES.md) and [Pine Script](pine.md)
 
