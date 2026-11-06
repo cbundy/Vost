@@ -148,11 +148,14 @@ describe('/api/jobs', () => {
   });
 
   it('refuses bad requests with 400', async () => {
-    for (const b of [body({ kind: 'nope' }), body({ scope: '' }), body({ request: 3 }), body({ placement: { where: 'x', reason: 'auto' } }), '{oops', '[]']) {
+    for (const b of [body({ kind: 'nope' }), body({ scope: '' }), body({ request: 3 }), body({ placement: { where: 'x', reason: 'auto' } }), body({ placement: { where: 'server', reason: 'auto', benchmark: { browserMs: 1, serverMs: 'x', at: 1 } } }), body({ placement: { where: 'server', reason: 'auto', benchmark: { browserMs: 1, serverMs: 1 } } }), '{oops', '[]']) {
       expect((await post(b)).status).toBe(400);
     }
     const ok = await post(body({ placement: { where: 'server', reason: 'fallback' } }));
     expect((await ok.json()).placement).toEqual({ where: 'server', reason: 'fallback' });
+    const benchmark = { browserMs: 400, serverMs: 120, at: 1700000000000 };
+    const withBench = await post(body({ placement: { where: 'server', reason: 'auto', benchmark } }));
+    expect((await withBench.json()).placement).toEqual({ where: 'server', reason: 'auto', benchmark });
   });
 
   it('refuses pine and custom with 422', async () => {

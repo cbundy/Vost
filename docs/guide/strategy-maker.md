@@ -125,6 +125,8 @@ The results start with how many combinations were tried, how many met a target a
 
 By default Find, Retrain and **Search markets** run in your browser, in a background worker of the page, and stop when the page closes. In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup) and [Where heavy jobs run](backtesting.md#where-heavy-jobs-run)). A choice applies to the next run; a run already going is not moved.
 
+With **Auto** picked, Find, Retrain and the market search each run where the Settings benchmark found them faster (Retrain uses the Find time); the progress line says "Running on the server (Auto)" or "Running in the browser (Auto: ...)", and with no benchmark Auto runs in the browser (see [The benchmark and Auto](backtesting.md#the-benchmark-and-auto)).
+
 On **Server**, the run goes to the Vost server and shows the same progress bar, **Cancel** and results as in the browser. While it runs, the progress line says "Running on the server; it keeps going if you close the page."
 
 ![A Find running on the server](../evidence/strategy-maker-server/strategy-maker-server-find-running-desktop.png)

@@ -256,6 +256,10 @@ describe('job manager', () => {
       { kind: 'run', scope: 'x'.repeat(201), request: {} },
       { kind: 'run', scope: 's', request: {}, placement: { where: 'moon', reason: 'auto' } },
       { kind: 'run', scope: 's', request: {}, placement: { where: 'server', reason: 'auto', benchmarkMs: 'x' } },
+      { kind: 'run', scope: 's', request: {}, placement: { where: 'server', reason: 'auto', benchmark: 'x' } },
+      { kind: 'run', scope: 's', request: {}, placement: { where: 'server', reason: 'auto', benchmark: { browserMs: 'x', serverMs: 1, at: 1 } } },
+      { kind: 'run', scope: 's', request: {}, placement: { where: 'server', reason: 'auto', benchmark: { browserMs: NaN, serverMs: 1, at: 1 } } },
+      { kind: 'run', scope: 's', request: {}, placement: { where: 'server', reason: 'auto', benchmark: { browserMs: 1, serverMs: 1 } } },
     ];
     for (const b of bad) expect(await jobs.create(b as never)).toMatchObject({ ok: false, status: 400 });
     expect(pool.calls).toHaveLength(0);
@@ -271,6 +275,12 @@ describe('job manager', () => {
     expect(a.placement).toEqual(p);
     expect(jobs.list('other')).toHaveLength(1);
     expect(jobs.list()).toHaveLength(2);
+  });
+
+  it('stores a benchmark in the placement as given', async () => {
+    const jobs = await make(2);
+    const p = { where: 'server', reason: 'auto', benchmark: { browserMs: 900, serverMs: null, at: 1700000000000 } };
+    expect((await create(jobs, { ...btInput(), placement: p })).placement).toEqual(p);
   });
 
   it('does not write a running job failed on close', async () => {

@@ -61,7 +61,7 @@ vi.mock('../lib/serverJobs', async (orig) => {
 import { createBacktestHandler } from '../lib/workers/backtestHandler';
 import { demoProvider } from '../lib/providers';
 import { createChartStore, defaultChartInitial, type ChartEnv } from './chart';
-import type { JobPlace } from './jobs';
+import type { JobSetting } from '../lib/benchmark';
 import { putJobRecord } from './jobRecord';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 
@@ -71,7 +71,7 @@ const bars: Candle[] = Array.from({ length: 160 }, (_, i) => {
   return { time: T0 + i * 3600, open: close - 1, high: close + 2, low: close - 2, close, volume: 10 };
 });
 
-function make(place: JobPlace, id = 'chart-1', provider = 'fake') {
+function make(place: JobSetting, id = 'chart-1', provider = 'fake') {
   const toasts: string[] = [];
   const messages: string[] = [];
   const env: ChartEnv = {
@@ -123,6 +123,43 @@ describe('server jobs from the chart', () => {
     expect(onServer.store.getState().btRunning).toBe(false);
     expect(onServer.toasts[0]).toMatch(/^Backtest finished on the server in \d+ ms/);
     expect(browser.toasts[0]).toMatch(/^Backtest finished in the browser in \d+ ms/);
+  });
+
+  it('Auto: the finish message names the place and carries (Auto), or says the benchmark is missing', async () => {
+    const bench = (run: [number, number]) => ({
+      at: 1,
+      userAgent: 'ua',
+      cores: 1,
+      serverVersion: null,
+      jobs: Object.fromEntries(['run', 'optimize', 'montecarlo', 'find', 'sweep'].map((k) => [k, { browserMs: run[0], serverMs: run[1] }])),
+    });
+    seedStorageForTest({ 'benchmark.v1': bench([900, 100]) });
+    const fast = make('auto');
+    await fast.store.getState().runBacktest();
+    expect(server.started).toEqual(['run']);
+    expect(fast.toasts[0]).toMatch(/^Backtest finished on the server \(Auto\) in \d+ ms/);
+
+    seedStorageForTest({ 'benchmark.v1': bench([100, 900]) });
+    const slow = make('auto');
+    await slow.store.getState().runBacktest();
+    expect(server.started).toEqual(['run']);
+    expect(slow.toasts[0]).toMatch(/^Backtest finished in the browser \(Auto\) in \d+ ms/);
+    expect(slow.toasts[0]).not.toContain('run the benchmark');
+
+    seedStorageForTest();
+    const none = make('auto');
+    await none.store.getState().runBacktest();
+    expect(server.started).toEqual(['run']);
+    expect(none.toasts[0]).toMatch(/^Backtest finished in the browser in \d+ ms.* \(Auto: run the benchmark to let Auto choose\)$/);
+  });
+
+  it('Auto with the server away falls back to the browser with the usual notice', async () => {
+    seedStorageForTest({ 'benchmark.v1': { at: 1, userAgent: 'ua', cores: 1, serverVersion: null, jobs: Object.fromEntries(['run', 'optimize', 'montecarlo', 'find', 'sweep'].map((k) => [k, { browserMs: 900, serverMs: 100 }])) } });
+    server.unavailable = true;
+    const t = make('auto');
+    await t.store.getState().runBacktest();
+    expect(t.store.getState().btResult).not.toBeNull();
+    expect(t.toasts.some((x) => x.startsWith('Backtest finished in the browser'))).toBe(true);
   });
 
   it('an optimizer run on the server gives the browser rows and the same context', async () => {

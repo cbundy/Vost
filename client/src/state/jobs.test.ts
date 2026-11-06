@@ -108,6 +108,103 @@ describe('where a job goes', () => {
   });
 });
 
+describe('Auto', () => {
+  const doc = (run: [number | null, number | null]) => ({
+    at: 1700000000000,
+    userAgent: 'ua',
+    cores: 4,
+    serverVersion: '1',
+    jobs: {
+      run: { browserMs: run[0], serverMs: run[1] },
+      optimize: { browserMs: run[0], serverMs: run[1] },
+      montecarlo: { browserMs: run[0], serverMs: run[1] },
+      find: { browserMs: 1, serverMs: 1 },
+      sweep: { browserMs: 1, serverMs: 1 },
+    },
+  });
+
+  it('sends a job to the server when the benchmark found it faster, posting the figures', async () => {
+    seedStorageForTest({ 'benchmark.v1': doc([800, 200]) });
+    const f = fakeApi();
+    const run = runJob('auto', 'chart-1', runReq(), undefined, { api: f.api });
+    runOptimizerJob('auto', 'chart-1', optReq(), undefined, { api: f.api });
+    await flush();
+    const placement = { where: 'server', reason: 'auto', benchmark: { browserMs: 800, serverMs: 200, at: 1700000000000 } };
+    expect(f.spies.startJob.mock.calls.map((c) => [c[0], c[3]])).toEqual([
+      ['run', placement],
+      ['optimize', placement],
+    ]);
+    expect(run.auto).toBe(true);
+    expect(run.unmeasured).toBe(false);
+    expect(workerCall).not.toHaveBeenCalled();
+  });
+
+  it('runs in the browser, with no request, when the browser was faster or equal', async () => {
+    for (const times of [[200, 800], [500, 500]] as [number, number][]) {
+      seedStorageForTest({ 'benchmark.v1': doc(times) });
+      const f = fakeApi();
+      const run = runJob('auto', 'chart-1', runReq(), undefined, { api: f.api });
+      await run.promise;
+      expect(run.place()).toBe('browser');
+      expect(run.auto).toBe(true);
+      expect(f.spies.startJob).not.toHaveBeenCalled();
+    }
+  });
+
+  it('runs in the browser and says the benchmark is missing with no benchmark or an unmeasured or unavailable type', async () => {
+    for (const d of [undefined, doc([null, 200]), doc([800, null])]) {
+      seedStorageForTest(d ? { 'benchmark.v1': d } : {});
+      const f = fakeApi();
+      const run = runJob('auto', 'chart-1', runReq(), undefined, { api: f.api });
+      await run.promise;
+      expect(run.place()).toBe('browser');
+      expect(run.auto).toBe(false);
+      expect(run.unmeasured).toBe(true);
+      expect(f.spies.startJob).not.toHaveBeenCalled();
+    }
+  });
+
+  it('falls back to the browser through onFallback when Auto chose the server and it is away', async () => {
+    seedStorageForTest({ 'benchmark.v1': doc([800, 200]) });
+    const f = fakeApi();
+    f.failStart(new ServerUnavailableError('the server cannot be reached'));
+    const onFallback = vi.fn();
+    const run = runJob('auto', 'chart-1', runReq(), undefined, { api: f.api, onFallback });
+    await run.promise;
+    expect(onFallback).toHaveBeenCalledWith('the server cannot be reached');
+    expect(run.place()).toBe('browser');
+    expect(workerCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps pine and custom strategies in the browser, whatever the benchmark says', async () => {
+    seedStorageForTest({ 'benchmark.v1': doc([800, 200]) });
+    const f = fakeApi();
+    for (const id of ['pine', 'custom']) {
+      const run = runJob('auto', 'chart-1', runReq(id), undefined, { api: f.api });
+      await run.promise;
+      expect(run.place()).toBe('browser');
+      expect(run.auto).toBe(false);
+    }
+    expect(f.spies.startJob).not.toHaveBeenCalled();
+  });
+
+  it('noFallback rejects with the refusal instead of running in the browser', async () => {
+    const f = fakeApi();
+    f.failStart(new ServerUnavailableError('busy'));
+    const run = runJob('server', 'benchmark', runReq(), undefined, { api: f.api, noFallback: true });
+    await expect(run.promise).rejects.toBeInstanceOf(ServerUnavailableError);
+    expect(workerCall).not.toHaveBeenCalled();
+  });
+
+  it('settles a Monte Carlo run by the strategy it is given', async () => {
+    const f = fakeApi();
+    runJob('server', 'benchmark', mcReq, undefined, { api: f.api, strategyId: 'sma_cross' });
+    await flush();
+    expect(f.spies.startJob).toHaveBeenCalledTimes(1);
+    expect(getJobRecord('benchmark', 'montecarlo')).toBeNull();
+  });
+});
+
 describe('a server job', () => {
   it('reports progress and stage, saves a record, and resolves with the stored result', async () => {
     const f = fakeApi();

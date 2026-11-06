@@ -15,7 +15,7 @@ import {
   type SweepForm,
 } from './sweepForm';
 import type { JobKeeper, ReattachPlan } from './reattach';
-import { ON_SERVER } from './TargetsForm';
+import { placeNote } from './TargetsForm';
 import { useSweep } from './useSweep';
 
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -232,7 +232,7 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
           <span>
             {Math.round(sweep.run.pct * 100)}%{sweep.run.label ? ` - ${sweep.run.label}` : ''}
           </span>
-          {sweep.run.onServer && <span className="sm-note">{ON_SERVER}</span>}
+          {placeNote(sweep.run) && <span className="sm-note">{placeNote(sweep.run)}</span>}
         </div>
       )}
       {sweep.error && (

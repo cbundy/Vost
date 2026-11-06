@@ -106,6 +106,20 @@ On **Server**, a run of a built-in strategy goes to the Vost server and shows th
 
 ![A backtest finished on the server](../evidence/server-jobs/server-jobs-backtest-desktop.png)
 
+### The benchmark and Auto
+
+Which place is faster depends on your machine and on the server's. **Run benchmark** in **Settings**, **Heavy jobs**, runs five standard jobs one at a time, each first in the browser and then on the server: a backtest, an optimizer run, a Monte Carlo run, a Find and a market search, all on the same built-in demo data so two runs compare. The line under the button names the job running ("Benchmark: Optimizer on the server, 3 of 10") and **Cancel** stops the run and saves nothing. Each time is the whole job: for the server it includes sending the job, waiting in the queue, the run and fetching the result.
+
+![The benchmark running](../evidence/benchmark/benchmark-running-desktop.png)
+
+The result is a table with one row per job and its time in the browser, on the server and which was **Faster**, under the date of the run. It is saved on the Vost server and stays until you run the benchmark again. If the server cannot take a job, its cell says **Unavailable** (hover for the reason) and the browser time is kept.
+
+![The benchmark result](../evidence/benchmark/benchmark-results-desktop.png)
+
+Pick **Auto** and each job goes to the place that was faster for its kind in the benchmark (Retrain uses the Find time); equal times go to the browser. A finish message that names the place adds "(Auto)" ("Backtest finished on the server (Auto) in 1,898 ms ..."). With no benchmark, or for a kind it could not time on both sides, Auto runs the job in the browser and the finish message says so ("(Auto: run the benchmark to let Auto choose)"). If Auto picks the server and the server cannot take the job, it runs in the browser with the usual notice. Pine and custom-code strategies still always run in the browser.
+
+![A backtest finished on the server when Auto chose it](../evidence/benchmark/benchmark-finished-server-desktop.png)
+
 A server run keeps going when you close the tab or reload. Open the chart again and it shows the progress of a run still going, or the finished result; a run that ended while Vost was closed adds a note to the inbox under Backtest ("... finished on the server while Vost was closed"). A Monte Carlo run is picked up again only while the backtest it ran on is the one shown. **Cancel** on a server optimizer run stops it on the server and brings back the previous result. If the server restarts during a run, the run is gone and a message says so.
 
 ![An optimizer run going on the server](../evidence/server-jobs/server-jobs-running-desktop.png)

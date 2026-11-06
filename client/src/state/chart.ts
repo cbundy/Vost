@@ -50,7 +50,8 @@ import {
 } from '../lib/replay';
 import { nextPineSelection } from '../lib/pineSelection';
 import { CancelledError, workerCall } from './worker';
-import { reattachJobs, runJob, runOptimizerJob, ServerRestartedError, type JobPlace, type JobOptions } from './jobs';
+import { reattachJobs, runJob, runOptimizerJob, ServerRestartedError, type JobRun, type JobSetting, type JobOptions } from './jobs';
+import { AUTO_UNMEASURED } from '../lib/benchmark';
 import type { BroadcastOpt, SyncChange } from '../lib/layoutSync';
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
@@ -152,7 +153,7 @@ export interface ChartEnv {
   /** Whether a Pine script's live bar sees the forming higher-timeframe bar (TradingView) or only finished ones. */
   pineHigherBars(): 'forming' | 'finished';
   /** Where backtests, optimizer runs and Monte Carlo runs start: in this tab or on the server. Read when a job starts. */
-  jobPlace(): JobPlace;
+  jobPlace(): JobSetting;
   /** The saved local datasets. */
   datasets(): Dataset[];
   addDataset(dataset: Dataset): void;
@@ -372,6 +373,10 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   let btRun: { result: BacktestResult; id: string } | null = null;
   const shownRunId = (): string | null => (btRun && btRun.result === get().btResult ? btRun.id : null);
   /** Options every server-capable job passes: the fallback notice, once. */
+  /** "on the server (Auto)": where a job ran, with "(Auto)" when Auto chose the place. */
+  const ranWhere = (job: JobRun): string => `${job.place() === 'server' ? 'on the server' : 'in the browser'}${job.auto ? ' (Auto)' : ''}`;
+  /** Auto had nothing to choose by, so the job ran in the browser: say so once, at the end of the finish message. */
+  const autoNote = (job: JobRun): string => (job.unmeasured ? ` ${AUTO_UNMEASURED}` : '');
   const serverNotice = (source: string): JobOptions['onFallback'] => (reason) => {
     const text = `Server jobs unavailable (${reason}); running in the browser`;
     env.pushToast('info', text);
@@ -1338,7 +1343,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         set({ btResult: msg.result, btRunning: false, btProgress: 0, btStage: null });
         env.pushToast(
           'success',
-          `Backtest finished ${job.place() === 'server' ? 'on the server' : 'in the browser'} in ${ms} ms — ${msg.result.trades.length} trade(s), ${atLimit ? candles.length.toLocaleString('en-US') : candles.length} bars${atLimit ? ` (the ${HISTORY_MAX_BARS.toLocaleString('en-US')}-bar history limit)` : ''}.`,
+          `Backtest finished ${ranWhere(job)} in ${ms} ms — ${msg.result.trades.length} trade(s), ${atLimit ? candles.length.toLocaleString('en-US') : candles.length} bars${atLimit ? ` (the ${HISTORY_MAX_BARS.toLocaleString('en-US')}-bar history limit)` : ''}.${autoNote(job)}`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -1406,7 +1411,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           return;
         }
         set({ mcResult: { source, result: msg.result, options }, mcRunning: false });
-        if (job.place() === 'server') env.pushToast('success', `Monte Carlo finished on the server in ${Math.round(performance.now() - t0)} ms.`);
+        if (job.place() === 'server' || job.auto || job.unmeasured) {
+          env.pushToast('success', `Monte Carlo finished ${ranWhere(job)} in ${Math.round(performance.now() - t0)} ms.${autoNote(job)}`);
+        }
       } catch (err) {
         if (token !== mcToken) return;
         set({ mcRunning: false, mcError: err instanceof Error ? err.message : String(err) });
@@ -1534,8 +1541,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           optRunning: false,
           optProgress: 1,
         });
-        if (call.place() === 'server') {
-          env.pushToast('success', `Optimizer finished on the server in ${Math.round(performance.now() - t0)} ms — ${msg.combos} parameter combination(s).`);
+        if (call.place() === 'server' || call.auto || call.unmeasured) {
+          env.pushToast('success', `Optimizer finished ${ranWhere(call)} in ${Math.round(performance.now() - t0)} ms — ${msg.combos} parameter combination(s).${autoNote(call)}`);
         }
         if (msg.errored > 0) {
           env.pushToast('error', `${msg.errored} of ${msg.combos} parameter combinations failed (see custom code).`);

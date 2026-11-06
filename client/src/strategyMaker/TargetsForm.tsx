@@ -1,6 +1,7 @@
 import { SIGNAL_FAMILIES } from './engine';
 import { getStrategy } from '../lib/backtest/strategies';
 import { blocker, type FormErrors } from './form';
+import type { AutoNote } from './engineClient';
 import type { FindStage } from './run';
 import type { FindForm } from './store';
 
@@ -17,6 +18,8 @@ export interface RunState {
   onPage: boolean;
   /** The run is a job on the Vost server, which keeps going when the page closes. */
   onServer: boolean;
+  /** The setting is Auto: what it chose for this run. */
+  auto?: AutoNote;
 }
 
 interface Props {
@@ -34,6 +37,14 @@ interface Props {
 }
 
 export const ON_SERVER = 'Running on the server; it keeps going if you close the page.';
+
+/** The run note: the server note, with "(Auto)" when Auto chose the place, and what Auto did when it chose the browser. */
+export function placeNote(run: { onServer: boolean; auto?: AutoNote }): string | null {
+  if (run.onServer) return run.auto === 'server' ? ON_SERVER.replace('server;', 'server (Auto);') : ON_SERVER;
+  if (run.auto === 'browser') return 'Running in the browser (Auto: the browser was faster in the benchmark).';
+  if (run.auto === 'unmeasured') return 'Running in the browser (Auto: run the benchmark to let Auto choose).';
+  return null;
+}
 
 const toggle = (list: string[], v: string): string[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -185,7 +196,7 @@ export function TargetsForm({ form, onChange, sets, chosen, onChosen, errors, tr
           <span>
             {run.stage} - {Math.round(run.pct * 100)}%
           </span>
-          {run.onServer && <span className="sm-note">{ON_SERVER}</span>}
+          {placeNote(run) && <span className="sm-note">{placeNote(run)}</span>}
           {run.onPage && <span className="sm-note sm-warn">Running on this page; it may pause while it works.</span>}
         </div>
       )}

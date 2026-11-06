@@ -4,7 +4,8 @@
  */
 import type { Candle } from '../../../shared/market.ts';
 import { loadJson } from '../lib/storage';
-import { serverJobs, ServerUnavailableError, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
+import { serverJobs, ServerUnavailableError, type ServerJobPlacement, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
+import { autoChoice, loadBenchmark, sanitizeJobSetting, type JobSetting } from '../lib/benchmark';
 import type { SeriesInput, TrainResult } from './engine';
 import { createHost } from './engineHost';
 import type { Reply, Request, TradesCandidate } from './protocol';
@@ -20,9 +21,14 @@ export interface ServerHooks {
   onServerJob?: (id: string) => void;
   /** The server could not take the job: the same run now happens in the browser. */
   onFallback?: (reason: string) => void;
+  /** The setting is Auto: where it sent this run ('unmeasured' means the browser, for want of a benchmark). Called as the run starts. */
+  onAuto?: (choice: AutoNote) => void;
 }
 
-export type JobPlace = 'browser' | 'server';
+/** What Auto did with a run. */
+export type AutoNote = 'browser' | 'server' | 'unmeasured';
+
+export type JobPlace = JobSetting;
 
 export interface FindOptions extends ServerHooks {
   signal?: AbortSignal;
@@ -66,6 +72,8 @@ export interface ClientOptions {
   cancelGraceMs?: number;
   /** How a sweep run on the page loads candles (default: the server's history route). */
   load?: SweepLoad;
+  /** The scope the server jobs are started under (default: the strategy maker's). */
+  scope?: string;
   /** Where heavy runs go; read at the start of each run (default: the Settings choice). */
   place?: () => JobPlace;
   /** The jobs API (default: the tab's client). */
@@ -73,7 +81,7 @@ export interface ClientOptions {
 }
 
 /** The Settings choice, read without the main app's state code. */
-const settingPlace = (): JobPlace => (loadJson<{ jobPlace?: unknown } | null>('prefs.v1', null)?.jobPlace === 'server' ? 'server' : 'browser');
+const settingPlace = (): JobPlace => sanitizeJobSetting(loadJson<{ jobPlace?: unknown } | null>('prefs.v1', null)?.jobPlace);
 
 const defaultMakeWorker = (): WorkerLike | null =>
   typeof Worker === 'undefined' ? null : (new Worker(new URL('./engine.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike);
@@ -214,11 +222,23 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
     onServer?.cancel();
   };
 
-  const wantsServer = (): boolean => (opts.place ?? settingPlace)() === 'server';
+  /**
+   * Where this run goes: the placement to post when it goes to the server, or null for the browser. Auto asks the
+   * saved benchmark (Retrain uses the Find measurement) and tells the page what it chose.
+   */
+  const placementFor = (kind: 'find' | 'train' | 'sweep', o: ServerHooks): ServerJobPlacement | null => {
+    const setting = (opts.place ?? settingPlace)();
+    if (setting === 'browser') return null;
+    if (setting === 'server') return { where: 'server', reason: 'setting' };
+    const choice = autoChoice(kind, loadBenchmark());
+    o.onAuto?.(choice.measured ? choice.where : 'unmeasured');
+    return choice.where === 'server' ? { where: 'server', reason: 'auto', ...(choice.benchmark ? { benchmark: choice.benchmark } : {}) } : null;
+  };
 
   /** Runs a job on the server; when the server cannot take it, `local` runs the same request in the browser. */
   const viaServer = <T>(
     kind: 'find' | 'train' | 'sweep',
+    placement: ServerJobPlacement,
     req: unknown,
     o: ServerHooks & { signal?: AbortSignal },
     extract: (result: unknown) => T,
@@ -230,7 +250,7 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
     const sr = startServerRun<T>({
       jobs,
       fresh: resumeId === undefined,
-      begin: resumeId === undefined ? () => jobs.startJob(kind, req, SERVER_SCOPE, { where: 'server', reason: 'setting' }) : async () => ({ id: resumeId }),
+      begin: resumeId === undefined ? () => jobs.startJob(kind, req, opts.scope ?? SERVER_SCOPE, placement) : async () => ({ id: resumeId }),
       extract: (job) => extract(job.result),
       onSummary,
       onServerJob: o.onServerJob,
@@ -293,25 +313,28 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
   const findFn = (series: SeriesInput[], inputs: FindInputs, o: FindOptions = {}): Promise<EngineOutcome> => {
     const local = () => run((id) => ({ v: 1, id, type: 'find', series, inputs, ...(o.model ? { model: o.model } : {}) }), o) as Promise<EngineOutcome>;
     if (o.signal?.aborted) return Promise.reject(abortError());
-    if (!wantsServer()) return local();
+    const placement = placementFor('find', o);
+    if (!placement) return local();
     stopCurrent();
-    return viaServer('find', { series, inputs, ...(o.model ? { model: o.model } : {}) }, o, (r) => outcomeOf(r) as EngineOutcome, findProgress(o), local);
+    return viaServer('find', placement, { series, inputs, ...(o.model ? { model: o.model } : {}) }, o, (r) => outcomeOf(r) as EngineOutcome, findProgress(o), local);
   };
 
   const trainFn = (series: SeriesInput[], o: FindOptions = {}): Promise<TrainedOutcome> => {
     const local = () => run((id) => ({ v: 1, id, type: 'train', series }), o) as Promise<TrainedOutcome>;
     if (o.signal?.aborted) return Promise.reject(abortError());
-    if (!wantsServer()) return local();
+    const placement = placementFor('train', o);
+    if (!placement) return local();
     stopCurrent();
-    return viaServer('train', { series }, o, (r) => outcomeOf(r) as TrainedOutcome, findProgress(o), local);
+    return viaServer('train', placement, { series }, o, (r) => outcomeOf(r) as TrainedOutcome, findProgress(o), local);
   };
 
   const sweepFn = (input: SweepInput, o: SweepOptions = {}): Promise<SweepResult> => {
     const local = () => sweepRun(input, o);
     if (o.signal?.aborted) return Promise.reject(abortError());
-    if (!wantsServer()) return local();
+    const placement = placementFor('sweep', o);
+    if (!placement) return local();
     stopCurrent();
-    return viaServer('sweep', { input }, o, (r) => (r as { result: SweepResult }).result, sweepProgress(o), local);
+    return viaServer('sweep', placement, { input }, o, (r) => (r as { result: SweepResult }).result, sweepProgress(o), local);
   };
 
   return {
@@ -324,7 +347,7 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
       const never = (): Promise<never> => Promise.reject(new Error('The server job is not available'));
       const sum = kind === 'sweep' ? sweepProgress(o) : findProgress(o);
       const extract: (r: unknown) => never = kind === 'sweep' ? (r) => (r as { result: SweepResult }).result as never : (r) => outcomeOf(r) as never;
-      return viaServer(kind, undefined, o, extract, sum, never, jobId) as Promise<never>;
+      return viaServer(kind, { where: 'server', reason: 'setting' }, undefined, o, extract, sum, never, jobId) as Promise<never>;
     },
     trades(candles, candidate, inputs) {
       return request<Extract<Reply, { type: 'trades' }>>((id) => ({ v: 1, id, type: 'trades', candles, candidate, inputs })).done.then((r) => r.trades);

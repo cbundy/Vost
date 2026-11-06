@@ -11,6 +11,8 @@ export interface ServerJobPlacement {
   where: 'server' | 'browser';
   reason: 'setting' | 'auto' | 'fallback';
   benchmarkMs?: number;
+  /** What Auto compared: the benchmark's times (null when a place had none) and when it ran. */
+  benchmark?: { browserMs: number | null; serverMs: number | null; at: number };
 }
 
 export interface ServerJobSummary {

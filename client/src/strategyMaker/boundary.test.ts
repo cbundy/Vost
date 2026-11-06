@@ -35,10 +35,11 @@ describe('strategy maker boundary', () => {
   const inside = all.filter((f) => f.startsWith(FOLDER + path.sep) && !f.endsWith('boundary.test.ts'));
   const outside = all.filter((f) => !f.startsWith(FOLDER + path.sep));
 
-  it('nothing outside the folder imports it, except the one dynamic import in startup.tsx', () => {
+  it('nothing outside the folder imports it, except the one dynamic import in startup.tsx and the one in lib/benchmarkRunners.ts', () => {
     const bad = outside.flatMap((f) => {
       const hits = outsideImportsFolder(f, readFileSync(f, 'utf8'));
-      if (path.relative(SRC, f) === 'startup.tsx') {
+      // The two places that load the folder on demand: the page itself and the Settings benchmark's find and market search.
+      if (['startup.tsx', path.join('lib', 'benchmarkRunners.ts')].includes(path.relative(SRC, f))) {
         const src = readFileSync(f, 'utf8');
         const dyn = hits.filter((h) => src.includes(`import('${h}')`));
         const rest = hits.filter((h) => !dyn.includes(h));

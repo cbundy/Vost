@@ -8,10 +8,13 @@
 import { CancelledError, optimizerCall, workerCall, type WorkerProgress } from './worker';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 import type { BacktestStage } from '../lib/backtest/types';
-import { serverJobs, ServerUnavailableError, isTerminal, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
+import { serverJobs, ServerUnavailableError, isTerminal, type ServerJobPlacement, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
+import { autoChoice, loadBenchmark, type JobSetting } from '../lib/benchmark';
 import { getJobRecord, patchJobRecord, putJobRecord, removeJobRecord, type JobRecord, type RecordKind } from './jobRecord';
 
+/** Where a job ran or will run. */
 export type JobPlace = 'browser' | 'server';
+export type { JobSetting };
 
 /** Strategies whose code only exists in the browser. */
 const BROWSER_ONLY = new Set(['pine', 'custom']);
@@ -35,6 +38,10 @@ export interface JobOptions {
   /** The server could not take the job; it runs in the browser instead. */
   onFallback?: (reason: string) => void;
   api?: ServerJobs;
+  /** The server cannot take the job: reject with `ServerUnavailableError` instead of running it in the browser. */
+  noFallback?: boolean;
+  /** The strategy to settle the place by when `record` is not given (a Monte Carlo run names none in its request). */
+  strategyId?: string;
 }
 
 export interface JobRun {
@@ -42,6 +49,18 @@ export interface JobRun {
   cancel: () => void;
   /** Where the job actually ran (settled once the promise is). */
   place: () => JobPlace;
+  /** Auto chose the place (the setting was Auto and the job could be placed). */
+  auto: boolean;
+  /** The setting was Auto and the benchmark had nothing for this job, so it ran in the browser. */
+  unmeasured: boolean;
+}
+
+/** The part of a `JobRun` the dispatcher fills in from the setting. */
+interface Settled {
+  server: boolean;
+  placement: ServerJobPlacement;
+  auto: boolean;
+  unmeasured: boolean;
 }
 
 function toServer(
@@ -51,6 +70,7 @@ function toServer(
   onProgress: ((pct: number, stage?: BacktestStage) => void) | undefined,
   opts: JobOptions,
   browser: () => { promise: Promise<WorkerResponse>; cancel: () => void },
+  settled: Settled,
 ): JobRun {
   const api = opts.api ?? serverJobs;
   let place: JobPlace = 'server';
@@ -61,8 +81,9 @@ function toServer(
   const promise = (async (): Promise<WorkerResponse> => {
     let job: ServerJobSummary;
     try {
-      job = await api.startJob(kind, req, scope, { where: 'server', reason: 'setting' });
+      job = await api.startJob(kind, req, scope, settled.placement);
     } catch (err) {
+      if (err instanceof ServerUnavailableError && opts.noFallback) throw err;
       if (err instanceof ServerUnavailableError) {
         place = 'browser';
         removeJobRecord(scope, kind);
@@ -118,43 +139,61 @@ function toServer(
       unfollow = api.followJob(job.id, onSummary);
     });
   })();
-  return { promise, cancel: () => cancelNow(), place: () => place };
+  return { promise, cancel: () => cancelNow(), place: () => place, auto: settled.auto, unmeasured: false };
 }
 
-const wantsServer = (place: JobPlace, strategyId: string | undefined): boolean => place === 'server' && strategyId !== undefined && !BROWSER_ONLY.has(strategyId);
+const canRunOnServer = (strategyId: string | undefined): strategyId is string => strategyId !== undefined && !BROWSER_ONLY.has(strategyId);
+
+/**
+ * Settles where a job of this kind runs. Browser and Server are taken as set; Auto asks the saved benchmark.
+ * A strategy that only exists in the browser stays there whatever the setting says.
+ */
+function settle(setting: JobSetting, kind: RecordKind, strategyId: string | undefined): Settled {
+  if (!canRunOnServer(strategyId) || setting === 'browser') return { server: false, placement: { where: 'browser', reason: 'setting' }, auto: false, unmeasured: false };
+  if (setting === 'server') return { server: true, placement: { where: 'server', reason: 'setting' }, auto: false, unmeasured: false };
+  const choice = autoChoice(kind, loadBenchmark());
+  return {
+    server: choice.where === 'server',
+    placement: { where: 'server', reason: 'auto', ...(choice.benchmark ? { benchmark: choice.benchmark } : {}) },
+    auto: choice.measured,
+    unmeasured: !choice.measured,
+  };
+}
 
 /** A backtest or a Monte Carlo run. */
 export function runJob(
-  place: JobPlace,
+  setting: JobSetting,
   scope: string,
   req: Exclude<WorkerRequestBody, { type: 'optimize' | 'pine' }>,
   onProgress?: WorkerProgress,
   opts: JobOptions = {},
 ): JobRun {
   const kind: RecordKind = req.type;
-  const strategyId = req.type === 'run' ? req.config.strategyId : opts.record?.strategyId;
+  const strategyId = req.type === 'run' ? req.config.strategyId : (opts.record?.strategyId ?? opts.strategyId);
   const browser = () => ({ promise: workerCall(req, onProgress), cancel: () => {} });
-  if (!wantsServer(place, strategyId)) {
+  const settled = settle(setting, kind, strategyId);
+  if (!settled.server) {
     removeJobRecord(scope, kind);
-    return { ...browser(), place: () => 'browser' };
+    return { ...browser(), place: () => 'browser', auto: settled.auto, unmeasured: settled.unmeasured };
   }
-  return toServer(kind, scope, req, onProgress, opts, browser);
+  return toServer(kind, scope, req, onProgress, opts, browser, settled);
 }
 
 /** An optimizer run: `cancel` stops it and rejects with `CancelledError`. */
 export function runOptimizerJob(
-  place: JobPlace,
+  setting: JobSetting,
   scope: string,
   req: Extract<WorkerRequestBody, { type: 'optimize' }>,
   onProgress?: (pct: number) => void,
   opts: JobOptions = {},
 ): JobRun {
   const browser = () => optimizerCall(req, onProgress);
-  if (!wantsServer(place, req.config.strategyId)) {
+  const settled = settle(setting, 'optimize', req.config.strategyId);
+  if (!settled.server) {
     removeJobRecord(scope, 'optimize');
-    return { ...browser(), place: () => 'browser' };
+    return { ...browser(), place: () => 'browser', auto: settled.auto, unmeasured: settled.unmeasured };
   }
-  return toServer('optimize', scope, req, onProgress, opts, browser);
+  return toServer('optimize', scope, req, onProgress, opts, browser, settled);
 }
 
 /** What a chart gives `reattachJobs`: how to read it and how to show a job found on the server. */

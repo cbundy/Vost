@@ -1,16 +1,22 @@
+import { useState } from 'react';
 import { useStore } from '../state/store';
 import type { HistoryLoading } from '../lib/historyPaging';
-import type { JobPlace } from '../state/jobs';
+import type { JobSetting } from '../lib/benchmark';
 import { Modal } from './Modal';
+import { BenchmarkSection } from './BenchmarkSection';
+import { loadBenchmark } from '../lib/benchmark';
 
 const PINE_OPTIONS: { value: 'forming' | 'finished'; label: string; hint: string }[] = [
   { value: 'forming', label: 'Follow the forming bar (as TradingView)', hint: 'A script that declares a higher timeframe follows its unfinished bar live.' },
   { value: 'finished', label: 'Only finished bars (no repaint)', hint: 'A script that declares a higher timeframe uses only its finished bars, so live values match a reload.' },
 ];
 
-const JOB_OPTIONS: { value: JobPlace; label: string; hint: string }[] = [
+const AUTO_NO_BENCHMARK = 'Run the benchmark to let Auto choose';
+
+const JOB_OPTIONS: { value: JobSetting; label: string; hint: string }[] = [
   { value: 'browser', label: 'Browser', hint: 'Runs in this tab and stops when the tab closes.' },
   { value: 'server', label: 'Server', hint: 'Keeps running when the tab closes; the result shows when you reopen the chart or the strategy maker.' },
+  { value: 'auto', label: 'Auto', hint: 'Each kind of job runs where the benchmark found it faster.' },
 ];
 
 const HISTORY_OPTIONS: { value: HistoryLoading; label: string; hint: string }[] = [
@@ -39,6 +45,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setPineHigherBars = useStore((s) => s.setPineHigherBars);
   const jobPlace = useStore((s) => s.jobPlace);
   const setJobPlace = useStore((s) => s.setJobPlace);
+  const [benchmark, setBenchmark] = useState(loadBenchmark);
   return (
     <Modal title="Settings" onClose={onClose} width={460}>
       <Section title="Charts">
@@ -96,11 +103,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <input type="radio" name="jobPlace" value={o.value} checked={jobPlace === o.value} onChange={() => setJobPlace(o.value)} />
               <span>
                 <span className="settings-radio-label">{o.label}</span>
-                <span className="hint settings-radio-hint">{o.hint}</span>
+                <span className="hint settings-radio-hint">{o.value === 'auto' && !benchmark ? AUTO_NO_BENCHMARK : o.hint}</span>
               </span>
             </label>
           ))}
         </fieldset>
+        <BenchmarkSection doc={benchmark} onDoc={setBenchmark} />
       </Section>
     </Modal>
   );

@@ -4452,6 +4452,26 @@ table.data-table th.sortable .sort-btn:focus-visible {
   display: block;
 }
 
+.settings-benchmark {
+  margin-top: 12px;
+}
+
+.settings-benchmark-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-benchmark p {
+  margin: 0;
+}
+
+.settings-benchmark-table td:nth-child(2),
+.settings-benchmark-table td:nth-child(3),
+.settings-benchmark-table td:nth-child(4),
+.settings-benchmark-table th:nth-child(4) {
+  white-space: nowrap;
+}
+
 .ind-defaults {
   position: relative;
 }

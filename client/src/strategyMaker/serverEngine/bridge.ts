@@ -18,6 +18,7 @@ import { createHost } from '../engineHost';
 import type { Reply, Request } from '../protocol';
 import type { HistoryRequest } from '../../lib/providers';
 import { createMarketFeed, type MarketFeed } from '../../lib/pine/marketFeed';
+import { withDemo } from '../sweep/demoLoad';
 import type { SweepLoad } from '../sweep/types';
 import type { Candle } from '../../types';
 
@@ -54,7 +55,7 @@ export function attachBridge(port: BridgePort): void {
   const history = (provider: string, req: HistoryRequest): Promise<Candle[]> =>
     ask((rid) => ({ proto: 'ask', rid, kind: 'history', provider, req })) as Promise<Candle[]>;
 
-  const load: SweepLoad = (market, timeframe) => history(market.provider, { symbol: market.symbol, timeframe, bars: MAX_BARS });
+  const load: SweepLoad = withDemo((market, timeframe) => history(market.provider, { symbol: market.symbol, timeframe, bars: MAX_BARS }));
   const feed: MarketFeed = createMarketFeed((id) => (req) => history(id, req));
   const resolver = (path: string): Promise<string | null> =>
     ask((rid) => ({ proto: 'ask', rid, kind: 'library', path })) as Promise<string | null>;

@@ -1,6 +1,6 @@
 /** Run state of the market search: progress, cancel and the result with the risk it was run with. */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { EngineClient } from './engineClient';
+import type { AutoNote, EngineClient } from './engineClient';
 import type { JobKeeper, ReattachPlan } from './reattach';
 import type { SweepInput, SweepResult, SweepRisk } from './sweep/types';
 
@@ -10,6 +10,8 @@ export interface SweepRun {
   label: string;
   /** The run is a job on the Vost server, which keeps going when the page closes. */
   onServer: boolean;
+  /** The setting is Auto: what it chose for this run. */
+  auto?: AutoNote;
 }
 
 const IDLE: SweepRun = { running: false, pct: 0, label: '', onServer: false };
@@ -75,6 +77,7 @@ export function useSweep(getClient: () => EngineClient, hooks: SweepHooks = {}) 
             hooksRef.current.keeper?.put({ id: 'job', version: 1, jobId, kind: 'sweep', started: Date.now(), context: { kind: 'sweep', risk: input.risk } });
           },
           onFallback: (reason) => hooksRef.current.onFallback?.(reason),
+          onAuto: (auto) => setRun((s) => ({ ...s, auto })),
         });
         if (mine.signal.aborted) return;
         setDone({ result, risk: input.risk });

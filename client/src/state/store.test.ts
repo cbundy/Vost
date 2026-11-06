@@ -421,6 +421,17 @@ describe('jobPlace setting', () => {
     expect((await fresh()).getState().jobPlace).toBe('browser');
     for (const bad of ['x', 1, null, true]) expect((await fresh(bad)).getState().jobPlace).toBe('browser');
     expect((await fresh('server')).getState().jobPlace).toBe('server');
+    expect((await fresh('auto')).getState().jobPlace).toBe('auto');
+  });
+
+  it('saves auto, reads it back after a reload, and reads an unknown value as browser', async () => {
+    const useStore = await fresh();
+    useStore.getState().setJobPlace('auto');
+    useStore.getState().flushPersist();
+    expect(stored('prefs.v1').jobPlace).toBe('auto');
+    expect((await fresh(stored('prefs.v1').jobPlace)).getState().jobPlace).toBe('auto');
+    useStore.getState().setJobPlace('nonsense' as never);
+    expect(useStore.getState().jobPlace).toBe('browser');
   });
 
   it('saves to prefs.v1 and the chart env reads it', async () => {

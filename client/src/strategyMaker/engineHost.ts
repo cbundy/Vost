@@ -4,6 +4,7 @@ import type { FindStage } from './run';
 import { fetchHistoryApi } from '../lib/providers/api';
 import { MAX_BARS } from '../../../shared/market.ts';
 import { runSweep } from './sweep/sweep';
+import { withDemo } from './sweep/demoLoad';
 import type { SweepLoad } from './sweep/types';
 import { runEngine, runTrain, tradesOf } from './run';
 
@@ -15,8 +16,9 @@ const errText = (e: unknown): string => (e instanceof Error ? e.message : String
 const isAbort = (e: unknown): boolean => e instanceof Error && e.name === 'AbortError';
 
 /** The default loader of a sweep: the server's history route, as many bars as one request may ask. */
-export const apiLoad: SweepLoad = (market, timeframe, signal) =>
-  fetchHistoryApi(market.provider, { symbol: market.symbol, timeframe, bars: MAX_BARS }, signal);
+export const apiLoad: SweepLoad = withDemo((market, timeframe, signal) =>
+  fetchHistoryApi(market.provider, { symbol: market.symbol, timeframe, bars: MAX_BARS }, signal),
+);
 
 export function createHost(post: (reply: Reply) => void, load: SweepLoad = apiLoad): Host {
   const runs = new Map<string, AbortController>();

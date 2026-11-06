@@ -1,0 +1,23 @@
+Auto hint before a benchmark: Auto Run the benchmark to let Auto choose
+progress line: Benchmark: Backtest in the browser, 1 of 10
+row: Backtest | 286 | ms | 325 | ms | Browser
+row: Optimizer | 1.9 | s | 2.2 | s | Browser
+row: Monte | Carlo | 99 | ms | 118 | ms | Browser
+row: Find | 1.6 | s | 1.0 | s | Server
+row: Market | search | 3.8 | s | 3.3 | s | Server
+benchmark.v1 at: 1793954244549 (2026-11-06T08:37:24.549Z)
+benchmark.v1 userAgent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36
+benchmark.v1 cores: 12
+benchmark.v1 serverVersion: 0.15.1
+benchmark.v1 jobs.run: browserMs 286, serverMs 325
+benchmark.v1 jobs.optimize: browserMs 1892, serverMs 2162
+benchmark.v1 jobs.montecarlo: browserMs 99, serverMs 118
+benchmark.v1 jobs.find: browserMs 1618, serverMs 1026
+benchmark.v1 jobs.sweep: browserMs 3755, serverMs 3294
+Auto hint after a benchmark: Auto Each kind of job runs where the benchmark found it faster.
+finish message: Backtest finished in the browser (Auto) in 837 ms — 3989 trade(s), 201,000 bars (the 200,000-bar history limit).
+server jobs in scope benchmark: 10
+chart job run placement: {"where":"server","reason":"auto","benchmark":{"browserMs":900,"serverMs":300,"at":1700000000000}}
+finish message with the server faster: Backtest finished on the server (Auto) in 1780 ms — 3989 trade(s), 201,000 bars (the 200,000-bar history limit).
+chart job run placement: {"where":"server","reason":"auto","benchmark":{"browserMs":900,"serverMs":300,"at":1700000000000}}
+chart job run placement: {"where":"server","reason":"auto","benchmark":{"browserMs":900,"serverMs":300,"at":1700000000000}}

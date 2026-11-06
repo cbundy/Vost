@@ -633,4 +633,98 @@ describe('on the server', () => {
     client.dispose();
     seedStorageForTest();
   });
+
+  describe('with Auto', () => {
+    const bench = (find: [number | null, number | null], sweep: [number | null, number | null] = [100, 100]) => ({
+      at: 1700000000000,
+      userAgent: 'ua',
+      cores: 4,
+      serverVersion: '1',
+      jobs: {
+        run: { browserMs: 1, serverMs: 1 },
+        optimize: { browserMs: 1, serverMs: 1 },
+        montecarlo: { browserMs: 1, serverMs: 1 },
+        find: { browserMs: find[0], serverMs: find[1] },
+        sweep: { browserMs: sweep[0], serverMs: sweep[1] },
+      },
+    });
+    const auto = (jobs: ServerJobs, worker = new StubWorker()) => ({ worker, client: createEngineClient({ makeWorker: () => worker, place: () => 'auto', jobs }) });
+    const series = [{ candles: [], trades: [] }];
+
+    it('sends find, train and sweep to the server when the benchmark found it faster, posting the figures', async () => {
+      seedStorageForTest({ 'benchmark.v1': bench([900, 300], [900, 300]) });
+      const f = fakeJobs();
+      const { client, worker } = auto(f.jobs);
+      const choices: string[] = [];
+      void client.find(series, inputs, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+      await tick();
+      void client.train(series, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+      await tick();
+      void client.sweep({ markets: [] } as unknown as SweepInput, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+      await tick();
+      const benchmark = (ms: number) => ({ browserMs: 900, serverMs: ms, at: 1700000000000 });
+      expect(f.started.map((x) => [x.kind, x.placement])).toEqual([
+        ['find', { where: 'server', reason: 'auto', benchmark: benchmark(300) }],
+        ['train', { where: 'server', reason: 'auto', benchmark: benchmark(300) }],
+        ['sweep', { where: 'server', reason: 'auto', benchmark: benchmark(300) }],
+      ]);
+      expect(choices).toEqual(['server', 'server', 'server']);
+      expect(worker.sent).toEqual([]);
+      client.dispose();
+      seedStorageForTest();
+    });
+
+    it('runs in the browser, with no request, when the browser was faster, and says so', async () => {
+      seedStorageForTest({ 'benchmark.v1': bench([100, 300], [100, 100]) });
+      const f = fakeJobs();
+      const { client, worker } = auto(f.jobs);
+      const choices: string[] = [];
+      void client.find(series, inputs, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+      void client.train(series, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+      void client.sweep({ markets: [] } as unknown as SweepInput, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+      await tick();
+      expect(f.started).toEqual([]);
+      expect(choices).toEqual(['browser', 'browser', 'browser']);
+      expect(worker.sent.map((m) => m.type)).toContain('find');
+      client.dispose();
+      seedStorageForTest();
+    });
+
+    it('runs in the browser and says why with no benchmark or an unmeasured type', async () => {
+      for (const doc of [undefined, bench([null, 300])]) {
+        seedStorageForTest(doc ? { 'benchmark.v1': doc } : {});
+        const f = fakeJobs();
+        const { client } = auto(f.jobs);
+        const choices: string[] = [];
+        void client.find(series, inputs, { onAuto: (c) => choices.push(c) }).catch(() => undefined);
+        await tick();
+        expect(f.started).toEqual([]);
+        expect(choices).toEqual(['unmeasured']);
+        client.dispose();
+      }
+      seedStorageForTest();
+    });
+
+    it('falls back to the browser, through onFallback, when Auto chose the server and it is away', async () => {
+      seedStorageForTest({ 'benchmark.v1': bench([900, 300]) });
+      const f = fakeJobs({ startError: new ServerUnavailableError('the server cannot be reached') });
+      const { client, worker } = auto(f.jobs);
+      const reasons: string[] = [];
+      void client.find(series, inputs, { onFallback: (r) => reasons.push(r) }).catch(() => undefined);
+      await tick();
+      expect(reasons).toEqual(['the server cannot be reached']);
+      expect(worker.sent.map((m) => m.type)).toEqual(['find']);
+      client.dispose();
+      seedStorageForTest();
+    });
+
+    it('posts the given scope', async () => {
+      const f = fakeJobs();
+      const client = createEngineClient({ makeWorker: () => new StubWorker(), place: () => 'server', scope: 'benchmark', jobs: f.jobs });
+      void client.find(series, inputs).catch(() => undefined);
+      await tick();
+      expect(f.started[0].scope).toBe('benchmark');
+      client.dispose();
+    });
+  });
 });

@@ -20,6 +20,8 @@ export interface JobPlacement {
   where: 'server' | 'browser';
   reason: 'setting' | 'auto' | 'fallback';
   benchmarkMs?: number;
+  /** What Auto compared: the benchmark's times (null when a place had none) and when it ran. */
+  benchmark?: { browserMs: number | null; serverMs: number | null; at: number };
 }
 
 export interface JobSummary {
@@ -227,15 +229,20 @@ export function createJobs(deps: JobsDeps): Jobs {
       let place: JobPlacement | undefined;
       if (placement !== undefined) {
         const p = placement;
+        const b = isRecord(p) ? p.benchmark : undefined;
+        const msOrNull = (v: unknown): boolean => v === null || (typeof v === 'number' && Number.isFinite(v));
         if (
           !isRecord(p) ||
+          (b !== undefined && !(isRecord(b) && msOrNull(b.browserMs) && msOrNull(b.serverMs) && typeof b.at === 'number' && Number.isFinite(b.at))) ||
           (p.where !== 'server' && p.where !== 'browser') ||
           (p.reason !== 'setting' && p.reason !== 'auto' && p.reason !== 'fallback') ||
           (p.benchmarkMs !== undefined && (typeof p.benchmarkMs !== 'number' || !Number.isFinite(p.benchmarkMs)))
         ) {
-          return { ok: false, status: 400, error: 'placement must be { where: "server" | "browser", reason: "setting" | "auto" | "fallback", benchmarkMs?: number }' };
+          return { ok: false, status: 400, error: 'placement must be { where: "server" | "browser", reason: "setting" | "auto" | "fallback", benchmarkMs?: number, benchmark?: { browserMs: number | null, serverMs: number | null, at: number } }' };
         }
-        place = { where: p.where, reason: p.reason, ...(p.benchmarkMs !== undefined ? { benchmarkMs: p.benchmarkMs as number } : {}) };
+        place = { where: p.where, reason: p.reason, ...(p.benchmarkMs !== undefined ? { benchmarkMs: p.benchmarkMs as number } : {}),
+          ...(b !== undefined ? { benchmark: { browserMs: (b as Record<string, unknown>).browserMs as number | null, serverMs: (b as Record<string, unknown>).serverMs as number | null, at: (b as Record<string, unknown>).at as number } } : {}),
+        };
       }
       const jobKind = kind as JobKind;
       if (BACKTEST_KINDS.includes(jobKind)) {

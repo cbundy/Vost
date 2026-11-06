@@ -5,7 +5,7 @@ import { getProvider } from '../lib/providers';
 import type { Dataset } from '../types';
 import { loadFromDataset, loadFromProvider } from './data';
 import type { Candidate, TrainResult } from './engine';
-import { createEngineClient, type EngineClient } from './engineClient';
+import { createEngineClient, type AutoNote, type EngineClient } from './engineClient';
 import { candidateKey } from './Results';
 import { trainedOnOf } from './useModel';
 import { presentOutcome, type JobKeeper, type ReattachPlan } from './reattach';
@@ -95,6 +95,7 @@ export function useFind(bars: number, library: Dataset[], onTrained?: OnTrained,
       hooksRef.current.keeper?.put({ id: 'job', version: 1, jobId, kind, started: Date.now(), context: c });
     },
     onFallback: (reason: string) => hooksRef.current.onFallback?.(reason),
+    onAuto: (auto: AutoNote) => setRun((s) => ({ ...s, auto })),
   });
 
   const begin = (): AbortController => {

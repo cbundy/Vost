@@ -50,7 +50,7 @@ import { sanitizeDefaults } from '../lib/drawingStyle';
 import { toolSettings } from '../components/chart/tools';
 import { canonicalInterval } from '../../../shared/market.ts';
 import type { TimeRange } from '../lib/timeRange';
-import type { JobPlace } from './jobs';
+import { sanitizeJobSetting, type JobSetting } from '../lib/benchmark';
 
 
 export interface Toast {
@@ -103,7 +103,7 @@ interface Prefs {
   barCountdown?: boolean;
   highLowLabels?: boolean;
   pineHigherBars?: 'forming' | 'finished';
-  jobPlace?: JobPlace;
+  jobPlace?: JobSetting;
   customTimeframes?: Interval[];
 }
 
@@ -222,7 +222,7 @@ export interface AppState {
   /** Pine: whether the live bar sees the forming higher-timeframe bar or only finished ones. */
   pineHigherBars: 'forming' | 'finished';
   /** Where backtests, optimizer runs and Monte Carlo runs run: in this tab or on the server. */
-  jobPlace: JobPlace;
+  jobPlace: JobSetting;
   /** Intervals the person added from the timeframe picker (canonical, at most 20; one list for the whole app). */
   customTimeframes: Interval[];
 
@@ -301,7 +301,7 @@ export interface AppState {
   setBarCountdown(v: boolean): void;
   setHighLowLabels(v: boolean): void;
   setPineHigherBars(v: 'forming' | 'finished'): void;
-  setJobPlace(v: JobPlace): void;
+  setJobPlace(v: JobSetting): void;
   /** Saves a custom interval (canonical form assumed); a duplicate or a full list is a no-op. */
   addCustomTimeframe(iv: Interval): void;
   /** Forgets a custom interval and moves every chart showing it to its provider's default timeframe. */
@@ -701,7 +701,7 @@ export const useStore = create<AppState>()((set, get) => {
         barCountdown: prefs.barCountdown !== false,
         highLowLabels: prefs.highLowLabels !== false,
         pineHigherBars: prefs.pineHigherBars === 'finished' ? 'finished' : 'forming',
-        jobPlace: prefs.jobPlace === 'server' ? 'server' : 'browser',
+        jobPlace: sanitizeJobSetting(prefs.jobPlace),
         customTimeframes: sanitizeCustomTimeframes(prefs.customTimeframes),
         datasets: Array.isArray(datasets) ? datasets : [],
         ...fields,
@@ -887,7 +887,7 @@ export const useStore = create<AppState>()((set, get) => {
     },
 
     setJobPlace(v) {
-      set({ jobPlace: v === 'server' ? 'server' : 'browser' });
+      set({ jobPlace: sanitizeJobSetting(v) });
       persistPrefs();
     },
 
