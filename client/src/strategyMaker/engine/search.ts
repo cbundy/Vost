@@ -66,12 +66,12 @@ function abortError(): Error {
 
 const yieldNow = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-interface Raw {
+export interface Raw {
   strategyId: string;
   params: Record<string, number>;
 }
 
-function* candidatesOf(strategyId: string, sweeps: SweepParam[], direction: number): Generator<Raw> {
+export function* candidatesOf(strategyId: string, sweeps: SweepParam[], direction: number): Generator<Raw> {
   const base: Record<string, number> = { ...DEFAULT_PARAMS[strategyId], direction };
   const axes = sweeps.map(paramValues);
   const idx = new Array<number>(sweeps.length).fill(0);

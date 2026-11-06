@@ -6,6 +6,7 @@ import type { Candle } from '../../../shared/market.ts';
 import type { SeriesInput, TrainResult } from './engine';
 import { createHost } from './engineHost';
 import type { Reply, Request, TradesCandidate } from './protocol';
+import type { SweepInput, SweepLoad, SweepProgress, SweepResult } from './sweep/types';
 import type { EngineOutcome, FindInputs, FindStage, FoundTrade, TrainedOutcome } from './run';
 
 export const CANCEL_GRACE_MS = 1000;
@@ -18,7 +19,14 @@ export interface FindOptions {
   onProgress?: (pct: number, stage: FindStage, onPage: boolean) => void;
 }
 
+export interface SweepOptions {
+  signal?: AbortSignal;
+  onProgress?: (p: SweepProgress, onPage: boolean) => void;
+}
+
 export interface EngineClient {
+  /** The market search; stopped and replaced like a find. */
+  sweep(input: SweepInput, opts?: SweepOptions): Promise<SweepResult>;
   find(series: SeriesInput[], inputs: FindInputs, opts?: FindOptions): Promise<EngineOutcome>;
   /** Training alone (Retrain); stopped and replaced like a find. */
   train(series: SeriesInput[], opts?: FindOptions): Promise<TrainedOutcome>;
@@ -39,6 +47,8 @@ export interface ClientOptions {
   /** Makes the worker; null or a throw means there is none (the page runs the engine itself). */
   makeWorker?: () => WorkerLike | null;
   cancelGraceMs?: number;
+  /** How a sweep run on the page loads candles (default: the server's history route). */
+  load?: SweepLoad;
 }
 
 const defaultMakeWorker = (): WorkerLike | null =>
@@ -51,6 +61,7 @@ interface Pending {
   resolve: (r: Reply) => void;
   reject: (e: Error) => void;
   onProgress?: FindOptions['onProgress'];
+  onSweepProgress?: SweepOptions['onProgress'];
   last: number;
 }
 
@@ -81,6 +92,11 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
     if (reply.type === 'error' && reply.cancelled) return answer(reply.id);
     const p = pending.get(reply.id);
     if (!p) return;
+    if (reply.type === 'sweep-progress') {
+      p.last = Math.max(p.last, reply.progress.pct);
+      p.onSweepProgress?.({ ...reply.progress, pct: p.last }, channel?.onPage ?? false);
+      return;
+    }
     if (reply.type === 'progress') {
       p.last = Math.max(p.last, reply.pct);
       p.onProgress?.(p.last, reply.stage, channel?.onPage ?? false);
@@ -127,7 +143,7 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
       };
       channel = mine;
     } else {
-      const host = createHost((reply) => queueMicrotask(() => deliver(reply)));
+      const host = createHost((reply) => queueMicrotask(() => deliver(reply)), opts.load);
       channel = { onPage: true, post: (m) => host.receive(m), close: () => undefined };
     }
     return channel;
@@ -178,6 +194,16 @@ export function createEngineClient(opts: ClientOptions = {}): EngineClient {
   };
 
   return {
+    sweep(input, o = {}) {
+      if (o.signal?.aborted) return Promise.reject(abortError());
+      if (current) cancel(current);
+      const { id, done } = request<Extract<Reply, { type: 'sweep-result' }>>((rid) => ({ v: 1, id: rid, type: 'sweep', input }), {
+        onSweepProgress: o.onProgress,
+      });
+      current = id;
+      o.signal?.addEventListener('abort', () => cancel(id), { once: true });
+      return done.then((r) => r.result);
+    },
     find: (series, inputs, o = {}) =>
       run((id) => ({ v: 1, id, type: 'find', series, inputs, ...(o.model ? { model: o.model } : {}) }), o) as Promise<EngineOutcome>,
     train: (series, o = {}) => run((id) => ({ v: 1, id, type: 'train', series }), o) as Promise<TrainedOutcome>,

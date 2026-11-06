@@ -4,6 +4,7 @@ import { SIGNAL_FAMILIES } from './engine';
 import { highlights, synth } from './engine/synthetic';
 import type { Reply, Request } from './protocol';
 import type { FindInputs } from './run';
+import type { SweepInput, SweepLoad, SweepResult } from './sweep/types';
 
 const inputs: FindInputs = {
   direction: 'long',
@@ -236,5 +237,99 @@ describe('with a worker', () => {
     const run = client.find(series, inputs);
     w.reply({ v: 1, id: w.sent[0].id, type: 'error', message: 'boom' });
     await expect(run).rejects.toThrow('boom');
+  });
+});
+
+describe('sweep', () => {
+  const sweepInput: SweepInput = {
+    markets: [{ provider: 'test', symbol: 'AAA' }, { provider: 'test', symbol: 'BBB' }],
+    timeframes: ['1d'],
+    families: ['sma_cross'],
+    direction: 'long',
+    targetSets: [{ minHitRatePct: 0 }],
+    risk: { initialCapital: 1000, riskPct: 2, feeBps: 10, slippageBps: 5 },
+    exits: { stopMults: [1, 2], tpMults: [1, 2] },
+    space: {
+      sma_cross: [
+        { key: 'fast', from: 8, to: 8, step: 1 },
+        { key: 'slow', from: 34, to: 34, step: 1 },
+      ],
+    },
+  };
+  const empty: SweepResult = { candidates: [], closest: [], skipped: [], tried: 0, met: 0, held: 0 };
+
+  it('on the page, reports progress in order and resolves a result', async () => {
+    const candles = synth(4000, 7);
+    const load: SweepLoad = async () => candles;
+    const client = createEngineClient({ makeWorker: () => null, load });
+    const seen: Array<[number, boolean]> = [];
+    const out = await client.sweep(sweepInput, { onProgress: (p, page) => seen.push([p.pct, page]) });
+    expect(out.tried).toBe(8);
+    expect(out.held).toBeGreaterThan(0);
+    expect(seen.length).toBeGreaterThan(1);
+    expect(seen.map((x) => x[0])).toEqual([...seen.map((x) => x[0])].sort((a, b) => a - b));
+    expect(seen.every((x) => x[1])).toBe(true);
+    client.dispose();
+  });
+
+  it('on the page, a cancel during the load rejects with an AbortError within a second', async () => {
+    const load: SweepLoad = (_m, _t, signal) =>
+      new Promise((_r, reject) => signal?.addEventListener('abort', () => reject(new DOMException('x', 'AbortError'))));
+    const client = createEngineClient({ makeWorker: () => null, load });
+    const ctl = new AbortController();
+    const t = Date.now();
+    const run = client.sweep(sweepInput, { signal: ctl.signal });
+    setTimeout(() => ctl.abort(), 10);
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    expect(Date.now() - t).toBeLessThan(1000);
+    client.dispose();
+  });
+
+  it('on the page, an over-budget run rejects with the count and never loads', async () => {
+    const load = vi.fn<SweepLoad>();
+    const client = createEngineClient({ makeWorker: () => null, load });
+    const markets = Array.from({ length: 500 }, (_, i) => ({ provider: 'p', symbol: `S${i}` }));
+    await expect(client.sweep({ ...sweepInput, markets, space: undefined, families: ['macd_cross', 'sma_cross', 'ema_cross'], timeframes: ['1d', '1w'] })).rejects.toThrow(/combinations; the limit is/);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('through a worker, sends a sweep, forwards progress in order and resolves the result', async () => {
+    const w = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => w });
+    const got: Array<[number, string, boolean]> = [];
+    const run = client.sweep(sweepInput, { onProgress: (p, page) => got.push([p.pct, p.label, page]) });
+    const req = w.sent[0];
+    expect(req).toMatchObject({ v: 1, type: 'sweep', input: sweepInput });
+    w.reply({ v: 1, id: req.id, type: 'sweep-progress', progress: { pct: 0.5, label: 'AAA 1d' } });
+    w.reply({ v: 1, id: req.id, type: 'sweep-progress', progress: { pct: 0.3, label: 'AAA 1d' } });
+    w.reply({ v: 1, id: req.id, type: 'sweep-result', result: empty });
+    await expect(run).resolves.toEqual(empty);
+    expect(got).toEqual([
+      [0.5, 'AAA 1d', false],
+      [0.5, 'AAA 1d', false],
+    ]);
+  });
+
+  it('through a worker, a cancel rejects with an AbortError and posts a cancel', async () => {
+    const w = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => w });
+    const ctl = new AbortController();
+    const onProgress = vi.fn();
+    const run = client.sweep(sweepInput, { signal: ctl.signal, onProgress });
+    const id = w.sent[0].id;
+    ctl.abort();
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    expect(w.sent[1]).toEqual({ v: 1, id, type: 'cancel' });
+    w.reply({ v: 1, id, type: 'sweep-progress', progress: { pct: 0.9, label: 'x' } });
+    expect(onProgress).not.toHaveBeenCalled();
+  });
+
+  it('a new find stops a sweep', async () => {
+    const w = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => w });
+    const sweep = client.sweep(sweepInput);
+    void client.find([{ candles: [], trades: [] }], inputs).catch(() => undefined);
+    await expect(sweep).rejects.toMatchObject({ name: 'AbortError' });
+    expect(w.sent.map((m) => m.type)).toEqual(['sweep', 'cancel', 'find']);
   });
 });
