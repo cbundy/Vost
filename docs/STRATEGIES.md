@@ -13,16 +13,21 @@ The engine then applies fees, slippage, position sizing, stops/takes and the sin
 
 ## Built-in strategies
 
-| ID | Name | Parameters (defaults) | Notes |
-|---|---|---|---|
-| `sma_cross` | SMA crossover | `fast=10`, `slow=30`, `direction` | Long while fast SMA > slow SMA |
-| `ema_cross` | EMA crossover | `fast=12`, `slow=26`, `direction` | Same idea, EMA reacts sooner |
-| `macd_cross` | MACD | `fast=12`, `slow=26`, `signal=9`, `direction` | Long while histogram > 0 |
-| `rsi_reversion` | RSI mean reversion | `length=14`, `oversold=30`, `overbought=70`, `direction` | Enters long on the cross back up through oversold; exits above overbought |
-| `bollinger` | Bollinger Bands | `length=20`, `mult=2`, `mode`, `direction` | `mode`: 0 = breakout (upper break in, middle cross out), 1 = mean reversion (lower touch in, middle cross out) |
-| `donchian` | Donchian breakout | `entry=20`, `exit=10`, `direction` | Enters on a new N-bar high, exits on the opposite M-bar low |
-| `buy_hold` | Buy & hold | — | Benchmark |
-| `custom` | Custom (JavaScript) | your JSON params | See below |
+| ID | Name | Style | Parameters (defaults) | Notes |
+|---|---|---|---|---|
+| `sma_cross` | SMA crossover | trend | `fast=10`, `slow=30`, `direction` | Long while fast SMA > slow SMA |
+| `ema_cross` | EMA crossover | trend | `fast=12`, `slow=26`, `direction` | Same idea, EMA reacts sooner |
+| `macd_cross` | MACD | trend | `fast=12`, `slow=26`, `signal=9`, `direction` | Long while histogram > 0 |
+| `rsi_reversion` | RSI mean reversion | mean reversion | `length=14`, `oversold=30`, `overbought=70`, `direction` | Enters long on the cross back up through oversold; exits above overbought |
+| `bollinger` | Bollinger Bands | breakout, mean reversion | `length=20`, `mult=2`, `mode`, `direction` | `mode`: 0 = breakout (upper break in, middle cross out), 1 = mean reversion (lower touch in, middle cross out) |
+| `donchian` | Donchian breakout | breakout | `entry=20`, `exit=10`, `direction` | Enters on a new N-bar high, exits on the opposite M-bar low |
+| `pullback` | Pullback in trend | continuation, trend | `trend=200`, `length=14`, `dip=40`, `target=70`, `direction` | Long when the close is above the trend EMA and RSI crosses back up through `dip`; exits above `target` or when the close falls under the EMA (mirrored for shorts) |
+| `reversal` | Reversal | reversal | `length=20`, `mult=2`, `direction` | Long when the close comes back inside the lower Bollinger band after closing below it; exits above the middle band (mirrored for shorts) |
+| `momentum_breakout` | Momentum breakout | momentum, breakout | `entry=20`, `exit=10`, `volLen=20`, `volMult=1.5`, `direction` | Donchian breakout that also needs the bar's volume to be at least `volMult` times the average of the `volLen` bars before it |
+| `buy_hold` | Buy & hold | - | - | Benchmark |
+| `custom` | Custom (JavaScript) | - | your JSON params | See below |
+
+The style of each strategy is kept in one table (`STRATEGY_STYLES` in `client/src/lib/backtest/strategies.ts`), primary style first.
 
 `direction` is `1` = long only, `2` = short only, `3` = both. Short signals are ignored unless *Shorts* is enabled in the configuration.
 

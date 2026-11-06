@@ -43,7 +43,7 @@ Marks are saved on the Vost server a moment after each change (and when you leav
 Below the chart, **Find a strategy** turns your marks into a recommendation. Fill in what you want, then press **Find a strategy**.
 
 - **Strategy type**: long and short (the default), long only or short only.
-- **Allowed indicators**: the families the search may use (SMA crossover, EMA crossover, MACD, RSI mean reversion, Bollinger Bands, Donchian breakout). All are on at first; at least one must stay on.
+- **Allowed indicators**: the families the search may use (SMA crossover, EMA crossover, MACD, RSI mean reversion, Bollinger Bands, Donchian breakout, Pullback in trend, Reversal, Momentum breakout). All are on at first; at least one must stay on.
 - **Risk (always on)**: fee and slippage in basis points, and an optional stop loss and take profit in percent. They start at the main backtester's defaults, and fees and slippage are always applied.
 - **Targets**: an optional minimum R:R (average win over average loss), minimum hit rate and maximum drawdown. An empty target is not applied.
 - **Train on**: which saved sets of marks to learn from. It starts as the chart you have open, or all of them when none is open.

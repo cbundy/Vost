@@ -3,7 +3,7 @@
  * settings, never picked to fit one strategy. Each feature knows its family and settings so the model can point
  * the search at them.
  */
-import { atr, bollinger, ema, highest, lowest, macd, rsi, sma } from '../../lib/indicators';
+import { atr, bollinger, ema, highest, lowest, macd, rsi, sma, stdev } from '../../lib/indicators';
 import type { Candle, Series } from '../../types';
 
 export interface Feature {
@@ -121,6 +121,45 @@ function build(): FeatureDef[] {
       feature: { id: `return_${lag}`, label: `${lag} bar return`, family: null, params: {} },
       percent: true,
       compute: (_, closes) => closes.map((c, i) => (i < lag || closes[i - lag] === 0 ? null : c / closes[i - lag] - 1)),
+    });
+  }
+  for (const trend of [50, 100, 200]) {
+    defs.push({
+      feature: { id: `pullback_${trend}`, label: `Close / EMA ${trend} distance`, family: 'pullback', params: { trend } },
+      percent: true,
+      compute: (_, closes) => {
+        const e = ema(closes, trend);
+        return closes.map((c, i) => {
+          const r = ratio(c, e[i]);
+          return r == null ? null : r - 1;
+        });
+      },
+    });
+  }
+  for (const length of [10, 20]) {
+    defs.push({
+      feature: { id: `reversal_${length}`, label: `Close z-score ${length}`, family: 'reversal', params: { length } },
+      percent: false,
+      compute: (_, closes) => {
+        const m = sma(closes, length);
+        const sd = stdev(closes, length);
+        return closes.map((c, i) => {
+          const mean = m[i];
+          const s = sd[i];
+          return mean == null || s == null || s === 0 ? null : (c - mean) / s;
+        });
+      },
+    });
+  }
+  for (const volLen of [10, 20, 30]) {
+    defs.push({
+      feature: { id: `momentum_breakout_${volLen}`, label: `Volume / ${volLen} bar average`, family: 'momentum_breakout', params: { volLen } },
+      percent: false,
+      compute: (candles) => {
+        const volumes = candles.map((c) => c.volume);
+        const avg = sma(volumes, volLen);
+        return volumes.map((v, i) => (i < 1 ? null : ratio(v, avg[i - 1])));
+      },
     });
   }
   return defs;

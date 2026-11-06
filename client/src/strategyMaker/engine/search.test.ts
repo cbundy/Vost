@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAX_GRID_COMBOS } from '../../lib/backtest/optimizer';
+import { gridSize, MAX_GRID_COMBOS } from '../../lib/backtest/optimizer';
+import { getStrategy, stylesOf } from '../../lib/backtest/strategies';
+import { DEFAULT_SPACE, validParams } from './search';
+import { SIGNAL_FAMILIES } from './types';
 import { searchStrategies } from './index';
 import { highlights, synth } from './synthetic';
 import type { HighlightTrade, SearchInput, SearchResult } from './types';
@@ -179,4 +182,30 @@ describe('refusals, cap and cancel', () => {
     expect([...pcts].sort((a, b) => a - b)).toEqual(pcts);
     expect(pcts[pcts.length - 1]).toBe(1);
   }, 60_000);
+});
+
+describe('default grids of the new families', () => {
+  const size = (id: string): number => gridSize({ sweeps: DEFAULT_SPACE[id] });
+  it('have the designed sizes and real parameter keys', () => {
+    expect([size('pullback'), size('reversal'), size('momentum_breakout')]).toEqual([48, 20, 144]);
+    for (const id of ['pullback', 'reversal', 'momentum_breakout']) {
+      const known = getStrategy(id).params.map((p) => p.key);
+      for (const s of DEFAULT_SPACE[id]) expect(known).toContain(s.key);
+    }
+  });
+  it('keep dip below target for every pullback point', () => {
+    for (const dip of [30, 35, 40, 45]) for (const target of [60, 70, 80]) expect(validParams('pullback', { dip, target })).toBe(true);
+    expect(validParams('pullback', { dip: 45, target: 40 })).toBe(false);
+  });
+  it('keep a default search over every family within the budget', () => {
+    const total = SIGNAL_FAMILIES.reduce((a, id) => a + size(id), 0);
+    expect(total).toBe(1187);
+    expect(total).toBeLessThan(MAX_GRID_COMBOS);
+  });
+});
+
+describe('styles of the searchable families', () => {
+  it('every searchable family has a style', () => {
+    for (const id of SIGNAL_FAMILIES) expect(stylesOf(id).length).toBeGreaterThan(0);
+  });
 });
