@@ -171,12 +171,18 @@ const YAHOO_QUOTES = [
   { symbol: 'SPY', shortname: 'SPDR S&P 500 ETF', exchDisp: 'NYSE', quoteType: 'ETF' },
 ];
 
+/** Symbols Yahoo has no chart for (it answers 404 "No data found"), so a market search shows a skipped market. */
+const NO_DATA_SYMBOLS = new Set(['^STOXX50E']);
+
 const yahoo: Handler = (url, nowSec) => {
   if (url.pathname === '/v1/finance/search') {
     const q = (url.searchParams.get('q') ?? '').toLowerCase();
     return json({ quotes: YAHOO_QUOTES.filter((x) => x.symbol.toLowerCase().includes(q) || x.shortname.toLowerCase().includes(q)) });
   }
   const m = /^\/v8\/finance\/chart\/([^/]+)$/.exec(url.pathname);
+  if (m && NO_DATA_SYMBOLS.has(decodeURIComponent(m[1]))) {
+    return { status: 404, body: { chart: { result: null, error: { code: 'Not Found', description: 'No data found, symbol may be delisted' } } } };
+  }
   if (m) {
     const step = YAHOO_STEPS[url.searchParams.get('interval') ?? ''];
     if (!step) return json({ chart: { result: null, error: { code: 'Bad Request', description: 'Invalid interval' } } });

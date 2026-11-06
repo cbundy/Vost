@@ -86,6 +86,36 @@ Under the ranked settings, an actions bar acts on the row you clicked, or on the
 
 ![The main app opened from Open in Backtest, with the Backtest tab filled in](../evidence/strategy-maker/strategy-maker-handoff-backtest-desktop.png)
 
+## Searching many markets
+
+Below the Find section, **Search markets** tries many indicator settings and exits on many markets and timeframes at once, and keeps the ones that reach your targets. It needs no marks and does not use the model. The last 30% of every market is kept out of the search to check the winners on.
+
+- **Market lists**: the top 30 crypto by market cap and by 24-hour volume (built live, so they carry a date and say "stale" when the last refresh failed), the top 30 stocks by market cap and by volume, and a list of indices. Each shows its date and how many markets it holds; a list that could not be built shows why and cannot be picked. None is picked at first.
+- **Timeframes** (1d and 1w at first), **Indicators** (MACD, SMA and EMA crossover at first), and **Strategy type** (long only at first).
+- **Targets**: two rows, "75% hit rate with R:R 1" **or** "50% hit rate with R:R 4". A result needs to meet either one. Clear both boxes of a row to leave it out; at least one row must stay.
+- **Sizing and costs**: account size (1000), risk per trade as the percent of the account lost when the stop is hit (2%), and fee and slippage in bps (10 and 5).
+- **Stop** and **Take profit**: the multiples tried. A stop is a multiple of the market's typical bar range; a take profit is a multiple of the stop.
+
+A bad number is flagged under its field and switches the search off with the reason, as does no list, no timeframe, no indicator or no target row. Above the button, the page says how big the search is ("10 markets x 1 timeframe = 116,100 combinations"; a market in two lists counts once). Above the limit of 2,000,000 combinations the button is off and the page says so; nothing starts.
+
+![The Search markets panel with its defaults](../evidence/strategy-search/strategy-search-panel-desktop.png)
+
+![Every list, timeframe and indicator is over the limit, so Search is off](../evidence/strategy-search/strategy-search-over-budget-desktop.png)
+
+While it runs, a bar shows the percent and the market and timeframe being searched. **Cancel** takes the panel back to idle within a second, and starting Find or another search replaces the run.
+
+![A search in progress on a narrow screen](../evidence/strategy-search/strategy-search-running-narrow.png)
+
+The results start with how many combinations were tried, how many met a target and how many also **held on unseen data**, and a plain warning: with this many combinations tried, a result that meets a target can be luck, and the ones that held are the ones to trust more. The table is ranked held results first and sorts by any column header. For a held row the figures (trades, hit rate, R:R, final equity, maximum drawdown) come from the unseen part; for the others they come from the part that was searched. **Open in Backtest** opens Vost in a new tab on that market and timeframe, with the Backtest tab set to the strategy, its settings, the stop and take profit, fee, slippage, account size and risk per trade, and the direction. A message names the market and timeframe. Run the backtest to see the same trades the search took.
+
+![Ranked results, with the ones that held on unseen data first](../evidence/strategy-search/strategy-search-results-desktop.png)
+
+**Closest found** lists, for each market and timeframe where nothing met a target, the nearest setting and its gaps in words. **Skipped** lists the markets that failed to load, or were too short, with the reason.
+
+![Nothing met strict targets: the closest settings and the skipped market](../evidence/strategy-search/strategy-search-closest-desktop.png)
+
+![The main app opened on the result's market and timeframe, with risk per trade set](../evidence/strategy-search/strategy-search-handoff-backtest-desktop.png)
+
 ## Teaching it more
 
 The more charts you mark, the more the model has to learn from. Each chart you mark is its own **set**, and **Train on** picks which sets a run learns from.

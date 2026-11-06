@@ -117,3 +117,47 @@ describe('applyBacktestHandoff risk sizing', () => {
     expect(chartOf(useStore).getState().btConfig.riskPct).toBeUndefined();
   });
 });
+
+describe('applyBacktestHandoff market', () => {
+  it('switches the active chart to the market and timeframe, loading once, and names them in the toast', async () => {
+    const useStore = await setup();
+    useStore.getState().init();
+    const chart = chartOf(useStore);
+    const load = vi.spyOn(chart.getState(), 'loadData').mockResolvedValue(undefined);
+    useStore.setState({ toasts: [] } as never);
+    useStore.getState().applyBacktestHandoff(handoff({ providerId: 'yahoo', symbol: 'AAPL', timeframe: '1w' }));
+    const s = chart.getState();
+    expect([s.providerId, s.symbol, s.timeframe]).toEqual(['yahoo', 'AAPL', '1w']);
+    expect(s.btConfig.strategyId).toBe('sma_cross');
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(useStore.getState().toasts)).toContain('AAPL 1w');
+  });
+  it('leaves the chart as it is for a link without a market', async () => {
+    const useStore = await setup();
+    useStore.getState().init();
+    const chart = chartOf(useStore);
+    const load = vi.spyOn(chart.getState(), 'loadData').mockResolvedValue(undefined);
+    const before = chart.getState();
+    const was = [before.providerId, before.symbol, before.timeframe];
+    useStore.getState().applyBacktestHandoff(handoff());
+    const s = chart.getState();
+    expect([s.providerId, s.symbol, s.timeframe]).toEqual(was);
+    expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyBacktestHandoff from a market search', () => {
+  it('takes the trades the search took: risk-sized, no position cap, on the result market', async () => {
+    const useStore = await setup();
+    useStore.getState().init();
+    const params = { fast: 8, slow: 34, direction: 3 };
+    useStore.getState().applyBacktestHandoff(
+      handoff({ params, stopLossPct: 2.5, takeProfitPct: 7.5, initialCapital: 1000, riskPct: 2, providerId: 'yahoo', symbol: 'AAPL', timeframe: '1d', source: 'AAPL 1d (market search)' }),
+    );
+    const cfg = chartOf(useStore).getState().btConfig;
+    const searched = { ...defaultBacktestConfig(), allowShort: true, strategyId: 'sma_cross', params, initialCapital: 1000, riskPct: 2, feeBps: 10, slippageBps: 5, stopLossPct: 2.5, takeProfitPct: 7.5 };
+    const trades = (c: typeof cfg) => runBacktest(candles, buildSignals(candles, 'sma_cross', params), c).trades.map((t) => [t.side, t.entryBar, t.exitBar, t.entryPrice, t.exitPrice, t.pnl]);
+    expect(trades(searched).length).toBeGreaterThan(0);
+    expect(trades({ ...cfg, strategyId: 'sma_cross', params })).toEqual(trades(searched));
+  });
+});

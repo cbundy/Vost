@@ -44,10 +44,10 @@ export function sanitizeForm(raw: unknown): FindForm {
 
 export type FormErrors = Partial<Record<'feeBps' | 'slippageBps' | 'stopLossPct' | 'takeProfitPct' | 'minRR' | 'minHitRatePct' | 'maxDrawdownPct', string>>;
 
-type Num = { value: number | null; error?: string };
+export type Num = { value: number | null; error?: string };
 
 /** Empty is fine when `optional`; otherwise a number inside the range. */
-function num(text: string, label: string, min: number, max: number, optional: boolean, minExclusive = false): Num {
+export function num(text: string, label: string, min: number, max: number, optional: boolean, minExclusive = false): Num {
   const t = text.trim();
   if (t === '') return optional ? { value: null } : { value: null, error: `${label} needs a number.` };
   const v = Number(t);
