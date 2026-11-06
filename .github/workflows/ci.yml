@@ -57,6 +57,7 @@ jobs:
           test "$ACTUAL" = "$EXPECTED" || { echo "health version $ACTUAL != package.json $EXPECTED"; exit 1; }
           curl -fsS http://localhost:8787/api/providers | jq -e 'length >= 7'
           curl -fsS http://localhost:8787/ | grep -qi '<!doctype html>'
+          node scripts/jobs-smoke.mjs
           kill $SERVER_PID
 
   docker:
@@ -88,6 +89,7 @@ jobs:
           EXPECTED=$(node -p "require('./package.json').version")
           ACTUAL=$(curl -fsS http://localhost:8787/api/health | jq -r .version)
           test "$ACTUAL" = "$EXPECTED" || { echo "health version $ACTUAL != package.json $EXPECTED"; exit 1; }
+          node scripts/jobs-smoke.mjs
           docker rm -f vost-ci
 
       - name: Smoke-test the engine bundle in the image
