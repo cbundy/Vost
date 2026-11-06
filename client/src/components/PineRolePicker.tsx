@@ -7,6 +7,7 @@ import {
   type PineRoleLabel,
   type PineRule,
 } from '../lib/backtest/pineRole';
+import { convertToV6 } from '../lib/pine/convert';
 import { workerCall } from '../state/worker';
 import type { Candle } from '../types';
 import { PineInputList } from './PineInputControl';
@@ -40,7 +41,8 @@ async function probeIndicator(id: string, inputs: Record<string, PineInputValue>
     const res = await fetch(`/api/pine/indicators/${encodeURIComponent(id)}`);
     if (res.status === 404) return fail('This indicator is no longer stored. Pick another one.');
     if (!res.ok) return fail(`The server answered HTTP ${res.status}`);
-    const { source } = (await res.json()) as { source: string };
+    const stored = ((await res.json()) as { source: string }).source;
+    const source = convertToV6(stored).code;
     if (candles.length === 0) return fail('Load some data to read the indicator.');
     const msg = await workerCall({ type: 'pine', source, candles: candles.slice(0, 60), inputs });
     if (msg.type !== 'pineResult') return fail('Unexpected worker reply');
