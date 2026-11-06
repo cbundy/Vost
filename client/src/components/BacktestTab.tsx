@@ -4,6 +4,7 @@ import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples'
 import type { PineInput, PineInputValue } from '../lib/pine/types';
 import { isTextInput } from '../lib/pine/inputs';
 import type { BacktestConfig } from '../lib/backtest/types';
+import { DEFAULT_ATR_LENGTH } from '../lib/backtest/exits';
 import { PineInputList } from './PineInputControl';
 import { getStrategy, strategies, visibleParams } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
@@ -35,6 +36,13 @@ export function BacktestTab() {
   const strategy = getStrategy(btConfig.strategyId);
 
   const isPine = !!strategy.pine;
+  const stopAtr = btConfig.stopMode === 'atr';
+  const tpMode = btConfig.takeProfitMode === 'atr' || btConfig.takeProfitMode === 'r' ? btConfig.takeProfitMode : 'pct';
+  const trailMode = btConfig.trailMode === 'pct' || btConfig.trailMode === 'atr' ? btConfig.trailMode : 'off';
+  const anyAtr = stopAtr || tpMode === 'atr' || trailMode === 'atr';
+  /** A cleared or negative field is off (null); a number keeps its value. */
+  const setNum = (key: 'stopLossPct' | 'stopAtrMult' | 'takeProfitPct' | 'takeProfitAtrMult' | 'takeProfitR' | 'trailPct' | 'trailAtrMult', v: string) =>
+    setBtConfig({ [key]: v === '' ? null : Math.max(0, Number(v)) });
 
   const needsHistory = useChart((s) => runNeedsHistoryOf(s, btRange));
   const atLimit = useChart(atHistoryLimitOf);
@@ -198,26 +206,93 @@ export function BacktestTab() {
             onChange={(e) => setBtConfig({ slippageBps: Math.max(0, Number(e.target.value) || 0) })}
           />
         </label>
-        <label className="form-field">
-          <span>Stop loss (%){isPine && ' (set in script)'}</span>
-          <input disabled={isPine}
-            type="number"
-            min={0}
-            placeholder="off"
-            value={btConfig.stopLossPct ?? ''}
-            onChange={(e) => setBtConfig({ stopLossPct: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })}
-          />
-        </label>
-        <label className="form-field">
-          <span>Take profit (%){isPine && ' (set in script)'}</span>
-          <input disabled={isPine}
-            type="number"
-            min={0}
-            placeholder="off"
-            value={btConfig.takeProfitPct ?? ''}
-            onChange={(e) => setBtConfig({ takeProfitPct: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })}
-          />
-        </label>
+        <div className="form-field wide">
+          <span>Stop loss{isPine && ' (set in script)'}</span>
+          <div className="exit-row">
+            <select
+              aria-label="Stop loss mode"
+              disabled={isPine}
+              value={stopAtr ? 'atr' : 'pct'}
+              onChange={(e) => setBtConfig({ stopMode: e.target.value === 'atr' ? 'atr' : 'pct' })}
+            >
+              <option value="pct">Percent</option>
+              <option value="atr">ATR multiple</option>
+            </select>
+            <input
+              aria-label={stopAtr ? 'Stop loss (ATR multiple)' : 'Stop loss (%)'}
+              disabled={isPine}
+              type="number"
+              min={0}
+              placeholder="off"
+              value={(stopAtr ? btConfig.stopAtrMult : btConfig.stopLossPct) ?? ''}
+              onChange={(e) => setNum(stopAtr ? 'stopAtrMult' : 'stopLossPct', e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-field wide">
+          <span>Take profit{isPine && ' (set in script)'}</span>
+          <div className="exit-row">
+            <select
+              aria-label="Take profit mode"
+              disabled={isPine}
+              value={tpMode}
+              onChange={(e) => setBtConfig({ takeProfitMode: e.target.value as 'pct' | 'atr' | 'r' })}
+            >
+              <option value="pct">Percent</option>
+              <option value="atr">ATR multiple</option>
+              <option value="r">Times the stop</option>
+            </select>
+            <input
+              aria-label={tpMode === 'atr' ? 'Take profit (ATR multiple)' : tpMode === 'r' ? 'Take profit (times the stop)' : 'Take profit (%)'}
+              disabled={isPine}
+              type="number"
+              min={0}
+              placeholder="off"
+              value={(tpMode === 'atr' ? btConfig.takeProfitAtrMult : tpMode === 'r' ? btConfig.takeProfitR : btConfig.takeProfitPct) ?? ''}
+              onChange={(e) => setNum(tpMode === 'atr' ? 'takeProfitAtrMult' : tpMode === 'r' ? 'takeProfitR' : 'takeProfitPct', e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-field wide">
+          <span>Trailing stop{isPine && ' (set in script)'}</span>
+          <div className="exit-row">
+            <select
+              aria-label="Trailing stop mode"
+              disabled={isPine}
+              value={trailMode}
+              onChange={(e) => setBtConfig({ trailMode: e.target.value as 'off' | 'pct' | 'atr' })}
+            >
+              <option value="off">Off</option>
+              <option value="pct">Percent</option>
+              <option value="atr">ATR multiple</option>
+            </select>
+            {trailMode !== 'off' && (
+              <input
+                aria-label={trailMode === 'atr' ? 'Trailing stop (ATR multiple)' : 'Trailing stop (%)'}
+                disabled={isPine}
+                type="number"
+                min={0}
+                placeholder="off"
+                value={(trailMode === 'atr' ? btConfig.trailAtrMult : btConfig.trailPct) ?? ''}
+                onChange={(e) => setNum(trailMode === 'atr' ? 'trailAtrMult' : 'trailPct', e.target.value)}
+              />
+            )}
+          </div>
+        </div>
+        {anyAtr && (
+          <label className="form-field">
+            <span>ATR length{isPine && ' (set in script)'}</span>
+            <input
+              disabled={isPine}
+              type="number"
+              min={1}
+              max={500}
+              step={1}
+              value={btConfig.atrLength ?? DEFAULT_ATR_LENGTH}
+              onChange={(e) => setBtConfig({ atrLength: Math.min(500, Math.max(1, Math.round(Number(e.target.value)) || DEFAULT_ATR_LENGTH)) })}
+            />
+          </label>
+        )}
         <label className="form-field">
           <span>Shorts{isPine && ' (set in script)'}</span>
           <select disabled={isPine} value={btConfig.allowShort ? 'yes' : 'no'} onChange={(e) => setBtConfig({ allowShort: e.target.value === 'yes' })}>

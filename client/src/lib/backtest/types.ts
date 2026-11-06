@@ -43,11 +43,28 @@ export interface BacktestConfig {
   stopLossPct: number | null;
   /** Take profit distance in percent (null disables). */
   takeProfitPct: number | null;
+  /**
+   * Optional volatility exits. Absent, null, non-finite or not above 0 values, and an unknown mode, read as
+   * today's percent behaviour (or off for the trailing stop).
+   * `stopMode` 'atr' puts the stop `stopAtrMult` x ATR from the entry fill instead of `stopLossPct`.
+   */
+  stopMode?: 'pct' | 'atr';
+  stopAtrMult?: number | null;
+  /** 'atr': target `takeProfitAtrMult` x ATR from entry; 'r': target `takeProfitR` x the trade's initial stop distance (needs a stop or trailing stop, else off). */
+  takeProfitMode?: 'pct' | 'atr' | 'r';
+  takeProfitAtrMult?: number | null;
+  takeProfitR?: number | null;
+  /** Trailing stop: 'pct' keeps `trailPct` percent of the entry price, 'atr' keeps `trailAtrMult` x ATR, behind the best price since entry. The distance is fixed at entry. */
+  trailMode?: 'off' | 'pct' | 'atr';
+  trailPct?: number | null;
+  trailAtrMult?: number | null;
+  /** ATR period for every ATR exit (integer 1 to 500, default 14). The ATR is read on the signal bar, so a trade waits until it is known. */
+  atrLength?: number;
   /** Pine only: the chart's symbol, timeframe and market details. Added when a run is requested, never saved. */
   market?: PineMarket;
 }
 
-export type ExitReason = 'signal' | 'stop_loss' | 'take_profit' | 'end_of_data';
+export type ExitReason = 'signal' | 'stop_loss' | 'trailing_stop' | 'take_profit' | 'end_of_data';
 
 export interface Trade {
   id: number;

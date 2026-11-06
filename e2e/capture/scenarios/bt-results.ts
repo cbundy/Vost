@@ -120,7 +120,40 @@ export const btResults: Scenario = {
       await page.getByText('Risk per trade needs a stop loss').waitFor();
     });
     await ctx.screenshot('risk-refused');
+    await ctx.step('size by percent of equity again and dismiss the refusal', async () => {
+      await page.getByLabel('Position sizing').selectOption('equity');
+      for (const close of await page.locator('.toast button').all()) await close.click();
+    });
+    await ctx.step('set an ATR stop, an R take profit and a 1.5 ATR trailing stop', async () => {
+      await page.getByLabel('Stop loss mode').selectOption('atr');
+      await page.getByLabel('Stop loss (ATR multiple)').fill('2');
+      await page.getByLabel('Take profit mode').selectOption('r');
+      await page.getByLabel('Take profit (times the stop)').fill('3');
+      await page.getByLabel('Trailing stop mode').selectOption('atr');
+      await page.getByLabel('Trailing stop (ATR multiple)').fill('1.5');
+      await page.getByLabel('ATR length').waitFor();
+      await page.getByLabel('Stop loss mode').scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('exits-setting');
+    await ctx.step('run and see the mode badges and a trailing stop in the trades list', async () => {
+      await page.getByRole('button', { name: /Run backtest/ }).click();
+      await page.getByText(/Backtest finished/).waitFor();
+      await page.locator('.toast', { hasText: /Backtest finished/ }).locator('button').click();
+      await page.locator('.dock-tab', { hasText: 'Results' }).click();
+      await page.getByText('SL 2 ATR', { exact: true }).waitFor();
+      await page.getByText('TP 3R', { exact: true }).waitFor();
+      await page.getByText('Trail 1.5 ATR', { exact: true }).waitFor();
+      await page.getByRole('cell', { name: 'trailing stop', exact: true }).first().waitFor();
+    });
+    await ctx.screenshot('exits-badges');
+    await ctx.step('scroll to the trades list', async () => {
+      await page.getByRole('cell', { name: 'trailing stop', exact: true }).first().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    });
+    await ctx.screenshot('exits-trades');
     await ctx.step('pick Composed with an EMA entry, switch on the trend and volume filters and see only their settings', async () => {
+      await page.getByLabel('Stop loss mode').selectOption('pct');
+      await page.getByLabel('Take profit mode').selectOption('pct');
+      await page.getByLabel('Trailing stop mode').selectOption('off');
       await page.getByLabel('Stop loss (%)').fill('2');
       await page.getByLabel('Strategy').selectOption('composed');
       await page.getByLabel('Trend filter').selectOption('1');

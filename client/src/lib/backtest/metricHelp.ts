@@ -11,7 +11,7 @@ export type HelpKey =
   | 'avgTrade' | 'bestWorst' | 'avgBars' | 'totalFees' | 'bars' | 'maxLeverage'
   | 'wins' | 'losses' | 'grossProfit' | 'grossLoss' | 'bestTrade' | 'worstTrade'
   | 'longestWinStreak' | 'longestLossStreak' | 'currentStreak'
-  | 'exitSignal' | 'exitStopLoss' | 'exitTakeProfit' | 'exitEndOfData' | 'exitShare'
+  | 'exitSignal' | 'exitStopLoss' | 'exitTrailingStop' | 'exitTakeProfit' | 'exitEndOfData' | 'exitShare'
   | 'legendStrategy' | 'legendBuyHold'
   | 'mcFinalReturn' | 'mcMaxDrawdown' | 'mcThisRun' | 'mcChanceOfLoss';
 
@@ -26,6 +26,7 @@ export interface MetricHelp {
 export const EXIT_REASON_HELP: Record<ExitReason, HelpKey> = {
   signal: 'exitSignal',
   stop_loss: 'exitStopLoss',
+  trailing_stop: 'exitTrailingStop',
   take_profit: 'exitTakeProfit',
   end_of_data: 'exitEndOfData',
 };
@@ -382,6 +383,16 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
     related: [
       { key: 'exitTakeProfit', note: 'the stop and the target trade off against each other' },
       { key: 'worstTrade', note: 'the stop limits the worst loss' },
+    ],
+  },
+  exitTrailingStop: {
+    label: 'Exit by trailing stop',
+    what: 'Trades closed because price fell back (for a short, rose back) to the trailing stop. The trail follows the best price since entry at a fixed distance and never moves back. Within one bar the stop is checked before the target.',
+    reading: 'A high share with a positive net P/L means the trail is locking in gains. A high share with a negative net P/L means the trail is too tight for the market noise.',
+    profit: 'Lets winners run while capping the give-back, but a tight trail can cut a trade that would have continued.',
+    related: [
+      { key: 'exitStopLoss', note: 'the fixed stop that sits below the trail at first' },
+      { key: 'exitTakeProfit', note: 'a fixed target instead of a moving stop' },
     ],
   },
   exitTakeProfit: {

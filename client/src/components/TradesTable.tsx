@@ -5,6 +5,7 @@ import { fmtMoney, fmtNum, fmtPct, fmtPrice, fmtTime, pnlClass } from '../lib/fo
 export const REASONS: Record<Trade['exitReason'], string> = {
   signal: 'signal',
   stop_loss: 'stop loss',
+  trailing_stop: 'trailing stop',
   take_profit: 'take profit',
   end_of_data: 'end of data',
 };

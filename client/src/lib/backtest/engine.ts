@@ -13,6 +13,8 @@
  *    the running peak.
  */
 import type { Candle } from '../../types';
+import { atr } from '../indicators';
+import { hitTest, levelsAtEntry, readExitSettings, updateTrail, type TradeLevels } from './exits';
 import type { BacktestConfig, EquityPoint, ExitReason, Signal, Trade } from './types';
 
 export interface EngineOutput {
@@ -38,6 +40,7 @@ interface OpenPosition {
   entryFee: number;
   entryNotional: number;
   leverage?: number;
+  levels: TradeLevels;
 }
 
 function coerceSignal(v: unknown): Signal {
@@ -66,9 +69,9 @@ export function runBacktest(
   const feeRate = Math.max(0, config.feeBps) / 10000;
   const slip = Math.max(0, config.slippageBps) / 10000;
   const sizePct = Math.min(100, Math.max(1, config.positionSizePct)) / 100;
-  const stopPct = config.stopLossPct != null && config.stopLossPct > 0 ? config.stopLossPct : null;
+  const exits = readExitSettings(config);
+  const atrSeries = exits.needsAtr ? atr(candles, exits.atrLength) : null;
   const riskFrac = config.riskPct != null && Number.isFinite(config.riskPct) && config.riskPct > 0 ? Math.min(100, config.riskPct) / 100 : null;
-  const tpPct = config.takeProfitPct != null && config.takeProfitPct > 0 ? config.takeProfitPct : null;
 
   let cash = config.initialCapital; // realised equity
   let position: OpenPosition | null = null;
@@ -110,11 +113,15 @@ export function runBacktest(
     });
   };
 
-  const openPosition = (side: -1 | 1, rawPrice: number, barIndex: number): OpenPosition => {
+  const openPosition = (side: -1 | 1, rawPrice: number, barIndex: number): OpenPosition | null => {
     const fill = side === 1 ? fillBuy(rawPrice) : fillSell(rawPrice);
+    // Levels come from the entry fill and the ATR of the signal bar; during ATR warm-up no trade opens.
+    const levels = levelsAtEntry(exits, side, fill, atrSeries ? atrSeries[barIndex - 1] : null);
+    if (!levels) return null;
+    const stopFrac = levels.stopFrac;
     const equityNow = Math.max(0, cash);
     // Risk sizing needs a stop distance; without one it falls back to a percent of equity.
-    const notional = riskFrac != null && stopPct != null ? (equityNow * riskFrac) / (stopPct / 100) : equityNow * sizePct;
+    const notional = riskFrac != null && stopFrac != null ? (equityNow * riskFrac) / stopFrac : equityNow * sizePct;
     const qty = fill > 0 ? notional / fill : 0;
     const entryFee = qty * fill * feeRate;
     totalFees += entryFee;
@@ -127,7 +134,8 @@ export function runBacktest(
       entryBar: barIndex,
       entryFee,
       entryNotional: notional,
-      leverage: riskFrac != null && stopPct != null && equityNow > 0 ? notional / equityNow : undefined,
+      levels,
+      leverage: riskFrac != null && stopFrac != null && equityNow > 0 ? notional / equityNow : undefined,
     };
   };
 
@@ -166,7 +174,7 @@ export function runBacktest(
           position = null;
         }
         if (target !== 0 && cash > 0) {
-          position = openPosition(target, bar.open, i);
+          position = openPosition(target, bar.open, i); // null while an ATR exit has no ATR yet
         }
       }
     }
@@ -174,34 +182,14 @@ export function runBacktest(
     // ---- 2. Intra-bar stop loss / take profit ----------------------------
     if (position) {
       const pos = position;
-      const stopPrice = stopPct != null ? pos.entryPrice * (1 - (pos.side === 1 ? stopPct : -stopPct) / 100) : null;
-      const tpPrice = tpPct != null ? pos.entryPrice * (1 + (pos.side === 1 ? tpPct : -tpPct) / 100) : null;
+      const hit = hitTest(pos.side, pos.levels, bar);
 
-      let exitPrice: number | null = null;
-      let reason: ExitReason | null = null;
-
-      if (pos.side === 1) {
-        if (stopPrice != null && bar.low <= stopPrice) {
-          exitPrice = bar.open <= stopPrice ? bar.open : stopPrice; // gap-through fills at open
-          reason = 'stop_loss';
-        } else if (tpPrice != null && bar.high >= tpPrice) {
-          exitPrice = bar.open >= tpPrice ? bar.open : tpPrice;
-          reason = 'take_profit';
-        }
-      } else {
-        if (stopPrice != null && bar.high >= stopPrice) {
-          exitPrice = bar.open >= stopPrice ? bar.open : stopPrice;
-          reason = 'stop_loss';
-        } else if (tpPrice != null && bar.low <= tpPrice) {
-          exitPrice = bar.open <= tpPrice ? bar.open : tpPrice;
-          reason = 'take_profit';
-        }
-      }
-
-      if (exitPrice != null && reason != null) {
-        closePosition(pos, exitPrice, i, reason);
+      if (hit) {
+        closePosition(pos, hit.price, i, hit.reason);
         position = null;
         requireReset = pos.side;
+      } else {
+        updateTrail(pos.side, pos.levels, bar);
       }
     }
 

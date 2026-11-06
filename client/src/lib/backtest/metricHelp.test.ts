@@ -24,6 +24,6 @@ describe('METRIC_HELP', () => {
   });
   it('maps every exit reason', () => {
     for (const k of Object.values(EXIT_REASON_HELP)) expect(METRIC_HELP[k]).toBeDefined();
-    expect(Object.keys(EXIT_REASON_HELP).sort()).toEqual(['end_of_data', 'signal', 'stop_loss', 'take_profit']);
+    expect(Object.keys(EXIT_REASON_HELP).sort()).toEqual(['end_of_data', 'signal', 'stop_loss', 'take_profit', 'trailing_stop']);
   });
 });

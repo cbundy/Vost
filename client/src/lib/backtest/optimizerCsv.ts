@@ -1,6 +1,7 @@
 import { rowsToCsv, sanitizeFileName } from '../export';
 import { METRIC_LABELS, type MetricKey, type OptimizeRow, type SweepParam } from './optimizer';
 import type { MonteCarloValidationSettings } from './optimizerMonteCarlo';
+import type { ExitContext } from './exits';
 import type { Metrics } from './types';
 import type { RobustnessSettings, Span, SplitSettings, ValidationOutput } from './validation';
 import type { WalkForwardOutput, WalkForwardSettings } from './walkForward';
@@ -28,6 +29,8 @@ export interface OptimizeRunContext {
   slippageBps: number;
   stopLossPct: number | null;
   takeProfitPct: number | null;
+  /** The ATR, R and trailing exits the run used (absent when it used only percent exits). */
+  exits?: ExitContext;
   allowShort: boolean;
   sweeps: SweepParam[];
   /** The validation the run used (absent with none). */
@@ -103,6 +106,14 @@ export function optimizeContextLines(c: OptimizeRunContext, result: OptimizeResu
     `slippage bps: ${c.slippageBps}`,
     `stop loss %: ${off(c.stopLossPct)}`,
     `take profit %: ${off(c.takeProfitPct)}`,
+    ...(c.exits
+      ? [
+          ...(c.exits.stopLoss ? [`stop loss mode: ${c.exits.stopLoss}`] : []),
+          ...(c.exits.takeProfit ? [`take profit mode: ${c.exits.takeProfit}`] : []),
+          ...(c.exits.trailingStop ? [`trailing stop: ${c.exits.trailingStop}`] : []),
+          ...(c.exits.atrLength != null ? [`ATR length: ${c.exits.atrLength}`] : []),
+        ]
+      : []),
     `shorts: ${c.allowShort ? 'yes' : 'no'}`,
     `rank metric: ${result.metric} (${METRIC_LABELS[result.metric]})`,
     `sweeps: ${sweeps}`,

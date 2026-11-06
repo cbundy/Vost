@@ -59,7 +59,7 @@ export interface Breakdown {
   exitReasons: ExitReasonRow[];
 }
 
-export const EXIT_REASON_ORDER: ExitReason[] = ['signal', 'stop_loss', 'take_profit', 'end_of_data'];
+export const EXIT_REASON_ORDER: ExitReason[] = ['signal', 'stop_loss', 'trailing_stop', 'take_profit', 'end_of_data'];
 
 function mean(xs: number[]): number | null {
   return xs.length > 0 ? xs.reduce((a, b) => a + b, 0) / xs.length : null;

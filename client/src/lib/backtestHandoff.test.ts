@@ -166,3 +166,38 @@ describe('market in the hand-off', () => {
     expect(parseHandoff(hashOf({ ...base, symbol: 'BTCUSDT', timeframe: '1d' }))).toBeNull();
   });
 });
+
+describe('volatility exits in the hand-off', () => {
+  const exits = { stopMode: 'atr' as const, stopAtrMult: 2, takeProfitMode: 'r' as const, takeProfitR: 3, trailMode: 'atr' as const, trailAtrMult: 1.5, atrLength: 20 };
+  it('round trips with them, and an old link without them parses as before', () => {
+    expect(parseHandoff(encodeHandoff({ ...base, ...exits }))).toEqual({ ...base, ...exits });
+    expect(parseHandoff(encodeHandoff({ ...base, trailMode: 'pct', trailPct: 4, takeProfitMode: 'atr', takeProfitAtrMult: 2.5 }))).toMatchObject({
+      trailMode: 'pct',
+      trailPct: 4,
+      takeProfitMode: 'atr',
+      takeProfitAtrMult: 2.5,
+    });
+    const old = parseHandoff(encodeHandoff(base))!;
+    expect(old).toEqual(base);
+    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitR', 'trailMode', 'trailPct', 'trailAtrMult', 'atrLength']) expect(k in old).toBe(false);
+  });
+  it('refuses an unknown mode or a value not above 0', () => {
+    for (const patch of [
+      { stopMode: 'pct' },
+      { stopMode: 'zig' },
+      { takeProfitMode: 'x' },
+      { trailMode: 'off' },
+      { trailMode: 7 },
+      { stopAtrMult: 0 },
+      { stopAtrMult: -1 },
+      { takeProfitR: null },
+      { trailPct: 'x' },
+      { trailAtrMult: Number.NaN },
+      { atrLength: 0 },
+      { atrLength: 501 },
+      { atrLength: 2.5 },
+    ]) {
+      expect(parseHandoff(hashOf({ ...base, ...patch }))).toBeNull();
+    }
+  });
+});
