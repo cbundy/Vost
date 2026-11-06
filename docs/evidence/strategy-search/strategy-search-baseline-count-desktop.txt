@@ -1,0 +1,1 @@
+10 markets x 1 timeframe = 113,400 combinations (twice: the shuffled copies are searched too)

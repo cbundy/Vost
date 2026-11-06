@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { MarketList, MarketListEntry } from '../../../shared/marketLists.ts';
 import { DEFAULT_SWEEP_INPUT, MAX_SWEEP_COMBOS } from './sweep/sweep';
-import { defaultSweepForm, marketsOf, planSweep, readSweepForm } from './sweepForm';
+import { composedCount } from './sweep/composedSpace';
+import { sweepCombos } from './sweep/sweep';
+import { defaultSweepForm, marketsOf, planSweep, readSweepForm, SWEEP_FAMILIES, SWEEP_FAMILY_NOTES, SWEEP_TIMEFRAME_NOTES, SWEEP_TIMEFRAMES } from './sweepForm';
 
 const entry = (symbol: string, provider: 'binance' | 'yahoo' = 'binance'): MarketListEntry => ({ provider, symbol, name: symbol, rank: 1 });
 const list = (id: string, symbols: string[], over: Partial<MarketList> = {}): MarketList => ({
@@ -89,5 +91,58 @@ describe('search form', () => {
     const plan = planSweep(f, [list('crypto-cap', symbols)]);
     expect(plan.combos).toBeGreaterThan(MAX_SWEEP_COMBOS);
     expect(plan.blocker).toContain('2,000,000');
+  });
+});
+
+describe('search form: Composed, buy and hold, baseline and study notes', () => {
+  it('keeps the defaults: Composed off, baseline off, buy and hold off, 1d and 1w, MACD, SMA and EMA', () => {
+    const f = defaultSweepForm();
+    expect([f.composedOn, f.baseline, f.beatBuyHold]).toEqual([false, false, 'off']);
+    expect(f.timeframes).toEqual(['1d', '1w']);
+    expect(f.families).toEqual(['macd_cross', 'sma_cross', 'ema_cross']);
+    const { input } = readSweepForm(f);
+    expect(input).not.toHaveProperty('composed');
+    expect(input).not.toHaveProperty('beatBuyHold');
+    expect(input).not.toHaveProperty('baseline');
+  });
+
+  it('reads the new fields into the input', () => {
+    const { input } = readSweepForm({
+      ...defaultSweepForm(),
+      composedOn: true,
+      composedRules: [3, 1],
+      composedFilters: ['adx', 'trend'],
+      composedTrendTfs: [4, 2],
+      beatBuyHold: 'return_dd',
+      baseline: true,
+    });
+    expect(input.composed).toEqual({ entryRules: [1, 3], filters: ['trend', 'adx'], trendTfs: [4, 2] });
+    expect(input.beatBuyHold).toBe('return_dd');
+    expect(input.baseline).toBe(true);
+  });
+
+  it('blocks Composed with no entry rule, and lets Composed stand in for the indicators', () => {
+    expect(planSweep(picked({ composedOn: true, composedRules: [] }), lists).blocker).toBe('Pick at least one Composed entry rule.');
+    expect(planSweep(picked({ families: [], composedOn: true, composedRules: [2] }), lists).blocker).toBeNull();
+    expect(planSweep(picked({ families: [] }), lists).blocker).toMatch(/indicator/);
+  });
+
+  it('counts Composed and the baseline as the search does', () => {
+    const plain = planSweep(picked(), lists).combos;
+    const withC = planSweep(picked({ composedOn: true }), lists);
+    expect(withC.combos).toBeGreaterThan(plain);
+    expect(withC.combos).toBe(sweepCombos(withC.input));
+    const markets = withC.input.markets.length;
+    expect(withC.combos).toBe(plain + markets * (composedCount(withC.input.composed, '1d') + composedCount(withC.input.composed, '1w')) * 18);
+    expect(planSweep(picked({ composedOn: true, baseline: true }), lists).combos).toBe(2 * withC.combos);
+  });
+
+  it('offers 1m and 5m and attaches the study notes to 1m to 30m, RSI reversion and Bollinger', () => {
+    expect(SWEEP_TIMEFRAMES.slice(0, 2)).toEqual(['1m', '5m']);
+    expect(Object.keys(SWEEP_TIMEFRAME_NOTES).sort()).toEqual(['15m', '1m', '30m', '5m']);
+    expect(SWEEP_TIMEFRAME_NOTES['1m']).toBe('nothing met a target on these bars in the study');
+    expect(Object.keys(SWEEP_FAMILY_NOTES).sort()).toEqual(['bollinger', 'rsi_reversion']);
+    expect(SWEEP_FAMILY_NOTES.bollinger).toBe('expect little: nothing held in the study');
+    expect(SWEEP_FAMILIES.map((f) => f.id)).toEqual(expect.arrayContaining(['rsi_reversion', 'bollinger']));
   });
 });

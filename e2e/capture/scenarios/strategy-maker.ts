@@ -257,6 +257,19 @@ export const strategyMaker: Scenario = {
     });
     await page.getByRole('heading', { name: 'What explains your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await ctx.screenshot('results');
+    await ctx.step('the results show the style of the trades, and the chart list tags each mark', async () => {
+      await page.getByRole('heading', { name: 'The style of your trades' }).waitFor();
+      await page.getByText(/^\d+ of \d+ (look like|show no clear)/).first().waitFor();
+      await page.getByText(/^(Searched the .* families:|Your trades do not lean|None of the allowed)/).waitFor();
+      await page.locator('.sm-style summary').click();
+      await page.locator('.sm-style details li').first().waitFor();
+      if (!(await page.locator('.sm-row .sm-tag-style').count())) throw new Error('no mark on the list shows a style');
+    });
+    await page.getByRole('heading', { name: 'The style of your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await ctx.screenshot('style');
+    await page.locator('.sm-list').scrollIntoViewIfNeeded();
+    await ctx.screenshot('trade-styles');
+    await page.getByRole('heading', { name: 'What explains your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     const actions = page.getByRole('group', { name: 'Use this result' });
     let opened = '';
     await ctx.step('the Ranked settings block has an actions bar naming the headline strategy', async () => {

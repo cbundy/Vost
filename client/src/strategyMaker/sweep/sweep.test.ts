@@ -4,7 +4,8 @@ import type { Candle } from '../../types';
 import { mulberry32 } from '../../lib/random';
 import { normal, synth } from '../engine/synthetic';
 import { exitCount, exitOfCandidate, exitShort, exitWords, exitsOf, kindsOf, typicalRangePct } from './exits';
-import { MAX_LOADS, MAX_SWEEP_COMBOS, rankCandidates, runSweep, sweepCombos, sweepConfig } from './sweep';
+import { composedCount } from './composedSpace';
+import { beatsBuyHold, buyHoldOf, MAX_LOADS, MAX_SWEEP_COMBOS, rankCandidates, runSweep, sweepCombos, sweepConfig } from './sweep';
 import type { SweepCandidate, SweepExit, SweepInput, SweepLoad, SweepMarket } from './types';
 
 const A: SweepMarket = { provider: 'test', symbol: 'AAA' };
@@ -342,5 +343,225 @@ describe('exit words', () => {
     const x = exitOfCandidate({ stopLossPct: 2.1, takeProfitPct: 4.2 });
     expect(x.kind).toBe('range');
     expect(exitWords(x)).toBe('stop 2.10%, take profit 4.20%');
+  });
+});
+
+/** A series where the 4x trend decides: bull blocks ride a cycle upward, bear blocks are a noisy fall that whipsaws every crossover. */
+function planted(seed: number, n: number, block: number): Candle[] {
+  const rand = mulberry32(seed);
+  let c = 100;
+  return Array.from({ length: n }, (_, i) => {
+    const open = c;
+    if (Math.floor(i / block) % 2 === 0) c *= Math.exp(0.0006 + 0.0042 * Math.sin((2 * Math.PI * i) / 60) + normal(rand) * 0.002);
+    else c *= Math.exp(-0.0007 + normal(rand) * 0.012);
+    return { time: 1_600_000_000 + i * 3600, open, high: Math.max(open, c) * 1.001, low: Math.min(open, c) * 0.999, close: c, volume: 1000 };
+  });
+}
+
+const composedBase: SweepInput = {
+  markets: [A],
+  timeframes: ['1h'],
+  families: [],
+  direction: 'long',
+  targetSets: [{ minHitRatePct: 75 }],
+  risk: { initialCapital: 1000, riskPct: 2, feeBps: 10, slippageBps: 5 },
+  exits: { stopMults: [2], tpMults: [2] },
+};
+
+describe('composed in the search', () => {
+  const edge = planted(2, 15000, 2500);
+  const trendOnly = { entryRules: [2], filters: ['trend' as const], trendTfs: [4] };
+
+  it('finds a planted edge only a trend filter catches, and it holds and beats buy and hold', async () => {
+    const plain = await runSweep({ ...composedBase, families: ['ema_cross'] }, fixed({ AAA: edge }));
+    expect(plain.held).toBe(0);
+    const out = await runSweep({ ...composedBase, composed: trendOnly, beatBuyHold: 'return' }, fixed({ AAA: edge }));
+    expect(out.held).toBeGreaterThan(0);
+    const held = out.candidates.filter((c) => c.held);
+    expect(held.length).toBe(out.held);
+    expect(held.every((c) => c.strategyId === 'composed' && c.params.trendFilter > 0)).toBe(true);
+    expect(held.some((c) => c.params.trendTf === 4)).toBe(true);
+    for (const c of held) {
+      expect(c.heldOut.buyHoldPct!).toBeLessThan(0); // the unseen part falls
+      expect(c.heldOut.totalReturnPct).toBeGreaterThan(c.heldOut.buyHoldPct!);
+    }
+    expect(out.tried).toBe(sweepCombos({ ...composedBase, composed: trendOnly }));
+  });
+
+  it('a random walk gives nothing held with Composed and the baseline on', async () => {
+    const walk = synth(4000, 21);
+    const out = await runSweep(
+      { ...composedBase, targetSets: [{ minHitRatePct: 75, minRR: 1 }], composed: { entryRules: [1, 2, 3, 4, 5, 6], filters: ['trend', 'adx'], trendTfs: [4] }, baseline: true },
+      fixed({ AAA: walk }),
+    );
+    expect(out.held).toBe(0);
+    expect(out.baseline?.held).toBe(0);
+    expect(out.candidates.some((c) => c.held)).toBe(false);
+  });
+
+  it('refuses an unknown entry rule, filter or multiple and names the allowed values', async () => {
+    const load = fixed({ AAA: edge });
+    await expect(runSweep({ ...composedBase, composed: { entryRules: [7], filters: [], trendTfs: [] } }, load)).rejects.toThrow(/entry rule "7".*1, 2, 3, 4, 5, 6/);
+    await expect(runSweep({ ...composedBase, composed: { entryRules: [2], filters: ['macd' as never], trendTfs: [] } }, load)).rejects.toThrow(/filter "macd".*trend, volume, atr, adx/);
+    await expect(runSweep({ ...composedBase, composed: { entryRules: [2], filters: ['trend'], trendTfs: [5] } }, load)).rejects.toThrow(/timeframe "5".*1, 2, 3, 4, 6, 8, 12, 24/);
+    await expect(runSweep({ ...composedBase, families: ['ema_cross'], beatBuyHold: 'x' as never }, load)).rejects.toThrow(/buy-and-hold/);
+    await expect(runSweep({ ...composedBase }, load)).rejects.toThrow(/at least one strategy family/);
+  });
+
+  it('with no entry rule it changes nothing', () => {
+    const plain: SweepInput = { ...base };
+    expect(sweepCombos({ ...plain, composed: { entryRules: [], filters: ['trend'], trendTfs: [4] } })).toBe(sweepCombos(plain));
+    expect(sweepCombos({ ...plain, baseline: false, beatBuyHold: 'off' })).toBe(sweepCombos(plain));
+  });
+});
+
+describe('combination count with the new choices', () => {
+  const input: SweepInput = { ...base, timeframes: ['1d', '1w'], composed: { entryRules: [2], filters: ['trend'], trendTfs: [2, 4] } };
+  it('counts the Composed settings per timeframe (fewer on weekly bars) and doubles with the baseline', () => {
+    const plain = sweepCombos({ ...input, composed: undefined });
+    const d = composedCount(input.composed, '1d');
+    const w = composedCount(input.composed, '1w');
+    expect(w).toBeLessThan(d);
+    expect(sweepCombos(input)).toBe(plain + 2 * (d + w) * 4);
+    expect(sweepCombos({ ...input, baseline: true })).toBe(2 * sweepCombos(input));
+  });
+
+  it('is refused over the limit with that count, and the count equals what a run tries', async () => {
+    const big: SweepInput = { ...input, markets: Array.from({ length: 600 }, (_, i) => ({ provider: 'p', symbol: `S${i}` })), composed: { entryRules: [1, 2, 3, 4, 5, 6], filters: ['trend', 'volume', 'atr', 'adx'], trendTfs: [2, 3, 4] }, baseline: true };
+    const n = sweepCombos(big);
+    expect(n).toBeGreaterThan(MAX_SWEEP_COMBOS);
+    await expect(runSweep(big, vi.fn<SweepLoad>())).rejects.toThrow(`Search has ${n} combinations; the limit is ${MAX_SWEEP_COMBOS}`);
+    const small: SweepInput = { ...input, markets: [A], timeframes: ['1d'], baseline: true };
+    const out = await runSweep(small, fixed({ AAA: long }));
+    expect(out.tried).toBe(sweepCombos(small));
+  });
+});
+
+describe('buy and hold', () => {
+  it('works out the return and the drawdown of closes', () => {
+    const cs = [100, 120, 90, 110].map((close, i) => ({ time: i, open: close, high: close, low: close, close, volume: 1 }));
+    const r = buyHoldOf(cs);
+    expect(r.buyHoldPct).toBeCloseTo(10, 9);
+    expect(r.buyHoldDrawdownPct).toBeCloseTo(25, 9);
+    expect(buyHoldOf([])).toEqual({ buyHoldPct: 0, buyHoldDrawdownPct: 0 });
+  });
+
+  it('every candidate and closest row carries the buy and hold of its parts', async () => {
+    const out = await runSweep({ ...base, markets: [A] }, fixed({ AAA: long }));
+    const cut = Math.floor(long.length * 0.7);
+    const want = (cs: Candle[]) => (cs[cs.length - 1].close / cs[0].close - 1) * 100;
+    expect(out.candidates.length).toBeGreaterThan(0);
+    for (const c of out.candidates) {
+      expect(c.selection.buyHoldPct).toBeCloseTo(want(long.slice(0, cut)), 9);
+      expect(c.heldOut.buyHoldPct).toBeCloseTo(want(long.slice(cut)), 9);
+      expect(c.heldOut.buyHoldDrawdownPct!).toBeGreaterThanOrEqual(0);
+    }
+    const nothing = await runSweep({ ...base, markets: [A], targetSets: [{ minRR: 1000 }] }, fixed({ AAA: long }));
+    expect(nothing.closest[0].selection.buyHoldPct).toBeCloseTo(want(long.slice(0, cut)), 9);
+  });
+
+  const f = (totalReturnPct: number, maxDrawdownPct: number) => ({ trades: 20, signalsFired: 20, signalsPer100Bars: 1, signalsPerDay: 1, totalReturnPct, maxDrawdownPct, finalEquity: 1000, winRatePct: 60, rr: 1 });
+  it('"return" needs a higher return; "return_dd" a higher return over drawdown', () => {
+    const bh = { buyHoldPct: 20, buyHoldDrawdownPct: 10 }; // ratio 2
+    expect(beatsBuyHold(undefined, f(-5, 1), bh)).toBe(true);
+    expect(beatsBuyHold('off', f(-5, 1), bh)).toBe(true);
+    expect(beatsBuyHold('return', f(21, 50), bh)).toBe(true);
+    expect(beatsBuyHold('return', f(20, 1), bh)).toBe(false);
+    expect(beatsBuyHold('return_dd', f(10, 4), bh)).toBe(true); // 2.5 > 2
+    expect(beatsBuyHold('return_dd', f(10, 5), bh)).toBe(false); // 2 is not above 2
+    expect(beatsBuyHold('return_dd', f(30, 20), bh)).toBe(false); // return is higher but the ratio is 1.5
+    expect(beatsBuyHold('return_dd', f(5, 0), bh)).toBe(true); // no drawdown, a gain
+    expect(beatsBuyHold('return_dd', f(0, 0), bh)).toBe(false);
+    expect(beatsBuyHold('return_dd', f(-3, 0), bh)).toBe(false);
+    expect(beatsBuyHold('return_dd', f(-3, 1), { buyHoldPct: -50, buyHoldDrawdownPct: 60 })).toBe(false);
+    expect(beatsBuyHold('return_dd', f(5, 2), { buyHoldPct: 30, buyHoldDrawdownPct: 0 })).toBe(false); // a flawless hold
+    expect(beatsBuyHold('return_dd', f(5, 2), { buyHoldPct: -30, buyHoldDrawdownPct: 40 })).toBe(true);
+  });
+
+  // Same cycle that a crossover rides, with a drift added after the cut so the unseen part rises or falls.
+  const cycle = (drift: number): Candle[] => {
+    const rand = mulberry32(1);
+    return Array.from({ length: 4000 }, (_, i) => {
+      const c = 100 * Math.exp(0.15 * Math.sin((2 * Math.PI * i) / 70) + normal(rand) * 0.002 + (i > 2800 ? drift * (i - 2800) : 0));
+      return { time: 1_600_000_000 + i * 3600, open: c, high: c * 1.001, low: c * 0.999, close: c, volume: 1000 };
+    });
+  };
+  const cyc: SweepInput = {
+    ...base,
+    markets: [A],
+    targetSets: [{ minHitRatePct: 80 }],
+    space: { sma_cross: [{ key: 'fast', from: 4, to: 16, step: 4 }, { key: 'slow', from: 20, to: 60, step: 10 }] },
+  };
+
+  it('the target acts on the unseen part only: beating buy and hold on the searched part is not enough', async () => {
+    const data = cycle(0.003); // the unseen part rises about 3,000%, far above what a 2%-risk strategy makes
+    const off = await runSweep(cyc, fixed({ AAA: data }));
+    const ret = await runSweep({ ...cyc, beatBuyHold: 'return' }, fixed({ AAA: data }));
+    expect(off.held).toBeGreaterThan(0);
+    expect(ret.held).toBe(0);
+    expect(ret.met).toBe(off.met);
+    expect(ret.candidates.length).toBe(off.candidates.length);
+  });
+
+  it('the reverse case is held: a fall on the unseen part is beaten', async () => {
+    const data = cycle(-0.0003);
+    const off = await runSweep(cyc, fixed({ AAA: data }));
+    const ret = await runSweep({ ...cyc, beatBuyHold: 'return' }, fixed({ AAA: data }));
+    const dd = await runSweep({ ...cyc, beatBuyHold: 'return_dd' }, fixed({ AAA: data }));
+    expect(off.held).toBeGreaterThan(0);
+    expect(ret.held).toBeGreaterThan(0);
+    expect(ret.held).toBeLessThanOrEqual(off.held);
+    expect(ret.met).toBe(off.met);
+    expect(dd.held).toBeLessThanOrEqual(off.held);
+    expect(dd.met).toBe(off.met);
+    for (const c of ret.candidates.filter((x) => x.held)) expect(c.heldOut.totalReturnPct).toBeGreaterThan(c.heldOut.buyHoldPct!);
+  });
+});
+
+describe('chance baseline', () => {
+  const input: SweepInput = { ...base, markets: [A, B], baseline: true, targetSets: [{ minHitRatePct: 0 }] };
+  const data = { AAA: long, BBB: synth(4000, 11) };
+
+  it('adds counts only: set, repeatable, and every candidate comes from the real data', async () => {
+    const withB = await runSweep(input, fixed(data));
+    const again = await runSweep(input, fixed(data));
+    const without = await runSweep({ ...input, baseline: false }, fixed(data));
+    expect(without.baseline).toBeUndefined();
+    expect(withB.baseline).toEqual(again.baseline);
+    expect(withB.baseline).toMatchObject({ series: 2, tried: 8 });
+    expect(withB.baseline!.met).toBeGreaterThan(0);
+    expect(withB.candidates).toEqual(without.candidates);
+    expect(withB.closest).toEqual(without.closest);
+    expect(withB.skipped).toEqual(without.skipped);
+    expect([withB.met, withB.held]).toEqual([without.met, without.held]);
+  });
+
+  it('counts both passes in tried and in the progress total', async () => {
+    const seen: number[] = [];
+    const out = await runSweep(input, fixed(data), (p) => seen.push(p.pct));
+    expect(out.tried).toBe(sweepCombos(input));
+    expect(out.tried).toBe(2 * sweepCombos({ ...input, baseline: false }));
+    expect(seen).toEqual([...seen].sort((a, b) => a - b));
+    expect(seen[seen.length - 1]).toBe(1);
+    expect(seen.some((p) => p > 0 && p < 0.5)).toBe(true);
+  });
+
+  it('a series that fails to load adds nothing to the baseline but still counts toward the total', async () => {
+    const out = await runSweep({ ...input, markets: [A, { provider: 'test', symbol: 'GONE' }] }, fixed(data));
+    expect(out.baseline!.series).toBe(1);
+    expect(out.tried).toBe(sweepCombos({ ...input, markets: [A, { provider: 'test', symbol: 'GONE' }] }));
+  });
+
+  it('Cancel during the baseline rejects with an AbortError', async () => {
+    const ctl = new AbortController();
+    let sawBaseline = false;
+    const run = runSweep({ ...input, markets: [A] }, fixed(data), (p) => {
+      if (p.pct > 0.6) {
+        sawBaseline = true;
+        ctl.abort();
+      }
+    }, ctl.signal);
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    expect(sawBaseline).toBe(true);
   });
 });

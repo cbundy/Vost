@@ -10,6 +10,9 @@ import {
   type Targets,
   type TrainResult,
   type RiskInput,
+  classifyTrades,
+  buildStyleReport,
+  type StyleReport,
 } from './engine';
 import { defaultBacktestConfig, type BacktestConfig } from '../lib/backtest/types';
 import type { Candle } from '../../../shared/market.ts';
@@ -25,13 +28,15 @@ export interface FindInputs {
     'stopMode' | 'stopAtrMult' | 'takeProfitMode' | 'takeProfitAtrMult' | 'takeProfitR' | 'trailMode' | 'trailPct' | 'trailAtrMult' | 'atrLength' | 'atrTimeframe'
   >;
   targets: Targets;
+  /** Search only the families of the leading style of the marked trades. Absent means off. */
+  useStyle?: boolean;
 }
 
 export type FindStage = 'Loading data' | 'Training' | 'Searching' | 'Validating';
 
 /** The part of a run that happens in the worker. */
 export type EngineOutcome =
-  | { kind: 'ok'; model: TrainResult; search: SearchResult }
+  | { kind: 'ok'; model: TrainResult; search: SearchResult; style?: StyleReport }
   | { kind: 'too-few'; have: number; need: number }
   | { kind: 'refused'; reason: string };
 
@@ -156,8 +161,10 @@ export async function runEngine(
   if (model.kind === 'too-few') return { kind: 'too-few', have: model.have, need: model.need };
   if (model.kind === 'refused') return { kind: 'refused', reason: model.reason };
 
-  const chosen = model.families.filter((f) => inputs.families.includes(f));
-  const families = chosen.length ? chosen : [...inputs.families];
+  const style = buildStyleReport(classifyTrades(series, inputs.direction), inputs.families, inputs.useStyle === true);
+  const allowed = style.families;
+  const chosen = model.families.filter((f) => allowed.includes(f));
+  const families = chosen.length ? chosen : [...allowed];
   const space = Object.fromEntries(Object.entries(model.space).filter(([f]) => families.includes(f)));
   const search = await searchStrategies({
     series,
@@ -175,7 +182,7 @@ export async function runEngine(
   });
   if (search.kind === 'too-few') return { kind: 'too-few', have: search.have, need: search.need };
   if (search.kind === 'refused') return { kind: 'refused', reason: search.reason };
-  return { kind: 'ok', model, search };
+  return { kind: 'ok', model, search, style };
 }
 
 export type EngineRunner = (

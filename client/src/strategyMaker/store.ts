@@ -42,6 +42,8 @@ export function setId(s: SetSource): string {
 export interface FindForm {
   direction: 'long' | 'short' | 'both';
   families: string[];
+  /** Search only the families of the leading style of the marked trades. */
+  useStyle: boolean;
   feeBps: string;
   slippageBps: string;
   stopLossPct: string;

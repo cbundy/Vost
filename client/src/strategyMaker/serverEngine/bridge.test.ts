@@ -85,6 +85,27 @@ describe('server engine bridge', () => {
     p.close();
   });
 
+  it('a sweep with the chance baseline on returns the baseline counts', async () => {
+    const input: SweepInput = {
+      markets: [{ provider: 'test', symbol: 'AAA' }],
+      timeframes: ['1d'],
+      families: ['sma_cross'],
+      direction: 'long',
+      targetSets: [{ minHitRatePct: 0 }],
+      risk: { initialCapital: 1000, riskPct: 2, feeBps: 10, slippageBps: 5 },
+      exits: { stopMults: [1], tpMults: [1] },
+      space: { sma_cross: [{ key: 'fast', from: 8, to: 8, step: 1 }, { key: 'slow', from: 34, to: 34, step: 1 }] },
+      baseline: true,
+    };
+    const p = parent(() => synth(1500, 3));
+    p.send({ proto: 'maker', msg: { v: 1, id: 's', type: 'sweep', input } });
+    const done = await p.next((m) => m.proto === 'maker' && (m.msg.type === 'sweep-result' || m.msg.type === 'error'));
+    if (done.proto !== 'maker' || done.msg.type !== 'sweep-result') throw new Error('expected a result');
+    expect(done.msg.result.baseline).toMatchObject({ series: 1, tried: 1 });
+    expect(done.msg.result.tried).toBe(2);
+    p.close();
+  });
+
   it('a failed candle load is a skipped series, not a hang', async () => {
     const input = {
       markets: [{ provider: 'test', symbol: 'GONE' }],

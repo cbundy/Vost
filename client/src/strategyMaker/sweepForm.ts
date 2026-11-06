@@ -4,10 +4,22 @@ import type { MarketList } from '../../../shared/marketLists.ts';
 import type { SearchDirection } from './engine/types';
 import { num } from './form';
 import { DEFAULT_SWEEP_INPUT, MAX_SWEEP_COMBOS, sweepCombos } from './sweep/sweep';
-import type { ExitKind, SweepInput, SweepMarket, TargetSet } from './sweep/types';
+import { COMPOSED_ENTRY_RULES, COMPOSED_FILTERS, COMPOSED_TREND_TFS, type ComposedFilter } from './sweep/composedSpace';
+import type { BeatBuyHold, ExitKind, SweepInput, SweepMarket, TargetSet } from './sweep/types';
 
 /** Timeframes both the Binance and the Yahoo provider serve. */
-export const SWEEP_TIMEFRAMES: Interval[] = ['15m', '30m', '1h', '4h', '1d', '1w'];
+export const SWEEP_TIMEFRAMES: Interval[] = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+/** Where the study behind these notes is explained. */
+export const SEARCH_GUIDE_URL = 'https://github.com/cbundy/Vost/blob/main/docs/guide/strategy-maker.md#searching-many-markets';
+/** A note on a timeframe the study found empty. It stays pickable. */
+export const SWEEP_TIMEFRAME_NOTES: Partial<Record<Interval, string>> = Object.fromEntries(
+  (['1m', '5m', '15m', '30m'] as Interval[]).map((tf) => [tf, 'nothing met a target on these bars in the study']),
+);
+/** A note on an indicator the study found empty. It stays pickable. */
+export const SWEEP_FAMILY_NOTES: Record<string, string> = {
+  rsi_reversion: 'expect little: nothing held in the study',
+  bollinger: 'expect little: nothing held in the study',
+};
 /** The signal families the market search can use. */
 export const SWEEP_FAMILIES: Array<{ id: string; name: string }> = [
   { id: 'macd_cross', name: 'MACD crossover' },
@@ -16,6 +28,30 @@ export const SWEEP_FAMILIES: Array<{ id: string; name: string }> = [
   { id: 'rsi_reversion', name: 'RSI reversion' },
   { id: 'bollinger', name: 'Bollinger bands' },
   { id: 'donchian', name: 'Donchian breakout' },
+];
+/** The Composed entry rules offered, with their names. */
+export const COMPOSED_RULE_OPTIONS: Array<{ id: number; label: string }> = [
+  { id: 1, label: 'SMA crossover' },
+  { id: 2, label: 'EMA crossover' },
+  { id: 3, label: 'MACD' },
+  { id: 4, label: 'RSI mean reversion' },
+  { id: 5, label: 'Bollinger Bands' },
+  { id: 6, label: 'Donchian breakout' },
+];
+/** The Composed filters offered, with their labels. */
+export const COMPOSED_FILTER_OPTIONS: Array<{ id: ComposedFilter; label: string }> = [
+  { id: 'trend', label: 'Trend (price vs SMA or EMA)' },
+  { id: 'volume', label: 'Volume' },
+  { id: 'atr', label: 'Volatility (ATR band)' },
+  { id: 'adx', label: 'Trend strength (ADX)' },
+];
+/** The trend timeframes offered, as multiples of the loaded bars (1 is always tried). */
+export const COMPOSED_TREND_TF_OPTIONS: number[] = COMPOSED_TREND_TFS.filter((k) => k > 1);
+/** The unseen-data targets offered. */
+export const BEAT_BUY_HOLD_OPTIONS: Array<{ id: BeatBuyHold; label: string }> = [
+  { id: 'off', label: 'No target' },
+  { id: 'return', label: 'Return above buy and hold' },
+  { id: 'return_dd', label: 'Return over drawdown above buy and hold' },
 ];
 /** The multiples offered for stops (times the typical bar range) and for take profits (times the stop). */
 export const STOP_MULT_OPTIONS = [0.5, 1, 2, 3, 4, 6];
@@ -48,6 +84,14 @@ export interface SweepForm {
   stopMults: number[];
   tpMults: number[];
   exitKinds: ExitKind[];
+  /** Composed (entry + filters) on, and its picks. */
+  composedOn: boolean;
+  composedRules: number[];
+  composedFilters: ComposedFilter[];
+  /** Trend timeframes beyond the loaded bars. */
+  composedTrendTfs: number[];
+  beatBuyHold: BeatBuyHold;
+  baseline: boolean;
 }
 
 export function defaultSweepForm(): SweepForm {
@@ -65,6 +109,12 @@ export function defaultSweepForm(): SweepForm {
     stopMults: [...d.exits.stopMults],
     tpMults: [...d.exits.tpMults],
     exitKinds: [...(d.exits.kinds ?? ['range'])],
+    composedOn: false,
+    composedRules: [2],
+    composedFilters: ['trend'],
+    composedTrendTfs: [4],
+    beatBuyHold: 'off',
+    baseline: false,
   };
 }
 
@@ -102,6 +152,17 @@ export function readSweepForm(f: SweepForm): { input: Omit<SweepInput, 'markets'
       targetSets,
       risk: { initialCapital, riskPct, feeBps, slippageBps },
       exits: { stopMults: f.stopMults, tpMults: f.tpMults, kinds: f.exitKinds },
+      ...(f.composedOn
+        ? {
+            composed: {
+              entryRules: COMPOSED_ENTRY_RULES.filter((r) => f.composedRules.includes(r)),
+              filters: COMPOSED_FILTERS.filter((x) => f.composedFilters.includes(x)),
+              trendTfs: f.composedTrendTfs,
+            },
+          }
+        : {}),
+      ...(f.beatBuyHold !== 'off' ? { beatBuyHold: f.beatBuyHold } : {}),
+      ...(f.baseline ? { baseline: true } : {}),
     },
   };
 }
@@ -135,7 +196,8 @@ export const sweepBlocker = (errors: SweepErrors, f: SweepForm, markets: SweepMa
   if (f.listIds.length === 0) return 'Pick at least one market list.';
   if (markets.length === 0) return 'The lists you picked have no markets.';
   if (f.timeframes.length === 0) return 'Pick at least one timeframe.';
-  if (f.families.length === 0) return 'Pick at least one indicator family.';
+  if (f.composedOn && f.composedRules.length === 0) return 'Pick at least one Composed entry rule.';
+  if (f.families.length === 0 && !f.composedOn) return 'Pick at least one indicator family.';
   if (input.targetSets.length === 0) return 'Give at least one target row.';
   if (f.exitKinds.length === 0) return 'Pick at least one exit kind.';
   if (f.stopMults.length === 0 || f.tpMults.length === 0) return 'Pick at least one stop and one take-profit multiple.';

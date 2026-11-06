@@ -44,6 +44,7 @@ Below the chart, **Find a strategy** turns your marks into a recommendation. Fil
 
 - **Strategy type**: long and short (the default), long only or short only.
 - **Allowed indicators**: the families the search may use (SMA crossover, EMA crossover, MACD, RSI mean reversion, Bollinger Bands, Donchian breakout, Pullback in trend, Reversal, Momentum breakout). All are on at first; at least one must stay on.
+- **Use the style of my trades** (in the same box, on by default): before searching, Find reads the bars around each marked trade, labels it with a trading style, and searches only the families of the leading style. When your trades lean no clear way, nothing is narrowed. Switch it off to search every allowed family. See [The style of your trades](#the-style-of-your-trades).
 - **Risk (always on)**: fee and slippage in basis points, and the same exits as the Backtest tab, all optional. The stop loss is a percent or a multiple of the ATR. The take profit is a percent, a multiple of the ATR, or a multiple of the stop ("Times the stop", which needs a stop loss or a trailing stop). The trailing stop is off, a percent or a multiple of the ATR. **ATR length** shows only when an ATR option is on. They start at the main backtester's defaults with every exit option off, and fees and slippage are always applied. The search tries every candidate with these exits.
 
   ![The Risk fieldset with an ATR stop, a times-the-stop take profit and an ATR trailing stop](../evidence/strategy-maker/strategy-maker-find-exits-desktop.png)
@@ -65,6 +66,7 @@ The work runs in a background worker of the page, so the page stays usable and t
 ![Results with the model's rules and the ranked settings](../evidence/strategy-maker/strategy-maker-results-desktop.png)
 
 - **What explains your trades**: a small decision tree learns when you were in a trade and writes it as plain rules, with how much each family of indicators mattered and how well it called the state on bars it had not seen.
+- **The style of your trades**: the mix of styles in your marks and what the search did about it. See below.
 - **Ranked settings**: the settings that best reproduce your entries and exits, with the best match and the best one that meets your targets marked. Each row shows its return, hit rate, R:R, largest drawdown, trade count and signals per 100 bars (with how many fired and the rate per day, a signal being a turn to a new side) on the part it was chosen on and on a held-out part it was not. Click a row to draw its trades on the chart beside your own, as outlined circles (entries) and squares (exits) joined by a dashed line; the legend tells "Your trades" from "Found trades". Click the row again to clear them.
 - **Validated or Not validated**: the chosen setting is checked on held-out data, in a walk-forward test, against its neighbouring settings and with a Monte Carlo reshuffle, and each check is listed as passed or failed with its detail. It is validated only when the held-out result keeps within your targets.
 - **Closest found**: when no setting meets your targets, the nearest one and each gap in words.
@@ -73,6 +75,27 @@ The work runs in a background worker of the page, so the page stays usable and t
 ![No setting met strict targets: the closest one and its gaps](../evidence/strategy-maker/strategy-maker-closest-narrow.png)
 
 ![The trades a found strategy takes, drawn beside the marks](../evidence/strategy-maker/strategy-maker-found-trades-desktop.png)
+
+### The style of your trades
+
+Find labels every marked trade it uses with one of six styles (the same words the strategy families carry: trend following, trend continuation, mean reversion, reversal, breakout, momentum) or "no clear style". It reads only the bars up to and including the entry bar. The block lists the mix, largest first ("479 of 1495 look like trend following"), says what the search did, and has an **Each trade** list with the style and the reason of every trade, labelled by its chart as in the skipped trades. On the chart's trade list each mark the latest result read carries a small tag with its style; hover it to see the reason.
+
+The rules run in this order and the first match wins (a long is described; a short mirrors it, with `s` = +1 for a long and -1 for a short):
+
+1. **Too early**: the 200-bar average does not exist yet, so the trade is "no clear style".
+2. **Reversal**: the slow trend (50-bar average against 200-bar average) points against the trade, and the lowest low of the last 50 bars (highest high for a short) came within the last 5 bars.
+3. **Mean reversion**: the close is at least 2 standard deviations below its 20-bar average (above, for a short), or RSI 14 is at or below 30 (at or above 70 for a short).
+4. **Momentum**: the slow trend points with the trade, and the 20-bar move in its direction is at least 4 times the ATR 14 (as a share of the close).
+5. **Breakout**: the close goes through the range of the prior 20 bars in the trade's direction.
+6. **Trend following**: the 10-bar average crossed the 30-bar average to the trade's side within the last 5 bars.
+7. **Trend continuation**: the slow trend points with the trade and the 5 bars before entry moved against it.
+8. Otherwise "no clear style".
+
+The top style must hold at least 40% of the used trades (counting "no clear style") for the search to be narrowed. The leading styles are then the top style plus any style with at least half the top's count, and the search keeps the allowed families that carry one of them. When no style reaches 40%, nothing is narrowed and the block says "Your trades do not lean to one style, so every allowed family was searched". When none of the allowed families carries a leading style, the search also uses every allowed family and the block says so. The model's own narrowing then applies on top, as before.
+
+![The style of your trades, with the list of each trade open](../evidence/strategy-maker/strategy-maker-style-desktop.png)
+
+![The chart's trade list with a style tag on each mark](../evidence/strategy-maker/strategy-maker-trade-styles-desktop.png)
 
 ## Using a result in the backtester
 
@@ -93,15 +116,22 @@ Under the ranked settings, an actions bar acts on the row you clicked, or on the
 Below the Find section, **Search markets** tries many indicator settings and exits on many markets and timeframes at once, and keeps the ones that reach your targets. It needs no marks and does not use the model. The last 30% of every market is kept out of the search to check the winners on.
 
 - **Market lists**: the top 30 crypto by market cap and by 24-hour volume (built live, so they carry a date and say "stale" when the last refresh failed), the top 30 stocks by market cap and by volume, and a list of indices. Each shows its date and how many markets it holds; a list that could not be built shows why and cannot be picked. None is picked at first.
-- **Timeframes** (1d and 1w at first), **Indicators** (MACD, SMA and EMA crossover at first), and **Strategy type** (long only at first).
+- **Timeframes** (1d and 1w at first; 1m to 1w can be picked), **Indicators** (MACD, SMA and EMA crossover at first), and **Strategy type** (long only at first). An earlier study of this search ([the spike](../spikes/strategy-search/README.md)) found nothing that met a target on 1m, 5m, 15m and 30m bars, and nothing that held for RSI reversion and Bollinger bands; those choices carry a note saying so and a link here. They stay pickable.
+- **Composed (entry + filters)** is the last Indicators choice. It tries an entry rule plus filters. Pick the **entry rules** (SMA or EMA crossover, MACD, RSI reversion, Bollinger bands, Donchian breakout), each with its own small grid of settings, and the **filters** (trend, volume, volatility, trend strength): each picked filter is tried both off and on. The trend filter is price against a 100 or 200 bar SMA or EMA, and **trend timeframes** read it on a longer timeframe built from the loaded bars (2x to 24x the chart; "same as the chart" is always tried). On weekly bars only the chart's own timeframe is tried. Volume asks for 1.5 times the average, volatility for the default ATR band and trend strength for an ADX of at least 25.
+- **Beat buy and hold on unseen data**: off at first. "Return above buy and hold" makes a result count as held only if its return on the unseen part is also above the return of buying at the first close and holding to the last. "Return over drawdown" compares return divided by largest drawdown instead. The target applies to the unseen part only; "met a target" is not changed by it.
+- **Chance baseline**: off at first. When on, every market that was searched is searched again on a shuffled copy of its candles (the order of the bar-to-bar moves is mixed, so the spread of moves stays and any pattern in time is gone), with the same settings, exits, targets and split. It adds only counts, never rows, and it doubles the number of combinations.
 - **Targets**: two rows, "75% hit rate with R:R 1" **or** "50% hit rate with R:R 4". A result needs to meet either one. Clear both boxes of a row to leave it out; at least one row must stay.
 - **Sizing and costs**: account size (1000), risk per trade as the percent of the account lost when the stop is hit (2%), and fee and slippage in bps (10 and 5).
 - **Exit kinds**: how the exits are placed. "Stop sized by the typical bar range" is on at first; "ATR stop" and "ATR trailing stop" can be added. Each kind chosen multiplies the number of combinations, and at least one must stay on.
 - **Stop** and **Take profit**: the multiples tried. For the range kind a stop is a multiple of the market's typical bar range. For the ATR kinds it is a multiple of the ATR (14 bars, read on the signal bar), and for the trailing kind the stop trails the price at that distance, fixed at entry. A take profit is a multiple of the stop (for the ATR kinds, in R: 3R is three times the stop distance). An ATR exit cannot trade in the first 14 bars of each part while the ATR warms up.
 
-A bad number is flagged under its field and switches the search off with the reason, as does no list, no timeframe, no indicator or no target row. Above the button, the page says how big the search is ("10 markets x 1 timeframe = 116,100 combinations"; a market in two lists counts once). Above the limit of 2,000,000 combinations the button is off and the page says so; nothing starts.
+A bad number is flagged under its field and switches the search off with the reason, as does no list, no timeframe, no indicator or no target row. Above the button, the page says how big the search is ("10 markets x 1 timeframe = 116,100 combinations"; a market in two lists counts once). The count is exact: it covers the Composed settings (worked out for each timeframe) and the baseline's second pass. Above the limit of 2,000,000 combinations the button is off and the page says so; nothing starts.
 
 ![The Search markets panel with its defaults](../evidence/strategy-search/strategy-search-panel-desktop.png)
+
+![The Composed choices: entry rules, filters and trend timeframes](../evidence/strategy-search/strategy-search-composed-desktop.png)
+
+![The study notes on 1m to 30m, RSI reversion and Bollinger bands, and the Beat buy and hold and Chance baseline choices](../evidence/strategy-search/strategy-search-study-notes-desktop.png)
 
 ![The Exit kinds group with the ATR stop and ATR trailing stop on, and the larger count](../evidence/strategy-search/strategy-search-exit-kinds-desktop.png)
 
@@ -111,9 +141,11 @@ While it runs, a bar shows the percent and the market and timeframe being search
 
 ![A search in progress on a narrow screen](../evidence/strategy-search/strategy-search-running-narrow.png)
 
-The results start with how many combinations were tried, how many met a target and how many also **held on unseen data**, and a plain warning: with this many combinations tried, a result that meets a target can be luck, and the ones that held are the ones to trust more. Each row names its exit: `2.10% / 4.20%` for the range kind, `2 ATR / 3R` for an ATR stop and `2 ATR trailing / 3R` for an ATR trailing stop; the Stop / take profit column sorts by kind, then by stop. The table is ranked held results first and sorts by any column header. For a held row the figures (trades, signals per 100 bars, hit rate, R:R, final equity, maximum drawdown) come from the unseen part; for the others they come from the part that was searched. The **Signals / 100 bars** column also shows how many signals fired and the rate per day, and hovering it gives the other part's figures. **Open in Backtest** opens Vost in a new tab on that market and timeframe, with the Backtest tab set to the strategy, its settings, the exit it used (the percent stop and take profit, or the ATR stop or trailing stop with the R target and ATR length), fee, slippage, account size and risk per trade, and the direction. A message names the market and timeframe. Run the backtest to see the same trades the search took.
+The results start with how many combinations were tried, how many met a target and how many also **held on unseen data**, and a plain warning: with this many combinations tried, a result that meets a target can be luck, and the ones that held are the ones to trust more. Each row names its exit: `2.10% / 4.20%` for the range kind, `2 ATR / 3R` for an ATR stop and `2 ATR trailing / 3R` for an ATR trailing stop; the Stop / take profit column sorts by kind, then by stop. A **Buy & hold** column shows the return of holding the market over the same part as the row's other figures, so a result can be read against it (an older result without it shows "n/a"). A Composed result is worded as its entry rule and only the filters that are on, for example `EMA crossover fast 10, slow 40; trend EMA 200 on 4x bars; ADX 25 or more`. With the chance baseline on, the header adds a line, "N held on real data, M on shuffled copies of the same markets (S series)": M is what chance alone gives on markets with the same moves in a random order, so a real count near it says little, and one well above it is worth a closer look. The table is ranked held results first and sorts by any column header. For a held row the figures (trades, signals per 100 bars, hit rate, R:R, final equity, maximum drawdown) come from the unseen part; for the others they come from the part that was searched. The **Signals / 100 bars** column also shows how many signals fired and the rate per day, and hovering it gives the other part's figures. **Open in Backtest** opens Vost in a new tab on that market and timeframe, with the Backtest tab set to the strategy, its settings, the exit it used (the percent stop and take profit, or the ATR stop or trailing stop with the R target and ATR length), fee, slippage, account size and risk per trade, and the direction. A message names the market and timeframe. Run the backtest to see the same trades the search took.
 
 ![Ranked results, with the ones that held on unseen data first](../evidence/strategy-search/strategy-search-results-desktop.png)
+
+![A small Composed run with the chance baseline: the held counts on real data and on shuffled copies, and the Buy & hold column](../evidence/strategy-search/strategy-search-baseline-results-desktop.png)
 
 **Closest found** lists, for each market and timeframe where nothing met a target, the nearest setting and its gaps in words. **Skipped** lists the markets that failed to load, or were too short, with the reason.
 

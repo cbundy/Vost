@@ -4,6 +4,7 @@ import type { FindResult } from './run';
 import { tooFewMessage } from './run';
 import { familyName } from './TargetsForm';
 import { ResultActions } from './ResultActions';
+import { StyleBlock } from './StyleBlock';
 
 export const candidateKey = (c: Pick<Candidate, 'strategyId' | 'params'>): string => `${c.strategyId}|${JSON.stringify(c.params)}`;
 
@@ -148,6 +149,8 @@ export function Results({ result, selected, onSelect, source = '' }: Props) {
       <p className="sm-headline">{headline}</p>
 
       <ModelBlock model={model} />
+
+      {outcome.style && <StyleBlock style={outcome.style} seriesLabels={seriesLabels} />}
 
       <div className="sm-res-block">
         <h3>Ranked settings</h3>

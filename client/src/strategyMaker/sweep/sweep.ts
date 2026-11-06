@@ -13,8 +13,11 @@ import { defaultBacktestConfig, type BacktestConfig } from '../../lib/backtest/t
 import { gapSize, gapsOf } from '../engine/backtest';
 import { candidatesOf, DEFAULT_SPACE, SELECTION_PCT } from '../engine/search';
 import { SIGNAL_FAMILIES, type Gap } from '../engine/types';
+import { composedCount, composedSettings, COMPOSED_ENTRY_RULES, COMPOSED_FILTERS, COMPOSED_TREND_TFS } from './composedSpace';
+import { shuffledCopy, seedOf } from './shuffle';
 import { exitCount, exitFields, exitsOf, typicalRangePct, DEFAULT_EXITS } from './exits';
 import type {
+  BeatBuyHold,
   ClosestCandidate,
   PartFigures,
   SkippedSeries,
@@ -104,7 +107,8 @@ interface Setting {
   params: Record<string, number>;
 }
 
-function settingsOf(input: SweepInput): Setting[] {
+/** The settings of the plain families (the same on every timeframe). */
+function baseSettingsOf(input: SweepInput): Setting[] {
   const direction = { long: 1, short: 2, both: 3 }[input.direction];
   const out: Setting[] = [];
   for (const id of new Set(input.families)) {
@@ -114,23 +118,76 @@ function settingsOf(input: SweepInput): Setting[] {
   return out;
 }
 
+/** The settings tried on a timeframe: the plain families and the Composed ones. */
+function settingsOf(input: SweepInput, base: Setting[], timeframe: Interval): Setting[] {
+  const direction = { long: 1, short: 2, both: 3 }[input.direction];
+  return [...base, ...composedSettings(input.composed, timeframe, direction)];
+}
+
+const listOf = (xs: readonly unknown[]): string => xs.join(', ');
+
 function check(input: SweepInput): void {
   if (input.markets.length === 0) throw new Error('Pick at least one market.');
   if (input.timeframes.length === 0) throw new Error('Pick at least one timeframe.');
   if (input.targetSets.length < 1 || input.targetSets.length > 4) throw new Error('Give 1 to 4 target sets.');
-  if (input.families.length === 0) throw new Error('Pick at least one strategy family.');
+  if (input.families.length === 0 && !input.composed?.entryRules.length) throw new Error('Pick at least one strategy family.');
   for (const id of input.families) {
     if (!(SIGNAL_FAMILIES as readonly string[]).includes(id)) {
       throw new Error(`Unknown strategy family "${id}". The search can use: ${SIGNAL_FAMILIES.join(', ')}.`);
     }
   }
+  if (input.composed) {
+    for (const r of input.composed.entryRules) {
+      if (!(COMPOSED_ENTRY_RULES as readonly number[]).includes(r)) {
+        throw new Error(`Unknown Composed entry rule "${r}". The search can use: ${listOf(COMPOSED_ENTRY_RULES)}.`);
+      }
+    }
+    for (const f of input.composed.filters) {
+      if (!(COMPOSED_FILTERS as readonly string[]).includes(f)) {
+        throw new Error(`Unknown Composed filter "${f}". The search can use: ${listOf(COMPOSED_FILTERS)}.`);
+      }
+    }
+    for (const k of input.composed.trendTfs) {
+      if (!(COMPOSED_TREND_TFS as readonly number[]).includes(k)) {
+        throw new Error(`Unknown Composed trend timeframe "${k}". The search can use these multiples of the loaded bars: ${listOf(COMPOSED_TREND_TFS)}.`);
+      }
+    }
+  }
+  if (input.beatBuyHold !== undefined && !['off', 'return', 'return_dd'].includes(input.beatBuyHold)) {
+    throw new Error(`Unknown buy-and-hold target "${input.beatBuyHold}". The search can use: off, return, return_dd.`);
+  }
   if (exitCount(input.exits) === 0) throw new Error('Give at least one exit.');
   if (!(input.risk.riskPct > 0)) throw new Error('Risk per trade must be above 0.');
 }
 
-/** Combinations a run would try: markets x timeframes x signal settings x exits. Counted before anything loads. */
+/** Combinations a run would try: markets x (per timeframe: its signal settings) x exits, twice with the baseline. Counted before anything loads, without building the Composed settings. */
 export function sweepCombos(input: SweepInput): number {
-  return input.markets.length * input.timeframes.length * settingsOf(input).length * exitCount(input.exits);
+  const base = baseSettingsOf(input).length;
+  let settings = 0;
+  for (const tf of input.timeframes) settings += base + composedCount(input.composed, tf);
+  return input.markets.length * settings * exitCount(input.exits) * (input.baseline ? 2 : 1);
+}
+
+/** Buy and hold of a part: first close to last close, and the largest fall from a peak of the closes (positive percent). */
+export function buyHoldOf(candles: Candle[]): { buyHoldPct: number; buyHoldDrawdownPct: number } {
+  if (candles.length === 0 || !(candles[0].close > 0)) return { buyHoldPct: 0, buyHoldDrawdownPct: 0 };
+  let peak = candles[0].close;
+  let dd = 0;
+  for (const c of candles) {
+    peak = Math.max(peak, c.close);
+    if (peak > 0) dd = Math.max(dd, ((peak - c.close) / peak) * 100);
+  }
+  return { buyHoldPct: (candles[candles.length - 1].close / candles[0].close - 1) * 100, buyHoldDrawdownPct: dd };
+}
+
+/** Whether the hold-out figures beat buy and hold under the chosen target. */
+export function beatsBuyHold(mode: BeatBuyHold | undefined, b: PartFigures, bh: { buyHoldPct: number; buyHoldDrawdownPct: number }): boolean {
+  if (!mode || mode === 'off') return true;
+  if (mode === 'return') return b.totalReturnPct > bh.buyHoldPct;
+  if (!(b.totalReturnPct > 0)) return false;
+  if (!(b.maxDrawdownPct > 0)) return true;
+  const hold = bh.buyHoldDrawdownPct > 0 ? bh.buyHoldPct / bh.buyHoldDrawdownPct : bh.buyHoldPct > 0 ? Infinity : 0;
+  return b.totalReturnPct / b.maxDrawdownPct > hold;
 }
 
 /** Held first, then by final equity (hold-out for held ones, selection otherwise). */
@@ -146,6 +203,14 @@ interface Task {
 
 type Loaded = { ok: true; candles: Candle[] } | { ok: false; reason: string };
 
+interface PassOut {
+  found: SweepCandidate[];
+  best: { gaps: Gap[]; size: number; c: ClosestCandidate } | null;
+  reachedMin: boolean;
+  met: number;
+  held: number;
+}
+
 /** Runs the search. Rejects with an AbortError when `signal` aborts, and with the count when the run is over budget. */
 export async function runSweep(
   input: SweepInput,
@@ -154,13 +219,19 @@ export async function runSweep(
   signal?: AbortSignal,
 ): Promise<SweepResult> {
   check(input);
-  const settings = settingsOf(input);
-  const exitsPer = exitCount(input.exits);
-  const perSeries = settings.length * exitsPer;
-  const total = perSeries * input.markets.length * input.timeframes.length;
+  const total = sweepCombos(input);
   if (total > MAX_SWEEP_COMBOS) {
     throw new Error(`Search has ${total} combinations; the limit is ${MAX_SWEEP_COMBOS}. Pick fewer markets, timeframes or strategies.`);
   }
+  const base = baseSettingsOf(input);
+  const byTimeframe = new Map<Interval, Setting[]>();
+  const settingsFor = (tf: Interval): Setting[] => {
+    let list = byTimeframe.get(tf);
+    if (!list) byTimeframe.set(tf, (list = settingsOf(input, base, tf)));
+    return list;
+  };
+  const exitsPer = exitCount(input.exits);
+  const passes = input.baseline ? 2 : 1;
   const guard = (): void => {
     if (signal?.aborted) throw abortError();
   };
@@ -187,6 +258,7 @@ export async function runSweep(
   let tried = 0;
   let met = 0;
   let held = 0;
+  const baseline = { series: 0, tried: 0, met: 0, held: 0 };
   let lastPct = 0;
   let sliceStart = Date.now();
   const report = (label: string): void => {
@@ -202,10 +274,85 @@ export async function runSweep(
 
   const { targetSets, risk } = input;
 
+  /** Every setting with every exit on the searched part; the ones that meet a set are checked on the hold-out. */
+  const searchPass = async (
+    label: string,
+    market: SweepMarket,
+    timeframe: Interval,
+    sel: Candle[],
+    out: Candle[],
+    exits: SweepExit[],
+    keep: boolean,
+  ): Promise<PassOut & { tried: number }> => {
+    const settings = settingsFor(timeframe);
+    const selHold = buyHoldOf(sel);
+    const outHold = buyHoldOf(out);
+    const res: PassOut & { tried: number } = { found: [], best: null, reachedMin: false, met: 0, held: 0, tried: 0 };
+    for (const s of settings) {
+      guard();
+      // Signals are built once per setting; every exit reuses them.
+      const selSignals = buildSignals(sel, s.strategyId, s.params);
+      let outSignals: unknown[] | null = null;
+      for (const x of exits) {
+        const config = sweepConfig(risk, s.strategyId, s.params, x);
+        const a = figuresOf(runBacktest(sel, selSignals, config), risk.initialCapital);
+        tried++;
+        res.tried++;
+        if (a.trades < MIN_SELECTION_TRADES) continue;
+        res.reachedMin = true;
+        let setIndex = -1;
+        let nearest = -1;
+        let nearestSize = Infinity;
+        let nearestGaps: Gap[] = [];
+        for (let k = 0; k < targetSets.length; k++) {
+          const gaps = gapsOf(a, targetSets[k]);
+          if (gaps.length === 0) {
+            setIndex = k;
+            break;
+          }
+          const size = gapSize(gaps);
+          if (size < nearestSize) [nearest, nearestSize, nearestGaps] = [k, size, gaps];
+        }
+        if (setIndex < 0) {
+          if (keep && (!res.best || nearestSize < res.best.size)) {
+            res.best = {
+              gaps: nearestGaps,
+              size: nearestSize,
+              c: { market, timeframe, strategyId: s.strategyId, params: s.params, ...exitFields(x), setIndex: nearest, gaps: nearestGaps, selection: { ...a, ...selHold } },
+            };
+          }
+          continue;
+        }
+        res.met++;
+        outSignals ??= buildSignals(out, s.strategyId, s.params);
+        const b = figuresOf(runBacktest(out, outSignals, config), risk.initialCapital);
+        const isHeld = b.trades >= MIN_HELD_TRADES && gapsOf(b, targetSets[setIndex]).length === 0 && beatsBuyHold(input.beatBuyHold, b, outHold);
+        if (isHeld) res.held++;
+        if (keep) {
+          res.found.push({
+            market,
+            timeframe,
+            strategyId: s.strategyId,
+            params: s.params,
+            ...exitFields(x),
+            setIndex,
+            held: isHeld,
+            selection: { ...a, ...selHold },
+            heldOut: { ...b, ...outHold },
+          });
+        }
+      }
+      report(label);
+      await breathe();
+    }
+    return res;
+  };
+
   for (let ti = 0; ti < tasks.length; ti++) {
     ensure(ti + MAX_LOADS - 1);
     const { market, timeframe } = tasks[ti];
     const label = `${market.symbol} ${timeframe}`;
+    const perSeries = settingsFor(timeframe).length * exitsPer * passes;
     const loaded = await (loading[ti] as Promise<Loaded>);
     loading[ti] = undefined;
     guard();
@@ -231,66 +378,46 @@ export async function runSweep(
       skip('The candles have no price range, so no stop can be sized.');
       continue;
     }
-    const exits = exitsOf(range, input.exits);
 
-    const found: SweepCandidate[] = [];
-    let best: { gaps: Gap[]; size: number; c: ClosestCandidate } | null = null;
-    let reachedMin = false;
+    const real = await searchPass(label, market, timeframe, sel, out, exitsOf(range, input.exits), true);
+    met += real.met;
+    held += real.held;
+    if (!real.reachedMin) {
+      skipped.push({ market, timeframe, reason: `Too short: no strategy reached ${MIN_SELECTION_TRADES} trades on the searched part.` });
+    } else if (real.found.length === 0 && real.best) {
+      closest.push(real.best.c);
+    }
+    candidates = candidates.concat(rankCandidates(real.found).slice(0, KEEP_PER_SERIES));
+    await breathe();
 
-    for (const s of settings) {
-      guard();
-      // Signals are built once per setting; every exit reuses them.
-      const selSignals = buildSignals(sel, s.strategyId, s.params);
-      let outSignals: unknown[] | null = null;
-      for (const x of exits) {
-        const config = sweepConfig(risk, s.strategyId, s.params, x);
-        const a = figuresOf(runBacktest(sel, selSignals, config), risk.initialCapital);
-        tried++;
-        if (a.trades < MIN_SELECTION_TRADES) continue;
-        reachedMin = true;
-        let setIndex = -1;
-        let nearest = -1;
-        let nearestSize = Infinity;
-        let nearestGaps: Gap[] = [];
-        for (let k = 0; k < targetSets.length; k++) {
-          const gaps = gapsOf(a, targetSets[k]);
-          if (gaps.length === 0) {
-            setIndex = k;
-            break;
-          }
-          const size = gapSize(gaps);
-          if (size < nearestSize) [nearest, nearestSize, nearestGaps] = [k, size, gaps];
-        }
-        if (setIndex < 0) {
-          if (!best || nearestSize < best.size) {
-            best = {
-              gaps: nearestGaps,
-              size: nearestSize,
-              c: { market, timeframe, strategyId: s.strategyId, params: s.params, ...exitFields(x), setIndex: nearest, gaps: nearestGaps, selection: a },
-            };
-          }
-          continue;
-        }
-        met++;
-        outSignals ??= buildSignals(out, s.strategyId, s.params);
-        const b = figuresOf(runBacktest(out, outSignals, config), risk.initialCapital);
-        const isHeld = b.trades >= MIN_HELD_TRADES && gapsOf(b, targetSets[setIndex]).length === 0;
-        if (isHeld) held++;
-        found.push({ market, timeframe, strategyId: s.strategyId, params: s.params, ...exitFields(x), setIndex, held: isHeld, selection: a, heldOut: b });
+    if (input.baseline) {
+      // The same search on a shuffled copy: counts only, and the stop size comes from the shuffled searched part.
+      const copy = shuffledCopy(all, seedOf(`${market.provider}|${market.symbol}|${timeframe}`));
+      const cSel = copy.slice(0, cut);
+      const cOut = copy.slice(cut);
+      const cRange = typicalRangePct(cSel);
+      if (cRange > 0) {
+        const shuffled = await searchPass(label, market, timeframe, cSel, cOut, exitsOf(cRange, input.exits), false);
+        baseline.series++;
+        baseline.tried += shuffled.tried;
+        baseline.met += shuffled.met;
+        baseline.held += shuffled.held;
+      } else {
+        tried += perSeries / 2;
+        report(label);
       }
-      report(label);
       await breathe();
     }
-
-    if (!reachedMin) {
-      skipped.push({ market, timeframe, reason: `Too short: no strategy reached ${MIN_SELECTION_TRADES} trades on the searched part.` });
-    } else if (found.length === 0 && best) {
-      closest.push(best.c);
-    }
-    candidates = candidates.concat(rankCandidates(found).slice(0, KEEP_PER_SERIES));
-    await breathe();
   }
   guard();
   report('done');
-  return { candidates: rankCandidates(candidates), closest, skipped, tried, met, held };
+  return {
+    candidates: rankCandidates(candidates),
+    closest,
+    skipped,
+    tried,
+    met,
+    held,
+    ...(input.baseline ? { baseline } : {}),
+  };
 }

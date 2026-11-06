@@ -1,1 +1,1 @@
-Backtest set from the strategy maker on ^RUT 1d: MACD (fast ema 4, slow ema 20, signal ema 5, direction both). It was found on ^RUT 1d (market search); run it on the same data to see the same trades.
+Backtest set from the strategy maker on ^RUT 1d: SMA crossover (fast period 2, slow period 10, direction both). It was found on ^RUT 1d (market search); run it on the same data to see the same trades.
