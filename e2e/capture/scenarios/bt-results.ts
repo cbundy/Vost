@@ -146,6 +146,7 @@ export const btResults: Scenario = {
       await page.getByText('Trail 1.5 ATR', { exact: true }).waitFor();
       await page.getByText('ATR 14 on 4x', { exact: true }).waitFor();
       await page.getByRole('cell', { name: 'trailing stop', exact: true }).first().waitFor();
+      await page.getByText('SL 2 ATR', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'center' }));
     });
     await ctx.screenshot('exits-badges');
     await ctx.step('scroll to the trades list', async () => {
