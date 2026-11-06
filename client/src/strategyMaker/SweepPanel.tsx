@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { MarketList } from '../../../shared/marketLists.ts';
 import type { EngineClient } from './engineClient';
 import { fetchMarketLists } from './marketLists';
+import { withPineSources } from './pineSources';
+import { MAX_PINE_RUNS } from './sweep/pineSpace';
 import { MAX_SWEEP_COMBOS } from './sweep/sweep';
+import { SweepPineRoles } from './SweepPineRoles';
 import { SweepResults } from './SweepResults';
 import {
   BEAT_BUY_HOLD_OPTIONS,
@@ -59,6 +62,8 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
   const sweep = useSweep(getClient, { keeper, onFallback });
   const running = sweep.run.running;
   const adopt = sweep.adopt;
+  const [preparing, setPreparing] = useState(false);
+  const [prepError, setPrepError] = useState('');
 
   useEffect(() => {
     if (reattach) void adopt(reattach);
@@ -75,6 +80,21 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
 
   const all = lists.state === 'ok' ? lists.lists : NO_LISTS;
   const plan = useMemo(() => planSweep(form, all), [form, all]);
+  /** Attaches the sources of the picked indicators (fetched now, never saved), then starts the search. */
+  const start = async () => {
+    setPrepError('');
+    setPreparing(true);
+    let input;
+    try {
+      input = await withPineSources(plan.input);
+    } catch (e) {
+      setPrepError(`The search did not start: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    } finally {
+      setPreparing(false);
+    }
+    void sweep.start(input);
+  };
   const set = <K extends keyof SweepForm>(k: K, v: SweepForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const err = (k: string) =>
     plan.errors[k] && (
@@ -198,6 +218,7 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
                 </label>
               ))}
             </fieldset>
+            <SweepPineRoles pine={form.composedPine} onChange={(v) => set('composedPine', v)} disabled={running} />
             <fieldset disabled={running || !form.composedFilters.includes('trend')}>
               <legend>Composed trend timeframes</legend>
               <label className="sm-check">
@@ -291,6 +312,12 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
         {form.timeframes.length === 1 ? '' : 's'} = {count(plan.combos)} combinations
         {form.baseline ? ' (twice: the shuffled copies are searched too)' : ''}
         {plan.combos > MAX_SWEEP_COMBOS ? ` (over the limit of ${count(MAX_SWEEP_COMBOS)})` : ''}
+        {form.composedOn && form.composedPine.length > 0 && (
+          <>
+            ; {count(plan.pineRuns)} TradingView script run{plan.pineRuns === 1 ? '' : 's'}
+            {plan.pineRuns > MAX_PINE_RUNS ? ` (over the limit of ${count(MAX_PINE_RUNS)})` : ` (limit ${count(MAX_PINE_RUNS)})`}
+          </>
+        )}
       </p>
       <div className="sm-find-actions">
         {running ? (
@@ -298,7 +325,7 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
             Cancel
           </button>
         ) : (
-          <button type="button" className="sm-primary" onClick={() => void sweep.start(plan.input)} disabled={plan.blocker !== null}>
+          <button type="button" className="sm-primary" onClick={() => void start()} disabled={plan.blocker !== null || preparing}>
             Search markets
           </button>
         )}
@@ -316,6 +343,11 @@ export function SweepPanel({ getClient, keeper, onFallback, reattach }: Props) {
           </span>
           {placeNote(sweep.run) && <span className="sm-note">{placeNote(sweep.run)}</span>}
         </div>
+      )}
+      {prepError && (
+        <p className="sm-error" role="alert">
+          {prepError}
+        </p>
       )}
       {sweep.error && (
         <p className="sm-error" role="alert">

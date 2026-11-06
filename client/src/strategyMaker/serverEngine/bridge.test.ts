@@ -258,4 +258,49 @@ describe('server engine bridge, user code', () => {
     expect(done.msg.message).toContain('boom from user code');
     p.close();
   });
+
+  it('a sweep with a TradingView indicator that imports a library runs here, and the library ask is answered', async () => {
+    const source = [
+      '//@version=6',
+      'indicator("Lib ind", overlay=true)',
+      'import bob/Inner/1 as inner',
+      'fast = input.int(5, "Fast")',
+      'plot(ta.sma(inner.double(close) / 2, fast), "fast")',
+      'plot(ta.sma(close, 50), "slow")',
+    ].join('\n');
+    const input: SweepInput = {
+      markets: [{ provider: 'test', symbol: 'AAA' }],
+      timeframes: ['1d'],
+      families: [],
+      direction: 'long',
+      targetSets: [{ minHitRatePct: 0 }],
+      risk: { initialCapital: 1000, riskPct: 2, feeBps: 10, slippageBps: 5 },
+      exits: { stopMults: [1], tpMults: [1] },
+      composed: {
+        entryRules: [],
+        filters: [],
+        trendTfs: [],
+        pine: [
+          {
+            role: { indicatorId: 'lib-ind', name: 'Lib ind', inputs: {}, role: 'entry', rule: { type: 'cross', a: { kind: 'plot', plot: 'fast' }, b: { kind: 'plot', plot: 'slow' } } },
+            ranges: [{ input: 'Fast', from: 5, to: 10, step: 5 }],
+          },
+        ],
+        pineSources: { 'lib-ind': source },
+      },
+    };
+    const data = synth(4000, 7);
+    const p = parent((ask) => {
+      if (ask.kind === 'library') return INNER;
+      if (ask.kind === 'history') return data;
+      throw new Error('unexpected');
+    });
+    p.send({ proto: 'maker', msg: { v: 1, id: 's', type: 'sweep', input } });
+    const done = await p.next((m) => m.proto === 'maker' && (m.msg.type === 'sweep-result' || m.msg.type === 'error'));
+    if (done.proto !== 'maker' || done.msg.type !== 'sweep-result') throw new Error(`expected a result: ${JSON.stringify(done)}`);
+    expect(p.asks.some((a) => a.proto === 'ask' && a.kind === 'library')).toBe(true);
+    expect(done.msg.result.skipped).toEqual([]);
+    expect(done.msg.result.candidates.length + done.msg.result.closest.length).toBeGreaterThan(0);
+    p.close();
+  });
 });

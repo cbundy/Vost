@@ -1,3 +1,4 @@
+import { withoutSources } from '../lib/backtest/pineRole';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { Handoff } from '../lib/backtestHandoff';
 import { exitOfCandidate } from './sweep/exits';
@@ -23,6 +24,7 @@ export function sweepHandoff(c: SweepCandidate, risk: SweepRisk): Handoff {
     slippageBps: risk.slippageBps,
     ...handoffExit(exitOfCandidate(c)),
     allowShort: (c.params.direction ?? 1) !== 1,
+    ...(c.pineRoles?.length && { pineRoles: withoutSources(c.pineRoles) }),
     initialCapital: risk.initialCapital,
     positionSizePct: cfg.positionSizePct,
     riskPct: risk.riskPct,

@@ -8,12 +8,15 @@ import { barsSpanSeconds, signalRates } from '../../lib/backtest/metrics';
 import type { EngineOutput } from '../../lib/backtest/engine';
 import type { SweepParam } from '../../lib/backtest/optimizer';
 import type { Candle } from '../../types';
+import { computePineRoleContext, withoutSources, type PineRole, type PineRoleContext } from '../../lib/backtest/pineRole';
 import { buildSignals } from '../../lib/backtest/strategies';
+import type { PineEnv } from '../../lib/pine/runtime';
 import { defaultBacktestConfig, type BacktestConfig } from '../../lib/backtest/types';
 import { gapSize, gapsOf } from '../engine/backtest';
 import { candidatesOf, DEFAULT_SPACE, SELECTION_PCT } from '../engine/search';
 import { SIGNAL_FAMILIES, type Gap } from '../engine/types';
 import { composedCount, composedSettings, COMPOSED_ENTRY_RULES, COMPOSED_FILTERS, COMPOSED_TREND_TFS } from './composedSpace';
+import { checkPine, MAX_PINE_RUNS, pineEntries, pineRunCount } from './pineSpace';
 import { shuffledCopy, seedOf } from './shuffle';
 import { exitCount, exitFields, exitsOf, typicalRangePct, DEFAULT_EXITS } from './exits';
 import type {
@@ -58,6 +61,7 @@ export const DEFAULT_SWEEP_INPUT: Omit<SweepInput, 'markets'> = {
 
 const abortError = (): Error => new DOMException('The search was cancelled', 'AbortError');
 const yieldNow = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+const isAbortError = (e: unknown): boolean => e instanceof Error && e.name === 'AbortError';
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 /** The config of one backtest: risk-sized from the exit's stop, with no position cap. */
@@ -105,6 +109,8 @@ export function figuresOf(out: EngineOutput, initialCapital: number): PartFigure
 interface Setting {
   strategyId: string;
   params: Record<string, number>;
+  /** TradingView indicator roles, with their input values and no source. */
+  pineRoles?: PineRole[];
 }
 
 /** The settings of the plain families (the same on every timeframe). */
@@ -130,7 +136,7 @@ function check(input: SweepInput): void {
   if (input.markets.length === 0) throw new Error('Pick at least one market.');
   if (input.timeframes.length === 0) throw new Error('Pick at least one timeframe.');
   if (input.targetSets.length < 1 || input.targetSets.length > 4) throw new Error('Give 1 to 4 target sets.');
-  if (input.families.length === 0 && !input.composed?.entryRules.length) throw new Error('Pick at least one strategy family.');
+  if (input.families.length === 0 && !input.composed?.entryRules.length && pineEntries(input.composed).length === 0) throw new Error('Pick at least one strategy family.');
   for (const id of input.families) {
     if (!(SIGNAL_FAMILIES as readonly string[]).includes(id)) {
       throw new Error(`Unknown strategy family "${id}". The search can use: ${SIGNAL_FAMILIES.join(', ')}.`);
@@ -152,6 +158,7 @@ function check(input: SweepInput): void {
         throw new Error(`Unknown Composed trend timeframe "${k}". The search can use these multiples of the loaded bars: ${listOf(COMPOSED_TREND_TFS)}.`);
       }
     }
+    checkPine(input.composed);
   }
   if (input.beatBuyHold !== undefined && !['off', 'return', 'return_dd'].includes(input.beatBuyHold)) {
     throw new Error(`Unknown buy-and-hold target "${input.beatBuyHold}". The search can use: off, return, return_dd.`);
@@ -196,6 +203,14 @@ export function rankCandidates(list: SweepCandidate[]): SweepCandidate[] {
   return [...list].sort((a, b) => Number(b.held) - Number(a.held) || key(b) - key(a));
 }
 
+/** The roles of a setting for a result, without their sources; nothing when it has none. */
+const rolesField = (s: Setting): { pineRoles?: PineRole[] } => (s.pineRoles?.length ? { pineRoles: withoutSources(s.pineRoles) } : {});
+
+const roleKey = (s: Setting): string => (s.pineRoles?.length ? JSON.stringify(s.pineRoles) : '');
+
+/** The computed indicator values of a part, by the roles of a setting. */
+type PineContexts = Map<string, PineRoleContext>;
+
 interface Task {
   market: SweepMarket;
   timeframe: Interval;
@@ -217,8 +232,13 @@ export async function runSweep(
   load: SweepLoad,
   onProgress?: (p: SweepProgress) => void,
   signal?: AbortSignal,
+  env?: PineEnv,
 ): Promise<SweepResult> {
   check(input);
+  const pineRuns = pineRunCount(input);
+  if (pineRuns > MAX_PINE_RUNS) {
+    throw new Error(`Search needs ${pineRuns.toLocaleString('en-US')} TradingView script runs; the limit is ${MAX_PINE_RUNS.toLocaleString('en-US')}. Pick fewer markets, timeframes or indicator input values.`);
+  }
   const total = sweepCombos(input);
   if (total > MAX_SWEEP_COMBOS) {
     throw new Error(`Search has ${total} combinations; the limit is ${MAX_SWEEP_COMBOS}. Pick fewer markets, timeframes or strategies.`);
@@ -273,6 +293,25 @@ export async function runSweep(
   };
 
   const { targetSets, risk } = input;
+  const sources = input.composed?.pineSources ?? {};
+
+  /**
+   * Runs every distinct indicator and input setting of a part once, before its settings loop, and keeps what each setting's
+   * roles read. The runs are memoized per candle array, so the settings then cost no further script run. Throws a plain
+   * message naming the indicator when a script cannot be used.
+   */
+  const pineContexts = async (candles: Candle[], timeframe: Interval, market: SweepMarket): Promise<PineContexts> => {
+    const out: PineContexts = new Map();
+    const pineMarket = { providerId: market.provider, symbol: market.symbol, interval: timeframe };
+    for (const s of settingsFor(timeframe)) {
+      const key = roleKey(s);
+      if (!s.pineRoles?.length || out.has(key)) continue;
+      const roles = s.pineRoles.map((r) => ({ ...r, ...(sources[r.indicatorId] !== undefined && { source: sources[r.indicatorId] }) }));
+      out.set(key, await computePineRoleContext(candles, roles, pineMarket, env));
+      guard();
+    }
+    return out;
+  };
 
   /** Every setting with every exit on the searched part; the ones that meet a set are checked on the hold-out. */
   const searchPass = async (
@@ -283,6 +322,8 @@ export async function runSweep(
     out: Candle[],
     exits: SweepExit[],
     keep: boolean,
+    selCtx: PineContexts,
+    outCtx: PineContexts,
   ): Promise<PassOut & { tried: number }> => {
     const settings = settingsFor(timeframe);
     const selHold = buyHoldOf(sel);
@@ -291,7 +332,7 @@ export async function runSweep(
     for (const s of settings) {
       guard();
       // Signals are built once per setting; every exit reuses them.
-      const selSignals = buildSignals(sel, s.strategyId, s.params);
+      const selSignals = buildSignals(sel, s.strategyId, s.params, undefined, selCtx.get(roleKey(s)));
       let outSignals: unknown[] | null = null;
       for (const x of exits) {
         const config = sweepConfig(risk, s.strategyId, s.params, x);
@@ -318,13 +359,13 @@ export async function runSweep(
             res.best = {
               gaps: nearestGaps,
               size: nearestSize,
-              c: { market, timeframe, strategyId: s.strategyId, params: s.params, ...exitFields(x), setIndex: nearest, gaps: nearestGaps, selection: { ...a, ...selHold } },
+              c: { market, timeframe, strategyId: s.strategyId, params: s.params, ...rolesField(s), ...exitFields(x), setIndex: nearest, gaps: nearestGaps, selection: { ...a, ...selHold } },
             };
           }
           continue;
         }
         res.met++;
-        outSignals ??= buildSignals(out, s.strategyId, s.params);
+        outSignals ??= buildSignals(out, s.strategyId, s.params, undefined, outCtx.get(roleKey(s)));
         const b = figuresOf(runBacktest(out, outSignals, config), risk.initialCapital);
         const isHeld = b.trades >= MIN_HELD_TRADES && gapsOf(b, targetSets[setIndex]).length === 0 && beatsBuyHold(input.beatBuyHold, b, outHold);
         if (isHeld) res.held++;
@@ -334,6 +375,7 @@ export async function runSweep(
             timeframe,
             strategyId: s.strategyId,
             params: s.params,
+            ...rolesField(s),
             ...exitFields(x),
             setIndex,
             held: isHeld,
@@ -379,7 +421,18 @@ export async function runSweep(
       continue;
     }
 
-    const real = await searchPass(label, market, timeframe, sel, out, exitsOf(range, input.exits), true);
+    let selCtx: PineContexts;
+    let outCtx: PineContexts;
+    try {
+      selCtx = await pineContexts(sel, timeframe, market);
+      outCtx = await pineContexts(out, timeframe, market);
+    } catch (e) {
+      if (isAbortError(e)) throw e;
+      skip(msg(e));
+      continue;
+    }
+
+    const real = await searchPass(label, market, timeframe, sel, out, exitsOf(range, input.exits), true, selCtx, outCtx);
     met += real.met;
     held += real.held;
     if (!real.reachedMin) {
@@ -396,13 +449,24 @@ export async function runSweep(
       const cSel = copy.slice(0, cut);
       const cOut = copy.slice(cut);
       const cRange = typicalRangePct(cSel);
+      let shuffledCtx: [PineContexts, PineContexts] | null = null;
+      let shuffledReason = '';
       if (cRange > 0) {
-        const shuffled = await searchPass(label, market, timeframe, cSel, cOut, exitsOf(cRange, input.exits), false);
+        try {
+          shuffledCtx = [await pineContexts(cSel, timeframe, market), await pineContexts(cOut, timeframe, market)];
+        } catch (e) {
+          if (isAbortError(e)) throw e;
+          shuffledReason = msg(e);
+        }
+      }
+      if (shuffledCtx) {
+        const shuffled = await searchPass(label, market, timeframe, cSel, cOut, exitsOf(cRange, input.exits), false, shuffledCtx[0], shuffledCtx[1]);
         baseline.series++;
         baseline.tried += shuffled.tried;
         baseline.met += shuffled.met;
         baseline.held += shuffled.held;
       } else {
+        if (shuffledReason) skipped.push({ market, timeframe, reason: `Chance baseline: ${shuffledReason}` });
         tried += perSeries / 2;
         report(label);
       }

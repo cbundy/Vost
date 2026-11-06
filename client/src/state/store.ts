@@ -966,6 +966,8 @@ export const useStore = create<AppState>()((set, get) => {
         atrLength: h.atrLength,
         atrTimeframe: h.atrTimeframe,
         pineInputs: undefined,
+        // A link without indicator roles clears them.
+        pineRoles: h.pineRoles,
       });
       get().setDockTab('backtest');
       const settings = handoffSettingsText(h);

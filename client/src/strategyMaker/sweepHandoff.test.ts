@@ -2,6 +2,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { runBacktest } from '../lib/backtest/engine';
+import { runAnyBacktest } from '../lib/backtest/runner';
+import { handoffSettingsText } from '../lib/backtestHandoff';
+import { SELECTION_PCT } from './engine/search';
+import { synth } from './engine/synthetic';
+import { runSweep } from './sweep/sweep';
 import { buildSignals } from '../lib/backtest/strategies';
 import type { BacktestConfig } from '../lib/backtest/types';
 import { candlesFromCsvText } from '../lib/csv';
@@ -89,5 +94,81 @@ describe('sweepHandoff', () => {
   it('a candidate without exit still hands over its percents', () => {
     const { exit: _exit, ...old } = candidate({ fast: 8, slow: 34, direction: 1 });
     expect(sweepHandoff(old, risk)).toMatchObject({ stopLossPct: 2.123456789, takeProfitPct: 4.246913578 });
+  });
+
+  describe('with TradingView indicators', () => {
+    const SMA_CROSS = '//@version=6\nindicator("Two SMAs", overlay=true)\nfast = input.int(10, "Fast")\nslow = input.int(50, "Slow")\nplot(ta.sma(close, fast), "fast")\nplot(ta.sma(close, slow), "slow")\n';
+    const roleOf = (): SweepCandidate['pineRoles'] => [
+      { indicatorId: 'sma2', name: 'Two SMAs', inputs: { Fast: 5, Slow: 50 }, role: 'entry', rule: { type: 'cross', a: { kind: 'plot', plot: 'fast' }, b: { kind: 'plot', plot: 'slow' } } },
+      { indicatorId: 'sma2', name: 'Two SMAs', inputs: { Fast: 5, Slow: 100 }, role: 'filter', label: 'trend', rule: { type: 'above', a: { kind: 'close' }, b: { kind: 'plot', plot: 'slow' } } },
+    ];
+    const withRoles = (): SweepCandidate => ({ ...candidate({ entryRule: 7, direction: 1 }), strategyId: 'composed', pineRoles: roleOf() });
+
+    it('carries the roles, and no source, and survives the address', () => {
+      const h = sweepHandoff({ ...withRoles(), pineRoles: roleOf()!.map((r) => ({ ...r, source: 'secret' })) }, risk);
+      expect(h.pineRoles).toEqual(roleOf());
+      const link = encodeHandoff(h);
+      expect(atob(link.slice('#backtest='.length).replace(/-/g, '+').replace(/_/g, '/'))).not.toContain('secret');
+      expect(parseHandoff(link)).toEqual(h);
+      expect(sweepHandoff(candidate({ fast: 8, slow: 34, direction: 1 }), risk)).not.toHaveProperty('pineRoles');
+    });
+
+    it('names the indicator in the toast text', () => {
+      expect(handoffSettingsText(sweepHandoff(withRoles(), risk))).toContain('TradingView "Two SMAs" fast crosses slow, fast 5, slow 50');
+    });
+
+    it('a link with malformed roles drops them, and a plain link has none', () => {
+      const h = sweepHandoff(withRoles(), risk);
+      const link = (patch: object) => encodeHandoff({ ...h, ...patch } as never);
+      expect(parseHandoff(link({ pineRoles: [{ indicatorId: '', name: 'x' }] }))).not.toHaveProperty('pineRoles');
+      expect(parseHandoff(link({ pineRoles: 'nope' }))).not.toHaveProperty('pineRoles');
+      expect(parseHandoff(link({ pineRoles: [...roleOf()!, ...roleOf()!] }))).not.toHaveProperty('pineRoles'); // two entries
+      expect(parseHandoff(link({ pineRoles: [{ ...roleOf()![0], rule: { type: 'above' } }] }))).not.toHaveProperty('pineRoles');
+      expect(parseHandoff(link({ pineRoles: undefined }))).toMatchObject({ strategyId: 'composed' });
+    });
+
+    it('a Backtest tab filled from a search row, with the sources put back, takes the row\'s trades', async () => {
+      const data = synth(4000, 7);
+      const result = await runSweep(
+        {
+          markets: [{ provider: 'yahoo', symbol: 'AAA' }],
+          timeframes: ['1d'],
+          families: [],
+          direction: 'long',
+          targetSets: [{ minHitRatePct: 0 }],
+          risk,
+          exits: { stopMults: [1, 2], tpMults: [1, 2] },
+          composed: {
+            entryRules: [],
+            filters: [],
+            trendTfs: [],
+            pine: [
+              { role: roleOf()![0], ranges: [{ input: 'Slow', from: 50, to: 100, step: 50 }] },
+              { role: { ...roleOf()![1], inputs: { Fast: 5 } }, ranges: [{ input: 'Slow', from: 50, to: 100, step: 50 }] },
+            ],
+            pineSources: { sma2: SMA_CROSS },
+          },
+        },
+        async () => data,
+      );
+      const rows = result.candidates.filter((c) => c.pineRoles!.length === 2);
+      expect(rows.length).toBeGreaterThan(0);
+      const cut = Math.floor((data.length * SELECTION_PCT) / 100);
+      for (const c of rows.slice(0, 3)) {
+        const h = parseHandoff(encodeHandoff(sweepHandoff(c, risk)))!;
+        const filled: BacktestConfig = {
+          ...sweepConfig(risk, 'x', {}, c.exit!),
+          strategyId: h.strategyId, params: h.params, feeBps: h.feeBps, slippageBps: h.slippageBps, stopLossPct: h.stopLossPct, takeProfitPct: h.takeProfitPct,
+          allowShort: h.allowShort, initialCapital: h.initialCapital, positionSizePct: h.positionSizePct, riskPct: h.riskPct, ...exitsOfLink(h),
+          pineRoles: h.pineRoles!.map((r) => ({ ...r, source: SMA_CROSS })),
+          market: { providerId: h.providerId!, symbol: h.symbol!, interval: h.timeframe },
+        };
+        const run = await runAnyBacktest(data.slice(0, cut), filled);
+        expect(run.trades.length).toBe(c.selection.trades);
+        expect(run.equity[run.equity.length - 1].equity).toBe(c.selection.finalEquity);
+        // And without the indicator roles it would be another strategy.
+        expect(c.selection.trades).toBeGreaterThan(0);
+      }
+    }, 120_000);
   });
 });

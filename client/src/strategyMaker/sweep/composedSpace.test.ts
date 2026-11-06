@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validParams } from '../engine/search';
 import { COMPOSED_FILTERS, composedCount, composedSettings, composedWords, ENTRY_GRIDS, trendTfsOf } from './composedSpace';
 import { MAX_SWEEP_COMBOS, sweepCombos } from './sweep';
-import type { SweepComposed, SweepInput } from './types';
+import type { SweepComposed, SweepInput, SweepPineRole } from './types';
 
 const all: SweepComposed = { entryRules: [1, 2, 3, 4, 5, 6], filters: [...COMPOSED_FILTERS], trendTfs: [2, 3, 4, 6, 8, 12, 24] };
 const mixes: SweepComposed[] = [
@@ -114,5 +114,74 @@ describe('composed words', () => {
       'EMA crossover fast 10, slow 40; trend EMA 200; volume 1.5x its 20-bar average; ATR 0.5 to 5% of close',
     );
     expect(composedWords({ entryRule: 5, length: 20, mult: 2, mode: 1 })).toBe('Bollinger bands length 20, std dev 2, mode reversion');
+  });
+});
+
+describe('composed settings with TradingView indicators', () => {
+  const cross = { type: 'cross', a: { kind: 'close' }, b: { kind: 'plot', plot: 'EMA' } } as const;
+  const above = { type: 'above', a: { kind: 'close' }, b: { kind: 'plot', plot: 'EMA' } } as const;
+  const len = (from: number, to: number, step: number) => ({ input: 'length', from, to, step });
+  const entry = (id: string, ranges = [len(10, 30, 10)]): SweepPineRole => ({ role: { indicatorId: id, name: `Ind ${id}`, inputs: {}, role: 'entry', rule: cross }, ranges });
+  const filter = (id: string, ranges = [len(10, 20, 10)]): SweepPineRole => ({ role: { indicatorId: id, name: `Ind ${id}`, inputs: {}, role: 'filter', label: 'trend', rule: above }, ranges });
+  const mixes: SweepComposed[] = [
+    { entryRules: [], filters: [], trendTfs: [], pine: [entry('a')] },
+    { entryRules: [2], filters: ['trend'], trendTfs: [4], pine: [filter('b')] },
+    { entryRules: [1, 3], filters: ['volume'], trendTfs: [], pine: [entry('a'), entry('c', []), filter('b'), filter('d', [])] },
+    { ...all, pine: [entry('a'), entry('b'), filter('c'), filter('d'), filter('e')] },
+  ];
+
+  it('the count equals the settings built, on 1d and 1w', () => {
+    for (const c of mixes) {
+      for (const tf of ['1d', '1w'] as const) {
+        expect(composedCount(c, tf)).toBe(composedSettings(c, tf, 1).length);
+        expect(composedCount(c, tf)).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('adds M x the filter cross settings for each Pine entry, and (1 + M) per Pine filter', () => {
+    // An entry with 3 input settings and a filter with 2: 3 x (1 + 2).
+    expect(composedCount({ entryRules: [], filters: [], trendTfs: [], pine: [entry('a'), filter('b')] }, '1d')).toBe(3 * 3);
+    // A rule 2 grid is 9 settings; the same filter multiplies it by 3 and the entry adds 3 x 3.
+    const rule = composedCount({ entryRules: [2], filters: [], trendTfs: [] }, '1d');
+    expect(composedCount({ entryRules: [2], filters: [], trendTfs: [], pine: [entry('a'), filter('b')] }, '1d')).toBe(rule * 3 + 9);
+  });
+
+  it('every setting is valid for Composed and for the role limits, and none repeats', async () => {
+    const { validatePineRoles } = await import('../../lib/backtest/pineRole');
+    // The last mix (every rule and filter) is left out here: it builds hundreds of thousands of settings.
+    for (const c of mixes.slice(0, 3)) {
+      const seen = new Set<string>();
+      for (const s of composedSettings(c, '1d', 3)) {
+        expect(validParams('composed', s.params)).toBe(true);
+        const roles = validatePineRoles(s.pineRoles);
+        expect(JSON.stringify(roles)).not.toContain('source');
+        // Only a Pine entry setting has the TradingView entry rule, and it always has its entry role.
+        expect(s.params.entryRule === 7).toBe(roles.some((r) => r.role === 'entry'));
+        const key = JSON.stringify([s.params, s.pineRoles]);
+        expect(seen.has(key)).toBe(false);
+        seen.add(key);
+      }
+    }
+  });
+
+  it('a search without Pine builds the settings it always did', () => {
+    for (const c of mixes.map(({ pine: _p, ...rest }) => rest)) {
+      for (const s of composedSettings(c, '1d', 1)) expect(s).not.toHaveProperty('pineRoles');
+    }
+    expect(composedSettings({ ...all, pine: [] }, '1d', 1)).toEqual(composedSettings(all, '1d', 1));
+  });
+
+  it('puts the range values over the fixed inputs of each setting', () => {
+    const list = composedSettings({ entryRules: [], filters: [], trendTfs: [], pine: [entry('a')] }, '1d', 1);
+    expect(list.map((s) => s.pineRoles?.[0].inputs)).toEqual([{ length: 10 }, { length: 20 }, { length: 30 }]);
+    expect(list.every((s) => s.params.entryRule === 7)).toBe(true);
+  });
+
+  it('words name the indicator, the plot and the input values', () => {
+    const [s] = composedSettings({ entryRules: [], filters: ['trend'], trendTfs: [], pine: [entry('a')] }, '1d', 1).filter((x) => x.params.trendFilter === 1);
+    expect(composedWords(s.params, s.pineRoles)).toBe('TradingView "Ind a" close crosses EMA, length 10; trend SMA 100');
+    const withFilter = composedSettings({ entryRules: [2], filters: [], trendTfs: [], pine: [filter('b')] }, '1d', 1).find((x) => x.pineRoles);
+    expect(composedWords(withFilter!.params, withFilter!.pineRoles)).toMatch(/^EMA crossover fast \d+, slow \d+; TradingView filter "Ind b" \(trend\) close above EMA, length 10$/);
   });
 });

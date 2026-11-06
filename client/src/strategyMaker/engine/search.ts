@@ -1,5 +1,6 @@
 /** The search: tries the built-in strategies over ranges of settings and scores them against the highlights. */
 import { gridSize, MAX_GRID_COMBOS, paramValues, type SweepParam } from '../../lib/backtest/optimizer';
+import { ENTRY_RULE_PINE, type PineRole } from '../../lib/backtest/pineRole';
 import { buildSignals, composedEntryKeys, DEFAULT_PARAMS, getStrategy } from '../../lib/backtest/strategies';
 import { defaultBacktestConfig, type BacktestConfig } from '../../lib/backtest/types';
 import { splitBars } from '../../lib/backtest/validation';
@@ -80,7 +81,7 @@ export const DEFAULT_SPACE: Record<string, SweepParam[]> = {
 /** Composed: the entry rule's own ordering holds, and settings that do nothing stay at their default (no duplicate runs). */
 function validComposed(p: Record<string, number>): boolean {
   const rule = Math.round(p.entryRule);
-  if (rule < 1 || rule > 6) return false;
+  if (rule < 1 || rule > ENTRY_RULE_PINE) return false;
   if (rule <= 3 && !(p.fast < p.slow)) return false;
   if (rule === 4 && !(p.oversold < p.overbought)) return false;
   const used = new Set(composedEntryKeys(rule));
@@ -115,6 +116,8 @@ const yieldNow = (): Promise<void> => new Promise((resolve) => setTimeout(resolv
 export interface Raw {
   strategyId: string;
   params: Record<string, number>;
+  /** Composed with TradingView indicators: the roles, with their input values and no source. */
+  pineRoles?: PineRole[];
 }
 
 export function* candidatesOf(strategyId: string, sweeps: SweepParam[], direction: number): Generator<Raw> {

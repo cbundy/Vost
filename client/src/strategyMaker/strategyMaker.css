@@ -557,3 +557,75 @@
   max-height: 260px;
   overflow: auto;
 }
+
+/* TradingView indicators in the market search */
+.sm-form fieldset.sm-pine {
+  flex: 1 1 100%;
+  max-width: 100%;
+}
+.sm-pine-role {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+.sm-pine-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.sm-pine-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 14px;
+}
+.sm-pine .form-field,
+.sm-pine .sm-pine-num {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sm-pine .form-field > span,
+.sm-pine .sm-pine-num > span {
+  color: var(--muted);
+}
+.sm-pine .form-field input[type='number'],
+.sm-pine .sm-pine-num input {
+  width: 90px;
+  min-width: 0;
+}
+.sm-pine .exit-row {
+  display: flex;
+  gap: 4px;
+}
+.sm-pine .wide-row {
+  flex-basis: 100%;
+  margin: 0;
+}
+.sm-pine-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sm-pine-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 4px 12px;
+}
+.sm-pine-input-name {
+  min-width: 90px;
+  align-self: center;
+  overflow-wrap: anywhere;
+}
+.sm-pine-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

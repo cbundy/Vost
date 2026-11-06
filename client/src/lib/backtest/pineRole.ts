@@ -173,6 +173,38 @@ export function withoutSources(roles: PineRole[] | undefined): PineRole[] | unde
   });
 }
 
+/* ------------------------------ words ------------------------------ */
+
+const fmt = (n: number): string => String(Number(n.toFixed(4)));
+
+function operandWords(o: PineOperand): string {
+  return o.kind === 'close' ? 'close' : o.kind === 'level' ? fmt(o.value) : o.plot;
+}
+
+/** A rule in words, for example `close crosses EMA` or `RSI inside 30 to 70`. */
+export function pineRuleWords(rule: PineRule): string {
+  switch (rule.type) {
+    case 'cross':
+      return `${operandWords(rule.a)} crosses ${operandWords(rule.b)}`;
+    case 'shape':
+      return [rule.long !== undefined && `long shape "${rule.long}"`, rule.short !== undefined && `short shape "${rule.short}"`].filter(Boolean).join(', ');
+    case 'above':
+    case 'below':
+      return `${operandWords(rule.a)} ${rule.type} ${operandWords(rule.b)}`;
+    case 'inside':
+      return `${operandWords(rule.a)} inside ${operandWords(rule.lo)} to ${operandWords(rule.hi)}`;
+  }
+}
+
+/** A role in words: the indicator's name (and a filter's label), its rule and the input values set, for example `"My EMA" close crosses EMA, length 20`. */
+export function pineRoleWords(role: Omit<PineRole, 'source'>): string {
+  const label = role.role === 'filter' && role.label && role.label !== 'custom' ? ` (${role.label})` : '';
+  const inputs = Object.entries(role.inputs)
+    .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+    .map(([k, v]) => `${k.toLowerCase()} ${typeof v === 'number' ? fmt(v) : String(v)}`);
+  return [`"${role.name}"${label} ${pineRuleWords(role.rule)}`, ...inputs].join(', ');
+}
+
 /* ------------------------------ running ------------------------------ */
 
 type Outcome = Promise<PineRunOutcome>;
