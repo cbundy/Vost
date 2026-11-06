@@ -132,6 +132,7 @@ export const btResults: Scenario = {
       await page.getByLabel('Trailing stop mode').selectOption('atr');
       await page.getByLabel('Trailing stop (ATR multiple)').fill('1.5');
       await page.getByLabel('ATR length').waitFor();
+      await page.getByLabel('ATR timeframe').selectOption('4');
       await page.getByLabel('Stop loss mode').scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('exits-setting');
@@ -143,7 +144,9 @@ export const btResults: Scenario = {
       await page.getByText('SL 2 ATR', { exact: true }).waitFor();
       await page.getByText('TP 3R', { exact: true }).waitFor();
       await page.getByText('Trail 1.5 ATR', { exact: true }).waitFor();
+      await page.getByText('ATR 14 on 4x', { exact: true }).waitFor();
       await page.getByRole('cell', { name: 'trailing stop', exact: true }).first().waitFor();
+      await page.getByText('SL 2 ATR', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'center' }));
     });
     await ctx.screenshot('exits-badges');
     await ctx.step('scroll to the trades list', async () => {

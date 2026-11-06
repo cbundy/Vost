@@ -5,6 +5,7 @@
  */
 import { canonicalInterval, type Interval } from '../../../shared/market.ts';
 import type { BacktestConfig } from './backtest/types';
+import { ATR_TIMEFRAME_MULTIPLES } from './backtest/higherTimeframe';
 import { getStrategy, strategies, visibleParams } from './backtest/strategies';
 import { providers } from './providers';
 
@@ -31,6 +32,8 @@ export interface Handoff {
   trailPct?: number;
   trailAtrMult?: number;
   atrLength?: number;
+  /** Written only when above 1: the multiple of the loaded bar length the ATR is measured on. */
+  atrTimeframe?: number;
   /** The market search names the market the strategy was found on; the main app then switches to it. All three or none. */
   providerId?: string;
   symbol?: string;
@@ -73,6 +76,7 @@ export const HANDOFF_EXIT_KEYS = [
   'trailPct',
   'trailAtrMult',
   'atrLength',
+  'atrTimeframe',
 ] as const satisfies readonly (keyof Handoff & keyof BacktestConfig)[];
 
 const EXIT_MODES: Record<string, readonly string[]> = { stopMode: ['atr'], takeProfitMode: ['atr', 'r'], trailMode: ['pct', 'atr'] };
@@ -87,6 +91,8 @@ function parseExits(r: Record<string, unknown>): Partial<Pick<Handoff, (typeof H
       if (typeof v !== 'string' || !EXIT_MODES[k].includes(v)) return null;
     } else if (k === 'atrLength') {
       if (!isNum(v) || !Number.isInteger(v) || v < 1 || v > 500) return null;
+    } else if (k === 'atrTimeframe') {
+      if (!isNum(v) || !(ATR_TIMEFRAME_MULTIPLES as readonly number[]).includes(v)) return null;
     } else if (!isNum(v) || v <= 0) {
       return null;
     }

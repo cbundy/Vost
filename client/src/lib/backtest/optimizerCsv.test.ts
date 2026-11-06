@@ -123,6 +123,12 @@ describe('optimizeContextLines with volatility exits', () => {
     const at = lines.indexOf('# take profit %: 5');
     expect(lines.slice(at + 1, at + 5)).toEqual(['# stop loss mode: 2 x ATR', '# take profit mode: 3 x stop', '# trailing stop: 1.5 x ATR', '# ATR length: 20']);
   });
+  it('adds the ATR timeframe line after the ATR length only when given', () => {
+    const lines = optimizeContextLines({ ...ctx, exits: { stopLoss: '2 x ATR', atrLength: 20, atrTimeframe: 4 } }, result);
+    const at = lines.indexOf('# ATR length: 20');
+    expect(at).toBeGreaterThan(0);
+    expect(lines[at + 1]).toBe('# ATR timeframe: 4x the chart');
+  });
 });
 
 describe('optimizeResultToCsv with a split validation', () => {

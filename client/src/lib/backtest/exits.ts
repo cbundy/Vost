@@ -6,6 +6,7 @@
  * validated), fix a trade's levels at its entry fill, ratchet the trail after
  * each bar and test one bar against the levels. The engine owns the loop.
  */
+import { ATR_TIMEFRAME_MULTIPLES } from './higherTimeframe';
 import type { BacktestConfig, ExitReason } from './types';
 
 export const DEFAULT_ATR_LENGTH = 14;
@@ -19,6 +20,8 @@ export interface ExitSettings {
   target: TargetSpec | null;
   trail: TrailSpec | null;
   atrLength: number;
+  /** Multiple of the loaded bar length the ATR is measured on (1 = the loaded bars). */
+  atrTimeframe: number;
   /** True when any level needs the ATR of the signal bar. */
   needsAtr: boolean;
 }
@@ -43,7 +46,9 @@ export function readExitSettings(config: Partial<BacktestConfig>): ExitSettings 
   const len = config.atrLength;
   const atrLength = typeof len === 'number' && Number.isInteger(len) && len >= 1 && len <= 500 ? len : DEFAULT_ATR_LENGTH;
   const needsAtr = stop?.kind === 'atr' || target?.kind === 'atr' || trail?.kind === 'atr';
-  return { stop, target, trail, atrLength, needsAtr };
+  const tf = config.atrTimeframe;
+  const atrTimeframe = typeof tf === 'number' && (ATR_TIMEFRAME_MULTIPLES as readonly number[]).includes(tf) ? tf : 1;
+  return { stop, target, trail, atrLength, atrTimeframe, needsAtr };
 }
 
 /** The levels of one open trade. Prices are absolute; null = not set. */
@@ -156,7 +161,7 @@ export function rTargetNeedsStop(config: Partial<BacktestConfig>): boolean {
 }
 
 /** Short labels for the modes in use, e.g. `SL 2 ATR`, `TP 3R`, `Trail 1.5 ATR`. */
-export function exitModeLabels(config: Partial<BacktestConfig>): { stop: string | null; target: string | null; trail: string | null; atrLength: number | null } {
+export function exitModeLabels(config: Partial<BacktestConfig>): { stop: string | null; target: string | null; trail: string | null; atrLength: number | null; atrTimeframe: number | null } {
   const s = readExitSettings(config);
   const num = (n: number): string => String(Number(n.toFixed(4)));
   return {
@@ -164,6 +169,7 @@ export function exitModeLabels(config: Partial<BacktestConfig>): { stop: string 
     target: s.target ? (s.target.kind === 'atr' ? `TP ${num(s.target.mult)} ATR` : s.target.kind === 'r' ? `TP ${num(s.target.r)}R` : `TP ${num(s.target.pct)}%`) : null,
     trail: s.trail ? (s.trail.kind === 'atr' ? `Trail ${num(s.trail.mult)} ATR` : `Trail ${num(s.trail.pct)}%`) : null,
     atrLength: s.needsAtr ? s.atrLength : null,
+    atrTimeframe: s.needsAtr && s.atrTimeframe > 1 ? s.atrTimeframe : null,
   };
 }
 
@@ -173,6 +179,7 @@ export interface ExitContext {
   takeProfit?: string;
   trailingStop?: string;
   atrLength?: number;
+  atrTimeframe?: number;
 }
 
 export function exitContext(config: Partial<BacktestConfig>): { exits?: ExitContext } {
@@ -184,5 +191,6 @@ export function exitContext(config: Partial<BacktestConfig>): { exits?: ExitCont
   if (s.trail) out.trailingStop = s.trail.kind === 'atr' ? `${s.trail.mult} x ATR` : `${s.trail.pct}%`;
   if (Object.keys(out).length === 0) return {};
   if (s.needsAtr) out.atrLength = s.atrLength;
+  if (s.needsAtr && s.atrTimeframe > 1) out.atrTimeframe = s.atrTimeframe;
   return { exits: out };
 }

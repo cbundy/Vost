@@ -955,6 +955,7 @@ export const useStore = create<AppState>()((set, get) => {
         trailPct: h.trailPct,
         trailAtrMult: h.trailAtrMult,
         atrLength: h.atrLength,
+        atrTimeframe: h.atrTimeframe,
         pineInputs: undefined,
       });
       get().setDockTab('backtest');
