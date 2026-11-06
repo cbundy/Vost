@@ -92,7 +92,7 @@ function validComposed(p: Record<string, number>): boolean {
     const idle = entryKey
       ? !used.has(spec.key)
       : spec.visibleWhen != null && unused(spec.key, spec.visibleWhen.key, spec.visibleWhen.values);
-    if (idle && p[spec.key] !== spec.default) return false;
+    if (idle && (p[spec.key] ?? spec.default) !== spec.default) return false;
   }
   return true;
 }
