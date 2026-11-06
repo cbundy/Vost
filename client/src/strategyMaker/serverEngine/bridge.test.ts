@@ -2,6 +2,8 @@ import { MessageChannel } from 'node:worker_threads';
 import { describe, expect, it } from 'vitest';
 import { runAnyBacktest } from '../../lib/backtest/runner';
 import type { BacktestConfig } from '../../lib/backtest/types';
+import { candles15, hourlyOf } from '../../lib/pine/securityFixture';
+import { buildBars } from '../../../../shared/timeframes';
 import { synth } from '../engine/synthetic';
 import type { SweepInput } from '../sweep/types';
 import { attachBridge, type FromEngine, type ToEngine } from './bridge';
@@ -49,6 +51,29 @@ function parent(answer: (ask: Extract<FromEngine, { proto: 'ask' }>) => unknown)
     });
   return { send: (m: ToEngine) => port1.postMessage(m), next, asks, close: () => (port1.close(), port2.close()) };
 }
+
+const INNER = '//@version=6\nlibrary("Inner")\nexport double(float x) => x * 2\n';
+const pineConfig = (pineCode: string): BacktestConfig => ({ ...config, strategyId: 'pine', params: {}, pineCode });
+const LIB_STRATEGY = [
+  '//@version=6',
+  'strategy("lib strat", overlay=true, initial_capital=10000)',
+  'import bob/Inner/1 as inner',
+  'len = input.int(10, "Len")',
+  'ma = ta.sma(inner.double(close) / 2, len)',
+  'if ta.crossover(close, ma)',
+  '    strategy.entry("L", strategy.long)',
+  'if ta.crossunder(close, ma)',
+  '    strategy.close("L")',
+].join('\n');
+const SECURITY_STRATEGY = [
+  '//@version=6',
+  'strategy("htf strat", overlay=true, initial_capital=10000)',
+  'd = request.security(syminfo.tickerid, "D", ta.sma(close, 3))',
+  'if ta.crossover(close, d)',
+  '    strategy.entry("L", strategy.long)',
+  'if ta.crossunder(close, d)',
+  '    strategy.close("L")',
+].join('\n');
 
 describe('server engine bridge', () => {
   it('a backtest run equals a direct runAnyBacktest', async () => {
@@ -162,6 +187,75 @@ describe('server engine bridge', () => {
     const done = await p.next((m) => m.proto === 'backtest' && m.msg.id === 'p3');
     if (done.proto !== 'backtest') throw new Error('x');
     expect(done.msg.type === 'pineResult' ? done.msg.outcome.ok : false).toBe(false);
+    p.close();
+  });
+});
+
+describe('server engine bridge, user code', () => {
+  const lib = (ask: { kind: string; path?: string }) => {
+    if (ask.kind !== 'library') throw new Error('unexpected');
+    return ask.path === 'bob/Inner/1' ? INNER : null;
+  };
+
+  it('a Pine strategy that imports a library asks the parent for it and finishes', async () => {
+    const p = parent(lib);
+    p.send({ proto: 'backtest', msg: { id: 'r', type: 'run', candles, config: pineConfig(LIB_STRATEGY) } });
+    const done = await p.next((m) => m.proto === 'backtest' && (m.msg.type === 'result' || m.msg.type === 'error'));
+    if (done.proto !== 'backtest' || done.msg.type !== 'result') throw new Error('no result: ' + JSON.stringify(done));
+    expect(p.asks.some((a) => a.proto === 'ask' && a.kind === 'library' && a.path === 'bob/Inner/1')).toBe(true);
+    expect(done.msg.result.trades.length).toBeGreaterThan(0);
+    p.close();
+  });
+
+  it('a Pine strategy that reads another timeframe asks the parent for its bars and finishes', async () => {
+    const base = candles15(96 * 4);
+    const chart = hourlyOf(base);
+    const p = parent((ask) => {
+      if (ask.kind !== 'history') throw new Error('unexpected');
+      return buildBars(base, ask.req.timeframe);
+    });
+    const cfg = { ...pineConfig(SECURITY_STRATEGY), market: { providerId: 'binance', symbol: 'BTCUSDT', interval: '1h' } };
+    p.send({ proto: 'backtest', msg: { id: 'r', type: 'run', candles: chart, config: cfg } });
+    const done = await p.next((m) => m.proto === 'backtest' && (m.msg.type === 'result' || m.msg.type === 'error'));
+    if (done.proto !== 'backtest' || done.msg.type !== 'result') throw new Error('no result: ' + JSON.stringify(done));
+    expect(p.asks.some((a) => a.proto === 'ask' && a.kind === 'history')).toBe(true);
+    p.close();
+  });
+
+  it('a Pine optimizer run with an import errors no combination', async () => {
+    const p = parent(lib);
+    const optimize = { sweeps: [{ key: 'Len', from: 4, to: 6, step: 1 }], metric: 'totalReturnPct' as const };
+    p.send({ proto: 'backtest', msg: { id: 'o', type: 'optimize', candles, config: pineConfig(LIB_STRATEGY), optimize } });
+    const done = await p.next((m) => m.proto === 'backtest' && (m.msg.type === 'optimizeResult' || m.msg.type === 'error'));
+    if (done.proto !== 'backtest' || done.msg.type !== 'optimizeResult') throw new Error('no result: ' + JSON.stringify(done));
+    expect(done.msg.combos).toBe(3);
+    expect(done.msg.errored).toBe(0);
+    expect(done.msg.rows).toHaveLength(3);
+    p.close();
+  });
+
+  it('a custom-code strategy run equals a direct runAnyBacktest', async () => {
+    const custom: BacktestConfig = {
+      ...config,
+      strategyId: 'custom',
+      params: { n: 10 },
+      customCode: 'const hh = indicators.highest(candles.map(c => c.high), params.n || 10); return candles.map((c, i) => (i > 0 && hh[i-1] != null && c.close > hh[i-1] ? 1 : 0));',
+    };
+    const p = parent(() => null);
+    p.send({ proto: 'backtest', msg: { id: 'c', type: 'run', candles, config: custom } });
+    const done = await p.next((m) => m.proto === 'backtest' && (m.msg.type === 'result' || m.msg.type === 'error'));
+    if (done.proto !== 'backtest' || done.msg.type !== 'result') throw new Error('no result');
+    expect(done.msg.result).toEqual(await runAnyBacktest(candles, custom));
+    p.close();
+  });
+
+  it('custom code that throws gives an error reply carrying its message', async () => {
+    const p = parent(() => null);
+    const bad: BacktestConfig = { ...config, strategyId: 'custom', customCode: 'throw new Error("boom from user code");' };
+    p.send({ proto: 'backtest', msg: { id: 'e', type: 'run', candles, config: bad } });
+    const done = await p.next((m) => m.proto === 'backtest' && (m.msg.type === 'result' || m.msg.type === 'error'));
+    if (done.proto !== 'backtest' || done.msg.type !== 'error') throw new Error('expected an error');
+    expect(done.msg.message).toContain('boom from user code');
     p.close();
   });
 });

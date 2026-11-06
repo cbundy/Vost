@@ -158,11 +158,10 @@ describe('/api/jobs', () => {
     expect((await withBench.json()).placement).toEqual({ where: 'server', reason: 'auto', benchmark });
   });
 
-  it('refuses pine and custom with 422', async () => {
+  it('accepts pine and custom with 201', async () => {
     for (const strategyId of ['pine', 'custom']) {
       const r = await post(body({ request: { config: { strategyId } } }));
-      expect(r.status).toBe(422);
-      expect((await r.json()).error).toContain('runs in the browser');
+      expect(r.status).toBe(201);
     }
   });
 

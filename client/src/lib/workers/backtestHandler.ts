@@ -53,6 +53,7 @@ export function createBacktestHandler(post: (m: WorkerResponse) => void, opts: B
       return;
     }
     const reply = post;
+    const pineEnv = { ...(opts.resolver && { resolver: opts.resolver }), ...(opts.feed && { feed: opts.feed }) };
     const fail = (err: unknown) =>
       reply({ id: msg.id, type: 'error', message: err instanceof Error ? err.message : String(err) });
     if (msg.type === 'montecarlo') {
@@ -64,13 +65,13 @@ export function createBacktestHandler(post: (m: WorkerResponse) => void, opts: B
       return;
     }
     if (msg.type === 'run') {
-      runAnyBacktest(msg.candles, msg.config, (pct, stage) => reply({ id: msg.id, type: 'progress', pct, stage }))
+      runAnyBacktest(msg.candles, msg.config, (pct, stage) => reply({ id: msg.id, type: 'progress', pct, stage }), pineEnv)
         .then((result) => reply({ id: msg.id, type: 'result', result }))
         .catch(fail);
       return;
     }
     if (msg.type === 'optimize') {
-      runValidatedOptimize(msg.candles, msg.config, msg.optimize, (pct) => reply({ id: msg.id, type: 'progress', pct }))
+      runValidatedOptimize(msg.candles, msg.config, msg.optimize, (pct) => reply({ id: msg.id, type: 'progress', pct }), pineEnv)
         .then((out) =>
           reply({
             id: msg.id,

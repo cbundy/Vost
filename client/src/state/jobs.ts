@@ -1,8 +1,8 @@
 /**
  * Where a heavy job runs. `runJob` and `runOptimizerJob` take the same requests as `workerCall` and
  * `optimizerCall` and give back the same replies: with "Server" picked, a backtest, optimizer or Monte Carlo
- * run of a built-in strategy goes to the server's jobs API; everything else (Browser picked, a Pine or custom
- * strategy, a server that cannot take the job) runs in the browser as before. `reattachJobs` finds the jobs a
+ * run goes to the server's jobs API, Pine and custom-code strategies included; everything else (Browser picked,
+ * a server that cannot take the job) runs in the browser as before. `reattachJobs` finds the jobs a
  * chart left on the server when the tab closed.
  */
 import { CancelledError, optimizerCall, workerCall, type WorkerProgress } from './worker';
@@ -15,9 +15,6 @@ import { getJobRecord, patchJobRecord, putJobRecord, removeJobRecord, type JobRe
 /** Where a job ran or will run. */
 export type JobPlace = 'browser' | 'server';
 export type { JobSetting };
-
-/** Strategies whose code only exists in the browser. */
-const BROWSER_ONLY = new Set(['pine', 'custom']);
 
 export const JOB_LABEL: Record<RecordKind, string> = { run: 'Backtest', optimize: 'Optimizer', montecarlo: 'Monte Carlo' };
 const FINISHED_LABEL: Record<RecordKind, string> = { run: 'Backtest', optimize: 'Optimizer run', montecarlo: 'Monte Carlo' };
@@ -142,11 +139,11 @@ function toServer(
   return { promise, cancel: () => cancelNow(), place: () => place, auto: settled.auto, unmeasured: false };
 }
 
-const canRunOnServer = (strategyId: string | undefined): strategyId is string => strategyId !== undefined && !BROWSER_ONLY.has(strategyId);
+const canRunOnServer = (strategyId: string | undefined): strategyId is string => strategyId !== undefined;
 
 /**
  * Settles where a job of this kind runs. Browser and Server are taken as set; Auto asks the saved benchmark.
- * A strategy that only exists in the browser stays there whatever the setting says.
+ * A job with no known strategy stays in the browser whatever the setting says.
  */
 function settle(setting: JobSetting, kind: RecordKind, strategyId: string | undefined): Settled {
   if (!canRunOnServer(strategyId) || setting === 'browser') return { server: false, placement: { where: 'browser', reason: 'setting' }, auto: false, unmeasured: false };

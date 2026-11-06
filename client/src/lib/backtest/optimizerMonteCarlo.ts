@@ -3,6 +3,7 @@
  * run once more to get their trades, and the backtester's Monte Carlo is run on each with the same settings.
  */
 import type { Candle } from '../../types';
+import type { PineEnv } from '../pine/runtime';
 import { runMonteCarlo, MC_MIN_TRADES, type MonteCarloMethod, type MonteCarloResult } from './monteCarlo';
 import { runOptimizeAsync, gridSize, type OptimizeConfig, type OptimizeOutput } from './optimizer';
 import { runAnyBacktest } from './runner';
@@ -47,6 +48,7 @@ export async function runMonteCarloValidation(
   opt: OptimizeConfig,
   v: MonteCarloValidationSettings,
   onProgress?: (pct: number) => void,
+  pine?: PineEnv,
 ): Promise<OptimizeOutput & { validation: MonteCarloValidationOutput }> {
   let last = 0;
   const report = (p: number) => {
@@ -57,7 +59,7 @@ export async function runMonteCarloValidation(
   };
   const combos = gridSize(opt);
   const gridShare = combos / (combos + Math.min(v.topN, combos));
-  const gridOut = await runOptimizeAsync(candles, baseConfig, opt, (p) => report(p * gridShare));
+  const gridOut = await runOptimizeAsync(candles, baseConfig, opt, (p) => report(p * gridShare), pine);
 
   const top = gridOut.rows.map((row, i) => ({ row, rank: i + 1 })).filter((r) => r.row.value != null).slice(0, v.topN);
   const total = gridOut.combos + top.length;
@@ -68,7 +70,7 @@ export async function runMonteCarloValidation(
   for (const [i, { row, rank }] of top.entries()) {
     const check: McCheck = { rank, params: row.params, value: row.value, trades: null, status: 'failed', result: null };
     try {
-      const res = await runAnyBacktest(candles, { ...baseConfig, params: { ...baseConfig.params, ...row.params } });
+      const res = await runAnyBacktest(candles, { ...baseConfig, params: { ...baseConfig.params, ...row.params } }, undefined, pine);
       check.trades = res.trades.length;
       if (res.trades.length < MC_MIN_TRADES) {
         check.status = 'too-few-trades';

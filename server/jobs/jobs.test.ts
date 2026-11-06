@@ -239,15 +239,19 @@ describe('job manager', () => {
     expect(pool.calls[2].isFinal({ proto: 'backtest', msg: { type: 'progress' } })).toBe(false);
   });
 
-  it('refuses pine and custom strategies, bad input and a missing bundle', async () => {
-    const jobs = await make(1);
+  it('accepts pine and custom run, optimize and montecarlo and hands each to the pool', async () => {
+    const jobs = await make(6);
     for (const strategyId of ['pine', 'custom']) {
-      for (const kind of ['run', 'optimize']) {
+      for (const kind of ['run', 'optimize', 'montecarlo']) {
         const r = await jobs.create({ kind, scope: 's', request: { config: { strategyId } } });
-        expect(r).toMatchObject({ ok: false, status: 422 });
-        expect((r as { error: string }).error).toContain('runs in the browser');
+        expect(r).toMatchObject({ ok: true });
       }
     }
+    expect(pool.calls).toHaveLength(6);
+  });
+
+  it('refuses bad input and a missing bundle', async () => {
+    const jobs = await make(1);
     const bad = [
       { kind: 'nope', scope: 's', request: {} },
       { kind: 'run', scope: 's', request: null },

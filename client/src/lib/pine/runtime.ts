@@ -249,6 +249,9 @@ async function runPaged(pine: RoutedPineTS, indicator: Indicator, n: number, onP
   return last.fullContext ?? last;
 }
 
+/** The lookups a Pine run needs from its host: the library resolver and the market-data feed. */
+export type PineEnv = Pick<PineRunOptions, 'resolver' | 'feed'>;
+
 export interface PineRunOptions {
   /** Finds the source of an imported library. The default asks the Vost server (`/api/pine/libraries`). */
   resolver?: ImportResolverFn | IImportResolver;

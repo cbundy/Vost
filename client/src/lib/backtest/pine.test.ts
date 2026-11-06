@@ -202,3 +202,28 @@ if bar_index % 25 == n + 12
     expect(d.rows.every((r) => r.metrics.trades === 0)).toBe(true);
   });
 });
+
+describe('runAnyBacktest with a Pine environment', () => {
+  const src = [
+    '//@version=6',
+    'strategy("lib strat", overlay=true, initial_capital=10000)',
+    'import bob/Inner/1 as inner',
+    'ma = ta.sma(inner.double(close) / 2, 5)',
+    'if ta.crossover(close, ma)',
+    '    strategy.entry("L", strategy.long)',
+    'if ta.crossunder(close, ma)',
+    '    strategy.close("L")',
+  ].join('\n');
+  const INNER = '//@version=6\nlibrary("Inner")\nexport double(float x) => x * 2\n';
+
+  it('asks the given resolver for an import', async () => {
+    const asked: string[] = [];
+    const r = await runAnyBacktest(candles, cfg(src), undefined, { resolver: (p: string) => (asked.push(p), p === 'bob/Inner/1' ? INNER : null) });
+    expect(asked).toContain('bob/Inner/1');
+    expect(r.trades.length).toBeGreaterThan(0);
+  });
+
+  it('without it nothing changes: the import cannot load with no Vost server', async () => {
+    await expect(runAnyBacktest(candles, cfg(src))).rejects.toThrow(/bob\/Inner\/1/);
+  });
+});

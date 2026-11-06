@@ -5,7 +5,7 @@
  */
 import type { Candle } from '../../types';
 import { DEFAULT_PINE_CODE } from '../pine/examples';
-import { runPine } from '../pine/runtime';
+import { runPine, type PineEnv } from '../pine/runtime';
 import type { PineInputValue, PineResult, PineStrategyConfig } from '../pine/types';
 import { buyHoldCurve, computeMetrics } from './metrics';
 import type { BacktestConfig, BacktestResult, BacktestStage, EquityPoint, Trade } from './types';
@@ -50,6 +50,7 @@ export async function runPineBacktest(
   candles: Candle[],
   config: BacktestConfig,
   onProgress?: (pct: number, stage: BacktestStage) => void,
+  pine?: PineEnv,
 ): Promise<BacktestResult> {
   if (candles.length < 3) throw new Error('Not enough data to run a backtest (need at least 3 bars).');
   onProgress?.(0, 'pine');
@@ -57,7 +58,7 @@ export async function runPineBacktest(
     config.pineCode ?? DEFAULT_PINE_CODE,
     candles,
     { ...config.pineInputs, ...config.params } as Record<string, PineInputValue>,
-    { ...(onProgress && { onProgress: (p: number) => onProgress(p * 0.9, 'pine') }), market: config.market },
+    { ...(onProgress && { onProgress: (p: number) => onProgress(p * 0.9, 'pine') }), market: config.market, ...(pine?.resolver && { resolver: pine.resolver }), ...(pine?.feed && { feed: pine.feed }) },
   );
   if (!outcome.ok) {
     const { message, line } = outcome.error;

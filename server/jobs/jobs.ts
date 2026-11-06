@@ -46,7 +46,7 @@ export interface JobInput {
   placement?: unknown;
 }
 
-export type CreateResult = { ok: true; summary: JobSummary } | { ok: false; status: 400 | 422 | 503; error: string };
+export type CreateResult = { ok: true; summary: JobSummary } | { ok: false; status: 400 | 503; error: string };
 
 export interface JobsDeps {
   store: DocStore;
@@ -78,7 +78,6 @@ export const MAX_SCOPE = 200;
 const BACKTEST_KINDS: readonly JobKind[] = ['run', 'optimize', 'montecarlo'];
 const BACKTEST_FINALS = new Set(['result', 'optimizeResult', 'monteCarloResult', 'error']);
 const MAKER_FINALS = new Set(['result', 'sweep-result', 'error']);
-const BROWSER_ONLY = new Set(['pine', 'custom']);
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
@@ -245,12 +244,6 @@ export function createJobs(deps: JobsDeps): Jobs {
         };
       }
       const jobKind = kind as JobKind;
-      if (BACKTEST_KINDS.includes(jobKind)) {
-        const strategyId = isRecord(request.config) ? request.config.strategyId : undefined;
-        if (typeof strategyId === 'string' && BROWSER_ONLY.has(strategyId)) {
-          return { ok: false, status: 422, error: `The ${strategyId} strategy runs in the browser, not on the server` };
-        }
-      }
       if (closed || !bundleExists()) return { ok: false, status: 503, error: UNAVAILABLE };
 
       const id = newId();

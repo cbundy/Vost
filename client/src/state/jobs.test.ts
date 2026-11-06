@@ -94,17 +94,25 @@ describe('where a job goes', () => {
     expect(f.spies.startJob.mock.calls[0][3]).toEqual({ where: 'server', reason: 'setting' });
   });
 
-  it('pine and custom strategies stay in the browser without any request', async () => {
+  it('on Server, pine and custom go to the jobs API with placement setting', async () => {
     const f = fakeApi();
     for (const id of ['pine', 'custom']) {
-      await runJob('server', 'chart-1', runReq(id), undefined, { api: f.api }).promise;
-      await runOptimizerJob('server', 'chart-1', optReq(id), undefined, { api: f.api }).promise;
+      runJob('server', 'chart-1', runReq(id), undefined, { api: f.api });
+      runOptimizerJob('server', 'chart-1', optReq(id), undefined, { api: f.api });
+      runJob('server', 'chart-1', mcReq, undefined, { api: f.api, record: { ...REC, strategyId: id } });
     }
-    await runJob('server', 'chart-1', mcReq, undefined, { api: f.api, record: { ...REC, strategyId: 'pine' } }).promise;
-    expect(workerCall).toHaveBeenCalledTimes(3);
-    expect(optimizerCall).toHaveBeenCalledTimes(2);
+    await flush();
+    expect(f.spies.startJob).toHaveBeenCalledTimes(6);
+    for (const c of f.spies.startJob.mock.calls) expect(c[3]).toEqual({ where: 'server', reason: 'setting' });
+    expect(workerCall).not.toHaveBeenCalled();
+    expect(optimizerCall).not.toHaveBeenCalled();
+  });
+
+  it('on Browser, pine and custom run locally with no request', async () => {
+    const f = fakeApi();
+    for (const id of ['pine', 'custom']) await runJob('browser', 'chart-1', runReq(id), undefined, { api: f.api }).promise;
+    expect(workerCall).toHaveBeenCalledTimes(2);
     expect(f.spies.startJob).not.toHaveBeenCalled();
-    expect(f.spies.getJob).not.toHaveBeenCalled();
   });
 });
 
@@ -176,16 +184,22 @@ describe('Auto', () => {
     expect(workerCall).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps pine and custom strategies in the browser, whatever the benchmark says', async () => {
-    seedStorageForTest({ 'benchmark.v1': doc([800, 200]) });
-    const f = fakeApi();
+  it('places pine and custom by the benchmark', async () => {
     for (const id of ['pine', 'custom']) {
+      seedStorageForTest({ 'benchmark.v1': doc([800, 200]) });
+      const f = fakeApi();
       const run = runJob('auto', 'chart-1', runReq(id), undefined, { api: f.api });
-      await run.promise;
-      expect(run.place()).toBe('browser');
-      expect(run.auto).toBe(false);
+      await flush();
+      expect(run.place()).toBe('server');
+      expect(f.spies.startJob).toHaveBeenCalledTimes(1);
+
+      seedStorageForTest({ 'benchmark.v1': doc([200, 800]) });
+      const g = fakeApi();
+      const local = runJob('auto', 'chart-1', runReq(id), undefined, { api: g.api });
+      await local.promise;
+      expect(local.place()).toBe('browser');
+      expect(g.spies.startJob).not.toHaveBeenCalled();
     }
-    expect(f.spies.startJob).not.toHaveBeenCalled();
   });
 
   it('noFallback rejects with the refusal instead of running in the browser', async () => {

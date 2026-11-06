@@ -4,6 +4,7 @@
  * the held-out rest. Later methods add their own members to the same unions.
  */
 import type { Candle } from '../../types';
+import type { PineEnv } from '../pine/runtime';
 import { MIN_RANGE_BARS } from '../timeRange';
 import { MC_MAX_RUNS, MC_MIN_RUNS } from './monteCarlo';
 import { runMonteCarloValidation, type MonteCarloValidationOutput, type MonteCarloValidationSettings } from './optimizerMonteCarlo';
@@ -154,20 +155,21 @@ export async function runValidatedOptimize(
   baseConfig: BacktestConfig,
   opt: OptimizeConfig,
   onProgress?: (pct: number) => void,
+  pine?: PineEnv,
 ): Promise<ValidatedOptimizeOutput> {
   const v = opt.validation;
-  if (!v || v.method === 'none') return runOptimizeAsync(candles, baseConfig, opt, onProgress);
+  if (!v || v.method === 'none') return runOptimizeAsync(candles, baseConfig, opt, onProgress, pine);
 
   const problem = validationProblem(v, candles.length);
   if (problem) throw new Error(problem);
   if (v.method === 'walk-forward') {
     checkWalkForwardLimit(v.windows, gridSize(opt));
-    const { walkForward, grid } = await runWalkForward(candles, baseConfig, opt, v, onProgress);
+    const { walkForward, grid } = await runWalkForward(candles, baseConfig, opt, v, onProgress, pine);
     return { ...grid, walkForward };
   }
-  if (v.method === 'monte-carlo') return runMonteCarloValidation(candles, baseConfig, opt, v, onProgress);
+  if (v.method === 'monte-carlo') return runMonteCarloValidation(candles, baseConfig, opt, v, onProgress, pine);
   if (v.method === 'robustness') {
-    const out = await runOptimizeAsync(candles, baseConfig, opt, onProgress);
+    const out = await runOptimizeAsync(candles, baseConfig, opt, onProgress, pine);
     return {
       ...out,
       validation: {
@@ -190,7 +192,7 @@ export async function runValidatedOptimize(
   };
   const combos = gridSize(opt);
   const gridShare = combos / (combos + Math.min(v.topN, combos));
-  const gridOut = await runOptimizeAsync(inSample, baseConfig, opt, (p) => report(p * gridShare));
+  const gridOut = await runOptimizeAsync(inSample, baseConfig, opt, (p) => report(p * gridShare), pine);
 
   const top = gridOut.rows.map((row, i) => ({ row, rank: i + 1 })).filter((r) => r.row.value != null).slice(0, v.topN);
   const total = gridOut.combos + top.length;
@@ -201,7 +203,7 @@ export async function runValidatedOptimize(
   for (const [i, { row, rank }] of top.entries()) {
     let metrics: Metrics | null = null;
     try {
-      metrics = (await runAnyBacktest(heldOut, { ...baseConfig, params: { ...baseConfig.params, ...row.params } })).metrics;
+      metrics = (await runAnyBacktest(heldOut, { ...baseConfig, params: { ...baseConfig.params, ...row.params } }, undefined, pine)).metrics;
     } catch {
       failed++;
     }

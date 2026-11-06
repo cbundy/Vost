@@ -4,6 +4,7 @@
  * stretches (which join without gaps and end at the last bar) are combined into one result.
  */
 import type { Candle } from '../../types';
+import type { PineEnv } from '../pine/runtime';
 import { MIN_RANGE_BARS } from '../timeRange';
 import { gridSize, MAX_GRID_COMBOS, runOptimizeAsync, type MetricKey, type OptimizeConfig, type OptimizeOutput } from './optimizer';
 import { runAnyBacktest } from './runner';
@@ -191,6 +192,7 @@ export async function runWalkForward(
   opt: OptimizeConfig,
   cfg: WalkForwardConfig,
   onProgress?: (pct: number) => void,
+  pine?: PineEnv,
 ): Promise<{ walkForward: WalkForwardOutput; grid: OptimizeOutput }> {
   const problem = walkForwardProblem(cfg, candles.length);
   if (problem) throw new Error(problem);
@@ -216,7 +218,7 @@ export async function runWalkForward(
   for (const [i, r] of ranges.entries()) {
     const inBars = candles.slice(r.inSample.from, r.inSample.to);
     const outBars = candles.slice(r.heldOut.from, r.heldOut.to);
-    const grid = await runOptimizeAsync(inBars, baseConfig, opt, (p) => report((i + p * gridShare) * share));
+    const grid = await runOptimizeAsync(inBars, baseConfig, opt, (p) => report((i + p * gridShare) * share), pine);
     lastGrid = grid;
     const win: WalkForwardWindow = {
       index: i + 1,
@@ -235,7 +237,7 @@ export async function runWalkForward(
       win.inSampleMetrics = winner.metrics;
       win.inSampleValue = winner.value;
       try {
-        const res = await runAnyBacktest(outBars, { ...baseConfig, params: { ...baseConfig.params, ...winner.params } });
+        const res = await runAnyBacktest(outBars, { ...baseConfig, params: { ...baseConfig.params, ...winner.params } }, undefined, pine);
         win.heldOutMetrics = res.metrics;
         win.heldOutValue = rankValue(res.metrics, opt.metric);
         win.status = 'ok';

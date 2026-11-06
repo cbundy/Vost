@@ -1,6 +1,6 @@
 # Backtesting
 
-Backtests run in your browser (a Web Worker), so they are unlimited. Signals are computed per bar from data up to and including that bar, and executed at the next bar's open. There is no look-ahead.
+Backtests run in your browser (a Web Worker) unless you pick the server (see [Where heavy jobs run](#where-heavy-jobs-run)), so they are unlimited. Signals are computed per bar from data up to and including that bar, and executed at the next bar's open. There is no look-ahead.
 
 ![The Backtest pane](../evidence/bt-range/bt-range-range-desktop.png)
 
@@ -102,7 +102,7 @@ When the range starts before the bars the chart has loaded (the chart opens on t
 
 By default a backtest, an optimizer run and a Monte Carlo run run in your browser tab and stop when the tab closes. The same choice sends the strategy maker's Find, Retrain and market search to the server (see [Where Find and the market search run](strategy-maker.md#where-find-and-the-market-search-run)). In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup)). A choice applies to the next job; a job already running is not moved.
 
-On **Server**, a run of a built-in strategy goes to the Vost server and shows the same progress bar and the same results as in the browser. Pine and custom-code strategies, and chart indicators, always run in the browser. The finish message says where the run happened ("Backtest finished on the server in 1,898 ms ...").
+On **Server**, a run of a built-in strategy goes to the Vost server and shows the same progress bar and the same results as in the browser. Pine and custom-code strategies follow the same switch, so their code then runs on the server machine (see [Running user code on the server](../DEPLOYMENT.md#running-user-code-on-the-server) before you turn that on for a Vost others can reach); only chart indicators always run in the browser. The finish message says where the run happened ("Backtest finished on the server in 1,898 ms ...").
 
 ![A backtest finished on the server](../evidence/server-jobs/server-jobs-backtest-desktop.png)
 
@@ -116,7 +116,7 @@ The result is a table with one row per job and its time in the browser, on the s
 
 ![The benchmark result](../evidence/benchmark/benchmark-results-desktop.png)
 
-Pick **Auto** and each job goes to the place that was faster for its kind in the benchmark (Retrain uses the Find time); equal times go to the browser. A finish message that names the place adds "(Auto)" ("Backtest finished on the server (Auto) in 1,898 ms ..."). With no benchmark, or for a kind it could not time on both sides, Auto runs the job in the browser and the finish message says so ("(Auto: run the benchmark to let Auto choose)"). If Auto picks the server and the server cannot take the job, it runs in the browser with the usual notice. Pine and custom-code strategies still always run in the browser.
+Pick **Auto** and each job goes to the place that was faster for its kind in the benchmark (Retrain uses the Find time); equal times go to the browser. A finish message that names the place adds "(Auto)" ("Backtest finished on the server (Auto) in 1,898 ms ..."). With no benchmark, or for a kind it could not time on both sides, Auto runs the job in the browser and the finish message says so ("(Auto: run the benchmark to let Auto choose)"). If Auto picks the server and the server cannot take the job, it runs in the browser with the usual notice. Pine and custom-code strategies follow Auto the same way; only chart indicators always run in the browser.
 
 ![A backtest finished on the server when Auto chose it](../evidence/benchmark/benchmark-finished-server-desktop.png)
 

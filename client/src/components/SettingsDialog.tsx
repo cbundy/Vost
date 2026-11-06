@@ -95,7 +95,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </fieldset>
       </Section>
       <Section title="Heavy jobs">
-        <p className="hint">Pine and custom-code strategies and chart indicators always run in the browser.</p>
+        <p className="hint">Chart indicators always run in the browser. On Server (or when Auto picks it), Pine and custom-code strategies run their code on the server machine.</p>
         <fieldset className="settings-row">
           <legend>Run backtests, optimizer, Monte Carlo and the strategy maker on</legend>
           {JOB_OPTIONS.map((o) => (

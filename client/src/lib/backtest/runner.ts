@@ -5,6 +5,7 @@
 import type { Candle } from '../../types';
 import { runBacktest } from './engine';
 import { buyHoldCurve, computeMetrics } from './metrics';
+import type { PineEnv } from '../pine/runtime';
 import { runPineBacktest } from './pine';
 import { buildSignals, getStrategy } from './strategies';
 import type { BacktestConfig, BacktestProgress, BacktestResult } from './types';
@@ -32,7 +33,8 @@ export async function runAnyBacktest(
   candles: Candle[],
   config: BacktestConfig,
   onProgress?: BacktestProgress,
+  pine?: PineEnv,
 ): Promise<BacktestResult> {
-  if (getStrategy(config.strategyId).pine) return runPineBacktest(candles, config, onProgress);
+  if (getStrategy(config.strategyId).pine) return runPineBacktest(candles, config, onProgress, pine);
   return runFullBacktest(candles, config, onProgress);
 }

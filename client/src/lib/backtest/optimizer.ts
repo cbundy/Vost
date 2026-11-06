@@ -3,6 +3,7 @@
  * ranked by a chosen metric. Runs entirely in the browser (Web Worker).
  */
 import type { Candle } from '../../types';
+import type { PineEnv } from '../pine/runtime';
 import { runAnyBacktest, runFullBacktest } from './runner';
 import { getStrategy } from './strategies';
 import type { BacktestConfig, Metrics } from './types';
@@ -170,6 +171,7 @@ export async function runOptimizeAsync(
   baseConfig: BacktestConfig,
   opt: OptimizeConfig,
   onProgress?: (pct: number) => void,
+  pine?: PineEnv,
 ): Promise<OptimizeOutput> {
   checkSweeps(opt);
   const combos = gridSize(opt);
@@ -180,7 +182,7 @@ export async function runOptimizeAsync(
 
   for (const params of gridCombos(opt)) {
     try {
-      rows.push(toRow(params, (await runAnyBacktest(candles, { ...baseConfig, params: { ...baseConfig.params, ...params } })).metrics, opt.metric));
+      rows.push(toRow(params, (await runAnyBacktest(candles, { ...baseConfig, params: { ...baseConfig.params, ...params } }, undefined, pine)).metrics, opt.metric));
     } catch {
       errored++;
     }
