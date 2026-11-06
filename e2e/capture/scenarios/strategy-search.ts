@@ -5,7 +5,7 @@ const RUN_LIMIT_MS = 60_000;
 export const strategySearch: Scenario = {
   name: 'strategy-search',
   description:
-    'Strategy maker "Search markets" panel (/strategy-maker): the lists and defaults, the combination count, an over-budget choice refused, a run in progress (the page wraps the Worker, test side only, to hold back the final result message so the bar can be caught), Cancel back to idle, the ATR stop and ATR trailing stop exit kinds that triple the count, the Composed fieldsets (entry rules, filters, trend timeframes) with the larger count, the Beat buy and hold choice, the study notes on 1m to 30m, RSI reversion and Bollinger, a finished run on the Indices list with a held row, a closest-found row and a skipped market, a finished small Composed run with the chance baseline on (the header line and the Buy & hold column), and the main app opened from Open in Backtest on that result\'s market and timeframe with the risk per trade set',
+    'Strategy maker "Search markets" panel (/strategy-maker): the lists and defaults, the combination count, an over-budget choice refused, a run in progress (the page wraps the Worker, test side only, to hold back the final result message so the bar can be caught), Cancel back to idle, the ATR stop and ATR trailing stop exit kinds that triple the count, the Composed fieldsets (entry rules, filters, trend timeframes) with the larger count, the Beat buy and hold choice, the study notes on 1m to 30m, RSI reversion and Bollinger, a finished run on the Indices list with a held row, a closest-found row and a skipped market, a finished small Composed run with the chance baseline on (the header line and the Buy & hold column), a stored TradingView indicator added as a Composed entry rule with a range on its ATR length (the TradingView indicators section, the script-run count, the script-run limit refusing a larger range, a results row naming the indicator and its input, and the main app opened from it with the indicator named), and the main app opened from Open in Backtest on that result\'s market and timeframe with the risk per trade set',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -247,6 +247,88 @@ export const strategySearch: Scenario = {
     });
     await panel.getByRole('region', { name: 'Search results' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await ctx.screenshot('baseline-results');
+    let openedPine = '';
+    await ctx.step('a stored TradingView indicator is added as a Composed entry rule, with a range on its ATR length', async () => {
+      const stored = await page.request.post('/api/pine/indicators', { data: { scriptId: 'PUB;fake-supertrend' } });
+      if (!stored.ok()) throw new Error(`storing the indicator: HTTP ${stored.status()}`);
+      await page.reload();
+      await panel.getByRole('checkbox', { name: /^Indices/ }).check();
+      await panel.getByRole('group', { name: 'Timeframes' }).getByLabel('1w').uncheck();
+      await panel.getByLabel('Long and short').check();
+      const inds = panel.getByRole('group', { name: 'Indicators' });
+      for (const name of ['MACD crossover', 'SMA crossover', 'EMA crossover']) await inds.getByLabel(name).uncheck();
+      await inds.getByLabel('Composed (entry + filters)').check();
+      for (const box of await panel.getByRole('group', { name: 'Composed entry rules' }).getByRole('checkbox').all()) await box.uncheck();
+      for (const box of await panel.getByRole('group', { name: 'Composed filters (each tried off and on)' }).getByRole('checkbox').all()) await box.uncheck();
+      // Easy targets, so rows exist whatever the candles do.
+      await panel.getByLabel('Min hit rate').nth(0).fill('30');
+      await panel.getByLabel('Min R:R').nth(0).fill('');
+      await panel.getByLabel('Min hit rate').nth(1).fill('');
+      await panel.getByLabel('Min R:R').nth(1).fill('');
+      const pine = panel.getByRole('group', { name: 'TradingView indicators' });
+      await pine.getByRole('button', { name: 'Add as entry rule' }).click();
+      const card = pine.getByRole('group', { name: 'Entry rule: Supertrend' });
+      await card.waitFor();
+      await card.getByLabel('Against').selectOption('plot:Supertrend');
+      // A tight factor flips often, so every market reaches enough trades.
+      await card.getByRole('group', { name: 'Input Factor' }).getByLabel('Value').fill('0.3');
+      const length = card.getByRole('group', { name: 'Input ATR Length' });
+      await length.getByRole('button', { name: 'Search a range' }).click();
+      await length.getByLabel('From').fill('2');
+      await length.getByLabel('To').fill('4');
+      await length.getByLabel('Step').fill('1');
+      await length.getByText('3 values').waitFor();
+      const text = (await count.innerText()).replace(/\s+/g, ' ');
+      if (!/ 60 TradingView script runs \(limit 2,000\)$/.test(text)) throw new Error(`count: ${text}`);
+      await ctx.writeText('pine-count', text + '\n');
+      if (await run.isDisabled()) throw new Error('Run is off');
+    });
+    await panel.getByRole('group', { name: 'TradingView indicators' }).evaluate((el) => (el.scrollIntoView({ block: 'start' }), window.scrollBy(0, -16)));
+    await ctx.screenshot('pine-section');
+    await ctx.step('a range past the script-run limit turns Run off and names the limit', async () => {
+      const length = panel.getByRole('group', { name: 'Input ATR Length' });
+      await length.getByLabel('To').fill('600');
+      await length.getByLabel('Step').fill('1');
+      await panel.getByText(/TradingView script runs; the limit is 2,000/).first().waitFor();
+      if (!(await run.isDisabled())) throw new Error('Run is on over the script-run limit');
+      await length.getByLabel('To').fill('4');
+      await length.getByLabel('Step').fill('1');
+      await length.getByText('3 values').waitFor();
+    });
+    await ctx.step('the run lists a row that names the indicator and its input value', async () => {
+      await run.click();
+      await panel.getByRole('region', { name: 'Search results' }).waitFor({ timeout: RUN_LIMIT_MS });
+      const row = panel.locator('.sm-table tbody tr', { hasText: 'TradingView "Supertrend"' }).first();
+      await row.waitFor({ timeout: RUN_LIMIT_MS });
+      const words = await row.innerText();
+      if (!/close crosses Supertrend, atr length \d+, factor 0\.3/.test(words)) throw new Error(`row: ${words}`);
+      await ctx.writeText('pine-results', words + '\n');
+      await page.evaluate(() => {
+        (window as unknown as { __opened: unknown[] }).__opened = [];
+        window.open = ((...a: unknown[]) => void (window as unknown as { __opened: unknown[] }).__opened.push(a)) as typeof window.open;
+      });
+      await row.getByRole('button', { name: 'Open in Backtest' }).click();
+      const calls = await page.evaluate(() => (window as unknown as { __opened: unknown[][] }).__opened);
+      if (calls.length !== 1) throw new Error(`window.open calls ${JSON.stringify(calls)}`);
+      openedPine = String(calls[0][0]);
+      if (!openedPine.startsWith('/#backtest=')) throw new Error(`opened ${openedPine}`);
+    });
+    await panel.locator('.sm-table-wrap').evaluate((el) => (el.scrollLeft = 0));
+    await panel.getByRole('region', { name: 'Search results' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await ctx.screenshot('pine-results');
+    await ctx.step('the main app opens on that row with the indicator named, fetching its source itself', async () => {
+      await page.goto('about:blank');
+      await page.goto(openedPine);
+      const toast = page.getByText(/^Backtest set from the strategy maker on /);
+      await toast.waitFor();
+      const text = await toast.innerText();
+      if (!/TradingView "Supertrend" close crosses Supertrend, atr length \d+, factor 0\.3/.test(text)) throw new Error(`toast: ${text}`);
+      await ctx.writeText('pine-handoff-toast', text + '\n');
+      const link = decodeURIComponent(escape(atob(openedPine.slice('/#backtest='.length).replace(/-/g, '+').replace(/_/g, '/'))));
+      if (link.includes('ta.supertrend')) throw new Error('the hand-off carries the indicator source');
+      await page.getByRole('combobox', { name: 'Strategy' }).waitFor();
+    });
+    await ctx.screenshot('pine-handoff');
     await ctx.step('the main app opens on that market and timeframe with the Backtest tab filled in', async () => {
       await page.goto('about:blank');
       await page.goto(opened);

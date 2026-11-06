@@ -1,0 +1,1 @@
+Backtest set from the strategy maker on ^FCHI 1d: Composed (entry + filters) (entry rule tradingview indicator, direction both, trend filter off, volume filter off, volatility filter off, trend-strength filter off, TradingView "Supertrend" close crosses Supertrend, atr length 2, factor 0.3). It was found on ^FCHI 1d (market search); run it on the same data to see the same trades.

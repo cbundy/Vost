@@ -629,3 +629,9 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+/* A long setting wording (a TradingView indicator with its inputs) wraps instead of widening the table. */
+.sm-sweep .sm-table td:nth-child(3) .sm-bars {
+  white-space: normal;
+  min-width: 260px;
+  max-width: 420px;
+}
