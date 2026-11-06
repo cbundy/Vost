@@ -1,0 +1,38 @@
+Strategy style search (issue #431). Universe dated 2026-11-05 (today's winners at that date: survivorship).
+Rule: found = real series with a held strategy r > shuffled series s, and a one-sided Fisher exact test p < 0.05, in a timeframe and group.
+Held = at least 30 trades and beats buy and hold on the searched part (first 70%) and on the unseen part (last 30%).
+Tries per series (both directions, 12 exits): 65784 on 1m, 65784 on 1h.
+
+== Stage 1: 1m, 5m, 15m, 30m ==
+Series: 392 done, 0 missing.
+
+| Timeframe | Group | Markets | Too short | Searched | Real series held | Shuffled series held | p | Found | Held strategies real / shuffled | Share of tries held real / shuffled | Median signals per day (held) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1m | crypto | 33 | 0 | 33 | 0 | 0 | 1.000 | no | 0 / 0 | 0.000% / 0.000% | n/a |
+| 1m | stocks | 55 | 0 | 55 | 2 | 2 | 0.691 | no | 26 / 5 | 0.001% / 0.000% | 55.67 |
+| 1m | indices | 10 | 0 | 10 | 0 | 0 | 1.000 | no | 0 / 0 | 0.000% / 0.000% | n/a |
+| 5m | crypto | 33 | 0 | 33 | 1 | 3 | 0.943 | no | 4 / 28 | 0.000% / 0.001% | 7.68 |
+| 5m | stocks | 55 | 0 | 55 | 9 | 12 | 0.834 | no | 1090 / 1146 | 0.030% / 0.032% | 17.29 |
+| 5m | indices | 10 | 0 | 10 | 0 | 0 | 1.000 | no | 0 / 0 | 0.000% / 0.000% | n/a |
+| 15m | crypto | 33 | 0 | 33 | 19 | 12 | 0.069 | no | 1740 / 2038 | 0.080% / 0.094% | 2.56 |
+| 15m | stocks | 55 | 17 | 38 | 0 | 0 | 1.000 | no | 0 / 0 | 0.000% / 0.000% | n/a |
+| 15m | indices | 10 | 3 | 7 | 0 | 0 | 1.000 | no | 0 / 0 | 0.000% / 0.000% | n/a |
+| 30m | crypto | 33 | 0 | 33 | 2 | 4 | 0.902 | no | 14 / 26 | 0.001% / 0.001% | 2.32 |
+| 30m | stocks | 55 | 55 | 0 | 0 | 0 | 1.000 | no | 0 / 0 | n/a / n/a | n/a |
+| 30m | indices | 10 | 10 | 0 | 0 | 0 | 1.000 | no | 0 / 0 | n/a / n/a | n/a |
+
+Stage 1 found nothing, so stage 2 (1h and 4h) is run.
+
+== Stage 2: 1h and 4h (Yahoo has no 4h bars, so 4h is crypto only) ==
+Series: 131 done, 0 missing.
+
+| Timeframe | Group | Markets | Too short | Searched | Real series held | Shuffled series held | p | Found | Held strategies real / shuffled | Share of tries held real / shuffled | Median signals per day (held) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1h | crypto | 33 | 0 | 33 | 13 | 10 | 0.303 | no | 1340 / 2061 | 0.062% / 0.095% | 0.70 |
+| 1h | stocks | 55 | 0 | 55 | 12 | 14 | 0.749 | no | 7840 / 1345 | 0.217% / 0.037% | 0.80 |
+| 1h | indices | 10 | 0 | 10 | 0 | 1 | 1.000 | no | 0 / 2 | 0.000% / 0.000% | n/a |
+| 4h | crypto | 33 | 1 | 32 | 22 | 23 | 0.708 | no | 48057 / 95917 | 2.283% / 4.556% | 0.18 |
+
+Stage 2 found nothing. The run stops here.
+
+results.csv: 1961 held strategies of real series (the best 40 per series by unseen return over buy and hold; 58150 more held strategies are counted in the tables but not listed).

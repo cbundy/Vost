@@ -8,6 +8,8 @@ showed the search itself is cheap; this run asks whether it finds anything real.
 
 ## Short answer
 
+Follow-up: [the strategy style search](../strategy-style-search/README.md) asks the beat-buy-and-hold question on 1m to 4h bars (issue #431).
+
 - **Almost nothing survives, and what does is what chance produces.** Of 817 distinct market-timeframe series and
   24.2 million combinations tried, 1,129 met a target on the first 70% of bars, and 237 of those also met it on the
   last 30%. Those 237 sit in only **7 series** (0.9%). The same sweep on 652 shuffled-return copies (no pattern left)
