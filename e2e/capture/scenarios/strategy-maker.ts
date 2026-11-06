@@ -7,12 +7,12 @@ const CSV = 'time,open,high,low,close,volume\n' +
     return `${1700000000 + i * 3600},${base.toFixed(2)},${(base + 2).toFixed(2)},${(base - 2).toFixed(2)},${(base + Math.sin(i) * 1.5).toFixed(2)},${100 + i}`;
   }).join('\n');
 
-const BIG_BARS = 100_000;
-const BIG_NAME = 'big.csv';
+export const BIG_BARS = 100_000;
+export const BIG_NAME = 'big.csv';
 const T0 = 1_600_000_000;
 
 /** 100,000 seeded hourly bars, and the long trades of a hidden 8/34 SMA cross (some marks shifted, some dropped, like a hand-made set). */
-function bigSet(): { csv: string; candles: Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }>; trades: Array<{ side: 'long'; entryTime: number; exitTime: number }> } {
+export function bigSet(): { csv: string; candles: Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }>; trades: Array<{ side: 'long'; entryTime: number; exitTime: number }> } {
   let seed = 20260101;
   const rand = () => {
     seed = (seed + 0x6d2b79f5) | 0;
@@ -257,6 +257,19 @@ export const strategyMaker: Scenario = {
     });
     await page.getByRole('heading', { name: 'What explains your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await ctx.screenshot('results');
+    await ctx.step('the results show the style of the trades, and the chart list tags each mark', async () => {
+      await page.getByRole('heading', { name: 'The style of your trades' }).waitFor();
+      await page.getByText(/^\d+ of \d+ (look like|show no clear)/).first().waitFor();
+      await page.getByText(/^(Searched the .* families:|Your trades do not lean|None of the allowed)/).waitFor();
+      await page.locator('.sm-style summary').click();
+      await page.locator('.sm-style details li').first().waitFor();
+      if (!(await page.locator('.sm-row .sm-tag-style').count())) throw new Error('no mark on the list shows a style');
+    });
+    await page.getByRole('heading', { name: 'The style of your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    await ctx.screenshot('style');
+    await page.locator('.sm-list').scrollIntoViewIfNeeded();
+    await ctx.screenshot('trade-styles');
+    await page.getByRole('heading', { name: 'What explains your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     const actions = page.getByRole('group', { name: 'Use this result' });
     let opened = '';
     await ctx.step('the Ranked settings block has an actions bar naming the headline strategy', async () => {

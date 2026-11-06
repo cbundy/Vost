@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDocStore } from '../settings/store.ts';
 import { createJobs, KEEP_FINISHED, type JobSummary, type Jobs } from './jobs.ts';
 import { UNAVAILABLE } from './pool.ts';
@@ -90,15 +90,11 @@ describe('job manager', () => {
     const got = await jobs.get('job-1');
     expect(got).toMatchObject({ state: 'done', progress: 1, finished: 1500, result: { type: 'result', metrics: { a: 1 } } });
     expect(events.map((e) => e.state)).toEqual(['queued', 'running', 'done']);
-    // the record is written in the background: wait until it says done rather than sleeping a fixed time
-    let text = '';
-    for (let i = 0; i < 200; i++) {
-      text = await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8').catch(() => '');
-      if (text.includes('"state":"done"') || text.includes('"state": "done"')) break;
-      await new Promise((r) => setTimeout(r, 10));
-    }
-    expect(text).not.toContain('candles');
-    expect(JSON.parse(text).summary.state).toBe('done');
+    await vi.waitFor(async () => {
+      const text = await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8');
+      expect(text).not.toContain('candles');
+      expect(JSON.parse(text).summary.state).toBe('done');
+    });
     expect(logs.some((l) => l === '[jobs] job-1 run done in 500 ms (queued 0 ms)')).toBe(true);
   });
 
@@ -165,7 +161,9 @@ describe('job manager', () => {
     await flush();
     expect(await jobs.get('job-1')).toMatchObject({ state: 'failed', error: 'bad config' });
     expect(await jobs.get('job-2')).toMatchObject({ state: 'failed', error: 'engine worker crashed: boom' });
-    expect(JSON.parse(await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8')).summary.state).toBe('failed');
+    await vi.waitFor(async () => {
+      expect(JSON.parse(await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8')).summary.state).toBe('failed');
+    });
   });
 
   it('cancels a queued job without calling the pool, and a running one through its handle', async () => {

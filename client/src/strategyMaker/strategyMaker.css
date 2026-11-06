@@ -538,3 +538,22 @@
 .sm-sweep .sm-results .sm-note {
   align-self: auto;
 }
+.sm-tag-style {
+  font-size: 11px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted, inherit);
+  white-space: nowrap;
+}
+.sm-style details {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.sm-style summary {
+  cursor: pointer;
+}
+.sm-style details ul {
+  max-height: 260px;
+  overflow: auto;
+}

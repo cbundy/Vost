@@ -10,6 +10,7 @@ import {
   whyNotSaved,
   type FindForm,
   type HighlightSet,
+  type JobRecord,
   type ModelRecord,
   type Store,
   type StoreResponse,
@@ -122,6 +123,7 @@ describe('server-backed store', () => {
   const form: FindForm = {
     direction: 'both',
     families: ['sma_cross'],
+    useStyle: true,
     feeBps: '10',
     slippageBps: '5',
     stopLossPct: '',
@@ -162,6 +164,18 @@ describe('server-backed store', () => {
     await s.putModel(record('def'));
     expect(await s.getModel()).toEqual(record('def'));
     expect(await s.getInputs()).toBeUndefined();
+  });
+
+  it('round-trips the job record, reads a missing one as undefined and deletes it', async () => {
+    const { store: s, server } = await open();
+    expect(await s.getJob()).toBeUndefined();
+    const job: JobRecord = { id: 'job', version: 1, jobId: 'j1', kind: 'sweep', started: 5, context: { kind: 'sweep', risk: { capital: 1000, riskPct: 1, feeBps: 5, slippageBps: 5 } as never } };
+    await s.putJob(job);
+    expect(await s.getJob()).toEqual(job);
+    expect(server.calls.some((c) => c.method === 'PUT' && c.url.endsWith('/job'))).toBe(true);
+    await s.deleteJob();
+    expect(await s.getJob()).toBeUndefined();
+    await expect(s.deleteJob()).resolves.toBeUndefined();
   });
 
   it('importAll sends the sets and the model in one request', async () => {

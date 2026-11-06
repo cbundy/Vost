@@ -88,3 +88,19 @@ describe('find form exits', () => {
     expect(readForm({ ...r, stopLossPct: '2' }).inputs.risk).toMatchObject({ takeProfitMode: 'r', takeProfitR: 2, stopLossPct: 2 });
   });
 });
+
+describe('find form style choice', () => {
+  const d = defaultForm();
+  it('is on by default and goes into the inputs', () => {
+    expect(d.useStyle).toBe(true);
+    expect(readForm(d).inputs.useStyle).toBe(true);
+    expect(readForm({ ...d, useStyle: false }).inputs.useStyle).toBe(false);
+  });
+  it('reads a form stored without it, or with a non-boolean, as on', () => {
+    const old: Record<string, unknown> = { ...d };
+    delete old.useStyle;
+    expect(sanitizeForm(old)).toEqual(d);
+    expect(sanitizeForm({ ...d, useStyle: 'no' }).useStyle).toBe(true);
+    expect(sanitizeForm({ ...d, useStyle: false }).useStyle).toBe(false);
+  });
+});

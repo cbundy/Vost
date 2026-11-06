@@ -44,6 +44,7 @@ Below the chart, **Find a strategy** turns your marks into a recommendation. Fil
 
 - **Strategy type**: long and short (the default), long only or short only.
 - **Allowed indicators**: the families the search may use (SMA crossover, EMA crossover, MACD, RSI mean reversion, Bollinger Bands, Donchian breakout, Pullback in trend, Reversal, Momentum breakout). All are on at first; at least one must stay on.
+- **Use the style of my trades** (in the same box, on by default): before searching, Find reads the bars around each marked trade, labels it with a trading style, and searches only the families of the leading style. When your trades lean no clear way, nothing is narrowed. Switch it off to search every allowed family. See [The style of your trades](#the-style-of-your-trades).
 - **Risk (always on)**: fee and slippage in basis points, and the same exits as the Backtest tab, all optional. The stop loss is a percent or a multiple of the ATR. The take profit is a percent, a multiple of the ATR, or a multiple of the stop ("Times the stop", which needs a stop loss or a trailing stop). The trailing stop is off, a percent or a multiple of the ATR. **ATR length** shows only when an ATR option is on. They start at the main backtester's defaults with every exit option off, and fees and slippage are always applied. The search tries every candidate with these exits.
 
   ![The Risk fieldset with an ATR stop, a times-the-stop take profit and an ATR trailing stop](../evidence/strategy-maker/strategy-maker-find-exits-desktop.png)
@@ -65,6 +66,7 @@ The work runs in a background worker of the page, so the page stays usable and t
 ![Results with the model's rules and the ranked settings](../evidence/strategy-maker/strategy-maker-results-desktop.png)
 
 - **What explains your trades**: a small decision tree learns when you were in a trade and writes it as plain rules, with how much each family of indicators mattered and how well it called the state on bars it had not seen.
+- **The style of your trades**: the mix of styles in your marks and what the search did about it. See below.
 - **Ranked settings**: the settings that best reproduce your entries and exits, with the best match and the best one that meets your targets marked. Each row shows its return, hit rate, R:R, largest drawdown, trade count and signals per 100 bars (with how many fired and the rate per day, a signal being a turn to a new side) on the part it was chosen on and on a held-out part it was not. Click a row to draw its trades on the chart beside your own, as outlined circles (entries) and squares (exits) joined by a dashed line; the legend tells "Your trades" from "Found trades". Click the row again to clear them.
 - **Validated or Not validated**: the chosen setting is checked on held-out data, in a walk-forward test, against its neighbouring settings and with a Monte Carlo reshuffle, and each check is listed as passed or failed with its detail. It is validated only when the held-out result keeps within your targets.
 - **Closest found**: when no setting meets your targets, the nearest one and each gap in words.
@@ -73,6 +75,27 @@ The work runs in a background worker of the page, so the page stays usable and t
 ![No setting met strict targets: the closest one and its gaps](../evidence/strategy-maker/strategy-maker-closest-narrow.png)
 
 ![The trades a found strategy takes, drawn beside the marks](../evidence/strategy-maker/strategy-maker-found-trades-desktop.png)
+
+### The style of your trades
+
+Find labels every marked trade it uses with one of six styles (the same words the strategy families carry: trend following, trend continuation, mean reversion, reversal, breakout, momentum) or "no clear style". It reads only the bars up to and including the entry bar. The block lists the mix, largest first ("479 of 1495 look like trend following"), says what the search did, and has an **Each trade** list with the style and the reason of every trade, labelled by its chart as in the skipped trades. On the chart's trade list each mark the latest result read carries a small tag with its style; hover it to see the reason.
+
+The rules run in this order and the first match wins (a long is described; a short mirrors it, with `s` = +1 for a long and -1 for a short):
+
+1. **Too early**: the 200-bar average does not exist yet, so the trade is "no clear style".
+2. **Reversal**: the slow trend (50-bar average against 200-bar average) points against the trade, and the lowest low of the last 50 bars (highest high for a short) came within the last 5 bars.
+3. **Mean reversion**: the close is at least 2 standard deviations below its 20-bar average (above, for a short), or RSI 14 is at or below 30 (at or above 70 for a short).
+4. **Momentum**: the slow trend points with the trade, and the 20-bar move in its direction is at least 4 times the ATR 14 (as a share of the close).
+5. **Breakout**: the close goes through the range of the prior 20 bars in the trade's direction.
+6. **Trend following**: the 10-bar average crossed the 30-bar average to the trade's side within the last 5 bars.
+7. **Trend continuation**: the slow trend points with the trade and the 5 bars before entry moved against it.
+8. Otherwise "no clear style".
+
+The top style must hold at least 40% of the used trades (counting "no clear style") for the search to be narrowed. The leading styles are then the top style plus any style with at least half the top's count, and the search keeps the allowed families that carry one of them. When no style reaches 40%, nothing is narrowed and the block says "Your trades do not lean to one style, so every allowed family was searched". When none of the allowed families carries a leading style, the search also uses every allowed family and the block says so. The model's own narrowing then applies on top, as before.
+
+![The style of your trades, with the list of each trade open](../evidence/strategy-maker/strategy-maker-style-desktop.png)
+
+![The chart's trade list with a style tag on each mark](../evidence/strategy-maker/strategy-maker-trade-styles-desktop.png)
 
 ## Using a result in the backtester
 
@@ -129,6 +152,24 @@ The results start with how many combinations were tried, how many met a target a
 ![Nothing met strict targets: the closest settings and the skipped market](../evidence/strategy-search/strategy-search-closest-desktop.png)
 
 ![The main app opened on the result's market and timeframe, with risk per trade set](../evidence/strategy-search/strategy-search-handoff-backtest-desktop.png)
+
+## Where Find and the market search run
+
+By default Find, Retrain and **Search markets** run in your browser, in a background worker of the page, and stop when the page closes. In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup) and [Where heavy jobs run](backtesting.md#where-heavy-jobs-run)). A choice applies to the next run; a run already going is not moved.
+
+On **Server**, the run goes to the Vost server and shows the same progress bar, **Cancel** and results as in the browser. While it runs, the progress line says "Running on the server; it keeps going if you close the page."
+
+![A Find running on the server](../evidence/strategy-maker-server/strategy-maker-server-find-running-desktop.png)
+
+A server run keeps going when you close the page or reload it. Open the page again and it shows the progress of a run still going, then the result; a run that finished while the page was closed shows its result at once, with a note ("Find finished on the server while the page was closed"). A model trained while the page was closed is saved with the marks it was trained on, so Saved model still tells you when your marks have changed since. **Cancel** stops the run on the server; pressing Find, Retrain or Search again also stops the run before it. If the server restarts during a run, the run is gone and the page says "stopped: the server restarted".
+
+![The same Find after reloading the page, with its progress back](../evidence/strategy-maker-server/strategy-maker-server-find-reloaded-desktop.png)
+
+![A market search after reloading the page, with its progress back](../evidence/strategy-maker-server/strategy-maker-server-search-reloaded-desktop.png)
+
+![The market search result after the reload](../evidence/strategy-maker-server/strategy-maker-server-search-result-desktop.png)
+
+If the server cannot take a run (its engine is missing, its data folder cannot be written, the request is too big or it cannot be reached), the run happens in the browser instead and the page says why ("Server jobs unavailable (...); running in the browser"). With **Browser** picked, nothing is sent to the server. Trades shown on the chart for a result row always come from the page.
 
 ## Teaching it more
 

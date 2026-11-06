@@ -7,8 +7,12 @@ import { MODEL_ID } from './store';
 
 /** The record of a model trained on `sets`, in that order. */
 export function recordOf(result: TrainResult, sets: HighlightSet[]): ModelRecord {
-  return { id: MODEL_ID, version: 1, result, trainedOn: sets.map((s) => ({ id: s.id, trades: s.trades.length, stamp: setStamp(s) })) };
+  return { id: MODEL_ID, version: 1, result, trainedOn: trainedOnOf(sets) };
 }
+
+/** The stamps of `sets` as they are now, for a model trained on them. */
+export const trainedOnOf = (sets: HighlightSet[]): ModelRecord['trainedOn'] =>
+  sets.map((s) => ({ id: s.id, trades: s.trades.length, stamp: setStamp(s) }));
 
 export function useModel() {
   const [record, setRecord] = useState<ModelRecord | null>(null);
@@ -23,9 +27,8 @@ export function useModel() {
     }
   }, []);
 
-  /** Keeps a model that was just trained. The page shows it even when the store cannot be written. */
-  const save = useCallback(async (st: Store | null, result: TrainResult, sets: HighlightSet[]): Promise<void> => {
-    const rec = recordOf(result, sets);
+  /** Keeps a ready record, such as a model trained while the page was closed (it keeps the stamps it was trained with). */
+  const saveRecord = useCallback(async (st: Store | null, rec: ModelRecord): Promise<void> => {
     setRecord(rec);
     try {
       await st?.putModel(rec);
@@ -34,11 +37,14 @@ export function useModel() {
     }
   }, []);
 
+  /** Keeps a model that was just trained. The page shows it even when the store cannot be written. */
+  const save = useCallback((st: Store | null, result: TrainResult, sets: HighlightSet[]): Promise<void> => saveRecord(st, recordOf(result, sets)), [saveRecord]);
+
   /** Rules and importance rebuilt from the model itself. */
   const insights = useMemo(() => (record ? describeModel(record.result.model) : null), [record]);
 
   const freshness = (current: CurrentSet[], known: ReadonlySet<string>, label: (id: string) => string): Freshness | null =>
     record ? modelFreshness(record, current, { known, label }) : null;
 
-  return { record, setRecord, load, save, insights, freshness };
+  return { record, setRecord, load, save, saveRecord, insights, freshness };
 }
