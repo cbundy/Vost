@@ -72,6 +72,12 @@ export interface MatchScore {
 
 export interface CandidateStats {
   trades: number;
+  /** Entry signals that fired over the parts that ran (see the engine); null when no part ran. */
+  signalsFired: number | null;
+  /** Fired per 100 bars, pooled over the parts; null when no part ran. */
+  signalsPer100Bars: number | null;
+  /** Fired per day, pooled over the parts; null when no part ran. */
+  signalsPerDay: number | null;
   totalReturnPct: number;
   /** Null without trades. */
   winRatePct: number | null;

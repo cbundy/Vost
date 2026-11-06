@@ -21,6 +21,14 @@ export interface EngineOutput {
   trades: Trade[];
   equity: EquityPoint[];
   exposureBars: number;
+  /**
+   * Entry signals that fired. A signal fires on executed bar `i` when `signals[i - 1]` is not null,
+   * its side is non-zero after the shorts filter (-1 counts as 0 without `allowShort`), and that side
+   * differs from the side of the last non-null signal before it (starting at 0). Null signals neither
+   * fire nor reset the side. The last bar's signal is never executed, so it is not counted. Counted
+   * before the `requireReset` rule, so a held-back signal still counts. Always >= trades.length.
+   */
+  signalsFired: number;
 }
 
 interface OpenPosition {
@@ -54,7 +62,7 @@ export function runBacktest(
   const n = candles.length;
   const trades: Trade[] = [];
   const equity: EquityPoint[] = [];
-  if (n < 2) return { trades, equity, exposureBars: 0 };
+  if (n < 2) return { trades, equity, exposureBars: 0, signalsFired: 0 };
 
   const signals: Signal[] = rawSignals.map(coerceSignal);
 
@@ -138,6 +146,8 @@ export function runBacktest(
     position: 0,
   });
 
+  let signalsFired = 0;
+  let lastSignalSide: Signal = 0;
   const reportEvery = Math.max(1, Math.floor(n / 100));
   for (let i = 1; i < n; i++) {
     const bar = candles[i];
@@ -145,6 +155,9 @@ export function runBacktest(
     // ---- 1. Execute the target decided on the previous close -------------
     let target = signals[i - 1];
     if (target != null) {
+      const filtered = target === -1 && !config.allowShort ? 0 : target;
+      if (filtered !== 0 && filtered !== lastSignalSide) signalsFired++;
+      lastSignalSide = filtered;
       if (requireReset != null) {
         if (target === requireReset) {
           target = 0; // still pointing at the side we were stopped out of
@@ -207,7 +220,7 @@ export function runBacktest(
     last.position = 0;
   }
 
-  return { trades, equity, exposureBars };
+  return { trades, equity, exposureBars, signalsFired };
 }
 
 export { coerceSignal };

@@ -104,7 +104,9 @@ The **Results** tab shows 20+ metrics (return against Buy & hold, CAGR, Sharpe, 
 
 The **Max DD duration** card shows the longest drawdown in bars and, under it, the same stretch in time units: minutes, hours, days, weeks and years, only the units that fit (at least one, and none finer than the data's bar size). It is real clock time between the bars, so a stock's weekends and nights count; on 24/7 crypto data it equals bars times the timeframe.
 
-![The metric grid with the Max DD duration card](../evidence/bt-results/bt-results-metric-grid-desktop.png)
+The **Entry signals** and **Signal rate** cards say how often the strategy asked for a trade. A signal fires each time the strategy turns to a new side, long or short; a repeat of the side it already holds does not count. **Entry signals** shows how many fired and, under it, how many were taken as trades. The two differ when a stop-out blocks re-entry until the signal flips, or the account is empty. **Signal rate** shows signals per 100 bars and per day. Both read n/a for Pine strategies, whose trades come from the script. The optimizer CSV has the same columns.
+
+![The metric grid with the Max DD duration, Entry signals and Signal rate cards](../evidence/bt-results/bt-results-metric-grid-desktop.png)
 
 ![The equity chart with the Buy & hold line](../evidence/bt-results/bt-results-equity-desktop.png)
 

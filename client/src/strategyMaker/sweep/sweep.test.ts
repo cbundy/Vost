@@ -72,6 +72,11 @@ describe('runSweep', () => {
     expect(c.selection.winRatePct).toBeGreaterThanOrEqual(80);
     expect(c.selection.trades).toBeGreaterThanOrEqual(30);
     expect(c.heldOut.trades).toBeGreaterThanOrEqual(10);
+    for (const part of [c.selection, c.heldOut]) {
+      expect(part.signalsFired!).toBeGreaterThanOrEqual(part.trades);
+      expect(part.signalsPer100Bars!).toBeGreaterThan(0);
+      expect(part.signalsPerDay!).toBeCloseTo(part.signalsPer100Bars! * 24 / 100, 6); // hourly bars
+    }
     expect(out.closest.map((x) => x.market.symbol)).toEqual(['BBB']);
   });
 
@@ -197,7 +202,7 @@ describe('sizing', () => {
 
 describe('rankCandidates', () => {
   const mk = (held: boolean, sel: number, out: number): SweepCandidate => {
-    const f = (finalEquity: number) => ({ trades: 40, totalReturnPct: 0, winRatePct: 60, rr: 1, maxDrawdownPct: 1, finalEquity });
+    const f = (finalEquity: number) => ({ trades: 40, signalsFired: 50, signalsPer100Bars: 5, signalsPerDay: 1, totalReturnPct: 0, winRatePct: 60, rr: 1, maxDrawdownPct: 1, finalEquity });
     return { market: A, timeframe: '1d', strategyId: 's', params: {}, stopLossPct: 1, takeProfitPct: 1, setIndex: 0, held, selection: f(sel), heldOut: f(out) };
   };
   it('puts held before met-only, then orders by final equity', () => {

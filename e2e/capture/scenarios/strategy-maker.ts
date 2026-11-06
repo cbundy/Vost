@@ -207,9 +207,9 @@ export const strategyMaker: Scenario = {
     await ctx.step('Find shows progress and Cancel stops it within a second, back to the form as it was', async () => {
       await find.click();
       await cancel.waitFor();
-      await page.getByRole('status').getByText(/%/).waitFor();
+      await page.locator('.sm-progress').getByText(/%/).waitFor();
       await page.waitForTimeout(700);
-      await page.getByRole('status').scrollIntoViewIfNeeded();
+      await page.locator('.sm-progress').scrollIntoViewIfNeeded();
       await ctx.screenshot('find-progress');
       const t = Date.now();
       await cancel.click();
@@ -217,7 +217,7 @@ export const strategyMaker: Scenario = {
       const took = Date.now() - t;
       if (took > 1000) throw new Error(`Cancel took ${took} ms`);
       if (await page.getByRole('region', { name: 'Results' }).count()) throw new Error('a cancelled run left results');
-      if ((await page.getByRole('status').count()) > 0) throw new Error('progress still shown after Cancel');
+      if ((await page.locator('.sm-progress').count()) > 0) throw new Error('progress still shown after Cancel');
     });
     await ctx.screenshot('find-cancelled');
 
@@ -240,7 +240,7 @@ export const strategyMaker: Scenario = {
       await page.getByText(/^(Validated|Not validated)$/).waitFor();
       await page.getByText('Best match').first().waitFor();
     });
-    await page.getByRole('heading', { name: 'What explains your trades' }).scrollIntoViewIfNeeded();
+    await page.getByRole('heading', { name: 'What explains your trades' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     await ctx.screenshot('results');
     const actions = page.getByRole('group', { name: 'Use this result' });
     let opened = '';
@@ -289,7 +289,7 @@ export const strategyMaker: Scenario = {
       if (!opened.startsWith('/#backtest=')) throw new Error(`opened ${opened}`);
     });
     await ctx.step('strict targets give the closest match and its gaps', async () => {
-      await page.getByLabel('Min R:R').fill('50');
+      await page.getByRole('region', { name: 'Find a strategy' }).getByLabel('Min R:R').fill('50');
       await find.click();
       await page.getByRole('heading', { name: 'Closest found' }).waitFor({ timeout: RUN_LIMIT_MS });
     });
@@ -349,7 +349,7 @@ export const strategyMaker: Scenario = {
     await ctx.screenshot('model-out-of-date');
     await ctx.step('Retrain trains again and the notice goes', async () => {
       await page.getByRole('button', { name: 'Retrain' }).click();
-      await page.getByRole('status').getByText(/Training/).waitFor();
+      await page.locator('.sm-progress').getByText(/Training/).waitFor();
       await outOfDate.waitFor({ state: 'detached', timeout: RUN_LIMIT_MS });
       await page.getByText('Up to date with your marks').waitFor();
     });

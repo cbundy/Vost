@@ -14,14 +14,14 @@ export function runFullBacktest(candles: Candle[], config: BacktestConfig, onPro
   onProgress?.(0, 'signals');
   const signals = buildSignals(candles, config.strategyId, config.params ?? {}, config.customCode);
   onProgress?.(0.2, 'signals');
-  const { trades, equity, exposureBars } = runBacktest(
+  const { trades, equity, exposureBars, signalsFired } = runBacktest(
     candles,
     signals,
     config,
     onProgress && ((p) => onProgress(0.2 + p * 0.75, 'simulating')),
   );
   onProgress?.(0.95, 'metrics');
-  const metrics = computeMetrics(candles, equity, trades, config.initialCapital, exposureBars);
+  const metrics = computeMetrics(candles, equity, trades, config.initialCapital, exposureBars, signalsFired);
   onProgress?.(1, 'metrics');
   const filters = getStrategy(config.strategyId).report?.(candles, config.params ?? {});
   return { trades, equity, metrics, buyHold: buyHoldCurve(candles, config.initialCapital), config, signals, ...(filters ? { filters } : {}) };

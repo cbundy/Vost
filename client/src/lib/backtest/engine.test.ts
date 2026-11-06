@@ -140,6 +140,49 @@ describe('metrics', () => {
   });
 });
 
+describe('signals fired', () => {
+  const flat = (n: number) => makeCandles(new Array(n).fill(100));
+  const series: Signal[] = [0, 1, 1, null, 1, 0, 1, -1, 1];
+
+  it('counts turns to a new side; null keeps the side and -1 counts as 0 without shorts', () => {
+    expect(runBacktest(flat(9), series, cfg()).signalsFired).toBe(2);
+  });
+
+  it('counts the turn to short when shorts are allowed', () => {
+    expect(runBacktest(flat(9), series, cfg({ allowShort: true })).signalsFired).toBe(3);
+  });
+
+  it('an always-long series with a stop-out fires once and trades once', () => {
+    const candles = makeCandles([100, 100, 100, 80, 100, 100, 100, 100], 1);
+    candles[3] = { ...candles[3], low: 70 };
+    const out = runBacktest(candles, new Array(8).fill(1), cfg({ stopLossPct: 5 }));
+    expect(out.signalsFired).toBe(1);
+    expect(out.trades).toHaveLength(1);
+  });
+
+  it('a flip after a stop-out fires again and trades again', () => {
+    const candles = makeCandles(new Array(8).fill(100), 1);
+    candles[2] = { ...candles[2], low: 70 };
+    const out = runBacktest(candles, [1, 1, 0, 1, 1, 1, 1, 1], cfg({ stopLossPct: 5 }));
+    expect(out.signalsFired).toBe(2);
+    expect(out.trades).toHaveLength(2);
+  });
+
+  it('the last bar signal is never executed, so never counted', () => {
+    expect(runBacktest(flat(4), [null, null, null, 1], cfg()).signalsFired).toBe(0);
+  });
+
+  it('is at least the trade count for every built-in strategy', () => {
+    const candles = generateDemoCandles({ bars: 600, timeframe: '1d', seed: 7 });
+    for (const s of strategies) {
+      if (s.custom) continue;
+      const params = Object.fromEntries(s.params.map((p) => [p.key, p.default]));
+      const out = runBacktest(candles, buildSignals(candles, s.id, params), cfg({ strategyId: s.id, params, allowShort: true }));
+      expect(out.signalsFired, s.id).toBeGreaterThanOrEqual(out.trades.length);
+    }
+  });
+});
+
 describe('runner + strategies', () => {
   it('runs every built-in strategy without errors on demo data', () => {
     const candles = generateDemoCandles({ bars: 600, timeframe: '1d', seed: 7 });
