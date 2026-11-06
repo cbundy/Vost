@@ -10,6 +10,7 @@ import { chartPan } from './chart-pan.ts';
 import { chartPanes } from './chart-panes.ts';
 import { btProgress } from './bt-progress.ts';
 import { btRange } from './bt-range.ts';
+import { btPineRole } from './bt-pine-role.ts';
 import { btResults } from './bt-results.ts';
 import { chartRange } from './chart-range.ts';
 import { chartReset } from './chart-reset.ts';
@@ -73,7 +74,7 @@ import { uiAudit } from './ui-audit.ts';
 import { watchlist } from './watchlist.ts';
 
 // Add a scenario: create a file in this folder and list it here.
-const all: Scenario[] = [alerts, barCountdown, benchmark, highLow, drawingBars, btProgress, btRange, btResults, builtTimeframe, chart, chartHistory, chartPan, chartPanes, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingForecast, drawingGann, drawingIcons, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPositions, drawingPriceMarkers, drawingRail, drawingRanges, drawingShapes, drawingTable, drawingText, drawingToolbar, drawingVolume, drawings, drawingSettings, indicatorLegend, indicatorSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineDrawings, pineIndicators, pineLibraries, pinePane, pineRender, pineSecurity, priceScale, replay, responsive, serverJobs, serverSettings, settings, strategyMaker, strategyMakerServer, strategySearch, symbolView, topbar, uiAudit, watchlist, zoneClock];
+const all: Scenario[] = [alerts, barCountdown, benchmark, highLow, drawingBars, btPineRole, btProgress, btRange, btResults, builtTimeframe, chart, chartHistory, chartPan, chartPanes, chartRange, chartReset, compare, connStatus, customTimeframe, drawingChannels, drawingCycles, drawingElliott, drawingFib, drawingFibTrend, drawingForecast, drawingGann, drawingIcons, drawingImage, drawingPitchforks, drawingLines, drawingManage, drawingNotes, drawingPatterns, drawingPositions, drawingPriceMarkers, drawingRail, drawingRanges, drawingShapes, drawingTable, drawingText, drawingToolbar, drawingVolume, drawings, drawingSettings, indicatorLegend, indicatorSettings, layouts, monteCarlo, networkAudit, optimizer, outage, paneResize, pineConvert, pineDrawings, pineIndicators, pineLibraries, pinePane, pineRender, pineSecurity, priceScale, replay, responsive, serverJobs, serverSettings, settings, strategyMaker, strategyMakerServer, strategySearch, symbolView, topbar, uiAudit, watchlist, zoneClock];
 
 
 export const scenarios = new Map<string, Scenario>();

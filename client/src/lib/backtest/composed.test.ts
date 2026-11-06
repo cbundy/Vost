@@ -364,3 +364,31 @@ describe('composed on a higher timeframe', () => {
     expect(composeSignals(weekly, entry, { ...p, trendTf: 4 })).toEqual(composeSignals(weekly, entry, p));
   });
 });
+
+describe('TradingView indicator filters in the compose loop', () => {
+  const candles = wavy();
+  const entry = buildSignals(candles, 'ema_cross', { fast: 5, slow: 20 });
+  const params = { ...DEFAULT_PARAMS.composed, trendFilter: 1, trendLen: 50 };
+  const builtIn = composeSignals(candles, entry, params).filters;
+
+  it('counts its own blocks beside the built-in filters, labelled with the indicator', () => {
+    const veto = { name: 'V', label: 'V (trend)', check: () => false };
+    const { filters } = composeSignals(candles, entry, params, { filters: [veto] });
+    expect(filters.blocked.map((b) => [b.key, b.label])).toEqual([
+      ['trend', 'trend'],
+      ['pine', 'V (trend)'],
+    ]);
+    // A double veto counts for both; the vetoing filter blocks every fresh entry the trend filter saw.
+    expect(filters.blocked[0].blocked).toBe(builtIn.blocked[0].blocked);
+    expect(filters.blocked[1].blocked).toBe(filters.signals);
+    expect(filters.taken).toBe(0);
+  });
+
+  it('a filter that is still warming up (null) vetoes nothing and counts nothing', () => {
+    const warm = { name: 'W', label: 'W', check: () => null };
+    const { signals, filters } = composeSignals(candles, entry, params, { filters: [warm] });
+    expect(signals.every((s) => s == null)).toBe(true);
+    expect(filters.signals).toBe(0);
+    expect(filters.blocked[1].blocked).toBe(0);
+  });
+});

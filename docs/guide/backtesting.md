@@ -67,6 +67,12 @@ The Results tab names the modes in its badges (for example `SL 2 ATR`, `TP 3R`, 
 
 ![Composed with an EMA entry and the trend and volume filters on](../evidence/bt-results/bt-results-composed-settings-desktop.png)
 
+A stored **TradingView indicator** (added in the Pine pane) can also be the entry rule or a filter. Set **Entry rule** to "TradingView indicator", pick the indicator, a plot and a rule (for example the close crossing the Supertrend line, long while it is above and short while it is below), or use **Add TradingView indicator filter** to let an indicator veto entries (for example Supertrend above a level, labelled Trend). The script's own inputs show under each indicator. A bar where a plot has no value yet counts as warming up. Results counts the blocks as `Supertrend (trend) blocked N`, and a run fails with a message naming the indicator when it was removed or its plot is gone. It works the same in the browser, on the server and in the optimizer. Rules in [TradingView indicator roles](../STRATEGIES.md#composed-strategy).
+
+![The Composed settings with a TradingView indicator as the entry and as a filter](../evidence/bt-pine-role/bt-pine-role-picker-desktop.png)
+
+![The Results line counting the indicator filter's blocked entries](../evidence/bt-pine-role/bt-pine-role-results-desktop.png)
+
 ## Risk per trade
 
 **Position sizing** has two choices. **Percent of equity** is the default: each trade commits that share of your equity. **Risk per trade (%)** sizes each trade so that hitting its stop loss loses that percent of your equity at that moment:

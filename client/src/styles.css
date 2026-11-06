@@ -4683,3 +4683,34 @@ table.data-table th.sortable .sort-btn:focus-visible {
   display: inline-block;
   width: 14px;
 }
+
+/* The Composed settings' TradingView indicator roles (entry rule and filters). */
+.bt-roles {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bt-roles > .btn {
+  align-self: flex-start;
+}
+
+.bt-role {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.bt-role-grid {
+  margin-top: 6px;
+}
+
+.bt-role-grid .wide-row {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.bt-role-error {
+  color: var(--red, #ef5350);
+}

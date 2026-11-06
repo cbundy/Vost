@@ -40,6 +40,7 @@ import { createChartStore, defaultChartInitial, type ChartEnv, type ChartInitial
 import type { IndicatorDefault, IndicatorKind, IndicatorSpec } from '../lib/indicatorCompute';
 import { cleanIndicatorDefault, sanitizeIndicatorDefaults, sanitizeIndicatorSpecs } from '../lib/indicatorSettings';
 import type { BacktestConfig } from '../lib/backtest/types';
+import { sanitizePineRoles, withoutSources } from '../lib/backtest/pineRole';
 import { handoffSettingsText, type Handoff } from '../lib/backtestHandoff';
 import { DEFAULT_PARAMS, getStrategy } from '../lib/backtest/strategies';
 import type { Interval } from '../types';
@@ -127,6 +128,14 @@ const defaultPrefs: Prefs = {
   showTrades: defaultChart.showTrades,
 };
 
+/** A saved config's TradingView indicator roles: malformed ones dropped, and no source is ever kept. */
+function sanitizeBtRoles(config: BacktestConfig): BacktestConfig {
+  if (config.pineRoles === undefined) return config;
+  const roles = withoutSources(sanitizePineRoles(config.pineRoles)) ?? [];
+  const { pineRoles: _drop, ...rest } = config;
+  return roles.length > 0 ? { ...rest, pineRoles: roles } : rest;
+}
+
 /** A chart's starting state from a saved record (`prefs.v1`, or one chart of `layout.v1`); bad fields fall back. */
 function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
   // A chart left on a provider that is gone opens on the default market, not on a fallback with the old symbol.
@@ -137,7 +146,7 @@ function chartInitialFrom(p: Partial<Prefs>): ChartInitial {
     timeframe: known ? (typeof p.timeframe === 'string' && canonicalInterval(p.timeframe) === p.timeframe ? p.timeframe : defaultPrefs.timeframe) : defaultPrefs.timeframe,
     bars: p.bars ?? defaultPrefs.bars,
     indicators: Array.isArray(p.indicators) && p.indicators.length > 0 ? sanitizeIndicatorSpecs(p.indicators) : defaultPrefs.indicators,
-    btConfig: { ...defaultPrefs.btConfig, ...(p.btConfig ?? {}) },
+    btConfig: sanitizeBtRoles({ ...defaultPrefs.btConfig, ...(p.btConfig ?? {}) }),
     showTrades: p.showTrades ?? true,
     btRange: sanitizeTimeRange(p.btRange),
     priceScaleMode: sanitizePriceScaleMode(p.priceScaleMode),

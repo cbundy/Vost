@@ -38,6 +38,17 @@ The style of each strategy is kept in one table (`STRATEGY_STYLES` in `client/sr
 
 **Entries.** A fresh entry is a bar where the rule's exposure turns long (the bar before was not long) or short (not short). It is taken only if every enabled filter agrees on that same bar. A blocked signal stays flat until the next fresh signal: `composed` never joins part-way through a run. An open position exits when the rule's exposure leaves its side (the rule's own exit; stop loss and take profit apply as usual). A direct flip closes the position and the opposite signal is a new entry that must pass the filters.
 
+**TradingView indicator roles.** A TradingView indicator you added in the Pine pane (stored on the server) can be the entry rule or a filter. Entry rule `7` ("TradingView indicator") takes its exposure from one indicator; filters add up to four indicators beside the built-in ones. Each role stores the indicator (its `scriptId` and name), the script's own inputs and a rule over plots picked by title; the browser sends the indicator's source with a run and never saves it. Rules:
+
+| Role | Rule | Meaning |
+|---|---|---|
+| Entry | Crosses (`cross`) | Plot A against plot B, the close or a level: long while A > B, short while A < B (through `direction`), so it enters on the cross and exits when it crosses back |
+| Entry | Shape drawn (`shape`) | A long and/or a short `plotshape` or `plotarrow` plot; exposure takes the side of the latest drawn shape (a value that is neither na nor 0). With only one side mapped the position leaves only by a stop loss, take profit, trailing stop or the end of data |
+| Filter | Above / Below (`above`, `below`) | Plot A above (below) plot B, the close or a level for longs; mirrored for shorts |
+| Filter | Inside (`inside`) | Plot A between two operands, edges included, for both sides |
+
+A plot that is na on a bar counts as warming up, like the built-in filters: no entry is taken and the bar is not counted. Entry rule `7` without an entry indicator fails with "Pick a TradingView indicator for the entry rule"; an entry indicator is ignored while the entry rule is 1 to 6. At most one entry and four filter indicators are allowed. The indicator runs once per run (and once per slice of bars in the optimizer and its validations), in the browser or on the server alike, a `//@version=4` or older script is converted first, and the results line shows `<indicator name> (<label>) blocked N` (just the name for a custom or missing label). A run fails with a message naming the indicator when it is no longer stored, the script errors, it is a strategy, a mapped plot title is missing, or a plot's length differs from the bars. The strategy maker's search keeps entry rules 1 to 6.
+
 **Filters** (each read only on the entry bar, no look-ahead; the trend and volatility filters can read a higher timeframe, see below):
 
 | Filter | Settings | Passes when |

@@ -73,6 +73,21 @@ describe('createBacktestHandler', () => {
     expect(ok[0].type).toBe('monteCarloResult');
   });
 
+  it('run: a Composed run with a TradingView indicator filter answers a result without the source', async () => {
+    const source = '//@version=6\nindicator("L")\nplot(ta.sma(close, 5), "line")\n';
+    const withRole = {
+      ...config,
+      strategyId: 'composed',
+      params: { entryRule: 1, fast: 4, slow: 9, direction: 1 },
+      pineRoles: [{ indicatorId: 'i1', name: 'L', source, inputs: {}, role: 'filter' as const, label: 'trend' as const, rule: { type: 'above' as const, a: { kind: 'close' as const }, b: { kind: 'plot' as const, plot: 'line' } } }],
+    };
+    const out = await call({ id: 'r', type: 'run', candles, config: withRole });
+    const last = out[out.length - 1];
+    if (last.type !== 'result') throw new Error('no result');
+    expect(last.result.filters!.blocked[0]).toMatchObject({ key: 'pine', label: 'L (trend)' });
+    expect(last.result.config.pineRoles![0]).not.toHaveProperty('source');
+  });
+
   it('a failing run gives an error reply', async () => {
     const out = await call({ id: 'e', type: 'run', candles, config: { ...config, strategyId: 'pine', pineCode: 'not pine at all (' } });
     expect(out[out.length - 1].type).toBe('error');
