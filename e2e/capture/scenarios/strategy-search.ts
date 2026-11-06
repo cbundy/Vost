@@ -5,7 +5,7 @@ const RUN_LIMIT_MS = 60_000;
 export const strategySearch: Scenario = {
   name: 'strategy-search',
   description:
-    'Strategy maker "Search markets" panel (/strategy-maker): the lists and defaults, the combination count, an over-budget choice refused, a run in progress (the page wraps the Worker, test side only, to hold back the final result message so the bar can be caught), Cancel back to idle, a finished run on the Indices list with a held row, a closest-found row and a skipped market, and the main app opened from Open in Backtest on that result\'s market and timeframe with the risk per trade set',
+    'Strategy maker "Search markets" panel (/strategy-maker): the lists and defaults, the combination count, an over-budget choice refused, a run in progress (the page wraps the Worker, test side only, to hold back the final result message so the bar can be caught), Cancel back to idle, the ATR stop and ATR trailing stop exit kinds that triple the count, a finished run on the Indices list with a held row, a closest-found row and a skipped market, and the main app opened from Open in Backtest on that result\'s market and timeframe with the risk per trade set',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page } = ctx;
@@ -88,6 +88,7 @@ export const strategySearch: Scenario = {
       await ctx.writeText('count', text + '\n');
       if (await run.isDisabled()) throw new Error('Run is off');
     });
+    await ctx.screenshot('ready');
     await ctx.step('the ATR stop and ATR trailing stop kinds triple the count', async () => {
       const before = Number((await count.innerText()).match(/= ([\d,]+) combinations/)![1].replace(/,/g, ''));
       await panel.getByRole('group', { name: 'Exit kinds' }).getByLabel('ATR stop').check();
@@ -98,7 +99,6 @@ export const strategySearch: Scenario = {
     });
     await panel.getByRole('group', { name: 'Exit kinds' }).scrollIntoViewIfNeeded();
     await ctx.screenshot('exit-kinds');
-    await ctx.screenshot('ready');
     await ctx.step('a run shows its progress bar with percent and market', async () => {
       await page.evaluate(() => ((window as unknown as { __sweepHold: boolean }).__sweepHold = true));
       await run.click();
@@ -145,12 +145,16 @@ export const strategySearch: Scenario = {
       if (desc.join() !== [...desc].sort((a, b) => b.localeCompare(a)).join() || desc[0] === asc[0]) throw new Error('not sorted by market, descending');
     });
     let opened = '';
+    let openedTrail = false;
     await ctx.step('Open in Backtest opens a new tab address with the market and timeframe', async () => {
       await page.evaluate(() => {
         (window as unknown as { __opened: unknown[] }).__opened = [];
         window.open = ((...a: unknown[]) => void (window as unknown as { __opened: unknown[] }).__opened.push(a)) as typeof window.open;
       });
-      await panel.getByRole('button', { name: 'Open in Backtest' }).first().click();
+      const atrRow = panel.locator('.sm-table tbody tr', { hasText: /\d ATR/ }).first();
+      if (!(await atrRow.count())) throw new Error('no result row with an ATR exit');
+      openedTrail = /ATR trailing/.test(await atrRow.innerText());
+      await atrRow.getByRole('button', { name: 'Open in Backtest' }).click();
       const calls = await page.evaluate(() => (window as unknown as { __opened: unknown[][] }).__opened);
       if (calls.length !== 1 || calls[0][1] !== '_blank') throw new Error(`window.open calls ${JSON.stringify(calls)}`);
       opened = String(calls[0][0]);
@@ -181,6 +185,13 @@ export const strategySearch: Scenario = {
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       await page.getByRole('combobox', { name: 'Strategy' }).waitFor();
       await page.getByText('Risk per trade (%)').waitFor();
+      const stopMode = await page.getByLabel('Stop loss mode').inputValue();
+      const tpMode = await page.getByLabel('Take profit mode').inputValue();
+      const trailMode = await page.getByLabel('Trailing stop mode').inputValue();
+      if (tpMode !== 'r') throw new Error(`take profit mode ${tpMode}`);
+      if (openedTrail ? trailMode !== 'atr' : stopMode !== 'atr') throw new Error(`modes stop ${stopMode} trail ${trailMode}`);
+      await ctx.writeText('handoff-exit', `stop ${stopMode}, take profit ${tpMode}, trailing ${trailMode}\n`);
+      await page.getByLabel('Take profit mode').scrollIntoViewIfNeeded();
     });
     await ctx.screenshot('handoff-backtest');
   },
