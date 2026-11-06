@@ -48,6 +48,8 @@ import { createTelegram, readTelegramConfig } from './alerts/telegram.ts';
 import { createApiDeps, handleApi, providerHistory } from './api.ts';
 import { createLibraries } from './pine/libraries.ts';
 import { handlePineLibraries, isPineLibrariesPath } from './pine/route.ts';
+import { createIndicators } from './pine/indicators.ts';
+import { handlePineIndicators, isPineIndicatorsPath } from './pine/indicatorsRoute.ts';
 import { createImageStore } from './images/store.ts';
 import { handleImages, isImagesPath } from './images/route.ts';
 import { createPool, ENGINE_BUNDLE } from './jobs/pool.ts';
@@ -229,6 +231,8 @@ const alerts = await createAlerts({
 
 const pineLibraries = createLibraries({ dir: DATA_DIR, fetch: apiDeps.fetch, log: (line) => console.log(line) });
 await pineLibraries.load();
+const pineIndicators = createIndicators({ dir: DATA_DIR, fetch: apiDeps.fetch, log: (line) => console.log(line) });
+await pineIndicators.load();
 
 const pool = createPool({
   answer: async (ask) => {
@@ -277,6 +281,9 @@ const server = http.createServer(async (req, res) => {
   // Pine libraries: reads get the usual CORS grant, writes are same-origin only.
   if (isPineLibrariesPath(url.pathname)) return void handlePineLibraries(req, res, url, pineLibraries, (line) => console.log(line));
 
+  // TradingView indicators kept on the server: same rules.
+  if (isPineIndicatorsPath(url.pathname)) return void handlePineIndicators(req, res, url, pineIndicators, (line) => console.log(line));
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'access-control-allow-origin': '*',
@@ -321,6 +328,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → live candles: /api/live`);
   console.log(`  → price alerts: /api/alerts (stored in ${DATA_DIR}; Telegram ${telegram.configured ? 'on' : 'off'})`);
   console.log(`  → pine libraries: /api/pine/libraries (${pineLibraries.count} stored in ${DATA_DIR})`);
+  console.log(`  → pine indicators: /api/pine/indicators (${pineIndicators.count} stored in ${DATA_DIR})`);
   console.log(`  → settings: /api/settings (${settingsCount} stored in ${path.join(DATA_DIR, 'settings')})`);
   console.log(`  → pictures: /api/images (${images.stats().count} stored in ${path.join(DATA_DIR, 'images')})`);
   console.log(`  → strategy maker: /api/strategy-maker (${strategyMakerCount} sets stored in ${strategyMakerDir})`);

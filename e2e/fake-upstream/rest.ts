@@ -3,6 +3,7 @@
  * URL (the original path and query, host already stripped) and returns the body.
  */
 import { bars, TIMEFRAME_SECONDS, type Bar } from './data.ts';
+import { indicatorFacade, indicatorSearch, scriptPage } from './pine-indicators.ts';
 import { tradingViewFacade, tradingViewSearch } from './pine-libraries.ts';
 
 export interface RestReply {
@@ -215,6 +216,8 @@ export const REST_HOSTS: Record<string, Handler> = {
   'query1.finance.yahoo.com': yahoo,
   'api.coingecko.com': coingecko,
   'pro-api.coinmarketcap.com': coinmarketcap,
-  'www.tradingview.com': (url) => tradingViewSearch(url),
-  'pine-facade.tradingview.com': (url) => tradingViewFacade(url),
+  // Search answers libraries for type=3 and indicators otherwise; /script/<id>/ is the script page.
+  'www.tradingview.com': (url) => (url.pathname.startsWith('/script/') ? scriptPage(url) : url.searchParams.get('type') === '3' || url.pathname !== '/pubscripts-suggest-json/' ? tradingViewSearch(url) : indicatorSearch(url)),
+  // A library is fetched by version number, an indicator as `last`.
+  'pine-facade.tradingview.com': (url) => (url.pathname.endsWith('/last') ? indicatorFacade(url) : tradingViewFacade(url)),
 };

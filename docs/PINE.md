@@ -41,6 +41,15 @@ A script can `import user/name/version as x` a TradingView library. Where the co
 - A library the server cannot fetch (closed source, not found, TradingView unreachable) makes the run fail with a message that names it, for example `Library "alice/MyLib/1" could not be loaded: TradingView has no open-source copy of it. Paste its source under Pine libraries.` The Pine pane then shows a Paste library button.
 - To paste one, open Libraries in the Pine pane head (or press Paste library under the error), give the path as `user/name/version` and paste the library source, which needs a `//@version=5` or `6` line and a `library(` declaration. Saving it keeps it on the server for every tab and every script, replaces a fetched copy of the same path, and re-runs every Pine indicator. Remove drops a stored library (an open-source one is fetched again the next time a script needs it).
 
+## TradingView indicators
+
+An open-source indicator from TradingView can be added to Vost without copying its code by hand. **TradingView indicators** in the Pine pane head opens a dialog where you search by name or paste a `https://www.tradingview.com/script/...` link.
+
+- The Vost server does the work: it searches `www.tradingview.com`, fetches the source from `pine-facade.tradingview.com`, and keeps a copy in `pine-indicators.json` in `VOST_DATA_DIR` with the script's name, author, version and licence (the comment block at the top of the source, up to 500 characters). It serves them at `/api/pine/indicators`. The browser never contacts TradingView.
+- Only open-source indicators can be added. A closed-source script is refused (`closed-source`), and so is a strategy or a library (not an indicator). Adding one that is already stored refreshes it.
+- The list shows each indicator's author, the first line of its licence and the date it was added. A script written for Pine below v5 is marked "convert to v6" (the editor then offers Convert to v6, see Old scripts). **Open in editor** adds a Pine indicator with the stored source to the chart and opens it in the editor; **Remove** drops the stored copy.
+- These are TradingView's own web endpoints, not an official API, so they may change or stop working; an indicator already stored keeps working.
+
 ## Editing
 
 Pine indicators are edited in the Pine editor pane to the right of the chart, with its own resize handle and close button. The Pine Editor button in the top bar opens it, and so does the Edit button on a Pine indicator in the side panel's Indicators section. On a narrow window (900px and below) the pane is a dialog that covers the chart area and closes with Escape. A status line shows the cursor position and the Pine version.

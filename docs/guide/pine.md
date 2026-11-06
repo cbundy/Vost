@@ -125,6 +125,14 @@ A script can `import user/name/version as x` a TradingView library. The server l
 
 ![The Pine libraries dialog](../evidence/pine-libraries/pine-libraries-dialog-desktop.png)
 
+## TradingView indicators
+
+**TradingView indicators** in the pane head lets you add an open-source indicator from TradingView. Search by name, or paste a `https://www.tradingview.com/script/...` link, and press **Add**: the server fetches the script and keeps a copy with its author and licence (your browser never contacts TradingView). The list shows each one's author, the first line of its licence and when it was added; **Open in editor** puts it on the chart and in the Pine editor, and **Remove** drops the copy. A closed-source script, a strategy or a library is refused with the reason. TradingView's endpoints are unofficial, so they may change.
+
+![Searching TradingView for Supertrend and adding it](../evidence/pine-indicators/pine-indicators-added-desktop.png)
+
+![A closed-source script is refused with a clear reason](../evidence/pine-indicators/pine-indicators-closed-source-desktop.png)
+
 ## Compare
 
 The page at `/compare` (also the **Compare** link in the Pine editor head) puts 2 to 4 scripts side by side, Code A to Code D. Paste or type into a pane, **Load** a Pine indicator from the chart, **Open file** (`.pine` or `.txt`) or **Clear** it. **Compare against** picks the reference pane; the others show only what differs: unchanged code folds into an "N unchanged lines" bar (click it to open that run), a small change inside a line is shown in the line (the removed text struck through in red next to the added text in green), and an added or changed line is green and a removed line red. A pane with no text reads **Empty** and shows no marks. It loads no market data and runs no Pine code.

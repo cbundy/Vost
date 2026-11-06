@@ -10,8 +10,10 @@ import { createApiDeps } from '../../server/api.ts';
 import { adapters } from '../../server/providers/index.ts';
 import { createSymbolCache } from '../../server/providers/symbolCache.ts';
 import { setTestUpstream } from '../../server/testUpstream.ts';
+import { createIndicators } from '../../server/pine/indicators.ts';
 import { createLibraries } from '../../server/pine/libraries.ts';
 import { startFakeUpstream, type FakeUpstream } from './index.ts';
+import { CLOSED_INDICATOR_ID, OPEN_INDICATOR_ID, OPEN_INDICATOR_SHORT_ID, OPEN_INDICATOR_SOURCE, STRATEGY_ID, STRATEGY_SHORT_ID } from './pine-indicators.ts';
 import { CLOSED_LIB_PATH, NESTED_LIB_PATH, NESTED_LIB_SOURCE, OPEN_LIB_PATH, OPEN_LIB_SOURCE } from './pine-libraries.ts';
 
 let fake: FakeUpstream;
@@ -257,6 +259,33 @@ describe('fake upstream TradingView library endpoints, through the real Librarie
 
   it('search without type=3 finds no library', async () => {
     const res = await fetch(`${fake.url}/https/www.tradingview.com/pubscripts-suggest-json/?search=OpenLib`);
+    expect(((await res.json()) as { results: unknown[] }).results).toEqual([]);
+  });
+});
+
+describe('fake upstream TradingView indicator endpoints, through the real Indicators store', () => {
+  it('searches open studies only, adds by id and by link (the script object id, not an earlier PUB id), and refuses closed and strategy scripts', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'vost-fake-tv-ind-'));
+    try {
+      const ind = createIndicators({ dir, log: () => undefined });
+      await ind.load();
+      const hits = await ind.search('supertrend');
+      expect(hits.map((h) => h.scriptId)).toEqual([OPEN_INDICATOR_ID]);
+      expect(hits[0]).toMatchObject({ name: 'Supertrend', author: 'alice', shortId: OPEN_INDICATOR_SHORT_ID });
+      expect(await ind.add({ scriptId: OPEN_INDICATOR_ID })).toMatchObject({ name: 'Supertrend', author: 'alice' });
+      expect(ind.get(OPEN_INDICATOR_ID)?.source).toBe(OPEN_INDICATOR_SOURCE);
+      await ind.remove(OPEN_INDICATOR_ID);
+      expect(await ind.add({ link: `https://www.tradingview.com/script/${OPEN_INDICATOR_SHORT_ID}/` })).toMatchObject({ scriptId: OPEN_INDICATOR_ID });
+      await expect(ind.add({ scriptId: CLOSED_INDICATOR_ID })).rejects.toMatchObject({ reason: 'closed-source' });
+      await expect(ind.add({ scriptId: STRATEGY_ID })).rejects.toMatchObject({ name: 'InputError' });
+      await expect(ind.add({ link: `https://www.tradingview.com/script/${STRATEGY_SHORT_ID}/` })).rejects.toMatchObject({ name: 'InputError' });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('the library search with type=3 does not list indicators', async () => {
+    const res = await fetch(`${fake.url}/https/www.tradingview.com/pubscripts-suggest-json/?search=Supertrend&type=3`);
     expect(((await res.json()) as { results: unknown[] }).results).toEqual([]);
   });
 });

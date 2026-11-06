@@ -11,6 +11,7 @@ import { type PineRunState } from '../state/chart';
 import { PineConvert } from './PineConvert';
 import { PineEditor } from './PineEditor';
 import { PineCalculationSection, PineInputList } from './PineInputControl';
+import { PineIndicators } from './PineIndicators';
 import { PineLibraries } from './PineLibraries';
 import { useChart } from '../state/chartContext';
 
@@ -30,6 +31,7 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
   const rootRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [libraries, setLibraries] = useState<{ path: string } | null>(null);
+  const [tvIndicators, setTvIndicators] = useState(false);
 
   useEffect(() => {
     if (dialog) closeRef.current?.focus();
@@ -70,6 +72,9 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
         <button className="ghost pine-libs-button" onClick={() => setLibraries({ path: '' })} title="Libraries that scripts import">
           Libraries
         </button>
+        <button className="ghost pine-libs-button" onClick={() => setTvIndicators(true)} title="Open-source indicators from TradingView">
+          TradingView indicators
+        </button>
         <span className="pine-pane-spacer" />
         <button ref={closeRef} className="ghost icon" aria-label="Close Pine editor" title="Close (Esc)" onClick={onClose}>
           ✕
@@ -97,6 +102,7 @@ export function PinePane({ dialog, onClose }: { dialog: boolean; onClose: () => 
           </button>
         </div>
       )}
+      {tvIndicators && <PineIndicators onClose={() => setTvIndicators(false)} />}
       {libraries && <PineLibraries initialPath={libraries.path} onClose={() => setLibraries(null)} />}
     </section>
   );
