@@ -7,6 +7,15 @@ const root = new URL('../', import.meta.url);
 const ignored = (p: string) =>
   spawnSync('git', ['check-ignore', '--no-index', '-q', p], { cwd: fileURLToPath(root) }).status === 0;
 
+describe('server engine bundle ignore rules', () => {
+  it('git ignores the built bundle', () => {
+    expect(ignored('server/dist/engine.mjs')).toBe(true);
+  });
+  it('.dockerignore keeps a local bundle out of the build context', () => {
+    expect(readFileSync(new URL('.dockerignore', root), 'utf8').split('\n')).toContain('server/dist');
+  });
+});
+
 describe('core dump ignore rules', () => {
   it.each(['core', 'core.1', 'core.12345'])('git ignores %s in the repo root', (p) => {
     expect(ignored(p)).toBe(true);

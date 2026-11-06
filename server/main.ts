@@ -30,6 +30,9 @@
  *                on Binance, Coinbase and Hyperliquid, every timeframe. `off`
  *                records nothing. Keeps one exchange connection open per series.
  *   VOST_RECORD_BARS  bars kept per recorded series (default 20000; minimum 100)
+ *   VOST_JOB_WORKERS  worker threads that run server jobs on the prebuilt engine bundle
+ *                     (server/dist/engine.mjs, made by npm run build): a positive integer
+ *                     (default: the CPU count minus one, at least 1)
  *   VOST_TEST_UPSTREAM  test only: http://127.0.0.1:<port> of a fake market-data
  *                       service that every outbound call is rewritten to (see
  *                       docs/e2e-visual-verification.md). Refused when

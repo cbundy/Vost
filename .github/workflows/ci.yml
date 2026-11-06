@@ -40,6 +40,9 @@ jobs:
       - name: Build client
         run: npm run build
 
+      - name: Smoke-test the server engine bundle
+        run: node scripts/engine-smoke.mjs
+
       - name: Smoke-test the server (API + static)
         run: |
           VOST_RECORD=off npm start &
@@ -86,3 +89,6 @@ jobs:
           ACTUAL=$(curl -fsS http://localhost:8787/api/health | jq -r .version)
           test "$ACTUAL" = "$EXPECTED" || { echo "health version $ACTUAL != package.json $EXPECTED"; exit 1; }
           docker rm -f vost-ci
+
+      - name: Smoke-test the engine bundle in the image
+        run: docker run --rm -v "$PWD/scripts:/app/scripts:ro" vost:ci node scripts/engine-smoke.mjs
