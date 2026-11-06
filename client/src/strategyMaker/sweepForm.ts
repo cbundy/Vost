@@ -4,7 +4,7 @@ import type { MarketList } from '../../../shared/marketLists.ts';
 import type { SearchDirection } from './engine/types';
 import { num } from './form';
 import { DEFAULT_SWEEP_INPUT, MAX_SWEEP_COMBOS, sweepCombos } from './sweep/sweep';
-import type { SweepInput, SweepMarket, TargetSet } from './sweep/types';
+import type { ExitKind, SweepInput, SweepMarket, TargetSet } from './sweep/types';
 
 /** Timeframes both the Binance and the Yahoo provider serve. */
 export const SWEEP_TIMEFRAMES: Interval[] = ['15m', '30m', '1h', '4h', '1d', '1w'];
@@ -20,6 +20,12 @@ export const SWEEP_FAMILIES: Array<{ id: string; name: string }> = [
 /** The multiples offered for stops (times the typical bar range) and for take profits (times the stop). */
 export const STOP_MULT_OPTIONS = [0.5, 1, 2, 3, 4, 6];
 export const TP_MULT_OPTIONS = [0.5, 1, 1.5, 2, 3, 4, 5];
+/** The exit kinds offered, with their labels. */
+export const EXIT_KIND_OPTIONS: Array<{ id: ExitKind; label: string }> = [
+  { id: 'range', label: 'Stop sized by the typical bar range' },
+  { id: 'atr', label: 'ATR stop' },
+  { id: 'atr_trail', label: 'ATR trailing stop' },
+];
 /** Rows of "hit rate / R:R" targets the form shows. */
 export const TARGET_ROWS = 2;
 
@@ -41,6 +47,7 @@ export interface SweepForm {
   slippageBps: string;
   stopMults: number[];
   tpMults: number[];
+  exitKinds: ExitKind[];
 }
 
 export function defaultSweepForm(): SweepForm {
@@ -57,6 +64,7 @@ export function defaultSweepForm(): SweepForm {
     slippageBps: String(d.risk.slippageBps),
     stopMults: [...d.exits.stopMults],
     tpMults: [...d.exits.tpMults],
+    exitKinds: [...(d.exits.kinds ?? ['range'])],
   };
 }
 
@@ -93,7 +101,7 @@ export function readSweepForm(f: SweepForm): { input: Omit<SweepInput, 'markets'
       direction: f.direction,
       targetSets,
       risk: { initialCapital, riskPct, feeBps, slippageBps },
-      exits: { stopMults: f.stopMults, tpMults: f.tpMults },
+      exits: { stopMults: f.stopMults, tpMults: f.tpMults, kinds: f.exitKinds },
     },
   };
 }
@@ -129,6 +137,7 @@ export const sweepBlocker = (errors: SweepErrors, f: SweepForm, markets: SweepMa
   if (f.timeframes.length === 0) return 'Pick at least one timeframe.';
   if (f.families.length === 0) return 'Pick at least one indicator family.';
   if (input.targetSets.length === 0) return 'Give at least one target row.';
+  if (f.exitKinds.length === 0) return 'Pick at least one exit kind.';
   if (f.stopMults.length === 0 || f.tpMults.length === 0) return 'Pick at least one stop and one take-profit multiple.';
   if (combos > MAX_SWEEP_COMBOS) {
     return `That is ${combos.toLocaleString('en-US')} combinations; the limit is ${MAX_SWEEP_COMBOS.toLocaleString('en-US')}. Pick fewer markets, timeframes or indicators.`;
