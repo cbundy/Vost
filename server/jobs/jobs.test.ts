@@ -90,7 +90,13 @@ describe('job manager', () => {
     const got = await jobs.get('job-1');
     expect(got).toMatchObject({ state: 'done', progress: 1, finished: 1500, result: { type: 'result', metrics: { a: 1 } } });
     expect(events.map((e) => e.state)).toEqual(['queued', 'running', 'done']);
-    const text = await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8');
+    // the record is written in the background: wait until it says done rather than sleeping a fixed time
+    let text = '';
+    for (let i = 0; i < 200; i++) {
+      text = await readFile(path.join(dir, 'jobs', 'job-1.json'), 'utf8').catch(() => '');
+      if (text.includes('"state":"done"') || text.includes('"state": "done"')) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
     expect(text).not.toContain('candles');
     expect(JSON.parse(text).summary.state).toBe('done');
     expect(logs.some((l) => l === '[jobs] job-1 run done in 500 ms (queued 0 ms)')).toBe(true);
