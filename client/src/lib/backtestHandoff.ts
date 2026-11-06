@@ -3,7 +3,9 @@
  * new tab (`#backtest=<base64url JSON>`), so the strategy maker never writes storage and the main app
  * never imports the strategy maker. Only built-in signal strategies can be handed over.
  */
+import { canonicalInterval, type Interval } from '../../../shared/market.ts';
 import { getStrategy, strategies } from './backtest/strategies';
+import { providers } from './providers';
 
 export interface Handoff {
   v: 1;
@@ -18,6 +20,10 @@ export interface Handoff {
   positionSizePct: number;
   /** Risk sizing: percent of equity lost at the stop. Written only when set. */
   riskPct?: number;
+  /** The market search names the market the strategy was found on; the main app then switches to it. All three or none. */
+  providerId?: string;
+  symbol?: string;
+  timeframe?: Interval;
   /** The strategy maker's label for the data it was found on. */
   source: string;
 }
@@ -25,6 +31,7 @@ export interface Handoff {
 export const HANDOFF_PREFIX = '#backtest=';
 
 const MAX_SOURCE = 200;
+const MAX_SYMBOL = 40;
 
 function toBase64Url(text: string): string {
   const bytes = new TextEncoder().encode(text);
@@ -96,6 +103,12 @@ export function parseHandoff(hash: string): Handoff | null {
   for (const v of [stopLossPct, takeProfitPct]) if (v !== null && (!isNum(v) || v <= 0)) return null;
   if (typeof r.allowShort !== 'boolean') return null;
   if (r.riskPct !== undefined && (!isNum(r.riskPct) || r.riskPct <= 0 || r.riskPct > 100)) return null;
+  const hasMarket = r.providerId !== undefined || r.symbol !== undefined || r.timeframe !== undefined;
+  if (hasMarket) {
+    if (typeof r.providerId !== 'string' || !providers.some((p) => p.id === r.providerId)) return null;
+    if (typeof r.symbol !== 'string' || r.symbol.trim() === '' || r.symbol.length > MAX_SYMBOL) return null;
+    if (typeof r.timeframe !== 'string' || canonicalInterval(r.timeframe) !== r.timeframe) return null;
+  }
   return {
     v: 1,
     strategyId: strategy.id,
@@ -108,6 +121,7 @@ export function parseHandoff(hash: string): Handoff | null {
     initialCapital,
     positionSizePct,
     ...(r.riskPct !== undefined && { riskPct: r.riskPct as number }),
+    ...(hasMarket && { providerId: r.providerId as string, symbol: r.symbol as string, timeframe: r.timeframe as Interval }),
     source: typeof r.source === 'string' ? r.source.slice(0, MAX_SOURCE) : '',
   };
 }
