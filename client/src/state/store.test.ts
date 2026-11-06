@@ -403,6 +403,37 @@ describe('historyLoading setting', () => {
   });
 });
 
+describe('jobPlace setting', () => {
+  async function fresh(saved?: unknown) {
+    vi.resetModules();
+    stubStorage();
+    vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')));
+    if (saved !== undefined) {
+      seedRaw('prefs.v1', JSON.stringify({ providerId: 'binance', symbol: 'BTCUSDT', timeframe: '1h', bars: 100, jobPlace: saved }));
+    }
+    const { useStore } = await import('./store');
+    track(useStore);
+    useStore.getState().init();
+    return useStore;
+  }
+
+  it('defaults to browser; a missing or bad saved value reads as browser', async () => {
+    expect((await fresh()).getState().jobPlace).toBe('browser');
+    for (const bad of ['x', 1, null, true]) expect((await fresh(bad)).getState().jobPlace).toBe('browser');
+    expect((await fresh('server')).getState().jobPlace).toBe('server');
+  });
+
+  it('saves to prefs.v1 and the chart env reads it', async () => {
+    const useStore = await fresh();
+    useStore.getState().setJobPlace('server');
+    useStore.getState().flushPersist();
+    expect(stored('prefs.v1').jobPlace).toBe('server');
+    useStore.getState().setJobPlace('browser');
+    useStore.getState().flushPersist();
+    expect(stored('prefs.v1').jobPlace).toBe('browser');
+  });
+});
+
 describe('pineHigherBars setting', () => {
   async function fresh(saved?: unknown) {
     vi.resetModules();
@@ -592,6 +623,7 @@ describe('chart registry and flat prefs', () => {
     barCountdown: false,
     highLowLabels: false,
     pineHigherBars: 'finished',
+    jobPlace: 'server',
     customTimeframes: ['2h'],
   });
 
@@ -787,6 +819,7 @@ describe('chart registry and flat prefs', () => {
       buildTimeframes: () => useStore.getState().buildTimeframes,
       historyLoading: () => useStore.getState().historyLoading,
       pineHigherBars: () => useStore.getState().pineHigherBars,
+      jobPlace: () => 'browser',
       datasets: () => [],
       addDataset: () => {},
       removeDataset: () => {},

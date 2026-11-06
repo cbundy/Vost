@@ -105,7 +105,7 @@ export function OptimizerTab() {
   return (
     <div>
       <div className="hint mb-2">
-        Grid-search strategy parameters in your browser — up to {fmtNum(MAX_GRID_COMBOS, 0)} backtests per run, no server. Click a result to apply it and
+        Grid-search strategy parameters — up to {fmtNum(MAX_GRID_COMBOS, 0)} backtests per run, in your browser or on the server (see Settings). Click a result to apply it and
         re-run instantly.
       </div>
 

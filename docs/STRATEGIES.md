@@ -38,14 +38,16 @@ The style of each strategy is kept in one table (`STRATEGY_STYLES` in `client/sr
 
 **Entries.** A fresh entry is a bar where the rule's exposure turns long (the bar before was not long) or short (not short). It is taken only if every enabled filter agrees on that same bar. A blocked signal stays flat until the next fresh signal: `composed` never joins part-way through a run. An open position exits when the rule's exposure leaves its side (the rule's own exit; stop loss and take profit apply as usual). A direct flip closes the position and the opposite signal is a new entry that must pass the filters.
 
-**Filters** (each read only on the entry bar, no look-ahead):
+**Filters** (each read only on the entry bar, no look-ahead; the trend and volatility filters can read a higher timeframe, see below):
 
 | Filter | Settings | Passes when |
 |---|---|---|
-| Trend (`trendFilter`: 0 off, 1 SMA, 2 EMA) | `trendLen` | Long: close > average. Short: close < average |
+| Trend (`trendFilter`: 0 off, 1 SMA, 2 EMA) | `trendLen`, `trendTf` | Long: close > average. Short: close < average |
 | Volume (`volumeFilter`: 0/1) | `volumeLen`, `volumeMult` | Bar volume >= `volumeMult` x its `volumeLen`-bar average (including the bar); an average of 0 blocks |
-| Volatility (`atrFilter`: 0/1) | `atrLen`, `atrMinPct`, `atrMaxPct` | ATR / close x 100 within the band, edges included |
+| Volatility (`atrFilter`: 0/1) | `atrLen`, `atrMinPct`, `atrMaxPct`, `atrTf` | ATR / close x 100 within the band, edges included |
 | Trend strength (`adxFilter`: 0/1) | `adxLen`, `adxMin` | ADX >= `adxMin` |
+
+**Higher timeframe.** `trendTf` and `atrTf` (1 same as the chart, or 2, 3, 4, 6, 8, 12, 24 times the chart's bar length; default 1) build longer bars from the loaded bars and read the trend average, the close and the ATR on them. A longer bar counts only once it has closed by the current bar's close, decided by the clock and never by looking at the next bar: the bar's bucket is closed when the next bar's start would fall in a later bucket. Until then the filter reads the previous closed longer bar, so its value changes only on the bar that closes a bucket. A bucket that ends early (a session close, a data gap) shows up on the first bar of the next bucket, late and never early. Buckets are cut on UTC time, so for stocks a 24x bucket is a UTC day, not the exchange session. A partial first bucket is dropped, and the filter is warming up until there is a closed longer bar and enough of them. Example: on 1-hour bars with the trend on 4x, the 4-hour value changes on the 03:00 bar, which closes the 00:00-04:00 bucket, and again on 07:00. If the multiple is not a valid timeframe, or the bars are a week or longer, the filter runs on the loaded bars, as with 1.
 
 **Warm-up.** The signal is null until the entry rule and every enabled filter have values.
 

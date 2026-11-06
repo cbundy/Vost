@@ -63,6 +63,7 @@ function setup(opts: { total?: number; mode?: HistoryLoading; build?: boolean } 
     buildTimeframes: () => opts.build === true,
     historyLoading: () => mode,
     pineHigherBars: () => 'forming',
+    jobPlace: () => 'browser',
     datasets: () => [],
     addDataset: () => {},
     removeDataset: () => {},

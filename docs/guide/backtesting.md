@@ -63,7 +63,7 @@ The Results tab names the modes in its badges (for example `SL 2 ATR`, `TP 3R`, 
 
 ## Composed strategy
 
-**Composed** takes its entries from one rule (SMA or EMA crossover, MACD, RSI, Bollinger or Donchian) and lets up to four filters veto them: trend (price above or below an SMA or EMA), volume (at least a multiple of its recent average), volatility (ATR as a percent of price inside a band) and trend strength (ADX at least a level). Choose the **Entry rule**, then switch filters on; only the chosen rule's settings and the enabled filters' settings show. A blocked entry is skipped for the rest of that signal run, and exits are the entry rule's own. With every filter off it equals the entry rule alone. Rules in [Composed strategy](../STRATEGIES.md#composed-strategy).
+**Composed** takes its entries from one rule (SMA or EMA crossover, MACD, RSI, Bollinger or Donchian) and lets up to four filters veto them: trend (price above or below an SMA or EMA), volume (at least a multiple of its recent average), volatility (ATR as a percent of price inside a band) and trend strength (ADX at least a level). Choose the **Entry rule**, then switch filters on; only the chosen rule's settings and the enabled filters' settings show. A blocked entry is skipped for the rest of that signal run, and exits are the entry rule's own. With every filter off it equals the entry rule alone. The trend and volatility filters can also read a longer timeframe built from your bars (for example a 4-hour trend on 1-hour entries), using only longer bars that have already closed. Rules in [Composed strategy](../STRATEGIES.md#composed-strategy).
 
 ![Composed with an EMA entry and the trend and volume filters on](../evidence/bt-results/bt-results-composed-settings-desktop.png)
 
@@ -97,6 +97,24 @@ The pane has a **From** and **To** range. The backtester and the optimizer run o
 When the range starts before the bars the chart has loaded (the chart opens on the latest page of history), running loads the older history first (the progress bar says "Loading history"), tests the whole range and moves the chart to show it. A range inside the loaded bars runs at once and leaves the chart alone. If the data source has no bars that far back, or the load fails, the run says so or uses what exists.
 
 ![A backtest range](../evidence/bt-range/bt-range-range-desktop.png)
+
+## Where heavy jobs run
+
+By default a backtest, an optimizer run and a Monte Carlo run run in your browser tab and stop when the tab closes. In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup)). A choice applies to the next job; a job already running is not moved.
+
+On **Server**, a run of a built-in strategy goes to the Vost server and shows the same progress bar and the same results as in the browser. Pine and custom-code strategies, and chart indicators, always run in the browser. The finish message says where the run happened ("Backtest finished on the server in 1,898 ms ...").
+
+![A backtest finished on the server](../evidence/server-jobs/server-jobs-backtest-desktop.png)
+
+A server run keeps going when you close the tab or reload. Open the chart again and it shows the progress of a run still going, or the finished result; a run that ended while Vost was closed adds a note to the inbox under Backtest ("... finished on the server while Vost was closed"). A Monte Carlo run is picked up again only while the backtest it ran on is the one shown. **Cancel** on a server optimizer run stops it on the server and brings back the previous result. If the server restarts during a run, the run is gone and a message says so.
+
+![An optimizer run going on the server](../evidence/server-jobs/server-jobs-running-desktop.png)
+
+![The same run after reloading the page, with its progress back](../evidence/server-jobs/server-jobs-reloaded-desktop.png)
+
+![The finished result after the reload](../evidence/server-jobs/server-jobs-result-desktop.png)
+
+If the server cannot take a job (its engine is missing, its data folder cannot be written, the request is too big or the server cannot be reached), the job runs in the browser instead and one message says why ("Server jobs unavailable (...); running in the browser"), in a toast and in the inbox under Backtest. With **Browser** picked, nothing is sent to the server.
 
 ## Results
 

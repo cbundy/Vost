@@ -49,7 +49,8 @@ import {
   stepReplay as stepPosition,
 } from '../lib/replay';
 import { nextPineSelection } from '../lib/pineSelection';
-import { CancelledError, optimizerCall, workerCall } from './worker';
+import { CancelledError, workerCall } from './worker';
+import { reattachJobs, runJob, runOptimizerJob, ServerRestartedError, type JobPlace, type JobOptions } from './jobs';
 import type { BroadcastOpt, SyncChange } from '../lib/layoutSync';
 
 /** Latest Pine run of one indicator entry. `result` is kept while a newer run is in flight. */
@@ -150,6 +151,8 @@ export interface ChartEnv {
   historyLoading(): HistoryLoading;
   /** Whether a Pine script's live bar sees the forming higher-timeframe bar (TradingView) or only finished ones. */
   pineHigherBars(): 'forming' | 'finished';
+  /** Where backtests, optimizer runs and Monte Carlo runs start: in this tab or on the server. Read when a job starts. */
+  jobPlace(): JobPlace;
   /** The saved local datasets. */
   datasets(): Dataset[];
   addDataset(dataset: Dataset): void;
@@ -365,6 +368,75 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   let liveHandle: LiveHandle | null = null;
   /** The running optimizer sweep: its cancel handle and the result shown before it started. */
   let mcToken = 0;
+  /** The server job the shown backtest came from (null for a browser run), so a Monte Carlo job can be matched to it after a reload. */
+  let btRun: { result: BacktestResult; id: string } | null = null;
+  const shownRunId = (): string | null => (btRun && btRun.result === get().btResult ? btRun.id : null);
+  /** Options every server-capable job passes: the fallback notice, once. */
+  const serverNotice = (source: string): JobOptions['onFallback'] => (reason) => {
+    const text = `Server jobs unavailable (${reason}); running in the browser`;
+    env.pushToast('info', text);
+    env.pushMessage(source, 'info', text);
+  };
+  /** A result shown by a reattach before the chart's first bars arrived: the bars' arrival must not clear it. */
+  let restoredBeforeBars = false;
+  const reattachServerJobs = (): void => {
+    const failText = (restarted: boolean, label: string, err: Error): string => (restarted ? err.message : `${label} failed: ${err.message}`);
+    void reattachJobs({
+      chartId: id0,
+      current: () => ({ symbol: get().symbol, timeframe: get().timeframe, strategyId: get().btConfig.strategyId, runId: shownRunId() }),
+      running(kind, pct, stage, cancel) {
+        if (kind === 'run') set({ btRunning: true, btProgress: pct, btStage: stage ?? null, btError: null });
+        else if (kind === 'montecarlo') set({ mcRunning: true, mcError: null });
+        else {
+          if (!optRun) optRun = { cancel, previous: get().optResult };
+          set({ optRunning: true, optProgress: pct });
+        }
+      },
+      done(kind, record, body) {
+        if (kind === 'run') {
+          const result = body.result as BacktestResult;
+          btRun = { result, id: record.id };
+          if (get().candles.length === 0) restoredBeforeBars = true;
+          set({ btResult: result, btRunning: false, btProgress: 0, btStage: null });
+        } else if (kind === 'montecarlo') {
+          const source = get().btResult;
+          if (!source || shownRunId() !== record.sourceRunId) return set({ mcRunning: false });
+          set({ mcResult: { source, result: body.result as MonteCarloResult, options: record.options ?? get().mcConfig }, mcRunning: false });
+        } else if (!record.context) {
+          optRun = null;
+          set({ optRunning: false, optProgress: 0 });
+        } else {
+          optRun = null;
+          if (get().candles.length === 0) restoredBeforeBars = true;
+          const b = body as unknown as NonNullable<ChartState['optResult']>;
+          set({
+            optResult: { rows: b.rows, keys: b.keys, metric: b.metric, combos: b.combos, errored: b.errored, validation: b.validation, walkForward: b.walkForward, context: record.context },
+            optRunning: false,
+            optProgress: 1,
+          });
+        }
+      },
+      failed(kind, err) {
+        const restarted = err instanceof ServerRestartedError;
+        if (kind === 'run') set({ btRunning: false, btProgress: 0, btStage: null, btError: restarted ? null : err.message });
+        else if (kind === 'montecarlo') set({ mcRunning: false });
+        else {
+          optRun = null;
+          set({ optRunning: false, optProgress: 0 });
+        }
+        env.pushToast('error', failText(restarted, kind === 'run' ? 'Backtest' : kind === 'optimize' ? 'Optimizer' : 'Monte Carlo', err));
+      },
+      stopped(kind) {
+        if (kind === 'run') set({ btRunning: false, btProgress: 0, btStage: null });
+        else if (kind === 'montecarlo') set({ mcRunning: false });
+        else {
+          optRun = null;
+          set({ optRunning: false, optProgress: 0 });
+        }
+      },
+      note: (text) => env.pushMessage('Backtest', 'info', text),
+    });
+  };
   let optRun: { cancel: () => void; previous: ChartState['optResult'] } | null = null;
   /** The replay play timer; every path that ends replay clears it. */
   let replayTimer: ReturnType<typeof setTimeout> | null = null;
@@ -508,6 +580,8 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
   const setCandles = (candles: Candle[], dataLabel: string, activeDatasetId: string | null) => {
     dropReplay();
     if (activeDatasetId != null && (get().live || liveHandle)) stopLive(); // a local dataset never streams
+    const keepResults = restoredBeforeBars && get().candles.length === 0;
+    restoredBeforeBars = false;
     set({
       candles,
       chartRange: null,
@@ -518,9 +592,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       dataLabel,
       activeDatasetId,
       loadState: 'ready',
-      btResult: null,
-      btError: null,
-      optResult: null,
+      ...(keepResults ? {} : { btResult: null, btError: null, optResult: null }),
       historyStart: false,
       olderLoading: false,
     });
@@ -666,7 +738,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
     });
   };
 
-  return {
+  const state: ChartState = {
     id,
     ...initial,
     pineRuns: {},
@@ -1246,21 +1318,33 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       set({ btRunning: true, btProgress: 0, btStage: null, btError: null });
       try {
         const t0 = performance.now();
-        const msg = await workerCall({ type: 'run', candles, config: { ...btConfig, market: pineMarket() } }, (pct, stage) =>
-          set({ btProgress: pct, btStage: stage ?? null }),
+        let jobId: string | null = null;
+        const job = runJob(
+          env.jobPlace(),
+          id0,
+          { type: 'run', candles, config: { ...btConfig, market: pineMarket() } },
+          (pct, stage) => set({ btProgress: pct, btStage: stage ?? null }),
+          {
+            record: { symbol: get().symbol, timeframe: get().timeframe, strategyId: btConfig.strategyId },
+            onStarted: (j) => void (jobId = j.id),
+            onFallback: serverNotice('Backtest'),
+          },
         );
+        const msg = await job.promise;
         if (msg.type !== 'result') throw new Error('Unexpected worker reply');
         const ms = Math.round(performance.now() - t0);
         const atLimit = btRange.from == null && atHistoryLimitOf(get());
+        btRun = job.place() === 'server' && jobId ? { result: msg.result, id: jobId } : null;
         set({ btResult: msg.result, btRunning: false, btProgress: 0, btStage: null });
         env.pushToast(
           'success',
-          `Backtest finished in ${ms} ms — ${msg.result.trades.length} trade(s), ${atLimit ? candles.length.toLocaleString('en-US') : candles.length} bars${atLimit ? ` (the ${HISTORY_MAX_BARS.toLocaleString('en-US')}-bar history limit)` : ''}.`,
+          `Backtest finished ${job.place() === 'server' ? 'on the server' : 'in the browser'} in ${ms} ms — ${msg.result.trades.length} trade(s), ${atLimit ? candles.length.toLocaleString('en-US') : candles.length} bars${atLimit ? ` (the ${HISTORY_MAX_BARS.toLocaleString('en-US')}-bar history limit)` : ''}.`,
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        set({ btRunning: false, btProgress: 0, btStage: null, btError: message });
-        env.pushToast('error', `Backtest failed: ${message}`);
+        const restarted = err instanceof ServerRestartedError;
+        set({ btRunning: false, btProgress: 0, btStage: null, btError: restarted ? null : message });
+        env.pushToast('error', restarted ? message : `Backtest failed: ${message}`);
       }
     },
 
@@ -1301,12 +1385,19 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       const token = ++mcToken;
       set({ mcRunning: true, mcError: null });
       try {
-        const msg = await workerCall({
-          type: 'montecarlo',
-          trades: source.trades,
-          initialCapital: source.metrics.initialCapital,
-          options,
-        });
+        const t0 = performance.now();
+        const sourceRunId = shownRunId();
+        const job = runJob(
+          env.jobPlace(),
+          id0,
+          { type: 'montecarlo', trades: source.trades, initialCapital: source.metrics.initialCapital, options },
+          undefined,
+          {
+            record: { symbol: get().symbol, timeframe: get().timeframe, strategyId: source.config.strategyId, options, ...(sourceRunId && { sourceRunId }) },
+            onFallback: serverNotice('Backtest'),
+          },
+        );
+        const msg = await job.promise;
         if (msg.type !== 'monteCarloResult') throw new Error('Unexpected worker reply');
         if (token !== mcToken) return;
         // The backtest was replaced while this ran: the result belongs to a run that is gone.
@@ -1315,6 +1406,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           return;
         }
         set({ mcResult: { source, result: msg.result, options }, mcRunning: false });
+        if (job.place() === 'server') env.pushToast('success', `Monte Carlo finished on the server in ${Math.round(performance.now() - t0)} ms.`);
       } catch (err) {
         if (token !== mcToken) return;
         set({ mcRunning: false, mcError: err instanceof Error ? err.message : String(err) });
@@ -1420,9 +1512,16 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
-      const call = optimizerCall({ type: 'optimize', candles, config: { ...btConfig, market: pineMarket() }, optimize: optConfig }, (pct) => {
-        if (optRun === run) set({ optProgress: pct });
-      });
+      const t0 = performance.now();
+      const call = runOptimizerJob(
+        env.jobPlace(),
+        id0,
+        { type: 'optimize', candles, config: { ...btConfig, market: pineMarket() }, optimize: optConfig },
+        (pct) => {
+          if (optRun === run) set({ optProgress: pct });
+        },
+        { record: { symbol: get().symbol, timeframe: get().timeframe, strategyId: btConfig.strategyId, context }, onFallback: serverNotice('Backtest') },
+      );
       const run = { cancel: call.cancel, previous };
       optRun = run;
       try {
@@ -1435,6 +1534,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
           optRunning: false,
           optProgress: 1,
         });
+        if (call.place() === 'server') {
+          env.pushToast('success', `Optimizer finished on the server in ${Math.round(performance.now() - t0)} ms — ${msg.combos} parameter combination(s).`);
+        }
         if (msg.errored > 0) {
           env.pushToast('error', `${msg.errored} of ${msg.combos} parameter combinations failed (see custom code).`);
         }
@@ -1442,7 +1544,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         if (optRun !== run || err instanceof CancelledError) return;
         optRun = null;
         set({ optRunning: false, optResult: previous });
-        env.pushToast('error', `Optimizer failed: ${err instanceof Error ? err.message : String(err)}`);
+        env.pushToast('error', err instanceof ServerRestartedError ? err.message : `Optimizer failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
 
@@ -1489,6 +1591,9 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       }
     },
   };
+  // A server job this chart left running (or finished) when the tab closed shows up again.
+  queueMicrotask(reattachServerJobs);
+  return state;
   });
 }
 
