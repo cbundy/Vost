@@ -16,7 +16,9 @@ import {
   type Side,
   type Tool,
 } from './brush';
-import { openStore, setId, whyNotSaved, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
+import { serverJobs } from '../lib/serverJobs';
+import { finishedNote, planReattach, type JobKeeper, type ReattachPlan } from './reattach';
+import { MODEL_ID, openStore, setId, whyNotSaved, type FindForm, type HighlightSet, type SetSource, type Store } from './store';
 import { buildExport, EXPORT_FILE, parseExchange, planImport, setsToWrite, setStamp, type ImportPlan } from './exchange';
 import { SetsPanel, type SetRow } from './SetsPanel';
 import { ImportConflicts, SavedModel } from './SavedModel';
@@ -79,7 +81,27 @@ export default function StrategyMakerPage() {
   const formReady = useRef(false);
   const store = useRef<Store | null>(null);
   const model = useModel();
-  const find = useFind(PROVIDER_BARS, library, (result, used) => void model.save(store.current, result, used));
+  /** The record of the server job a run waits for; writes go one after the other so a clear never overtakes a put. */
+  const jobWrites = useRef<Promise<unknown>>(Promise.resolve());
+  const keeper = useMemo<JobKeeper>(
+    () => ({
+      put: (rec) => void (jobWrites.current = jobWrites.current.then(() => store.current?.putJob(rec)).catch(() => undefined)),
+      clear: () => void (jobWrites.current = jobWrites.current.then(() => store.current?.deleteJob()).catch(() => undefined)),
+    }),
+    [],
+  );
+  const onFallback = useCallback(
+    (reason: string) => setNote({ error: false, text: `Server jobs unavailable (${reason}); running in the browser` }),
+    [],
+  );
+  const [sweepPlan, setSweepPlan] = useState<ReattachPlan | null>(null);
+  const find = useFind(
+    PROVIDER_BARS,
+    library,
+    (result, used, trainedOn) =>
+      void (trainedOn ? model.saveRecord(store.current, { id: MODEL_ID, version: 1, result, trainedOn }) : model.save(store.current, result, used)),
+    { keeper, onFallback },
+  );
   const [saved, setSaved] = useState<HighlightSet[]>([]);
   const savedRef = useRef<HighlightSet[]>([]);
   savedRef.current = saved;
@@ -166,6 +188,15 @@ export default function StrategyMakerPage() {
         /* the form keeps its defaults */
       }
       if (!gone) formReady.current = true;
+      if (gone) return;
+      // The run the page was waiting for when it was last closed: follow it, show it or forget it.
+      const plan = await planReattach(st, serverJobs);
+      if (gone || plan.action === 'none' || plan.action === 'keep') return;
+      if (plan.action === 'drop') return keeper.clear();
+      if (plan.action === 'show') setNote({ error: false, text: finishedNote(plan.record.kind) });
+      if (plan.record.kind === 'sweep') return setSweepPlan(plan);
+      const sets = await st.list().catch(() => [] as HighlightSet[]);
+      void find.adopt(plan, sets);
     });
     return () => {
       gone = true;
@@ -673,7 +704,7 @@ export default function StrategyMakerPage() {
         {find.result && !find.run.running && (
           <Results result={find.result} selected={find.selected} onSelect={(c) => find.select(c, candles)} source={label} />
         )}
-        <SweepPanel getClient={find.getClient} />
+        <SweepPanel getClient={find.getClient} keeper={keeper} onFallback={onFallback} reattach={sweepPlan} />
       </main>
     </div>
   );

@@ -6,10 +6,13 @@
 import type { Candle } from '../../../shared/market.ts';
 import type { HighlightTrade } from './brush';
 import type { TrainResult } from './engine';
+import type { FindInputs, SkippedSet } from './run';
+import type { SweepRisk } from './sweep/types';
 import { migrateBrowserData, type MoveNotice } from './migrate';
 
 export const INPUTS_ID = 'find-inputs';
 export const MODEL_ID = 'model';
+export const JOB_ID = 'job';
 
 export type SetSource =
   | { kind: 'provider'; provider: string; symbol: string; timeframe: string }
@@ -76,6 +79,30 @@ export interface ModelRecord {
   trainedOn: Array<{ id: string; trades: number; stamp: string }>;
 }
 
+/** What a server run needs to be shown again when the page was closed meanwhile. */
+export type JobContext =
+  | {
+      kind: 'find';
+      inputs: FindInputs;
+      seriesLabels: string[];
+      skippedSets: SkippedSet[];
+      usedSetIds: string[];
+      reused: boolean;
+      trainedOn: ModelRecord['trainedOn'];
+    }
+  | { kind: 'train'; usedSetIds: string[]; skippedSets: SkippedSet[]; trainedOn: ModelRecord['trainedOn'] }
+  | { kind: 'sweep'; risk: SweepRisk };
+
+/** The server job the page is waiting for: one record, replaced by the next run and deleted when the run is shown. */
+export type JobRecord = {
+  id: typeof JOB_ID;
+  version: 1;
+  jobId: string;
+  kind: 'find' | 'train' | 'sweep';
+  started: number;
+  context: JobContext;
+};
+
 /** Options of a write. */
 export interface WriteOptions {
   /** The page is going away: send it as a `keepalive` request when the body is small enough for the browser to allow that. */
@@ -87,6 +114,9 @@ export interface Store {
   putModel(record: ModelRecord): Promise<void>;
   /** Writes the sets and the model: all of it or none of it. */
   importAll(sets: HighlightSet[], model: ModelRecord | null): Promise<void>;
+  getJob(): Promise<JobRecord | undefined>;
+  putJob(record: JobRecord): Promise<void>;
+  deleteJob(): Promise<void>;
   getInputs(): Promise<FindInputsRecord | undefined>;
   putInputs(form: FindForm): Promise<void>;
   get(id: string): Promise<HighlightSet | undefined>;
@@ -173,6 +203,9 @@ export async function openStore(opts: OpenOptions = {}): Promise<Store | null> {
     getModel: () => read<ModelRecord>('model'),
     putModel: async (record) => void (await call('PUT', 'model', record)),
     importAll: async (sets, model) => void (await call('POST', 'import', { sets, model })),
+    getJob: () => read<JobRecord>('job'),
+    putJob: async (record) => void (await call('PUT', 'job', record)),
+    deleteJob: async () => void (await call('DELETE', 'job')),
     getInputs: () => read<FindInputsRecord>('inputs'),
     putInputs: async (form) => void (await call('PUT', 'inputs', { id: INPUTS_ID, version: 1, form } satisfies FindInputsRecord)),
     get: (id) => read<HighlightSet>(setPath(id)),

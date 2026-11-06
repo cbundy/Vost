@@ -9,11 +9,12 @@
  *   DELETE /api/strategy-maker/sets/<id>   remove it (204, or 404)
  *   GET|PUT|DELETE /api/strategy-maker/inputs   the find form record
  *   GET|PUT|DELETE /api/strategy-maker/model    the trained model record
+ *   GET|PUT|DELETE /api/strategy-maker/job      the server job the page is waiting for (reattach after a reload)
  *   POST   /api/strategy-maker/import      { sets, model } - overwrite, all or nothing
  *   POST   /api/strategy-maker/migrate     { sets, inputs, model } - adopt what is missing, archive what differs
  *
  * Storage is one doc-store folder: a set is `set-<sha256 hex of its id>.json` (an id is not a safe
- * file name), the other two records are `inputs.json` and `model.json`.
+ * file name), the other records are `inputs.json`, `model.json` and `job.json`.
  */
 import { createHash } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
@@ -30,6 +31,7 @@ const BASE = '/api/strategy-maker';
 const SETS = `${BASE}/sets`;
 const INPUTS = 'inputs';
 const MODEL = 'model';
+const JOB = 'job';
 
 export const isStrategyMakerPath = (pathname: string): boolean => pathname === BASE || pathname.startsWith(`${BASE}/`);
 
@@ -176,10 +178,10 @@ export async function handleStrategyMaker(req: IncomingMessage, res: ServerRespo
       return reply(res, 200, result);
     }
 
-    // The three record kinds: a set (by id), the find form, the model.
+    // The record kinds: a set (by id), the find form, the model, the job.
     let name: string;
     let setIdOfPath: string | null = null;
-    if (p === `${BASE}/${INPUTS}` || p === `${BASE}/${MODEL}`) {
+    if (p === `${BASE}/${INPUTS}` || p === `${BASE}/${MODEL}` || p === `${BASE}/${JOB}`) {
       name = p.slice(BASE.length + 1);
     } else if (p.startsWith(`${SETS}/`)) {
       try {

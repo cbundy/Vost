@@ -200,6 +200,8 @@ export async function runFind(args: {
   label?: (s: SetSource) => string;
   signal?: AbortSignal;
   onProgress?: Progress;
+  /** Called once the sets are loaded, just before the engine starts. */
+  onLoaded?: (info: Omit<FindResult, 'outcome'>) => void;
 }): Promise<FindResult> {
   const { sets, inputs, loaders, signal, onProgress } = args;
   const engine = args.engine ?? runEngine;
@@ -220,6 +222,7 @@ export async function runFind(args: {
   if (loaded.series.length === 0) {
     return { ...base, outcome: { kind: 'refused', reason: 'None of the chosen sets could be loaded, so there is nothing to learn from.' } };
   }
+  args.onLoaded?.(base);
   const outcome = await engine(loaded.series, inputs, signal, (pct, stage) => report(LOAD_SHARE + (1 - LOAD_SHARE) * pct, stage), reuse);
   return { ...base, outcome };
 }
@@ -232,6 +235,8 @@ export async function runRetrain(args: {
   label?: (s: SetSource) => string;
   signal?: AbortSignal;
   onProgress?: Progress;
+  /** Called once the sets are loaded, just before training starts. */
+  onLoaded?: (info: { usedSets: HighlightSet[]; skippedSets: SkippedSet[] }) => void;
 }): Promise<{ outcome: TrainedOutcome; usedSets: HighlightSet[]; skippedSets: SkippedSet[] }> {
   const { sets, loaders, signal, onProgress } = args;
   const trainer = args.trainer ?? runTrain;
@@ -250,6 +255,7 @@ export async function runRetrain(args: {
   if (loaded.series.length === 0) {
     return { ...base, outcome: { kind: 'refused', reason: 'None of the chosen sets could be loaded, so there is nothing to learn from.' } };
   }
+  args.onLoaded?.(base);
   const outcome = await trainer(loaded.series, signal, (pct, stage) => report(LOAD_SHARE + (1 - LOAD_SHARE) * pct, stage));
   return { ...base, outcome };
 }

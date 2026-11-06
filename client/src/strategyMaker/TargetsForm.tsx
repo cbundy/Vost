@@ -15,6 +15,8 @@ export interface RunState {
   pct: number;
   stage: FindStage;
   onPage: boolean;
+  /** The run is a job on the Vost server, which keeps going when the page closes. */
+  onServer: boolean;
 }
 
 interface Props {
@@ -30,6 +32,8 @@ interface Props {
   onFind: () => void;
   onCancel: () => void;
 }
+
+export const ON_SERVER = 'Running on the server; it keeps going if you close the page.';
 
 const toggle = (list: string[], v: string): string[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -181,6 +185,7 @@ export function TargetsForm({ form, onChange, sets, chosen, onChosen, errors, tr
           <span>
             {run.stage} - {Math.round(run.pct * 100)}%
           </span>
+          {run.onServer && <span className="sm-note">{ON_SERVER}</span>}
           {run.onPage && <span className="sm-note sm-warn">Running on this page; it may pause while it works.</span>}
         </div>
       )}

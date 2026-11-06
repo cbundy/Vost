@@ -8,7 +8,7 @@
 import { CancelledError, optimizerCall, workerCall, type WorkerProgress } from './worker';
 import type { WorkerRequestBody, WorkerResponse } from '../lib/workers/backtest.worker';
 import type { BacktestStage } from '../lib/backtest/types';
-import { serverJobs, ServerUnavailableError, isTerminal, type ServerJobs, type ServerJobSummary } from './serverJobs';
+import { serverJobs, ServerUnavailableError, isTerminal, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
 import { getJobRecord, patchJobRecord, putJobRecord, removeJobRecord, type JobRecord, type RecordKind } from './jobRecord';
 
 export type JobPlace = 'browser' | 'server';

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createEngineClient, type WorkerLike } from './engineClient';
-import { SIGNAL_FAMILIES } from './engine';
+import { SIGNAL_FAMILIES, type TrainResult } from './engine';
+import { seedStorageForTest } from '../lib/storage';
+import { ServerUnavailableError, type ServerJob, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
 import { highlights, synth } from './engine/synthetic';
 import type { Reply, Request } from './protocol';
 import type { FindInputs } from './run';
@@ -331,5 +333,304 @@ describe('sweep', () => {
     void client.find([{ candles: [], trades: [] }], inputs).catch(() => undefined);
     await expect(sweep).rejects.toMatchObject({ name: 'AbortError' });
     expect(w.sent.map((m) => m.type)).toEqual(['sweep', 'cancel', 'find']);
+  });
+});
+
+describe('on the server', () => {
+  type Sum = ServerJobSummary;
+  const summary = (id: string, state: Sum['state'], extra: Partial<Sum> = {}): Sum => ({
+    id,
+    kind: 'find',
+    scope: 'strategy-maker',
+    state,
+    progress: 0,
+    created: 1,
+    ...extra,
+  });
+
+  /** A jobs API that records its calls and lets the test push summaries to the followers. */
+  function fakeJobs(opts: { startError?: Error } = {}) {
+    const started: Array<{ kind: string; request: unknown; scope: string; placement: unknown }> = [];
+    const cancelled: string[] = [];
+    const followers = new Map<string, (s: Sum) => void>();
+    const stopped: string[] = [];
+    const results = new Map<string, ServerJob>();
+    let n = 0;
+    const jobs: ServerJobs = {
+      async startJob(kind, request, scope, placement) {
+        if (opts.startError) throw opts.startError;
+        started.push({ kind, request, scope, placement });
+        return summary(`job${++n}`, 'queued', { kind });
+      },
+      followJob(id, fn) {
+        followers.set(id, fn);
+        return () => void stopped.push(id);
+      },
+      async getJob(id) {
+        return results.get(id) ?? null;
+      },
+      async cancelJob(id) {
+        cancelled.push(id);
+      },
+      async listJobs() {
+        return [];
+      },
+    };
+    return {
+      jobs,
+      started,
+      cancelled,
+      stopped,
+      push: (s: Sum, result?: unknown) => {
+        if (result !== undefined) results.set(s.id, { ...s, result });
+        followers.get(s.id)?.(s);
+      },
+      setResult: (s: Sum, result: unknown) => results.set(s.id, { ...s, result }),
+    };
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const okOutcome = { kind: 'refused', reason: 'x' } as const;
+  const server = (jobs: ServerJobs, worker = new StubWorker()) => ({
+    worker,
+    client: createEngineClient({ makeWorker: () => worker, place: () => 'server', jobs }),
+  });
+
+  it('starts a find, train and sweep job with the request and the strategy-maker scope, and posts nothing to the worker', async () => {
+    const f = fakeJobs();
+    const { client, worker } = server(f.jobs);
+    const series = [{ candles: [], trades: [] }];
+    void client.find(series, inputs).catch(() => undefined);
+    await tick();
+    void client.train(series).catch(() => undefined);
+    await tick();
+    const input = { markets: [] } as unknown as SweepInput;
+    void client.sweep(input).catch(() => undefined);
+    await tick();
+    expect(f.started.map((s) => [s.kind, s.scope, s.placement])).toEqual([
+      ['find', 'strategy-maker', { where: 'server', reason: 'setting' }],
+      ['train', 'strategy-maker', { where: 'server', reason: 'setting' }],
+      ['sweep', 'strategy-maker', { where: 'server', reason: 'setting' }],
+    ]);
+    expect(f.started[0].request).toEqual({ series, inputs });
+    expect(f.started[1].request).toEqual({ series });
+    expect(f.started[2].request).toEqual({ input });
+    expect(worker.sent).toEqual([]);
+    client.dispose();
+  });
+
+  it('sends the model of a find that reuses one', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const model = { kind: 'ok' } as unknown as TrainResult;
+    void client.find([], inputs, { model }).catch(() => undefined);
+    await tick();
+    expect(f.started[0].request).toEqual({ series: [], inputs, model });
+    client.dispose();
+  });
+
+  it('trades still goes to the worker', async () => {
+    const f = fakeJobs();
+    const { client, worker } = server(f.jobs);
+    void client.trades([], { strategyId: 's', params: {} }, inputs).catch(() => undefined);
+    expect(worker.sent.map((m) => m.type)).toEqual(['trades']);
+    expect(f.started).toEqual([]);
+    client.dispose();
+  });
+
+  it('reports progress without decreasing, with the stage, on the server, and resolves with the outcome', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const seen: Array<[number, string, boolean]> = [];
+    const run = client.find([], inputs, { onProgress: (p, s, page) => seen.push([p, s, page]) });
+    await tick();
+    f.push(summary('job1', 'running', { progress: 0.4, stage: 'Searching' }));
+    f.push(summary('job1', 'running', { progress: 0.2, stage: 'Validating' }));
+    f.push(summary('job1', 'running', { progress: 0.5 }));
+    f.push(summary('job1', 'done', { progress: 1 }), { type: 'result', outcome: okOutcome });
+    await expect(run).resolves.toEqual(okOutcome);
+    expect(seen).toEqual([
+      [0.4, 'Searching', false],
+      [0.4, 'Validating', false],
+      [0.5, 'Validating', false],
+    ]);
+    expect(f.stopped).toEqual(['job1']);
+  });
+
+  it('a sweep reports its stage as the label and resolves with the result', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const seen: Array<[number, string, boolean]> = [];
+    const run = client.sweep({} as SweepInput, { onProgress: (p, page) => seen.push([p.pct, p.label, page]) });
+    await tick();
+    f.push(summary('job1', 'running', { progress: 0.3, stage: 'BTC 1h' }));
+    f.push(summary('job1', 'running', { progress: 0.1 }));
+    const result = { rows: [] } as unknown as SweepResult;
+    f.push(summary('job1', 'done', { progress: 1 }), { type: 'sweep-result', result });
+    await expect(run).resolves.toBe(result);
+    expect(seen).toEqual([
+      [0.3, 'BTC 1h', false],
+      [0.3, '', false],
+    ]);
+  });
+
+  it('a train resolves with its outcome', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const run = client.train([]);
+    await tick();
+    f.push(summary('job1', 'done'), { type: 'result', outcome: { kind: 'too-few', have: 1, need: 5 } });
+    await expect(run).resolves.toEqual({ kind: 'too-few', have: 1, need: 5 });
+  });
+
+  it('rejects with the server error on failed, the restart on interrupted, and an AbortError on cancelled', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const a = client.find([], inputs);
+    await tick();
+    f.push(summary('job1', 'failed', { error: 'boom' }));
+    await expect(a).rejects.toThrow('boom');
+    const b = client.find([], inputs);
+    await tick();
+    f.push(summary('job2', 'interrupted'));
+    await expect(b).rejects.toThrow('stopped: the server restarted');
+    const c = client.find([], inputs);
+    await tick();
+    f.push(summary('job3', 'cancelled'));
+    await expect(c).rejects.toMatchObject({ name: 'AbortError' });
+    expect(f.cancelled).toEqual([]);
+  });
+
+  it('aborting rejects at once, without a timer, and cancels the job once', async () => {
+    vi.useFakeTimers();
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const ctl = new AbortController();
+    const run = client.find([], inputs, { signal: ctl.signal });
+    const caught = run.catch((e: Error) => e);
+    await vi.advanceTimersByTimeAsync(0);
+    ctl.abort();
+    ctl.abort();
+    expect(await caught).toMatchObject({ name: 'AbortError' });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(f.cancelled).toEqual(['job1']);
+    expect(f.stopped).toEqual(['job1']);
+  });
+
+  it('an abort before the server has answered cancels the job when it is accepted', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const ctl = new AbortController();
+    const run = client.find([], inputs, { signal: ctl.signal });
+    ctl.abort();
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    await tick();
+    expect(f.cancelled).toEqual(['job1']);
+  });
+
+  it('a newer run cancels the server job', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const first = client.find([], inputs);
+    const caught = first.catch((e: Error) => e);
+    await tick();
+    void client.train([]).catch(() => undefined);
+    expect(await caught).toMatchObject({ name: 'AbortError' });
+    await tick();
+    expect(f.cancelled).toEqual(['job1']);
+    expect(f.started.map((s) => s.kind)).toEqual(['find', 'train']);
+    client.dispose();
+  });
+
+  it('dispose lets go of the job without cancelling it', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const run = client.find([], inputs);
+    const caught = run.catch((e: Error) => e);
+    await tick();
+    client.dispose();
+    expect(await caught).toMatchObject({ name: 'AbortError' });
+    expect(f.cancelled).toEqual([]);
+    expect(f.stopped).toEqual(['job1']);
+  });
+
+  it('reports the job id once the server has it', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const ids: string[] = [];
+    void client.find([], inputs, { onServerJob: (id) => ids.push(id) }).catch(() => undefined);
+    await tick();
+    expect(ids).toEqual(['job1']);
+    client.dispose();
+  });
+
+  it('runs on the worker and says why when the server cannot take the job', async () => {
+    const f = fakeJobs({ startError: new ServerUnavailableError('the server cannot be reached') });
+    const { client, worker } = server(f.jobs);
+    const reasons: string[] = [];
+    const run = client.find([{ candles: [], trades: [] }], inputs, { onFallback: (r) => reasons.push(r) });
+    await tick();
+    expect(reasons).toEqual(['the server cannot be reached']);
+    expect(worker.sent.map((m) => m.type)).toEqual(['find']);
+    worker.reply({ v: 1, id: worker.sent[0].id, type: 'result', outcome: okOutcome });
+    await expect(run).resolves.toEqual(okOutcome);
+  });
+
+  it('resume follows a running job to its result, with progress', async () => {
+    const f = fakeJobs();
+    const { client, worker } = server(f.jobs);
+    const seen: number[] = [];
+    const run = client.resume('find', 'job9', { onProgress: (p) => seen.push(p) });
+    await tick();
+    f.push(summary('job9', 'running', { progress: 0.6, stage: 'Searching' }));
+    f.push(summary('job9', 'done'), { type: 'result', outcome: okOutcome });
+    await expect(run).resolves.toEqual(okOutcome);
+    expect(seen).toEqual([0.6]);
+    expect(f.started).toEqual([]);
+    expect(worker.sent).toEqual([]);
+  });
+
+  it('resume of a finished job resolves at once, and can be cancelled like a fresh run', async () => {
+    const f = fakeJobs();
+    const { client } = server(f.jobs);
+    const done = summary('job9', 'done');
+    f.setResult(done, { type: 'sweep-result', result: { rows: [] } });
+    const run = client.resume('sweep', 'job9');
+    await tick();
+    f.push(done);
+    await expect(run).resolves.toEqual({ rows: [] });
+    const ctl = new AbortController();
+    const again = client.resume('find', 'job8', { signal: ctl.signal });
+    await tick();
+    ctl.abort();
+    await expect(again).rejects.toMatchObject({ name: 'AbortError' });
+    expect(f.cancelled).toEqual(['job8']);
+  });
+
+  it('with the browser chosen, no job is started', async () => {
+    const f = fakeJobs();
+    const worker = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => worker, place: () => 'browser', jobs: f.jobs });
+    const run = client.find([], inputs);
+    worker.reply({ v: 1, id: worker.sent[0].id, type: 'result', outcome: okOutcome });
+    await run;
+    void client.sweep({} as SweepInput).catch(() => undefined);
+    expect(f.started).toEqual([]);
+    client.dispose();
+  });
+
+  it('reads the Settings choice at the start of each run by default', async () => {
+    const f = fakeJobs();
+    const worker = new StubWorker();
+    const client = createEngineClient({ makeWorker: () => worker, jobs: f.jobs });
+    void client.find([], inputs).catch(() => undefined);
+    await tick();
+    expect(f.started).toEqual([]);
+    expect(worker.sent.map((m) => m.type)).toEqual(['find']);
+    seedStorageForTest({ 'prefs.v1': { jobPlace: 'server' } });
+    void client.find([], inputs).catch(() => undefined);
+    await tick();
+    expect(f.started.map((x) => x.kind)).toEqual(['find']);
+    client.dispose();
+    seedStorageForTest();
   });
 });

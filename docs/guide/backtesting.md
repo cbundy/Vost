@@ -100,7 +100,7 @@ When the range starts before the bars the chart has loaded (the chart opens on t
 
 ## Where heavy jobs run
 
-By default a backtest, an optimizer run and a Monte Carlo run run in your browser tab and stop when the tab closes. In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup)). A choice applies to the next job; a job already running is not moved.
+By default a backtest, an optimizer run and a Monte Carlo run run in your browser tab and stop when the tab closes. The same choice sends the strategy maker's Find, Retrain and market search to the server (see [Where Find and the market search run](strategy-maker.md#where-find-and-the-market-search-run)). In **Settings**, **Heavy jobs** lets you pick **Server** instead (see [The Settings popup](getting-started.md#the-settings-popup)). A choice applies to the next job; a job already running is not moved.
 
 On **Server**, a run of a built-in strategy goes to the Vost server and shows the same progress bar and the same results as in the browser. Pine and custom-code strategies, and chart indicators, always run in the browser. The finish message says where the run happened ("Backtest finished on the server in 1,898 ms ...").
 

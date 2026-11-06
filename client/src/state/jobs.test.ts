@@ -13,7 +13,7 @@ vi.mock('./worker', async (importOriginal) => {
 import { CancelledError, optimizerCall, workerCall } from './worker';
 import { reattachJobs, runJob, runOptimizerJob, ServerRestartedError, type ReattachTarget } from './jobs';
 import { getJobRecord, putJobRecord } from './jobRecord';
-import { ServerUnavailableError, type ServerJob, type ServerJobs, type ServerJobSummary } from './serverJobs';
+import { ServerUnavailableError, type ServerJob, type ServerJobs, type ServerJobSummary } from '../lib/serverJobs';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { Candle } from '../types';
 
