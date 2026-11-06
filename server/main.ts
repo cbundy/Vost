@@ -16,7 +16,7 @@
  *   VOST_DATA_DIR  folder for the files the server writes: alerts.json,
  *                  pine-libraries.json, the settings/ folder (one file per
  *                  setting), the strategy-maker/ folder (marked trades, find form and
- *                  trained model of the strategy maker), the images/ folder (drawing pictures) and the candle store (default <repo>/data; /data in the Docker image)
+ *                  trained model of the strategy maker), the jobs/ folder (one file per server job: its summary and result), the images/ folder (drawing pictures) and the candle store (default <repo>/data; /data in the Docker image)
  *   VOST_ALERT_POLL  seconds between price polls for alerts on providers
  *                    without a live feed (default 60; minimum 10)
  *   VOST_TELEGRAM_BOT_TOKEN, VOST_TELEGRAM_CHAT_ID  both set: every alert that
@@ -39,7 +39,7 @@
  *                       NODE_ENV=production or when it is not a loopback URL.
  */
 import http from 'node:http';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -50,6 +50,9 @@ import { createLibraries } from './pine/libraries.ts';
 import { handlePineLibraries, isPineLibrariesPath } from './pine/route.ts';
 import { createImageStore } from './images/store.ts';
 import { handleImages, isImagesPath } from './images/route.ts';
+import { createPool, ENGINE_BUNDLE } from './jobs/pool.ts';
+import { createJobs } from './jobs/jobs.ts';
+import { handleJobs, isJobsPath } from './jobs/route.ts';
 import { handleSettings, isSettingsPath } from './settings/route.ts';
 import { createDocStore } from './settings/store.ts';
 import { handleStrategyMaker, isStrategyMakerPath } from './strategyMaker/route.ts';
@@ -227,6 +230,21 @@ const alerts = await createAlerts({
 const pineLibraries = createLibraries({ dir: DATA_DIR, fetch: apiDeps.fetch, log: (line) => console.log(line) });
 await pineLibraries.load();
 
+const pool = createPool({
+  answer: async (ask) => {
+    if (ask.kind === 'history') return providerHistory(apiDeps, String(ask.provider), ask.req as Parameters<typeof providerHistory>[2]);
+    if (ask.kind === 'library') {
+      const found = await pineLibraries.get(String(ask.path));
+      return found.ok ? found.source : null;
+    }
+    throw new Error(`unknown ask ${String(ask.kind)}`);
+  },
+});
+const jobsStore = createDocStore({ dir: path.join(DATA_DIR, 'jobs'), log: (line) => console.log(line) });
+const jobs = createJobs({ store: jobsStore, pool, log: (line) => console.log(line) });
+await jobs.start();
+const jobsDeps = { jobs, store: jobsStore, log: (line: string) => console.log(line) };
+
 const settings = createDocStore({ dir: path.join(DATA_DIR, 'settings'), log: (line) => console.log(line) });
 const settingsDeps = { store: settings, archiveDir: DATA_DIR, log: (line: string) => console.log(line) };
 const settingsCount = Object.keys(await settings.list()).length;
@@ -249,6 +267,9 @@ const server = http.createServer(async (req, res) => {
 
   // Pictures are same-origin only as well.
   if (isImagesPath(url.pathname)) return void handleImages(req, res, url, imagesDeps);
+
+  // Server jobs are same-origin only as well.
+  if (isJobsPath(url.pathname)) return void handleJobs(req, res, url, jobsDeps);
 
   // The strategy maker's data is same-origin only too.
   if (isStrategyMakerPath(url.pathname)) return void handleStrategyMaker(req, res, url, strategyMakerDeps);
@@ -303,6 +324,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  → settings: /api/settings (${settingsCount} stored in ${path.join(DATA_DIR, 'settings')})`);
   console.log(`  → pictures: /api/images (${images.stats().count} stored in ${path.join(DATA_DIR, 'images')})`);
   console.log(`  → strategy maker: /api/strategy-maker (${strategyMakerCount} sets stored in ${strategyMakerDir})`);
+  console.log(`  → server jobs: /api/jobs (${pool.size} workers; engine bundle ${existsSync(ENGINE_BUNDLE) ? 'present' : 'missing'}; stored in ${path.join(DATA_DIR, 'jobs')})`);
   console.log(`  → candle store: ${`${candles.on ? 'on' : 'off'} (${candles.file})`}`);
   console.log(`  → ${describeRecord(recordConfig, candles.on)}`);
   console.log('');
@@ -313,6 +335,8 @@ server.listen(PORT, HOST, () => {
 const shutdown = (): void => {
   status.scheduler.stop();
   const saved = alerts.stop(); // drops its feeds, ends its streams, writes held prices
+  jobs.close(); // no job is written failed: the next start marks the unfinished ones interrupted
+  pool.close();
   recorder.stop(); // unsubscribes its feeds and aborts its fill, before the relay and the store go
   relay.closeAll(); // ends the streams, so server.close does not wait on them
   candles.close();
