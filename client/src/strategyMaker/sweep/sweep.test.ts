@@ -397,7 +397,8 @@ describe('composed in the search', () => {
     expect(out.held).toBe(0);
     expect(out.baseline?.held).toBe(0);
     expect(out.candidates.some((c) => c.held)).toBe(false);
-  });
+    // The sweep itself takes 4 to 6 s on 4000 bars (6 entry rules x 2 filters x the baseline), so the 5 s default is too tight: 30 s leaves headroom under a loaded full run.
+  }, 30_000);
 
   it('refuses an unknown entry rule, filter or multiple and names the allowed values', async () => {
     const load = fixed({ AAA: edge });

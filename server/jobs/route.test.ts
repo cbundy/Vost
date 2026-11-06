@@ -69,7 +69,8 @@ afterEach(async () => {
   await new Promise((r) => server.close(r));
   await chmod(dir, 0o755).catch(() => undefined);
   await chmod(path.join(dir, 'jobs'), 0o755).catch(() => undefined);
-  await rm(dir, { recursive: true, force: true });
+  // A finished job may still be writing its file when the test ends: retry the removal (ENOTEMPTY) instead of failing the next test run.
+  await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });
 
 const J = { 'content-type': 'application/json' };
