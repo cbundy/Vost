@@ -43,6 +43,24 @@ describe('upstreamJson POST', () => {
   });
 });
 
+describe('upstreamJson caller headers', () => {
+  it('sends a caller header next to the default ones, and a caller header wins over a default', async () => {
+    const { fetch, calls } = sequence(200);
+    await upstreamJson('CoinMarketCap', 'https://pro-api.coinmarketcap.com/x', { fetch }, { headers: { 'X-CMC_PRO_API_KEY': 'k', accept: 'application/json' } });
+    const h = calls[0].init.headers as Record<string, string>;
+    expect(h['X-CMC_PRO_API_KEY']).toBe('k');
+    expect(h['user-agent']).toBeTruthy();
+    expect(h['accept-language']).toBe('en-US,en;q=0.9');
+    expect(h.accept).toBe('application/json');
+  });
+
+  it('sends the same headers as before without any', async () => {
+    const { fetch, calls } = sequence(200);
+    await upstreamJson('Kraken', 'https://api.kraken.com/x', { fetch });
+    expect(Object.keys(calls[0].init.headers as object).sort()).toEqual(['accept', 'accept-language', 'user-agent']);
+  });
+});
+
 describe('upstreamFetch', () => {
   it('retries a 503 once and sends the browser-like headers', async () => {
     vi.useFakeTimers();

@@ -11,7 +11,7 @@ export interface RestReply {
   body: unknown;
 }
 
-type Handler = (url: URL, nowSec: number) => RestReply;
+type Handler = (url: URL, nowSec: number, headers?: Record<string, string | string[] | undefined>) => RestReply;
 
 const COINS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE'];
 const json = (body: unknown): RestReply => ({ body });
@@ -40,6 +40,29 @@ const binance: Handler = (url, nowSec) => {
     return json(rows.map((b) => [b.time * 1000, String(b.open), String(b.high), String(b.low), String(b.close), String(b.volume), b.time * 1000 + step * 1000 - 1, '0', 0, '0', '0', '0']));
   }
   return notFound(url);
+};
+
+/* ------------------------ CoinGecko and CoinMarketCap ----------------------- */
+
+/** Coins in cap order; the volume order is the reverse. USDT and NOPE show the exclusion and skip rules. */
+const RANKED: Array<[string, string]> = [['BTC', 'Bitcoin'], ['ETH', 'Ethereum'], ['USDT', 'Tether'], ['XRP', 'XRP'], ['BNB', 'BNB'], ['SOL', 'Solana'], ['NOPE', 'No Binance Pair Coin'], ['DOGE', 'Dogecoin']];
+const rankedFor = (volume: boolean) => {
+  const rows = RANKED.map(([symbol, name], i) => ({ symbol, name, cap: 1_000_000_000_000 / (i + 1), vol: 50_000_000_000 / (i + 1) }));
+  return volume ? [...rows].reverse() : rows;
+};
+
+const coingecko: Handler = (url) => {
+  if (url.pathname !== '/api/v3/coins/markets') return notFound(url);
+  const volume = url.searchParams.get('order') === 'volume_desc';
+  return json(rankedFor(volume).map((c) => ({ id: c.name.toLowerCase(), symbol: c.symbol.toLowerCase(), name: c.name, market_cap: c.cap, total_volume: c.vol })));
+};
+
+/** Like the real site: 401 without the key header, the listing with any key. */
+const coinmarketcap: Handler = (url, _nowSec, headers) => {
+  if (!headers?.['x-cmc_pro_api_key']) return { status: 401, body: { status: { error_code: 1002, error_message: 'API key missing.' } } };
+  if (url.pathname !== '/v1/cryptocurrency/listings/latest') return notFound(url);
+  const volume = url.searchParams.get('sort') === 'volume_24h';
+  return json({ data: rankedFor(volume).map((c) => ({ symbol: c.symbol, name: c.name, quote: { USD: { market_cap: c.cap, volume_24h: c.vol } } })) });
 };
 
 /* --------------------------------- Coinbase -------------------------------- */
@@ -184,6 +207,8 @@ export const REST_HOSTS: Record<string, Handler> = {
   'api.bybit.com': bybit,
   'www.okx.com': okx,
   'query1.finance.yahoo.com': yahoo,
+  'api.coingecko.com': coingecko,
+  'pro-api.coinmarketcap.com': coinmarketcap,
   'www.tradingview.com': (url) => tradingViewSearch(url),
   'pine-facade.tradingview.com': (url) => tradingViewFacade(url),
 };

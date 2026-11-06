@@ -258,9 +258,27 @@ describe('other routes', () => {
   it('an unknown API path is a 404', async () => {
     expect((await get('/api/whatever')).status).toBe(404);
   });
+  it('the unknown-route message names /api/market-lists', async () => {
+    expect((await get('/api/whatever')).body.error).toMatch(/\/api\/market-lists/);
+  });
   it('only GET is allowed', async () => {
     const res = await fetch(`${base}/api/providers`, { method: 'POST' });
     expect(res.status).toBe(405);
+  });
+});
+
+describe('GET /api/market-lists', () => {
+  it('answers the five lists in order, and a POST is 405', async () => {
+    upstream = (u) => {
+      if (u.hostname === 'api.coingecko.com') return [{ symbol: 'btc', name: 'Bitcoin', market_cap: 5, total_volume: 3 }];
+      if (u.pathname === '/api/v3/exchangeInfo') return binanceInfo;
+      throw new Error(`unexpected ${u}`);
+    };
+    const r = await get('/api/market-lists');
+    expect(r.status).toBe(200);
+    expect(r.body.lists.map((l: { id: string }) => l.id)).toEqual(['crypto-cap', 'crypto-volume', 'stocks-cap', 'stocks-volume', 'indices']);
+    expect(r.body.lists[0].entries[0]).toMatchObject({ provider: 'binance', symbol: 'BTCUSDT', rank: 1 });
+    expect((await fetch(`${base}/api/market-lists`, { method: 'POST' })).status).toBe(405);
   });
 });
 

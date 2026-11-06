@@ -80,6 +80,8 @@ Yahoo Finance and the Demo provider have no live stream.
 | Finnhub | Stocks, FX, crypto | Free key | Yes (ws trades) | Varies | Not checked (needs key) | No |
 | Tiingo | Stocks, ETFs, FX, crypto | Free key | Yes (ws, IEX) | Date range | Not checked (needs key) | No |
 
+The crypto rankings behind the market lists come from CoinGecko and CoinMarketCap (see their section); they provide no candles.
+
 Recommended next: Twelve Data and Alpha Vantage as the free-key equity and FX sources. Finnhub and Tiingo are lower priority (see their sections).
 
 ## Binance (supported)
@@ -263,6 +265,17 @@ Not requested from the container (needs a key); verify before building.
 - Live: websocket for IEX, FX and crypto (restricted on the free plan, verify).
 - Key: free token; `Authorization: Token <key>` header or `token` query parameter.
 - ToS: free plan is for personal use only. [Terms](https://www.tiingo.com/about/terms).
+
+## CoinGecko and CoinMarketCap (market lists)
+
+Not price sources: the server asks them only for the ranking behind the crypto lists of the market search (`GET /api/market-lists`: top 30 by market cap and by 24h volume). Each coin is mapped to its Binance `<SYMBOL>USDT` pair; stablecoins, wrapped, staked and leveraged tokens are left out and coins without a TRADING Binance pair are listed as skipped. The stock and index lists are fixed and dated (copied from `docs/spikes/strategy-search/universe.json`), not fetched.
+
+- CoinGecko: `GET https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc|volume_desc&per_page=100&page=1`. No key. The public API is rate limited (a few tens of calls per minute, unpublished); the server makes two calls per day. Browser CORS not checked (the server calls it).
+- CoinMarketCap: `GET https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=100&sort=market_cap|volume_24h` with the header `X-CMC_PRO_API_KEY`. Only used when the owner sets `VOST_COINMARKETCAP_API_KEY` (free Basic plan key; a monthly call allowance applies, two calls per day are far below it); tried first, CoinGecko is the fallback. Without the header it answers 401. The key is a secret: never logged, never returned.
+- Cache: each list is kept in memory for 24 hours; a failed refresh serves the last good list marked `stale`, and a failed load is retried on the next request but at most once a minute.
+- Server hosts: `api.coingecko.com`, `pro-api.coinmarketcap.com` (plus Binance's `exchangeInfo` for the mapping).
+- ToS: both free plans are for personal use with attribution rules; see [CoinGecko terms](https://www.coingecko.com/en/api_terms) and [CoinMarketCap terms](https://coinmarketcap.com/terms/). Not re-read for this entry.
+- Checked: the CoinGecko `coins/markets` request above returned 200 with 100 coins on 2026-11-05 (strategy-search spike). The CoinMarketCap request and the free-plan allowances were not called or re-checked (no key available); they follow CoinMarketCap's published API documentation.
 
 ## Link check
 

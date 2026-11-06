@@ -6,6 +6,7 @@ import type { Candle } from '../../shared/market.ts';
 import { PROVIDER_CATALOG } from '../../shared/providerCatalog.ts';
 import { liveFeed } from '../../server/live/feeds.ts';
 import { openUpstream, type UpstreamSocket } from '../../server/live/socket.ts';
+import { createApiDeps } from '../../server/api.ts';
 import { adapters } from '../../server/providers/index.ts';
 import { createSymbolCache } from '../../server/providers/symbolCache.ts';
 import { setTestUpstream } from '../../server/testUpstream.ts';
@@ -74,6 +75,34 @@ describe('fake upstream REST, through the real adapters and the real fetch', () 
     const res = await fetch(`${fake.url}/https/data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5`);
     expect(res.status).toBe(200);
     expect(((await res.json()) as unknown[]).length).toBe(5);
+  });
+
+  it('answers the market lists: CoinGecko in both orders, CoinMarketCap only with its key', async () => {
+    const cg = (order: string) => fetch(`${fake.url}/https/api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=${order}&per_page=100&page=1`).then((r) => r.json() as Promise<Array<{ symbol: string }>>);
+    const cap = await cg('market_cap_desc');
+    const vol = await cg('volume_desc');
+    expect(cap[0].symbol).toBe('btc');
+    expect(vol.map((c) => c.symbol)).toEqual(cap.map((c) => c.symbol).reverse());
+    const cmc = `${fake.url}/https/pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=100&sort=market_cap`;
+    expect((await fetch(cmc)).status).toBe(401);
+    const ok = await fetch(cmc, { headers: { 'X-CMC_PRO_API_KEY': 'k' } });
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as { data: Array<{ symbol: string }> }).data[0].symbol).toBe('BTC');
+  });
+
+  it('the server market lists come back through the real fetch, offline', async () => {
+    const before = fake.requests.length;
+    const deps = createApiDeps();
+    const lists = await deps.marketLists.get({ symbols: deps.symbols });
+    expect(lists.map((l) => l.id)).toEqual(['crypto-cap', 'crypto-volume', 'stocks-cap', 'stocks-volume', 'indices']);
+    expect(lists[0].entries.map((e) => e.symbol)).toEqual(['BTCUSDT', 'ETHUSDT', 'XRPUSDT', 'BNBUSDT', 'SOLUSDT', 'DOGEUSDT']);
+    expect(lists[0].excluded.map((e) => e.symbol)).toEqual(['USDT']);
+    expect(lists[0].skipped.map((e) => e.symbol)).toEqual(['NOPE']);
+    expect(lists[0].error).toBeUndefined();
+    expect(new Set(fake.requests.slice(before).map((r) => r.host))).toEqual(new Set(['api.coingecko.com', 'api.binance.com']));
+    const keyed = createApiDeps();
+    const withKey = await keyed.marketLists.get({ symbols: keyed.symbols, coinMarketCapKey: 'k' });
+    expect(withKey[0].source).toMatch(/CoinMarketCap/);
   });
 
   it('answers 404 for a host it does not know', async () => {

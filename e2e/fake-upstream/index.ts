@@ -114,7 +114,7 @@ export async function startFakeUpstream(): Promise<FakeUpstream> {
       res.writeHead(404, { 'content-type': 'application/json' }).end(JSON.stringify({ error: `the fake upstream does not know ${parts.host}` }));
       return;
     }
-    const reply = handler(new URL(parts.path, 'http://fake'), Math.floor(Date.now() / 1000));
+    const reply = handler(new URL(parts.path, 'http://fake'), Math.floor(Date.now() / 1000), req.headers);
     const body = typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body);
     res.writeHead(reply.status ?? 200, { 'content-type': reply.type ?? 'application/json; charset=utf-8' }).end(body);
   };

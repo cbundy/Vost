@@ -12,6 +12,7 @@ import { createSymbolCache, type SymbolCache } from './providers/symbolCache.ts'
 import type { AdapterContext, BuiltHistoryRequest, HistoryRequest, ProviderAdapter } from './providers/types.ts';
 import type { FetchFn } from './providers/upstream.ts';
 import type { CheckResult } from './status/registry.ts';
+import { createMarketListCache, type MarketListCache } from './marketLists/lists.ts';
 import { sendJson } from './respond.ts';
 import type { CandleStore } from './candles/store.ts';
 import { readThroughHistory } from './candles/history.ts';
@@ -28,13 +29,17 @@ export interface ApiDeps {
   candles?: CandleStore;
   /** Whether the server records this series. Default: nothing is recorded, so every request goes to the exchange. */
   isRecorded?: (provider: string, symbol: string, timeframe: Timeframe) => boolean;
+  /** The day cache of the crypto market lists (`/api/market-lists`). */
+  marketLists: MarketListCache;
+  /** Optional CoinMarketCap key (a secret): with it CoinMarketCap is tried before CoinGecko for the crypto lists. */
+  coinMarketCapKey?: string;
 }
 
 export function createApiDeps(overrides: Partial<ApiDeps> = {}): ApiDeps {
-  return { symbols: createSymbolCache(), ...overrides };
+  return { symbols: createSymbolCache(), marketLists: createMarketListCache(), ...overrides };
 }
 
-const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live', '/api/status', '/api/alerts', '/api/pine/libraries'];
+const ROUTES = ['/api/health', '/api/providers', '/api/history', '/api/symbols', '/api/search', '/api/live', '/api/status', '/api/alerts', '/api/pine/libraries', '/api/market-lists'];
 
 function provider(url: URL) {
   return providerById(url.searchParams.get('provider') ?? '');
@@ -158,6 +163,8 @@ async function route(url: URL, deps: ApiDeps, signal: AbortSignal): Promise<unkn
       const { info, adapter } = provider(url);
       return tracked(deps, info.id, 'symbols', () => adapter.search(base, url.searchParams.get('q') ?? ''));
     }
+    case '/api/market-lists':
+      return { lists: await deps.marketLists.get({ fetch: deps.fetch, symbols: deps.symbols, coinMarketCapKey: deps.coinMarketCapKey }) };
     default:
       throw new NotFoundError(`Unknown API route. Try ${ROUTES.join(', ')}`);
   }
