@@ -325,6 +325,13 @@ export interface ChartState {
 export type ChartStore = StoreApi<ChartState>;
 
 /** A spec with an empty `hideOn` list stored as no list at all. */
+const RISK_NEEDS_STOP = 'Risk per trade needs a stop loss';
+
+/** Risk sizing is set but no stop loss is on (Pine sizes in its own script, so it is exempt). */
+function riskNeedsStop(c: BacktestConfig): boolean {
+  return c.riskPct != null && c.strategyId !== 'pine' && !(c.stopLossPct != null && c.stopLossPct > 0);
+}
+
 function withoutEmptyHideOn(spec: IndicatorSpec): IndicatorSpec {
   let out = spec;
   if (out.hideOn && out.hideOn.length === 0) {
@@ -1200,6 +1207,10 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', 'Load some data before running a backtest.');
         return;
       }
+      if (riskNeedsStop(btConfig)) {
+        env.pushToast('error', RISK_NEEDS_STOP);
+        return;
+      }
       let loadedHistory = false;
       if (runNeedsHistory(btRange)) {
         set({ btRunning: true, btProgress: 0, btStage: 'history', btError: null });
@@ -1312,6 +1323,10 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         env.pushToast('error', 'Load some data before optimizing.');
         return;
       }
+      if (riskNeedsStop(btConfig)) {
+        env.pushToast('error', RISK_NEEDS_STOP);
+        return;
+      }
       const previous = optRun ? optRun.previous : get().optResult;
       let loading: NonNullable<typeof optRun> | null = null;
       if (runNeedsHistory(btRange)) {
@@ -1367,6 +1382,7 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         bars: candles.length,
         initialCapital: btConfig.initialCapital,
         positionSizePct: btConfig.positionSizePct,
+        ...(btConfig.riskPct != null && { riskPct: btConfig.riskPct }),
         feeBps: btConfig.feeBps,
         slippageBps: btConfig.slippageBps,
         stopLossPct: btConfig.stopLossPct,

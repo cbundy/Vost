@@ -65,6 +65,10 @@ export function ResultsTab() {
     { help: 'totalFees', label: 'Total fees', value: fmtMoney(m.totalFees) },
     { help: 'bars', label: 'Bars', value: fmtCompact(btResult.equity.length) },
   ];
+  const leverages = btResult.trades.flatMap((t) => (t.leverage != null ? [t.leverage] : []));
+  if (btResult.config.riskPct != null && leverages.length > 0) {
+    cards.push({ help: 'maxLeverage', label: 'Max leverage', value: `${fmtNum(Math.max(...leverages), 1)}x` });
+  }
 
   const exportTrades = () => {
     const rows = btResult.trades.map((t) => [

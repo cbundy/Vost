@@ -5,7 +5,7 @@ import { runBacktest } from './engine';
 import { buyHoldCurve, computeMetrics } from './metrics';
 import { runFullBacktest } from './runner';
 import { buildSignals, strategies } from './strategies';
-import { defaultBacktestConfig, type BacktestConfig } from './types';
+import { defaultBacktestConfig, type BacktestConfig, type Signal } from './types';
 
 function makeCandles(prices: number[], spread = 1): Candle[] {
   return prices.map((p, i) => ({
@@ -227,5 +227,78 @@ describe('backtest progress', () => {
     runBacktest(candles, signals, config, (p) => seen.push(p));
     expect(seen[seen.length - 1]).toBe(1);
     expect(seen.every((p) => p >= 0 && p <= 1)).toBe(true);
+  });
+});
+
+describe('risk per trade sizing', () => {
+  // Enter at bar 1 (open 100), stopped at bar 2; flat at bar 3; enter at bar 4, stopped at bar 5.
+  function twoStops(stopPct: number, side: 1 | -1) {
+    const candles = makeCandles(new Array(8).fill(100), 0);
+    const crash = side === 1 ? { low: 100 * (1 - stopPct / 100) - 0.0001 } : { high: 100 * (1 + stopPct / 100) + 0.0001 };
+    candles[2] = { ...candles[2], ...crash };
+    candles[5] = { ...candles[5], ...crash };
+    const signals: Signal[] = [side, side, 0, side, side, side, 0, 0];
+    return { candles, signals };
+  }
+
+  it('loses exactly riskPct of the account at the stop: 20.00 then 19.60', () => {
+    const { candles, signals } = twoStops(2, 1);
+    const { trades } = runBacktest(candles, signals, cfg({ initialCapital: 1000, riskPct: 2, stopLossPct: 2 }));
+    expect(trades).toHaveLength(2);
+    expect(trades.map((t) => t.exitReason)).toEqual(['stop_loss', 'stop_loss']);
+    expect(trades[0].pnl).toBeCloseTo(-20, 6);
+    expect(trades[1].pnl).toBeCloseTo(-19.6, 6);
+    expect(trades[0].leverage).toBeCloseTo(1, 9);
+  });
+
+  it('has no cap: a 0.04% stop is a 50x position and still loses 20.00', () => {
+    const { candles, signals } = twoStops(0.04, 1);
+    const { trades } = runBacktest(candles, signals, cfg({ initialCapital: 1000, riskPct: 2, stopLossPct: 0.04 }));
+    expect(trades[0].qty * trades[0].entryPrice).toBeCloseTo(50 * 1000, 6);
+    expect(trades[0].leverage).toBeCloseTo(50, 9);
+    expect(trades[0].pnl).toBeCloseTo(-20, 6);
+    expect(trades[1].pnl).toBeCloseTo(-19.6, 6);
+  });
+
+  it('sizes a short the same way', () => {
+    const { candles, signals } = twoStops(0.04, -1);
+    const { trades } = runBacktest(candles, signals, cfg({ initialCapital: 1000, riskPct: 2, stopLossPct: 0.04, allowShort: true }));
+    expect(trades[0].side).toBe('short');
+    expect(trades[0].leverage).toBeCloseTo(50, 9);
+    expect(trades[0].pnl).toBeCloseTo(-20, 6);
+  });
+
+  it('without a stop it sizes exactly like positionSizePct', () => {
+    const candles = makeCandles(Array.from({ length: 40 }, (_, i) => 100 + Math.sin(i / 3) * 10));
+    const signals = buildSignals(candles, 'sma_cross', { fast: 3, slow: 8, direction: 1 });
+    const base = cfg({ strategyId: 'sma_cross', positionSizePct: 60 });
+    const plain = runBacktest(candles, signals, base);
+    const withRisk = runBacktest(candles, signals, { ...base, riskPct: 2 });
+    expect(withRisk.trades).toEqual(plain.trades);
+    expect(withRisk.equity).toEqual(plain.equity);
+    expect(withRisk.trades.every((t) => t.leverage === undefined)).toBe(true);
+  });
+
+  it('records no leverage and ignores nothing when riskPct is absent', () => {
+    const { candles, signals } = twoStops(2, 1);
+    const { trades } = runBacktest(candles, signals, cfg({ initialCapital: 1000, stopLossPct: 2 }));
+    expect(trades.every((t) => !('leverage' in t))).toBe(true);
+  });
+
+  it('a gap through a leveraged stop that wipes the account stays finite and opens no more trades', () => {
+    const candles = makeCandles(new Array(10).fill(100), 0);
+    candles[2] = { ...candles[2], open: 90, high: 90, low: 90, close: 90 }; // gap down 10% through a 0.5% stop
+    const signals: Signal[] = [1, 1, 0, 1, 1, 1, 1, 1, 1, 1];
+    const r = runBacktest(candles, signals, cfg({ initialCapital: 1000, riskPct: 50, stopLossPct: 0.5 }));
+    expect(r.trades).toHaveLength(1);
+    expect(r.trades[0].leverage).toBeCloseTo(100, 9);
+    expect(r.trades[0].pnl).toBeLessThan(-1000);
+    for (const t of r.trades) for (const v of [t.pnl, t.pnlPct, t.qty, t.fees, t.leverage!]) expect(Number.isFinite(v)).toBe(true);
+    for (const e of r.equity) {
+      expect(Number.isFinite(e.equity)).toBe(true);
+      expect(Number.isFinite(e.drawdownPct)).toBe(true);
+    }
+    const metrics = computeMetrics(candles, r.equity, r.trades, 1000, r.exposureBars);
+    for (const [k, v] of Object.entries(metrics)) if (typeof v === 'number') expect(Number.isNaN(v), k).toBe(false);
   });
 });

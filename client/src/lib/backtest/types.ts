@@ -4,7 +4,9 @@
  * Position sizing note: this is a single-position, margin-style simulation.
  * `positionSizePct` of the current equity is committed to every trade, fees
  * and slippage are applied on both sides, and shorts are supported when
- * enabled in the configuration.
+ * enabled in the configuration. When `riskPct` is set (and a stop loss is on)
+ * each trade is instead sized so that hitting the stop loses `riskPct` of the
+ * current equity, with no cap on the position (leverage is unlimited).
  */
 
 import type { PineMarket } from '../pine/types';
@@ -35,6 +37,8 @@ export interface BacktestConfig {
   /** Slippage in basis points per fill. */
   slippageBps: number;
   allowShort: boolean;
+  /** Optional risk sizing: percent of current equity lost if the stop is hit (above 0, at most 100). Needs a stop loss; ignores `positionSizePct`. Absent = percent-of-equity sizing. */
+  riskPct?: number;
   /** Stop loss distance in percent (null disables). */
   stopLossPct: number | null;
   /** Take profit distance in percent (null disables). */
@@ -62,6 +66,8 @@ export interface Trade {
   fees: number;
   bars: number;
   exitReason: ExitReason;
+  /** Entry notional / equity at entry. Only set when the trade was sized by risk. */
+  leverage?: number;
 }
 
 export interface EquityPoint {

@@ -29,6 +29,7 @@ interface OpenPosition {
   entryBar: number;
   entryFee: number;
   entryNotional: number;
+  leverage?: number;
 }
 
 function coerceSignal(v: unknown): Signal {
@@ -58,6 +59,7 @@ export function runBacktest(
   const slip = Math.max(0, config.slippageBps) / 10000;
   const sizePct = Math.min(100, Math.max(1, config.positionSizePct)) / 100;
   const stopPct = config.stopLossPct != null && config.stopLossPct > 0 ? config.stopLossPct : null;
+  const riskFrac = config.riskPct != null && Number.isFinite(config.riskPct) && config.riskPct > 0 ? Math.min(100, config.riskPct) / 100 : null;
   const tpPct = config.takeProfitPct != null && config.takeProfitPct > 0 ? config.takeProfitPct : null;
 
   let cash = config.initialCapital; // realised equity
@@ -96,12 +98,15 @@ export function runBacktest(
       fees: pos.entryFee + exitFee,
       bars: barIndex - pos.entryBar,
       exitReason: reason,
+      ...(pos.leverage != null ? { leverage: pos.leverage } : {}),
     });
   };
 
   const openPosition = (side: -1 | 1, rawPrice: number, barIndex: number): OpenPosition => {
     const fill = side === 1 ? fillBuy(rawPrice) : fillSell(rawPrice);
-    const notional = Math.max(0, cash) * sizePct;
+    const equityNow = Math.max(0, cash);
+    // Risk sizing needs a stop distance; without one it falls back to a percent of equity.
+    const notional = riskFrac != null && stopPct != null ? (equityNow * riskFrac) / (stopPct / 100) : equityNow * sizePct;
     const qty = fill > 0 ? notional / fill : 0;
     const entryFee = qty * fill * feeRate;
     totalFees += entryFee;
@@ -114,6 +119,7 @@ export function runBacktest(
       entryBar: barIndex,
       entryFee,
       entryNotional: notional,
+      leverage: riskFrac != null && stopPct != null && equityNow > 0 ? notional / equityNow : undefined,
     };
   };
 

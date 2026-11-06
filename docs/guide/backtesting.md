@@ -22,11 +22,30 @@ A Pine strategy shows all of its inputs under **Script inputs**, with the same c
 
 ![Script inputs in the Pine pane, the same controls as in the Backtest pane](../evidence/pine-pane/pine-pane-inputs-desktop.png)
 
-Risk controls: initial capital, position size (% of equity), fees and slippage in bps per side, stop loss %, take profit % and long and short. Then press **Run backtest**.
+Risk controls: initial capital, position sizing (a percent of equity, or [risk per trade](#risk-per-trade)), fees and slippage in bps per side, stop loss %, take profit % and long and short. Then press **Run backtest**.
 
 While it runs, a progress bar under the button (and in the Results tab) shows the stage and a percent: computing signals, simulating trades, running the Pine script, then computing metrics. It goes away when the run ends.
 
 ![The progress bar mid-run](../evidence/bt-progress/bt-progress-backtest-tab-desktop.png)
+
+## Risk per trade
+
+**Position sizing** has two choices. **Percent of equity** is the default: each trade commits that share of your equity. **Risk per trade (%)** sizes each trade so that hitting its stop loss loses that percent of your equity at that moment:
+
+position = equity x risk % / stop %
+
+From $1,000 at 2% risk, a stopped-out trade loses $20.00 and the next one $19.60, whatever the stop distance. A 2% stop is a position the size of the account; a 0.04% stop is a position 50 times the account.
+
+- **There is no cap on the position.** A tight stop can mean a leverage of 50x or more. Each trade records the leverage it used, and the Results tab shows the largest one as the **Max leverage** card, so check that your exchange would allow it.
+- **It needs a stop loss.** With no stop, the run is refused with "Risk per trade needs a stop loss" and nothing starts (the optimizer too).
+- The loss can be larger than the risk percent: fees count on top of it, and a gap through the stop fills at the open, past the stop. On a leveraged position a big gap can wipe the account out; the run still finishes and opens no new trade once the equity is gone.
+- It is saved with the backtest settings, comes across from the strategy maker, and is named in its settings text and Pine export (each entry is sized by `qty=`). Pine strategies size in their own script, so the setting does not apply to them.
+
+![The Position sizing select set to Risk per trade, 2 percent with a 0.5 percent stop](../evidence/bt-results/bt-results-risk-setting-desktop.png)
+
+![The Max leverage card in Results after a risk-sized run](../evidence/bt-results/bt-results-risk-results-desktop.png)
+
+![The refusal when risk per trade has no stop loss](../evidence/bt-results/bt-results-risk-refused-desktop.png)
 
 ## The backtest range
 
@@ -75,7 +94,7 @@ The table lists the 5th, 25th, median, 75th and 95th percentile of final return 
 
 The **Optimizer** tab grid-searches any number of parameters at once. Each parameter is a row (**Parameter 1**, **Parameter 2**, ...) with its own **From**, **To** and **Step**. Press **Add parameter** to sweep another one (it starts at half to one and a half times its current value) and **Remove** to drop a row; a parameter can only be used in one row. The pane shows how many combinations it will run (the product of every row). Choose the metric in **Rank by** and press **Optimize**. Every combination is listed in a full-width table with its rank, one column per swept parameter, the ranking metric and the main measures (total return, CAGR, Sharpe, Sortino, Calmar, profit factor, win rate, max drawdown and its duration, trades, exposure, expectancy and buy & hold). Click a column header to sort by it (click again to reverse; empty values always come last); sorting by **Rank** brings back the ranking order. The table shows 100 rows at a time: use **Previous** and **Next**, and the count under it ("Rows 101-200 of 1,234") says where you are. A heatmap below the table shows the combinations. Click a heatmap cell or press **Apply** on a row to set those parameters and re-run the backtest.
 
-**Export results CSV** downloads every combination in ranking order, with all measures as raw numbers. The file starts with `#` lines recording the settings the run used (strategy, fixed parameters, symbol, timeframe, data and range, capital, position size, fees, slippage, stop loss, take profit, shorts, ranking metric and the swept ranges), so a result can be reproduced later; changing settings after the run does not change them.
+**Export results CSV** downloads every combination in ranking order, with all measures as raw numbers. The file starts with `#` lines recording the settings the run used (strategy, fixed parameters, symbol, timeframe, data and range, capital, position size (or the risk per trade % when you size by risk), fees, slippage, stop loss, take profit, shorts, ranking metric and the swept ranges), so a result can be reproduced later; changing settings after the run does not change them.
 
 The heatmap has **Rows** and **Columns** pickers for choosing its two axes among the swept parameters (**Columns** can be set to none). With three or more parameters it shows only the combinations where the other parameters equal the best result, and says which values they are fixed at.
 

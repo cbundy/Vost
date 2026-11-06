@@ -28,3 +28,16 @@ describe('handoffOf', () => {
     expect(mine).toEqual(shown);
   });
 });
+
+describe('handoffOf with risk sizing', () => {
+  it('passes riskPct through, and writes nothing without it', () => {
+    const withRisk = handoffOf(candidate, { ...run, risk: { ...run.risk, riskPct: 2 } }, 'sample');
+    expect(withRisk.riskPct).toBe(2);
+    expect(parseHandoff(encodeHandoff(withRisk))).toEqual(withRisk);
+    expect('riskPct' in handoffOf(candidate, run, 'sample')).toBe(false);
+  });
+  it('configFor carries riskPct to the engine config', () => {
+    expect(configFor({ ...run, risk: { ...run.risk, riskPct: 2 } }).riskPct).toBe(2);
+    expect(configFor(run).riskPct).toBeUndefined();
+  });
+});

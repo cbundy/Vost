@@ -8,7 +8,7 @@ import type { ExitReason } from './types';
 export type HelpKey =
   | 'finalEquity' | 'netPnl' | 'totalReturn' | 'buyHold' | 'cagr' | 'sharpe' | 'sortino' | 'calmar'
   | 'maxDrawdown' | 'maxDdDuration' | 'exposure' | 'trades' | 'winRate' | 'profitFactor' | 'expectancy'
-  | 'avgTrade' | 'bestWorst' | 'avgBars' | 'totalFees' | 'bars'
+  | 'avgTrade' | 'bestWorst' | 'avgBars' | 'totalFees' | 'bars' | 'maxLeverage'
   | 'wins' | 'losses' | 'grossProfit' | 'grossLoss' | 'bestTrade' | 'worstTrade'
   | 'longestWinStreak' | 'longestLossStreak' | 'currentStreak'
   | 'exitSignal' | 'exitStopLoss' | 'exitTakeProfit' | 'exitEndOfData' | 'exitShare'
@@ -134,6 +134,16 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
     related: [
       { key: 'maxDrawdown', note: 'the depth of the worst fall' },
       { key: 'bars', note: 'the total run length to compare with' },
+    ],
+  },
+  maxLeverage: {
+    label: 'Max leverage',
+    what: 'The largest position of the run, as a multiple of the equity at entry (entry value divided by equity). Shown only when trades are sized by risk per trade, where the position is not capped.',
+    reading: 'A tight stop makes a big position: a 0.04 percent stop with 2 percent risk is 50x. Check that a real account and exchange would allow it.',
+    profit: 'Larger positions make the same stop cost the same, but fees and gaps through the stop cost more.',
+    related: [
+      { key: 'maxDrawdown', note: 'gaps through a leveraged stop deepen drawdowns' },
+      { key: 'totalFees', note: 'fees grow with the position' },
     ],
   },
   exposure: {

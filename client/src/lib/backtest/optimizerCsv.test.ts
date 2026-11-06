@@ -318,3 +318,14 @@ describe('Pine text inputs in the context', () => {
     expect(optimizeContextLines(ctx, result)[1]).toBe('# fixed params: threshold=1.5; we"ird=2');
   });
 });
+
+describe('risk sizing in the context lines', () => {
+  it('names risk per trade instead of the position size, and keeps the old line without it', () => {
+    const risky = optimizeContextLines({ ...ctx, riskPct: 2 }, result);
+    expect(risky).toContain('# risk per trade %: 2');
+    expect(risky.some((l) => l.startsWith('# position size %'))).toBe(false);
+    const plain = optimizeContextLines(ctx, result);
+    expect(plain).toContain('# position size %: 100');
+    expect(plain.some((l) => l.includes('risk per trade'))).toBe(false);
+  });
+});

@@ -95,5 +95,30 @@ export const btResults: Scenario = {
       await page.getByText('Exit reasons', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'start' }));
     });
     await ctx.screenshot('exit-reasons');
+    await ctx.step('back to the Backtest pane: size by risk per trade, 2% at a 0.5% stop, and run', async () => {
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
+      await page.getByLabel('Position sizing').selectOption('risk');
+      await page.getByLabel('Risk per trade (%)').fill('2');
+      await page.getByLabel('Stop loss (%)').fill('0.5');
+      await page.getByLabel('Stop loss (%)').scrollIntoViewIfNeeded();
+    });
+    await ctx.screenshot('risk-setting');
+    await ctx.step('run and see the Max leverage card in Results', async () => {
+      await page.getByRole('button', { name: /Run backtest/ }).click();
+      await page.getByText(/Backtest finished/).waitFor();
+      await page.locator('.toast button').click();
+      await page.locator('.dock-tab', { hasText: 'Results' }).click();
+      const card = page.locator('.metric-card', { hasText: 'Max leverage' });
+      await card.waitFor();
+      await card.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    });
+    await ctx.screenshot('risk-results');
+    await ctx.step('clear the stop loss and run: it is refused', async () => {
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
+      await page.getByLabel('Stop loss (%)').fill('');
+      await page.getByRole('button', { name: /Run backtest/ }).click();
+      await page.getByText('Risk per trade needs a stop loss').waitFor();
+    });
+    await ctx.screenshot('risk-refused');
   },
 };

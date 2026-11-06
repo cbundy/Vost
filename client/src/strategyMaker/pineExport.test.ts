@@ -147,3 +147,31 @@ describe('pineStrategyText', () => {
     expect(() => pineStrategyText({ strategyId: 'buy_hold', params: {} }, run)).toThrow();
   });
 });
+
+describe('risk sized export', () => {
+  const plain: Run = { direction: 'both', risk: { feeBps: 10, slippageBps: 5, stopLossPct: 2, takeProfitPct: 4 } };
+  const risky: Run = { direction: 'both', risk: { ...plain.risk, riskPct: 2 } };
+  const cand = { strategyId: 'sma_cross', params: { fast: 8, slow: 34, direction: 3 } };
+  it('names risk sizing in the settings text instead of the percent of equity line', () => {
+    const text = settingsPlain(cand, risky);
+    expect(text).toContain('Position size: risk 2% of equity at the stop');
+    expect(text).not.toContain('Position size: 100%');
+  });
+  it('sizes each entry by risk, with an input and a header comment', () => {
+    const t = pineStrategyText(cand, risky);
+    expect(t).toContain('riskPct = input.float(2, "Risk per trade %"');
+    expect(t).toContain('strategy.entry("Long", strategy.long, qty=strategy.equity * riskPct / 100 / (close * stopPct / 100))');
+    expect(t).toContain('strategy.entry("Short", strategy.short, qty=strategy.equity * riskPct / 100 / (close * stopPct / 100))');
+    expect(t).toContain('// Position size is by risk');
+  });
+  it('without riskPct, or without a stop, the script is unchanged', () => {
+    expect(pineStrategyText(cand, plain)).not.toMatch(/riskPct|qty=|by risk/);
+    const noStop: Run = { direction: 'both', risk: { feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null, riskPct: 2 } };
+    expect(pineStrategyText(cand, noStop)).toBe(pineStrategyText(cand, { direction: 'both', risk: { ...noStop.risk, riskPct: undefined } }));
+  });
+  it('the script runs in the Pine runtime', async () => {
+    const out = await runPine(pineStrategyText(cand, risky), sample);
+    if (!out.ok) throw new Error(out.error.message);
+    expect(out.trades.length).toBeGreaterThan(0);
+  });
+});

@@ -145,15 +145,41 @@ export function BacktestTab() {
           />
         </label>
         <label className="form-field">
-          <span>Position size (% equity){isPine && ' (set in script)'}</span>
-          <input disabled={isPine}
-            type="number"
-            min={1}
-            max={100}
-            value={btConfig.positionSizePct}
-            onChange={(e) => setBtConfig({ positionSizePct: Math.min(100, Math.max(1, Number(e.target.value) || 100)) })}
-          />
+          <span>Position sizing{isPine && ' (set in script)'}</span>
+          <select
+            disabled={isPine}
+            aria-label="Position sizing"
+            value={btConfig.riskPct != null ? 'risk' : 'equity'}
+            onChange={(e) => setBtConfig({ riskPct: e.target.value === 'risk' ? 2 : undefined })}
+          >
+            <option value="equity">Percent of equity</option>
+            <option value="risk">Risk per trade</option>
+          </select>
         </label>
+        {btConfig.riskPct != null ? (
+          <label className="form-field">
+            <span>Risk per trade (%){isPine && ' (set in script)'}</span>
+            <input disabled={isPine}
+              type="number"
+              min={0.01}
+              max={100}
+              step={0.1}
+              value={btConfig.riskPct}
+              onChange={(e) => setBtConfig({ riskPct: Math.min(100, Math.max(0.01, Number(e.target.value) || 2)) })}
+            />
+          </label>
+        ) : (
+          <label className="form-field">
+            <span>Position size (% equity){isPine && ' (set in script)'}</span>
+            <input disabled={isPine}
+              type="number"
+              min={1}
+              max={100}
+              value={btConfig.positionSizePct}
+              onChange={(e) => setBtConfig({ positionSizePct: Math.min(100, Math.max(1, Number(e.target.value) || 100)) })}
+            />
+          </label>
+        )}
         <label className="form-field">
           <span>Fee (bps per side){isPine && ' (script wins)'}</span>
           <input
