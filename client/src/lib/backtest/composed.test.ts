@@ -327,6 +327,23 @@ describe('composed on a higher timeframe', () => {
     expect(blocked).toBeGreaterThan(0);
   });
 
+  it('never lets later bars move an earlier result when the volatility band filters', () => {
+    const base = hourly(300);
+    const entry: Signal[] = base.map((_, i) => ([1, 1, 1, 0, 0, 0, -1, -1, -1, 0, 0, 0] as const)[i % 12]);
+    const vp = { ...DEFAULT_PARAMS.composed, entryRule: 2, trendFilter: 0, atrFilter: 1, atrLen: 3, atrTf: 6, atrMinPct: 9, atrMaxPct: 100 };
+    const full = composeSignals(base, entry, vp);
+    expect(full.filters.blocked.reduce((a, b) => a + b.blocked, 0)).toBeGreaterThan(0);
+    for (const cut of Array.from({ length: 200 }, (_, k) => 40 + k)) {
+      const other = base.map((c, i) => {
+        if (i <= cut) return c;
+        const p = 50 + ((i * 13) % 70);
+        return { ...c, open: p, high: p + 3, low: p - 3, close: p };
+      });
+      const alt = composeSignals(other, entry, vp);
+      expect(alt.signals.slice(0, cut + 1)).toEqual(full.signals.slice(0, cut + 1));
+    }
+  });
+
   it('is unchanged by 1 or an absent setting', () => {
     const base = hourly(300);
     const entry = buildSignals(base, 'ema_cross', { fast: 5, slow: 20 });
