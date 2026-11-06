@@ -1,0 +1,516 @@
+Tried 113,400 combinations: 1,782 met a target, 1,782 also held on unseen data.
+
+1,782 held on real data, 992 on shuffled copies of the same markets (9 series).
+
+Shuffled copies keep every market's moves but mix up their order, so nothing real is left to find. What they hold is what chance alone gives: a real count near it says little, and one well above it is worth a closer look.
+
+Many combinations were tried, so a result that meets a target can be luck. The ones that held on unseen data - the last part of each market, kept out of the search - are the ones to trust more.
+
+Ranked results
+Market	Timeframe	Strategy	Stop / take profit	Trades	Signals / 100 bars	Hit rate	R:R	Final equity	Max drawdown	Buy & hold	Held on unseen data	
+^HSI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	71%	7.53	2,446	2.7%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	71%	7.53	2,445	2.7%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	71%	7.51	2,438	2.7%	2.8%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	71%	7.47	2,425	2.7%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	71%	7.47	2,425	2.7%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	71%	7.47	2,425	2.7%	2.7%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	7.92	2,399	2.7%	2.4%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	7.40	2,389	2.7%	2.3%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	6.83	2,376	2.7%	2.1%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	5.45	2,259	3.8%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	5.45	2,259	3.8%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	5.43	2,252	3.8%	2.8%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	6.36	2,240	3.8%	2.7%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	6.36	2,240	3.8%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	6.36	2,240	3.8%	2.7%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	5.69	2,216	3.8%	2.4%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	5.46	2,207	3.8%	2.3%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.96	2,183	3.8%	2.1%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	71%	6.27	2,099	2.7%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	71%	6.27	2,099	2.7%	2.9%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	4.04	2,097	4.1%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	67%	4.04	2,097	4.1%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	71%	6.25	2,093	2.7%	2.8%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.90	2,091	4.1%	2.8%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	71%	6.20	2,081	2.7%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	71%	6.20	2,081	2.7%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	71%	6.20	2,081	2.7%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.67	2,079	4.1%	2.7%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.67	2,079	4.1%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.67	2,079	4.1%	2.7%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	6.57	2,060	2.7%	2.4%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.28	2,057	4.1%	2.4%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	6.15	2,051	2.7%	2.3%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	4.14	2,048	4.1%	2.3%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	71%	11.77	2,046	1.6%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	71%	11.77	2,046	1.6%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	71%	11.74	2,043	1.6%	2.8%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	5.67	2,039	2.7%	2.1%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	71%	11.70	2,037	1.6%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	71%	11.70	2,037	1.6%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	71%	11.70	2,037	1.6%	2.7%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.55%	21	4.7
+21 fired · 0.05 / day
+	62%	3.90	2,031	4.1%	2.1%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	12.41	2,026	1.6%	2.4%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	68%	5.76	2,023	3.7%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	68%	5.76	2,023	3.7%	2.9%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	11.61	2,022	1.6%	2.3%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	7.11	2,017	3.7%	2.8%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	10.70	2,016	1.6%	2.1%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	6.56	2,006	3.7%	2.7%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	6.56	2,006	3.7%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	6.56	2,006	3.7%	2.7%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	5.72	1,984	3.7%	2.4%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	5.43	1,976	3.7%	2.3%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 2, slow period 14, long and short
+	0.51% / 2.55%	19	4.2
+19 fired · 0.04 / day
+	63%	4.96	1,959	3.7%	2.1%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	4.55	1,958	3.8%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	4.55	1,958	3.8%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	4.53	1,952	3.8%	2.8%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	5.30	1,942	3.8%	2.7%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	5.30	1,942	3.8%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	5.30	1,942	3.8%	2.7%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	8.43	1,929	1.9%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	8.43	1,929	1.9%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	8.42	1,926	1.9%	2.8%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	4.75	1,921	3.8%	2.4%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	9.85	1,921	1.9%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	9.85	1,921	1.9%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	9.85	1,921	1.9%	2.7%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	4.56	1,913	3.8%	2.3%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	8.83	1,911	1.9%	2.4%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	8.47	1,906	1.9%	2.3%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	8.04	1,901	1.9%	2.1%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 4, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	4.14	1,892	3.8%	2.1%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	71%	10.41	1,885	1.4%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	71%	10.41	1,885	1.4%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	71%	10.39	1,882	1.4%	2.8%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	71%	10.35	1,877	1.4%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	71%	10.35	1,877	1.4%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	71%	10.35	1,877	1.4%	2.7%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	67%	10.97	1,867	1.4%	2.4%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	3.45	1,864	4.1%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	67%	3.45	1,864	4.1%	2.9%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	67%	10.26	1,863	1.4%	2.3%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	4.19	1,858	4.1%	2.8%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 2, slow period 10, long and short
+	1.02% / 4.08%	21	4.7
+21 fired · 0.05 / day
+	67%	9.46	1,858	1.4%	2.1%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	6.37	1,855	2.1%	2.9%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	67%	6.36	1,855	2.1%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	7.72	1,852	2.1%	2.8%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	3.99	1,848	4.1%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	3.99	1,848	4.1%	2.7%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	0.51% / 2.04%	21	4.7
+21 fired · 0.05 / day
+	62%	3.99	1,848	4.1%	2.7%	yes	Open in Backtest
+^NDX	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	7.36	1,847	2.1%	2.7%	yes	Open in Backtest
+^GSPC	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	7.36	1,847	2.1%	2.7%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 6, slow period 10, long and short
+	1.02% / 5.09%	21	4.7
+21 fired · 0.05 / day
+	62%	7.36	1,847	2.1%	2.7%	yes	Open in Backtest
+^HSI	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.9%	yes	Open in Backtest
+^N225	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.4%	yes	Open in Backtest
+^FCHI	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.1%	yes	Open in Backtest
+^DJI	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.7%	yes	Open in Backtest
+^GDAXI	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.3%	yes	Open in Backtest
+^RUT	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.9%	yes	Open in Backtest
+^FTSE	1d	EMA crossover
+fast period 8, slow period 10, long and short
+	0.51% / 2.55%	18	4.0
+18 fired · 0.04 / day
+	61%	4.13	1,845	4.4%	2.8%	yes	Open in Backtest
+
+The Buy & hold column is the same part's return from holding the market (first to last close). Rows held on unseen data show the figures from that unseen part; the others show the part that was searched. Account size 1,000, risk 2% per trade. Signals are the times a setting turned to a new side; the trades column counts the ones that were taken.
+
+Show 100 more (1,682 not shown)
+Skipped
+^STOXX50E 1d: Yahoo Finance: HTTP 404 - {"chart":{"result":null,"error":{"code":"Not Found","description":"No data found, symbol may be delisted"}}}

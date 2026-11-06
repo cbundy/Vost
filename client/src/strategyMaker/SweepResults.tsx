@@ -3,6 +3,7 @@ import { getStrategy } from '../lib/backtest/strategies';
 import { encodeHandoff } from '../lib/backtestHandoff';
 import { gapWords, settingsText, SignalsCell } from './Results';
 import { familyName } from './TargetsForm';
+import { composedWords } from './sweep/composedSpace';
 import { exitKey, exitOfCandidate, exitShort, exitSortValue, exitWords } from './sweep/exits';
 import type { ClosestCandidate, PartFigures, SweepCandidate, SweepResult, SweepRisk } from './sweep/types';
 import { marketLabel, sweepHandoff } from './sweepHandoff';
@@ -17,13 +18,13 @@ const count = (n: number): string => n.toLocaleString('en-US');
 /** For example `fast 8, slow 34, long and short`; a long-only setting says nothing of direction. */
 export function settingsWords(c: Pick<SweepCandidate, 'strategyId' | 'params'>): string {
   const dir = c.params.direction === 2 ? 'short only' : c.params.direction === 3 ? 'long and short' : '';
-  return [settingsText(c), dir].filter(Boolean).join(', ');
+  return [c.strategyId === 'composed' ? composedWords(c.params) : settingsText(c), dir].filter(Boolean).join(', ');
 }
 
 /** The figures a row shows: the unseen part for a held row, the searched part otherwise. */
 const figuresOf = (c: SweepCandidate): PartFigures => (c.held ? c.heldOut : c.selection);
 
-type SortKey = 'market' | 'timeframe' | 'strategy' | 'stop' | 'trades' | 'signals' | 'hit' | 'rr' | 'equity' | 'drawdown' | 'held';
+type SortKey = 'market' | 'timeframe' | 'strategy' | 'stop' | 'trades' | 'signals' | 'hit' | 'rr' | 'equity' | 'drawdown' | 'buyhold' | 'held';
 
 const COLUMNS: Array<{ key: SortKey; label: string; value: (c: SweepCandidate) => number | string }> = [
   { key: 'market', label: 'Market', value: (c) => c.market.symbol },
@@ -36,6 +37,7 @@ const COLUMNS: Array<{ key: SortKey; label: string; value: (c: SweepCandidate) =
   { key: 'rr', label: 'R:R', value: (c) => figuresOf(c).rr ?? -1 },
   { key: 'equity', label: 'Final equity', value: (c) => figuresOf(c).finalEquity },
   { key: 'drawdown', label: 'Max drawdown', value: (c) => figuresOf(c).maxDrawdownPct },
+  { key: 'buyhold', label: 'Buy & hold', value: (c) => figuresOf(c).buyHoldPct ?? -Infinity },
   { key: 'held', label: 'Held on unseen data', value: (c) => Number(c.held) },
 ];
 
@@ -94,6 +96,17 @@ export function SweepResults({ result, risk }: Props) {
       <p className="sm-headline">
         Tried {count(result.tried)} combinations: {count(result.met)} met a target, {count(result.held)} also held on unseen data.
       </p>
+      {result.baseline && (
+        <>
+          <p className="sm-headline">
+            {count(result.held)} held on real data, {count(result.baseline.held)} on shuffled copies of the same markets ({count(result.baseline.series)} series).
+          </p>
+          <p className="sm-note">
+            Shuffled copies keep every market's moves but mix up their order, so nothing real is left to find. What they hold is what chance alone gives: a real
+            count near it says little, and one well above it is worth a closer look.
+          </p>
+        </>
+      )}
       <p className="sm-warn" role="note">
         Many combinations were tried, so a result that meets a target can be luck. The ones that held on unseen data - the last part of each market, kept
         out of the search - are the ones to trust more.
@@ -137,6 +150,7 @@ export function SweepResults({ result, risk }: Props) {
                       <td>{ratio(f.rr)}</td>
                       <td>{money(f.finalEquity)}</td>
                       <td>{pct(f.maxDrawdownPct)}</td>
+                      <td>{pct(f.buyHoldPct ?? null)}</td>
                       <td>{c.held ? 'yes' : 'no'}</td>
                       <td>
                         <button type="button" onClick={() => open(c)} title={`Open Vost in a new tab on ${marketLabel(c)} with this strategy in the Backtest tab`}>
@@ -150,7 +164,7 @@ export function SweepResults({ result, risk }: Props) {
             </table>
           </div>
           <p className="sm-note">
-            Rows held on unseen data show the figures from that unseen part; the others show the part that was searched. Account size {money(risk.initialCapital)},
+            The Buy & hold column is the same part's return from holding the market (first to last close). Rows held on unseen data show the figures from that unseen part; the others show the part that was searched. Account size {money(risk.initialCapital)},
             risk {risk.riskPct}% per trade. Signals are the times a setting turned to a new side; the trades column counts the ones that were taken.
           </p>
           {rows.length > shown && (

@@ -5,11 +5,18 @@ import { fetchMarketLists } from './marketLists';
 import { MAX_SWEEP_COMBOS } from './sweep/sweep';
 import { SweepResults } from './SweepResults';
 import {
+  BEAT_BUY_HOLD_OPTIONS,
+  COMPOSED_FILTER_OPTIONS,
+  COMPOSED_RULE_OPTIONS,
+  COMPOSED_TREND_TF_OPTIONS,
   defaultSweepForm,
   EXIT_KIND_OPTIONS,
   planSweep,
+  SEARCH_GUIDE_URL,
   STOP_MULT_OPTIONS,
   SWEEP_FAMILIES,
+  SWEEP_FAMILY_NOTES,
+  SWEEP_TIMEFRAME_NOTES,
   SWEEP_TIMEFRAMES,
   TP_MULT_OPTIONS,
   type SweepForm,
@@ -18,6 +25,17 @@ import { useSweep } from './useSweep';
 
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 const NO_LISTS: MarketList[] = [];
+/** A study note next to a choice, with a link to the guide. */
+const StudyNote = ({ text }: { text: string }) => (
+  <span className="sm-bars sm-study-note">
+    {' '}
+    ({text};{' '}
+    <a href={SEARCH_GUIDE_URL} target="_blank" rel="noreferrer">
+      guide
+    </a>
+    )
+  </span>
+);
 const count = (n: number): string => n.toLocaleString('en-US');
 
 interface Props {
@@ -124,7 +142,10 @@ export function SweepPanel({ getClient }: Props) {
           {SWEEP_TIMEFRAMES.map((tf) => (
             <label key={tf} className="sm-check">
               <input type="checkbox" checked={form.timeframes.includes(tf)} onChange={() => set('timeframes', toggle(form.timeframes, tf))} />
-              {tf}
+              <span>
+                {tf}
+                {SWEEP_TIMEFRAME_NOTES[tf] && <StudyNote text={SWEEP_TIMEFRAME_NOTES[tf]!} />}
+              </span>
             </label>
           ))}
         </fieldset>
@@ -133,9 +154,69 @@ export function SweepPanel({ getClient }: Props) {
           {SWEEP_FAMILIES.map((f) => (
             <label key={f.id} className="sm-check">
               <input type="checkbox" checked={form.families.includes(f.id)} onChange={() => set('families', toggle(form.families, f.id))} />
-              {f.name}
+              <span>
+                {f.name}
+                {SWEEP_FAMILY_NOTES[f.id] && <StudyNote text={SWEEP_FAMILY_NOTES[f.id]} />}
+              </span>
             </label>
           ))}
+          <label className="sm-check">
+            <input type="checkbox" checked={form.composedOn} onChange={() => set('composedOn', !form.composedOn)} />
+            Composed (entry + filters)
+          </label>
+        </fieldset>
+        {form.composedOn && (
+          <>
+            <fieldset disabled={running}>
+              <legend>Composed entry rules</legend>
+              {COMPOSED_RULE_OPTIONS.map((o) => (
+                <label key={o.id} className="sm-check">
+                  <input type="checkbox" checked={form.composedRules.includes(o.id)} onChange={() => set('composedRules', toggle(form.composedRules, o.id))} />
+                  {o.label}
+                </label>
+              ))}
+            </fieldset>
+            <fieldset disabled={running}>
+              <legend>Composed filters (each tried off and on)</legend>
+              {COMPOSED_FILTER_OPTIONS.map((o) => (
+                <label key={o.id} className="sm-check">
+                  <input type="checkbox" checked={form.composedFilters.includes(o.id)} onChange={() => set('composedFilters', toggle(form.composedFilters, o.id))} />
+                  {o.label}
+                </label>
+              ))}
+            </fieldset>
+            <fieldset disabled={running || !form.composedFilters.includes('trend')}>
+              <legend>Composed trend timeframes</legend>
+              <label className="sm-check">
+                <input type="checkbox" checked disabled />
+                Same as the chart
+              </label>
+              {COMPOSED_TREND_TF_OPTIONS.map((k) => (
+                <label key={k} className="sm-check">
+                  <input type="checkbox" checked={form.composedTrendTfs.includes(k)} onChange={() => set('composedTrendTfs', toggle(form.composedTrendTfs, k).sort((a, b) => a - b))} />
+                  {k}x the chart
+                </label>
+              ))}
+              <span className="sm-note">Not tried on weekly bars, where a multiple would run the same as 1.</span>
+            </fieldset>
+          </>
+        )}
+        <fieldset disabled={running}>
+          <legend>Beat buy and hold on unseen data</legend>
+          {BEAT_BUY_HOLD_OPTIONS.map((o) => (
+            <label key={o.id} className="sm-check">
+              <input type="radio" name="sm-sweep-bbh" checked={form.beatBuyHold === o.id} onChange={() => set('beatBuyHold', o.id)} />
+              {o.label}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset disabled={running}>
+          <legend>Chance baseline</legend>
+          <label className="sm-check">
+            <input type="checkbox" checked={form.baseline} onChange={() => set('baseline', !form.baseline)} />
+            Also search shuffled copies (chance baseline)
+          </label>
+          <span className="sm-note">Searches the same markets again with the order of their moves shuffled, to show how many results chance alone gives.</span>
         </fieldset>
         <fieldset disabled={running}>
           <legend>Strategy type</legend>
@@ -195,6 +276,7 @@ export function SweepPanel({ getClient }: Props) {
       <p className="sm-sweep-count" role="status" aria-live="polite">
         {count(plan.input.markets.length)} market{plan.input.markets.length === 1 ? '' : 's'} x {count(form.timeframes.length)} timeframe
         {form.timeframes.length === 1 ? '' : 's'} = {count(plan.combos)} combinations
+        {form.baseline ? ' (twice: the shuffled copies are searched too)' : ''}
         {plan.combos > MAX_SWEEP_COMBOS ? ` (over the limit of ${count(MAX_SWEEP_COMBOS)})` : ''}
       </p>
       <div className="sm-find-actions">

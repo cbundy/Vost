@@ -40,6 +40,17 @@ export interface SweepRisk {
   slippageBps: number;
 }
 
+/** The Composed strategy in the search: entry rules (1-6) crossed with filters off and on, with trend multiples of the loaded bars. */
+export interface SweepComposed {
+  entryRules: number[];
+  filters: Array<'trend' | 'volume' | 'atr' | 'adx'>;
+  /** Multiples of the loaded bars for the trend filter; 1 is always tried. */
+  trendTfs: number[];
+}
+
+/** What the unseen part must also beat: nothing, buy and hold's return, or its return over drawdown. */
+export type BeatBuyHold = 'off' | 'return' | 'return_dd';
+
 export interface SweepInput {
   markets: SweepMarket[];
   timeframes: Interval[];
@@ -51,6 +62,12 @@ export interface SweepInput {
   exits: ExitGrid;
   /** Per family, the ranges to search; a family without an entry uses the default grid. */
   space?: Record<string, SweepParam[]>;
+  /** Composed strategies (entry rule plus filters). Absent, or without an entry rule, adds none. */
+  composed?: SweepComposed;
+  /** A result counts as held only if it also beats buy and hold on the hold-out. Absent reads as off. */
+  beatBuyHold?: BeatBuyHold;
+  /** Also search shuffled copies of the same markets and count what chance gives. */
+  baseline?: boolean;
 }
 
 /** Loads the candles of a market and timeframe, or throws. */
@@ -65,6 +82,10 @@ export interface SweepProgress {
 
 export interface PartFigures extends CandidateStats {
   finalEquity: number;
+  /** Buy and hold of the part: first close to last close, in percent. Absent in an older result. */
+  buyHoldPct?: number;
+  /** The largest fall from a peak of the closes of the part, positive percent. Absent in an older result. */
+  buyHoldDrawdownPct?: number;
 }
 
 export interface SweepCandidate {
@@ -113,4 +134,6 @@ export interface SweepResult {
   tried: number;
   met: number;
   held: number;
+  /** What shuffled copies of the same markets gave (counts only). Absent when the baseline was off. */
+  baseline?: { series: number; tried: number; met: number; held: number };
 }
