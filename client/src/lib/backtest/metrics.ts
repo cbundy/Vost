@@ -26,6 +26,16 @@ export function medianBarSeconds(equity: EquityPoint[]): number {
   return diffs[Math.floor(diffs.length / 2)];
 }
 
+/** Signals per 100 bars and per day (`seconds` is the span: bars times the median bar length). Null with no bars or no time. */
+export function signalRates(
+  fired: number,
+  bars: number,
+  seconds: number,
+): { signalsPer100Bars: number | null; signalsPerDay: number | null } {
+  if (!(bars > 0) || !(seconds > 0)) return { signalsPer100Bars: null, signalsPerDay: null };
+  return { signalsPer100Bars: (fired / bars) * 100, signalsPerDay: fired / (seconds / 86400) };
+}
+
 function stdev(values: number[]): number {
   if (values.length < 2) return 0;
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -39,6 +49,8 @@ export function computeMetrics(
   trades: Trade[],
   initialCapital: number,
   exposureBars: number,
+  /** Entry signals that fired; absent (Pine) gives null figures. */
+  signalsFired?: number | null,
 ): Metrics {
   const last = equity[equity.length - 1];
   const finalEquity = last ? last.equity : initialCapital;
@@ -119,6 +131,10 @@ export function computeMetrics(
     exposurePct: (exposureBars / totalBars) * 100,
     buyHoldPct: candles.length > 1 && candles[0].close > 0 ? (candles[candles.length - 1].close / candles[0].close - 1) * 100 : 0,
     trades: trades.length,
+    signalsFired: signalsFired ?? null,
+    ...(signalsFired != null
+      ? signalRates(signalsFired, equity.length, equity.length * barSeconds)
+      : { signalsPer100Bars: null, signalsPerDay: null }),
     winRatePct,
     profitFactor,
     expectancy: mean(pnls),

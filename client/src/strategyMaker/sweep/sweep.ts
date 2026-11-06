@@ -4,6 +4,7 @@
  */
 import { MAX_BARS, type Interval } from '../../../../shared/market.ts';
 import { runBacktest } from '../../lib/backtest/engine';
+import { medianBarSeconds, signalRates } from '../../lib/backtest/metrics';
 import type { EngineOutput } from '../../lib/backtest/engine';
 import type { SweepParam } from '../../lib/backtest/optimizer';
 import type { Candle } from '../../types';
@@ -89,6 +90,8 @@ export function figuresOf(out: EngineOutput, initialCapital: number): PartFigure
   const finalEquity = out.equity.length ? out.equity[out.equity.length - 1].equity : initialCapital;
   return {
     trades: trades.length,
+    signalsFired: out.signalsFired,
+    ...signalRates(out.signalsFired, out.equity.length, out.equity.length * medianBarSeconds(out.equity)),
     totalReturnPct: initialCapital > 0 ? (finalEquity / initialCapital - 1) * 100 : 0,
     winRatePct: trades.length ? (wins.length / trades.length) * 100 : null,
     rr: avgLoss > 0 ? avgWin / avgLoss : null,

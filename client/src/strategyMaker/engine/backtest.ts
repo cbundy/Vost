@@ -1,6 +1,6 @@
 /** Backtests one candidate over parts of the series and pools the figures. */
 import { runBacktest } from '../../lib/backtest/engine';
-import { computeMetrics } from '../../lib/backtest/metrics';
+import { computeMetrics, medianBarSeconds, signalRates } from '../../lib/backtest/metrics';
 import { buildSignals } from '../../lib/backtest/strategies';
 import type { BacktestConfig, Metrics, Trade } from '../../lib/backtest/types';
 import type { Candle } from '../../types';
@@ -23,26 +23,35 @@ export function runParts(parts: Candle[][], base: BacktestConfig, strategyId: st
   let ret = 0;
   let dd = 0;
   let ran = 0;
+  let fired = 0;
+  let bars = 0;
+  let seconds = 0;
   let lead: Metrics | null = null;
   for (const candles of parts) {
     if (candles.length < 2) continue;
     const out = runBacktest(candles, buildSignals(candles, strategyId, params), config);
-    const m = computeMetrics(candles, out.equity, out.trades, config.initialCapital, out.exposureBars);
+    const m = computeMetrics(candles, out.equity, out.trades, config.initialCapital, out.exposureBars, out.signalsFired);
     lead ??= m;
     ret += m.totalReturnPct;
     dd = Math.max(dd, Math.abs(m.maxDrawdownPct));
     ran++;
+    fired += out.signalsFired;
+    bars += out.equity.length;
+    seconds += out.equity.length * medianBarSeconds(out.equity);
     trades.push(...out.trades);
   }
   const wins = trades.filter((t) => t.pnl > 0);
   const losses = trades.filter((t) => t.pnl <= 0);
   const avgWin = wins.length ? wins.reduce((a, t) => a + t.pnlPct, 0) / wins.length : 0;
   const avgLoss = losses.length ? Math.abs(losses.reduce((a, t) => a + t.pnlPct, 0) / losses.length) : 0;
+  const rates = ran ? signalRates(fired, bars, seconds) : { signalsPer100Bars: null, signalsPerDay: null };
   return {
     trades,
     lead,
     stats: {
       trades: trades.length,
+      signalsFired: ran ? fired : null,
+      ...rates,
       totalReturnPct: ran ? ret / ran : 0,
       winRatePct: trades.length ? (wins.length / trades.length) * 100 : null,
       rr: avgLoss > 0 ? avgWin / avgLoss : null,

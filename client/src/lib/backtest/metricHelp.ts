@@ -7,7 +7,7 @@ import type { ExitReason } from './types';
 
 export type HelpKey =
   | 'finalEquity' | 'netPnl' | 'totalReturn' | 'buyHold' | 'cagr' | 'sharpe' | 'sortino' | 'calmar'
-  | 'maxDrawdown' | 'maxDdDuration' | 'exposure' | 'trades' | 'winRate' | 'profitFactor' | 'expectancy'
+  | 'maxDrawdown' | 'maxDdDuration' | 'exposure' | 'trades' | 'signals' | 'signalRate' | 'winRate' | 'profitFactor' | 'expectancy'
   | 'avgTrade' | 'bestWorst' | 'avgBars' | 'totalFees' | 'bars' | 'maxLeverage'
   | 'wins' | 'losses' | 'grossProfit' | 'grossLoss' | 'bestTrade' | 'worstTrade'
   | 'longestWinStreak' | 'longestLossStreak' | 'currentStreak'
@@ -163,9 +163,32 @@ export const METRIC_HELP: Record<HelpKey, MetricHelp> = {
     reading: 'More trades make the other figures more trustworthy. Under about 30, treat win rate and averages as noise.',
     profit: 'Each trade pays fees and slippage, so many small trades can cost more than they earn.',
     related: [
+      { key: 'signals', note: 'signals that fired; trades are the ones actually taken' },
       { key: 'totalFees', note: 'rises with the trade count' },
       { key: 'winRate', note: 'only reliable with enough trades' },
       { key: 'mcFinalReturn', note: 'Monte Carlo needs enough trades to be meaningful' },
+    ],
+  },
+  signals: {
+    label: 'Entry signals',
+    what: 'How many times the strategy turned to a new side (long or short) and so asked for a trade. A repeat of the side it already holds does not count.',
+    reading: 'Fewer taken than fired is normal: a stop-out blocks re-entry until the signal flips, a signal while already in that side adds nothing, and an empty account cannot open.',
+    profit: 'Signals only pay when taken; a big gap between fired and taken means the exits are cutting the strategy short.',
+    related: [
+      { key: 'trades', note: 'the signals that became trades' },
+      { key: 'signalRate', note: 'the same count per 100 bars and per day' },
+      { key: 'exitStopLoss', note: 'stop-outs block re-entry on the same side' },
+    ],
+  },
+  signalRate: {
+    label: 'Signal rate',
+    what: 'Entry signals fired per 100 bars, and per day using the bar length of the run.',
+    reading: 'Very low (under 1 per 100 bars) leaves few trades to judge; very high (over 10) often means noise and heavy fees. Compare runs on the same timeframe.',
+    profit: 'Frequent signals multiply fees and slippage; rare ones leave capital idle.',
+    related: [
+      { key: 'signals', note: 'the count behind the rate' },
+      { key: 'trades', note: 'how many were taken' },
+      { key: 'totalFees', note: 'grows with signal frequency' },
     ],
   },
   winRate: {

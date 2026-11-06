@@ -113,7 +113,7 @@ export const strategySearch: Scenario = {
       await panel.getByRole('heading', { name: 'Skipped' }).waitFor();
       await panel.getByText(/^Tried [\d,]+ combinations: /).waitFor();
       await panel.getByText(/can be luck/).waitFor();
-      if (!(await panel.locator('.sm-table tbody tr td:nth-child(10)', { hasText: 'yes' }).count())) throw new Error('no row held on unseen data');
+      if (!(await panel.locator('.sm-table tbody tr td:nth-child(11)', { hasText: 'yes' }).count())) throw new Error('no row held on unseen data');
       await ctx.writeText('results', (await panel.getByRole('region', { name: 'Search results' }).innerText()) + '\n');
     });
     await panel.getByRole('region', { name: 'Search results' }).evaluate((el) => el.scrollIntoView({ block: 'start' }));

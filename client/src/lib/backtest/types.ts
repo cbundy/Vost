@@ -92,6 +92,12 @@ export interface Metrics {
   exposurePct: number;
   buyHoldPct: number;
   trades: number;
+  /** Entry signals that fired (see the engine); null when the strategy has no signal series (Pine). */
+  signalsFired: number | null;
+  /** Fired signals per 100 bars; null when unknown. */
+  signalsPer100Bars: number | null;
+  /** Fired signals per day (bars times the median bar length); null when unknown. */
+  signalsPerDay: number | null;
   winRatePct: number | null;
   profitFactor: number | null;
   expectancy: number | null;

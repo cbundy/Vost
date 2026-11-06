@@ -12,7 +12,7 @@ import { sweepHandoff } from './sweepHandoff';
 
 const candles = candlesFromCsvText(readFileSync(fileURLToPath(new URL('../../../examples/sample-daily.csv', import.meta.url)), 'utf8')).candles;
 const risk: SweepRisk = { initialCapital: 1000, riskPct: 2, feeBps: 10, slippageBps: 5 };
-const figures: PartFigures = { trades: 40, totalReturnPct: 10, winRatePct: 60, rr: 1.5, maxDrawdownPct: 8, finalEquity: 1100 };
+const figures: PartFigures = { trades: 40, signalsFired: 50, signalsPer100Bars: 5, signalsPerDay: 1, totalReturnPct: 10, winRatePct: 60, rr: 1.5, maxDrawdownPct: 8, finalEquity: 1100 };
 const candidate = (params: Record<string, number>): SweepCandidate => ({
   market: { provider: 'yahoo', symbol: 'AAPL' },
   timeframe: '1w',
