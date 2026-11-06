@@ -230,11 +230,11 @@ describe('server jobs from the chart', () => {
     expect(t.toasts.some((x) => x.startsWith('Backtest finished in the browser'))).toBe(true);
   });
 
-  it('a Pine strategy stays in the browser on Server', async () => {
+  it('a Pine strategy goes to the server on Server', async () => {
     const t = make('server');
     t.store.getState().setBtConfig({ strategyId: 'pine' });
     await t.store.getState().runBacktest();
-    expect(server.started).toEqual([]);
+    expect(server.started).toEqual(['run']);
   });
 });
 
