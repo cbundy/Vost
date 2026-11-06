@@ -3,6 +3,7 @@ import { getStrategy } from '../lib/backtest/strategies';
 import { encodeHandoff } from '../lib/backtestHandoff';
 import { gapWords, settingsText, SignalsCell } from './Results';
 import { familyName } from './TargetsForm';
+import { exitKey, exitOfCandidate, exitShort, exitSortValue, exitWords } from './sweep/exits';
 import type { ClosestCandidate, PartFigures, SweepCandidate, SweepResult, SweepRisk } from './sweep/types';
 import { marketLabel, sweepHandoff } from './sweepHandoff';
 
@@ -28,7 +29,7 @@ const COLUMNS: Array<{ key: SortKey; label: string; value: (c: SweepCandidate) =
   { key: 'market', label: 'Market', value: (c) => c.market.symbol },
   { key: 'timeframe', label: 'Timeframe', value: (c) => c.timeframe },
   { key: 'strategy', label: 'Strategy', value: (c) => getStrategy(c.strategyId).name },
-  { key: 'stop', label: 'Stop / take profit', value: (c) => c.stopLossPct },
+  { key: 'stop', label: 'Stop / take profit', value: (c) => exitSortValue(exitOfCandidate(c)) },
   { key: 'trades', label: 'Trades', value: (c) => figuresOf(c).trades },
   { key: 'signals', label: 'Signals / 100 bars', value: (c) => figuresOf(c).signalsPer100Bars ?? -1 },
   { key: 'hit', label: 'Hit rate', value: (c) => figuresOf(c).winRatePct ?? -1 },
@@ -54,7 +55,7 @@ function Closest({ list }: { list: ClosestCandidate[] }) {
       <ul>
         {list.map((c) => (
           <li key={`${marketLabel(c)}`}>
-            <strong>{marketLabel(c)}</strong>: {getStrategy(c.strategyId).name} ({settingsWords(c)}), stop {pct(c.stopLossPct, 2)}, take profit {pct(c.takeProfitPct, 2)}.{' '}
+            <strong>{marketLabel(c)}</strong>: {getStrategy(c.strategyId).name} ({settingsWords(c)}), {exitWords(exitOfCandidate(c))}.{' '}
             {c.gaps.map((g) => gapWords(g)).join(' ')}
           </li>
         ))}
@@ -120,7 +121,7 @@ export function SweepResults({ result, risk }: Props) {
                 {rows.slice(0, shown).map((c) => {
                   const f = figuresOf(c);
                   return (
-                    <tr key={`${marketLabel(c)}|${c.strategyId}|${JSON.stringify(c.params)}|${c.stopLossPct}|${c.takeProfitPct}`}>
+                    <tr key={`${marketLabel(c)}|${c.strategyId}|${JSON.stringify(c.params)}|${exitKey(exitOfCandidate(c))}`}>
                       <td>{c.market.symbol}</td>
                       <td>{c.timeframe}</td>
                       <td>
@@ -128,7 +129,7 @@ export function SweepResults({ result, risk }: Props) {
                         <div className="sm-bars">{settingsWords(c)}</div>
                       </td>
                       <td>
-                        {pct(c.stopLossPct, 2)} / {pct(c.takeProfitPct, 2)}
+                        {exitShort(exitOfCandidate(c))}
                       </td>
                       <td>{f.trades}</td>
                       <SignalsCell s={f} title={otherSignals(c)} />

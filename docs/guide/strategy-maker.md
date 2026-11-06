@@ -94,11 +94,14 @@ Below the Find section, **Search markets** tries many indicator settings and exi
 - **Timeframes** (1d and 1w at first), **Indicators** (MACD, SMA and EMA crossover at first), and **Strategy type** (long only at first).
 - **Targets**: two rows, "75% hit rate with R:R 1" **or** "50% hit rate with R:R 4". A result needs to meet either one. Clear both boxes of a row to leave it out; at least one row must stay.
 - **Sizing and costs**: account size (1000), risk per trade as the percent of the account lost when the stop is hit (2%), and fee and slippage in bps (10 and 5).
-- **Stop** and **Take profit**: the multiples tried. A stop is a multiple of the market's typical bar range; a take profit is a multiple of the stop.
+- **Exit kinds**: how the exits are placed. "Stop sized by the typical bar range" is on at first; "ATR stop" and "ATR trailing stop" can be added. Each kind chosen multiplies the number of combinations, and at least one must stay on.
+- **Stop** and **Take profit**: the multiples tried. For the range kind a stop is a multiple of the market's typical bar range. For the ATR kinds it is a multiple of the ATR (14 bars, read on the signal bar), and for the trailing kind the stop trails the price at that distance, fixed at entry. A take profit is a multiple of the stop (for the ATR kinds, in R: 3R is three times the stop distance). An ATR exit cannot trade in the first 14 bars of each part while the ATR warms up.
 
 A bad number is flagged under its field and switches the search off with the reason, as does no list, no timeframe, no indicator or no target row. Above the button, the page says how big the search is ("10 markets x 1 timeframe = 116,100 combinations"; a market in two lists counts once). Above the limit of 2,000,000 combinations the button is off and the page says so; nothing starts.
 
 ![The Search markets panel with its defaults](../evidence/strategy-search/strategy-search-panel-desktop.png)
+
+![The Exit kinds group with the ATR stop and ATR trailing stop on, and the larger count](../evidence/strategy-search/strategy-search-exit-kinds-desktop.png)
 
 ![Every list, timeframe and indicator is over the limit, so Search is off](../evidence/strategy-search/strategy-search-over-budget-desktop.png)
 
@@ -106,7 +109,7 @@ While it runs, a bar shows the percent and the market and timeframe being search
 
 ![A search in progress on a narrow screen](../evidence/strategy-search/strategy-search-running-narrow.png)
 
-The results start with how many combinations were tried, how many met a target and how many also **held on unseen data**, and a plain warning: with this many combinations tried, a result that meets a target can be luck, and the ones that held are the ones to trust more. The table is ranked held results first and sorts by any column header. For a held row the figures (trades, signals per 100 bars, hit rate, R:R, final equity, maximum drawdown) come from the unseen part; for the others they come from the part that was searched. The **Signals / 100 bars** column also shows how many signals fired and the rate per day, and hovering it gives the other part's figures. **Open in Backtest** opens Vost in a new tab on that market and timeframe, with the Backtest tab set to the strategy, its settings, the stop and take profit, fee, slippage, account size and risk per trade, and the direction. A message names the market and timeframe. Run the backtest to see the same trades the search took.
+The results start with how many combinations were tried, how many met a target and how many also **held on unseen data**, and a plain warning: with this many combinations tried, a result that meets a target can be luck, and the ones that held are the ones to trust more. Each row names its exit: `2.10% / 4.20%` for the range kind, `2 ATR / 3R` for an ATR stop and `2 ATR trailing / 3R` for an ATR trailing stop; the Stop / take profit column sorts by kind, then by stop. The table is ranked held results first and sorts by any column header. For a held row the figures (trades, signals per 100 bars, hit rate, R:R, final equity, maximum drawdown) come from the unseen part; for the others they come from the part that was searched. The **Signals / 100 bars** column also shows how many signals fired and the rate per day, and hovering it gives the other part's figures. **Open in Backtest** opens Vost in a new tab on that market and timeframe, with the Backtest tab set to the strategy, its settings, the exit it used (the percent stop and take profit, or the ATR stop or trailing stop with the R target and ATR length), fee, slippage, account size and risk per trade, and the direction. A message names the market and timeframe. Run the backtest to see the same trades the search took.
 
 ![Ranked results, with the ones that held on unseen data first](../evidence/strategy-search/strategy-search-results-desktop.png)
 

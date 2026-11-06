@@ -6,6 +6,7 @@ import { MAX_SWEEP_COMBOS } from './sweep/sweep';
 import { SweepResults } from './SweepResults';
 import {
   defaultSweepForm,
+  EXIT_KIND_OPTIONS,
   planSweep,
   STOP_MULT_OPTIONS,
   SWEEP_FAMILIES,
@@ -164,7 +165,16 @@ export function SweepPanel({ getClient }: Props) {
           {field('slippageBps', 'Slippage', 'bps')}
         </fieldset>
         <fieldset disabled={running}>
-          <legend>Stop (times the typical bar range)</legend>
+          <legend>Exit kinds</legend>
+          {EXIT_KIND_OPTIONS.map((o) => (
+            <label key={o.id} className="sm-check">
+              <input type="checkbox" checked={form.exitKinds.includes(o.id)} onChange={() => set('exitKinds', toggle(form.exitKinds, o.id))} />
+              {o.label}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset disabled={running}>
+          <legend>Stop (times the typical bar range or the ATR)</legend>
           {STOP_MULT_OPTIONS.map((m) => (
             <label key={m} className="sm-check">
               <input type="checkbox" checked={form.stopMults.includes(m)} onChange={() => set('stopMults', toggle(form.stopMults, m).sort((a, b) => a - b))} />

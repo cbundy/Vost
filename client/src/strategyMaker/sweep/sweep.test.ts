@@ -3,9 +3,9 @@ import { runBacktest } from '../../lib/backtest/engine';
 import type { Candle } from '../../types';
 import { mulberry32 } from '../../lib/random';
 import { normal, synth } from '../engine/synthetic';
-import { exitsOf, typicalRangePct } from './exits';
+import { exitCount, exitOfCandidate, exitShort, exitWords, exitsOf, kindsOf, typicalRangePct } from './exits';
 import { MAX_LOADS, MAX_SWEEP_COMBOS, rankCandidates, runSweep, sweepCombos, sweepConfig } from './sweep';
-import type { SweepCandidate, SweepInput, SweepLoad, SweepMarket } from './types';
+import type { SweepCandidate, SweepExit, SweepInput, SweepLoad, SweepMarket } from './types';
 
 const A: SweepMarket = { provider: 'test', symbol: 'AAA' };
 const B: SweepMarket = { provider: 'test', symbol: 'BBB' };
@@ -173,13 +173,15 @@ describe('runSweep', () => {
   });
 });
 
+const rangeExit = (stopLossPct: number, takeProfitPct: number): SweepExit => ({ kind: 'range', stopMult: 1, tpMult: 1, config: { stopLossPct, takeProfitPct } });
+
 describe('sizing', () => {
   it('two stopped-out trades from $1000 at 2% risk lose $20.00, then $19.60', () => {
     const bar = (i: number, o: number, h: number, l: number, c: number): Candle => ({ time: 1000 + i * 60, open: o, high: h, low: l, close: c, volume: 1 });
     // Signal 1 on bar 0 enters at bar 1's open (100); bar 1 trades down to 97 (stop 2% = 98, no gap: it opens at 100).
     const candles = [bar(0, 100, 100, 100, 100), bar(1, 100, 100, 97, 98), bar(2, 100, 100, 100, 100), bar(3, 100, 100, 100, 100), bar(4, 100, 100, 97, 98), bar(5, 100, 100, 100, 100)];
     const signals = [1, 1, 0, 1, 1, 0];
-    const cfg = sweepConfig({ initialCapital: 1000, riskPct: 2, feeBps: 0, slippageBps: 0 }, 'sma_cross', {}, 2, 50);
+    const cfg = sweepConfig({ initialCapital: 1000, riskPct: 2, feeBps: 0, slippageBps: 0 }, 'sma_cross', {}, rangeExit(2, 50));
     const out = runBacktest(candles, signals, cfg);
     expect(out.trades.map((t) => t.exitReason)).toEqual(['stop_loss', 'stop_loss']);
     const eq = out.trades.map((_, i) => 1000 + out.trades.slice(0, i + 1).reduce((a, t) => a + t.pnl, 0));
@@ -191,12 +193,12 @@ describe('sizing', () => {
   it('sizes exits from the typical bar range', () => {
     const c = [100, 100, 100].map((p, i) => ({ time: i, open: p, high: p + 2, low: p, close: p, volume: 1 }));
     expect(typicalRangePct(c)).toBeCloseTo(2, 9);
-    expect(exitsOf(2, { stopMults: [1, 2], tpMults: [1, 3] })).toEqual([
-      { stopLossPct: 2, takeProfitPct: 2 },
-      { stopLossPct: 2, takeProfitPct: 6 },
-      { stopLossPct: 4, takeProfitPct: 4 },
-      { stopLossPct: 4, takeProfitPct: 12 },
-    ]);
+    const grid = { stopMults: [1, 2], tpMults: [1, 3] };
+    const want = [[2, 2], [2, 6], [4, 4], [4, 12]];
+    for (const g of [grid, { ...grid, kinds: ['range' as const] }]) {
+      expect(exitsOf(2, g).map((x) => [x.config.stopLossPct, x.config.takeProfitPct])).toEqual(want);
+      expect(exitsOf(2, g).every((x) => x.kind === 'range')).toBe(true);
+    }
   });
 });
 
@@ -213,5 +215,132 @@ describe('rankCandidates', () => {
       [false, 5000],
       [false, 2000],
     ]);
+  });
+});
+
+describe('range exits give today\'s results', () => {
+  // Pinned from a run of origin/main (622ded4) before exit kinds existed: two markets, one timeframe, sma 8/10 x 34, 2x2 exits.
+  const input: SweepInput = { ...base, space: { sma_cross: [{ key: 'fast', from: 8, to: 10, step: 2 }, { key: 'slow', from: 34, to: 34, step: 1 }] } };
+  const data = { AAA: synth(4000, 7), BBB: synth(4000, 11) };
+  // market, fast, stop %, take profit %, selection final equity, hold-out final equity
+  const rows: Array<[string, number, number, number, number, number]> = [
+    ['BBB', 8, 1.6220154920224865, 3.244030984044973, 765.1661474737242, 1152.5392130173414],
+    ['BBB', 8, 0.8110077460112433, 1.6220154920224865, 584.0884302379005, 1150.359789584522],
+    ['BBB', 10, 1.6220154920224865, 3.244030984044973, 827.3040795014206, 1098.5661189344942],
+    ['BBB', 8, 0.8110077460112433, 0.8110077460112433, 554.1485671003293, 1088.820650334424],
+    ['BBB', 10, 0.8110077460112433, 1.6220154920224865, 679.3012784349255, 1083.693428672853],
+    ['BBB', 10, 1.6220154920224865, 1.6220154920224865, 738.0463222346339, 1018.7468759790174],
+    ['BBB', 8, 1.6220154920224865, 1.6220154920224865, 685.1798900682479, 1017.6383907000989],
+    ['BBB', 10, 0.8110077460112433, 0.8110077460112433, 571.2721599361837, 1004.7199529215189],
+    ['AAA', 10, 1.6087951787448405, 3.217590357489681, 581.3576492425757, 983.2118962958989],
+    ['AAA', 8, 1.6087951787448405, 3.217590357489681, 740.9588948865501, 950.0089150834575],
+    ['AAA', 10, 0.8043975893724202, 1.6087951787448405, 600.3505487651659, 917.394374563489],
+    ['AAA', 8, 1.6087951787448405, 1.6087951787448405, 745.8769913102285, 904.8343257592647],
+    ['AAA', 8, 0.8043975893724202, 1.6087951787448405, 554.1358014488915, 886.9268497943062],
+    ['AAA', 10, 1.6087951787448405, 1.6087951787448405, 697.3643741655022, 884.220911551891],
+    ['AAA', 8, 0.8043975893724202, 0.8043975893724202, 592.4066771322288, 833.1218917232311],
+    ['AAA', 10, 0.8043975893724202, 0.8043975893724202, 668.1365002874129, 833.1218917232304],
+  ];
+  for (const [name, exits] of [['kinds absent', input.exits], ['kinds range', { ...input.exits, kinds: ['range' as const] }]] as Array<[string, SweepInput['exits']]>) {
+    it(`${name}`, async () => {
+      const r = await runSweep({ ...input, exits }, fixed(data));
+      expect([r.tried, r.met, r.held]).toEqual([16, 16, 16]);
+      expect(r.candidates).toHaveLength(rows.length);
+      r.candidates.forEach((c, i) => {
+        const [sym, fast, sl, tp, sel, out] = rows[i];
+        expect([c.market.symbol, c.strategyId, c.params.fast, c.params.slow, c.held]).toEqual([sym, 'sma_cross', fast, 34, true]);
+        expect(c.stopLossPct).toBeCloseTo(sl, 9);
+        expect(c.takeProfitPct).toBeCloseTo(tp, 9);
+        expect(c.selection.finalEquity).toBeCloseTo(sel, 6);
+        expect(c.heldOut.finalEquity).toBeCloseTo(out, 6);
+      });
+    });
+  }
+});
+
+describe('exit kinds', () => {
+  const grid = { stopMults: [1, 2], tpMults: [1, 3] };
+  const risk = { initialCapital: 1000, riskPct: 2, feeBps: 0, slippageBps: 0 };
+  const bar = (i: number, o: number, h: number, l: number, c: number): Candle => ({ time: 1000 + i * 60, open: o, high: h, low: l, close: c, volume: 1 });
+
+  it('orders kinds range, atr, atr_trail, then stop, then take profit', () => {
+    const xs = exitsOf(2, { ...grid, kinds: ['atr_trail', 'range', 'atr'] });
+    expect(xs.map((x) => [x.kind, x.stopMult, x.tpMult])).toEqual(
+      ['range', 'atr', 'atr_trail'].flatMap((k) => [[k, 1, 1], [k, 1, 3], [k, 2, 1], [k, 2, 3]]),
+    );
+  });
+
+  it('gives each kind its backtest settings', () => {
+    const [r, a, t] = [exitsOf(2, { ...grid, kinds: ['range'] })[1], exitsOf(2, { ...grid, kinds: ['atr'] })[1], exitsOf(2, { ...grid, kinds: ['atr_trail'] })[1]];
+    expect(r.config).toEqual({ stopLossPct: 2, takeProfitPct: 6 });
+    expect(a.config).toEqual({ stopLossPct: null, takeProfitPct: null, stopMode: 'atr', stopAtrMult: 1, takeProfitMode: 'r', takeProfitR: 3, atrLength: 14 });
+    expect(t.config).toEqual({ stopLossPct: null, takeProfitPct: null, trailMode: 'atr', trailAtrMult: 1, takeProfitMode: 'r', takeProfitR: 3, atrLength: 14 });
+    expect(sweepConfig(risk, 'sma_cross', {}, a)).toMatchObject({ stopMode: 'atr', takeProfitMode: 'r', stopLossPct: null, takeProfitPct: null });
+    const tc = sweepConfig(risk, 'sma_cross', {}, t);
+    expect(tc).toMatchObject({ trailMode: 'atr', trailAtrMult: 1 });
+    expect(tc.stopMode).toBeUndefined();
+  });
+
+  it('counts kinds x stops x take profits; drops unknown kinds; none left reads as range', () => {
+    expect(exitCount({ ...grid, kinds: ['range', 'atr', 'atr_trail'] })).toBe(12);
+    expect(exitCount(grid)).toBe(4);
+    expect(kindsOf({ ...grid, kinds: ['bogus', 'atr'] as never })).toEqual(['atr']);
+    expect(kindsOf({ ...grid, kinds: ['bogus'] as never })).toEqual(['range']);
+    expect(kindsOf({ ...grid, kinds: [] })).toEqual(['range']);
+    expect(sweepCombos({ ...base, exits: { ...grid, kinds: ['range', 'atr'] } })).toBe(2 * sweepCombos({ ...base, exits: grid }));
+  });
+
+  it('an ATR trailing exit ends a trade by trailing_stop, with the R target at tpMult x the trail start', () => {
+    // 20 flat bars of range 2 (ATR 2); signal on bar 19; entry at bar 20 open 100; the trail starts 2 ATR = 4 below.
+    const flat = Array.from({ length: 20 }, (_, i) => bar(i, 100, 101, 99, 100));
+    const up = [bar(20, 100, 103, 100, 103), bar(21, 103, 110, 103, 110), bar(22, 110, 110, 100, 101), bar(23, 101, 101, 101, 101)];
+    const candles = [...flat, ...up];
+    const signals = candles.map((_, i) => (i >= 19 ? 1 : 0));
+    const [x] = exitsOf(2, { stopMults: [2], tpMults: [10], kinds: ['atr_trail'] });
+    const out = runBacktest(candles, signals, sweepConfig(risk, 'sma_cross', {}, x));
+    expect(out.trades.map((t) => t.exitReason)).toEqual(['trailing_stop']);
+    expect(out.trades[0].exitPrice).toBeLessThan(110);
+    const y = exitsOf(2, { stopMults: [2], tpMults: [1], kinds: ['atr_trail'] })[0];
+    const tp = runBacktest(candles, signals, sweepConfig(risk, 'sma_cross', {}, y));
+    expect(tp.trades[0].exitReason).toBe('take_profit');
+    expect(tp.trades[0].exitPrice).toBeCloseTo(tp.trades[0].entryPrice + 4, 6);
+  });
+
+  it('an ATR stop loses riskPct of equity when it is hit', () => {
+    const flat = Array.from({ length: 20 }, (_, i) => bar(i, 100, 101, 99, 100));
+    const candles = [...flat, bar(20, 100, 100, 90, 92), bar(21, 92, 92, 92, 92)];
+    const signals = candles.map((_, i) => (i === 19 || i === 20 ? 1 : 0));
+    const [x] = exitsOf(2, { stopMults: [2], tpMults: [3], kinds: ['atr'] });
+    const out = runBacktest(candles, signals, sweepConfig(risk, 'sma_cross', {}, x));
+    expect(out.trades.map((t) => t.exitReason)).toEqual(['stop_loss']);
+    expect(out.trades[0].pnl).toBeCloseTo(-20, 1);
+  });
+
+  it('candidates of an ATR run carry the exit and null percents', async () => {
+    const r = await runSweep({ ...base, exits: { stopMults: [2], tpMults: [2], kinds: ['atr'] } }, fixed({ AAA: long, BBB: long }));
+    const all = [...r.candidates, ...r.closest];
+    expect(all.length).toBeGreaterThan(0);
+    for (const c of all) {
+      expect(c.exit?.kind).toBe('atr');
+      expect(c.stopLossPct).toBeNull();
+      expect(c.takeProfitPct).toBeNull();
+    }
+  });
+});
+
+describe('exit words', () => {
+  const [r, a, t] = (['range', 'atr', 'atr_trail'] as const).map((k) => exitsOf(2.1, { stopMults: [1], tpMults: [2], kinds: [k] })[0]);
+  it('names each kind', () => {
+    expect(exitWords(r)).toBe('stop 2.10%, take profit 4.20%');
+    expect(exitShort(r)).toBe('2.10% / 4.20%');
+    expect(exitWords({ ...a, stopMult: 2, tpMult: 3 })).toBe('stop 2 ATR, take profit 3R');
+    expect(exitShort({ ...a, stopMult: 2, tpMult: 3 })).toBe('2 ATR / 3R');
+    expect(exitWords({ ...t, stopMult: 2, tpMult: 3 })).toBe('trailing stop 2 ATR, take profit 3R');
+    expect(exitShort({ ...t, stopMult: 2, tpMult: 3 })).toBe('2 ATR trailing / 3R');
+  });
+  it('reads a candidate without exit from its percents', () => {
+    const x = exitOfCandidate({ stopLossPct: 2.1, takeProfitPct: 4.2 });
+    expect(x.kind).toBe('range');
+    expect(exitWords(x)).toBe('stop 2.10%, take profit 4.20%');
   });
 });

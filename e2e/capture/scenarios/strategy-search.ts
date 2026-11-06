@@ -70,6 +70,7 @@ export const strategySearch: Scenario = {
       for (const box of await panel.getByRole('group', { name: 'Market lists' }).getByRole('checkbox').all()) await box.check();
       for (const box of await panel.getByRole('group', { name: 'Timeframes' }).getByRole('checkbox').all()) await box.check();
       for (const box of await panel.getByRole('group', { name: 'Indicators' }).getByRole('checkbox').all()) await box.check();
+      for (const box of await panel.getByRole('group', { name: 'Exit kinds' }).getByRole('checkbox').all()) await box.check();
       for (const box of await panel.getByRole('group', { name: /^Stop/ }).getByRole('checkbox').all()) await box.check();
       for (const box of await panel.getByRole('group', { name: /^Take profit/ }).getByRole('checkbox').all()) await box.check();
       await panel.getByText(/over the limit of 2,000,000/).first().waitFor();
@@ -87,6 +88,16 @@ export const strategySearch: Scenario = {
       await ctx.writeText('count', text + '\n');
       if (await run.isDisabled()) throw new Error('Run is off');
     });
+    await ctx.step('the ATR stop and ATR trailing stop kinds triple the count', async () => {
+      const before = Number((await count.innerText()).match(/= ([\d,]+) combinations/)![1].replace(/,/g, ''));
+      await panel.getByRole('group', { name: 'Exit kinds' }).getByLabel('ATR stop').check();
+      await panel.getByRole('group', { name: 'Exit kinds' }).getByLabel('ATR trailing stop').check();
+      const after = Number((await count.innerText()).match(/= ([\d,]+) combinations/)![1].replace(/,/g, ''));
+      if (after !== before * 3) throw new Error(`count ${before} -> ${after}`);
+      await ctx.writeText('exit-kinds', `${before} -> ${after}\n`);
+    });
+    await panel.getByRole('group', { name: 'Exit kinds' }).scrollIntoViewIfNeeded();
+    await ctx.screenshot('exit-kinds');
     await ctx.screenshot('ready');
     await ctx.step('a run shows its progress bar with percent and market', async () => {
       await page.evaluate(() => ((window as unknown as { __sweepHold: boolean }).__sweepHold = true));
