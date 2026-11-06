@@ -1,6 +1,6 @@
 # Deploying Vost
 
-Vost is a static web client plus a tiny zero-dependency Node server. The server does three things:
+Vost is a static web client plus a tiny Node server with no runtime npm packages. The server does three things:
 
 1. serves `client/dist` (the built web app),
 2. answers the market-data API (`/api/providers`, `/api/history`, `/api/symbols`, `/api/search`): it calls the public provider APIs (Binance, Yahoo, …) on the browser's behalf, because many of them send no CORS headers,
@@ -8,7 +8,7 @@ Vost is a static web client plus a tiny zero-dependency Node server. The server 
 4. looks up and keeps the TradingView libraries that Pine scripts import (`/api/pine/libraries`),
 5. builds the crypto lists of the market search from CoinGecko or CoinMarketCap (`/api/market-lists`).
 
-There is state on disk, all in the data folder (`VOST_DATA_DIR`): the alerts file, `alerts.json`, the `settings/` folder (the app's settings, one `<name>.json` per setting; see the API list below), the `strategy-maker/` folder (the strategy maker's marked trades, find form and trained model; see the API list below), the `images/` folder (the pictures of the Image drawing, one file per picture named by its SHA-256, and `index.json`), the Pine libraries file, `pine-libraries.json` (open-source TradingView libraries the server fetched for scripts that import them, and libraries you pasted), and a candle store, `candles.sqlite` (a SQLite file the server opens with Node's built-in `node:sqlite`, so no npm dependency is added). The candle store holds chart history for the markets the server records (see [Recorded markets](#recorded-markets)); it is safe to delete, because the history is then fetched from the exchange again. Everything else is in memory (the symbol-list cache, the open exchange websockets). The server is TypeScript that Node runs directly (type stripping), so there is no server build step and no npm dependency at runtime. Everything else — CSV parsing, indicators, backtests — runs in the visitor's browser, but the app needs the server to start: it loads its settings, layouts, drawings, watchlists and datasets from the `settings/` folder at start and saves them there as you work.
+There is state on disk, all in the data folder (`VOST_DATA_DIR`): the alerts file, `alerts.json`, the `settings/` folder (the app's settings, one `<name>.json` per setting; see the API list below), the `strategy-maker/` folder (the strategy maker's marked trades, find form and trained model; see the API list below), the `images/` folder (the pictures of the Image drawing, one file per picture named by its SHA-256, and `index.json`), the Pine libraries file, `pine-libraries.json` (open-source TradingView libraries the server fetched for scripts that import them, and libraries you pasted), and a candle store, `candles.sqlite` (a SQLite file the server opens with Node's built-in `node:sqlite`, so no npm dependency is added). The candle store holds chart history for the markets the server records (see [Recorded markets](#recorded-markets)); it is safe to delete, because the history is then fetched from the exchange again. Everything else is in memory (the symbol-list cache, the open exchange websockets). The server is TypeScript that Node runs directly (type stripping), so the server installs no npm package at runtime. The one built file is the engine bundle, `server/dist/engine.mjs`, which `npm run build` makes (the Docker image carries it); the server runs it in background worker threads (`VOST_JOB_WORKERS` sets how many). Everything else — CSV parsing, indicators, backtests — runs in the visitor's browser, but the app needs the server to start: it loads its settings, layouts, drawings, watchlists and datasets from the `settings/` folder at start and saves them there as you work.
 
 - [Docker](#docker)
 - [Docker Compose](#docker-compose)
@@ -62,7 +62,7 @@ Requirements: Node **24** recommended (`node --version`); Node 22.18+ is the min
 git clone https://github.com/cbundy/Vost.git
 cd Vost
 npm ci            # or npm install
-npm run build     # typecheck + bundle -> client/dist
+npm run build     # typecheck + bundle -> client/dist and server/dist/engine.mjs
 PORT=8787 npm start
 ```
 
@@ -177,6 +177,7 @@ Deploying `client/dist/` alone (GitHub Pages, Netlify, S3, nginx serving files) 
 | `PORT` | server (runtime) | `8787` | HTTP listen port |
 | `HOST` | server (runtime) | `0.0.0.0` | Bind address; use `127.0.0.1` behind a proxy |
 | `VOST_STATUS_INTERVAL` | server (runtime) | `60` | Seconds between background health checks of the exchanges (see `/api/status`); `0` turns them off, and the status then stays `unknown` until someone presses "Test now" or real requests report in |
+| `VOST_JOB_WORKERS` | server (runtime) | CPU count minus one (at least 1) | Worker threads the server runs its background jobs on, using `server/dist/engine.mjs` (made by `npm run build`; without it the server still starts and a job reports `server jobs unavailable: run npm run build`). A positive integer; anything else uses the default |
 | `VOST_DATA_DIR` | server (runtime) | `<repo>/data` (`/data` in the Docker image) | Folder for `alerts.json`, `pine-libraries.json`, `candles.sqlite`, the `settings/`, `strategy-maker/` and `images/` folders (plus `settings-imported-<ms>.json` and `strategy-maker-imported-<ms>.json` archives), created on first write. If it is not writable the server still starts, alerts, settings and strategy maker data can be listed but every change answers `503` naming this variable, Pine libraries are still fetched and served but not kept (pasting one answers `503`), and the candle store is off (charts then come from the exchange as before) |
 | `VOST_RECORD` | server (runtime) | `binance:BTCUSDT binance:ETHUSDT coinbase:BTC-USD coinbase:ETH-USD hyperliquid-perps:BTC hyperliquid-perps:ETH` | The markets the server records at all times, separated by commas or spaces. Each entry is `provider:SYMBOL` (every timeframe the provider's live feed supports) or `provider:SYMBOL:tf/tf` (those timeframes only), e.g. `binance:BTCUSDT:1h/1d`. `off` records nothing. A bad entry is skipped with a `[recorder]` warning. See [Recorded markets](#recorded-markets) |
 | `VOST_RECORD_BARS` | server (runtime) | `20000` | Bars kept per recorded series; an integer of at least 100 (a bad value logs a warning and uses the default) |

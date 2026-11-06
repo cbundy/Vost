@@ -4,7 +4,7 @@
 
 **Self-hosted, open-source charts & backtesting — a TradingView alternative you actually own.**
 
-Pull free public market data, import your own CSV files, chart them with [lightweight-charts](https://github.com/tradingview/lightweight-charts), and run **unlimited** backtests with a parameter optimizer — all from a single Node process with **zero runtime dependencies**.
+Pull free public market data, import your own CSV files, chart them with [lightweight-charts](https://github.com/tradingview/lightweight-charts), and run **unlimited** backtests with a parameter optimizer — all from a single Node server that installs **no runtime npm packages**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
 [![Release](https://img.shields.io/github/v/release/cbundy/Vost)](https://github.com/cbundy/Vost/releases)
@@ -81,7 +81,7 @@ git clone https://github.com/cbundy/Vost.git
 cd Vost
 git checkout vX.Y.Z   # a release tag from the Releases page (or: git clone --branch vX.Y.Z ...)
 npm install
-npm run build     # typecheck + bundle the web client
+npm run build     # typecheck + bundle the web client and the server engine
 npm start         # serves http://localhost:8787
 ```
 
@@ -202,7 +202,7 @@ Vost/
 └── docs/                      # user guide (docs/guide), strategy authoring & deployment guides
 ```
 
-- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its state on disk is the price-alerts file (`alerts.json`), the app's settings (one file per setting in the `settings/` folder), the Pine libraries it keeps for scripts that import them (`pine-libraries.json`: open-source TradingView libraries it fetched, and ones you pasted) and the candle store (`candles.sqlite`, a SQLite file written through Node's built-in `node:sqlite`), both in `VOST_DATA_DIR`; the candle store holds chart history for the markets the server records and is safe to delete (history is refetched from the exchange). The symbol-list cache and the open exchange websockets are in memory. It is TypeScript that Node runs directly (type stripping), with no build step and no npm dependency.
+- The **server** does two things: serve `client/dist` and answer the market-data API by calling the public provider APIs for the browser (many of them send no CORS headers), including the live candle stream. Its state on disk is the price-alerts file (`alerts.json`), the app's settings (one file per setting in the `settings/` folder), the Pine libraries it keeps for scripts that import them (`pine-libraries.json`: open-source TradingView libraries it fetched, and ones you pasted) and the candle store (`candles.sqlite`, a SQLite file written through Node's built-in `node:sqlite`), both in `VOST_DATA_DIR`; the candle store holds chart history for the markets the server records and is safe to delete (history is refetched from the exchange). The symbol-list cache and the open exchange websockets are in memory. It is TypeScript that Node runs directly (type stripping) and installs no npm package at runtime; it also runs a prebuilt engine bundle (`server/dist/engine.mjs`, made by `npm run build`) in background worker threads.
 - The **client** holds everything else: CSV parsing, indicator math, backtests (in a Web Worker) and what you see. Everything it keeps (settings, layouts, drawings, watchlists, datasets) is saved on the server through `/api/settings`; drawing pictures go through `/api/images` and the strategy maker's data through `/api/strategy-maker`.
 
 ### Configuration
