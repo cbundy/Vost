@@ -36,6 +36,23 @@ const CHECK_NAMES: Record<string, string> = {
   'monte-carlo': 'Monte Carlo',
 };
 
+const fixed = (v: number | null, d: number): string => (v == null || !Number.isFinite(v) ? 'n/a' : v.toFixed(d));
+
+/** Signals figures shared by both tables: per 100 bars, and a second line with the count and the rate per day. */
+export function SignalsCell({ s, title }: { s: CandidateStats; title?: string }) {
+  return (
+    <td title={title}>
+      {fixed(s.signalsPer100Bars, 1)}
+      <div className="sm-bars">
+        {s.signalsFired == null ? 'n/a' : `${s.signalsFired} fired`} · {fixed(s.signalsPerDay, 2)} / day
+      </div>
+    </td>
+  );
+}
+
+const SIGNALS_HELP =
+  'Entry signals that fired per 100 bars: each time the strategy turned to a new side. Some never become trades (a stop-out blocks re-entry, or the side is already held).';
+
 function Stats({ s }: { s: CandidateStats }) {
   return (
     <>
@@ -44,6 +61,7 @@ function Stats({ s }: { s: CandidateStats }) {
       <td>{rr(s.rr)}</td>
       <td>{pct(s.maxDrawdownPct)}</td>
       <td>{s.trades}</td>
+      <SignalsCell s={s} />
     </>
   );
 }
@@ -139,12 +157,12 @@ export function Results({ result, selected, onSelect, source = '' }: Props) {
               <tr>
                 <th rowSpan={2}>Strategy</th>
                 <th rowSpan={2}>Match F1</th>
-                <th colSpan={5}>In sample</th>
-                <th colSpan={5}>Held out</th>
+                <th colSpan={6}>In sample</th>
+                <th colSpan={6}>Held out</th>
               </tr>
               <tr>
-                {['Return', 'Hit rate', 'R:R', 'Max DD', 'Trades', 'Return', 'Hit rate', 'R:R', 'Max DD', 'Trades'].map((h, i) => (
-                  <th key={i}>{h}</th>
+                {['Return', 'Hit rate', 'R:R', 'Max DD', 'Trades', 'Signals / 100 bars', 'Return', 'Hit rate', 'R:R', 'Max DD', 'Trades', 'Signals / 100 bars'].map((h, i) => (
+                  <th key={i} title={h.startsWith('Signals') ? SIGNALS_HELP : undefined}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -178,7 +196,7 @@ export function Results({ result, selected, onSelect, source = '' }: Props) {
             </tbody>
           </table>
         </div>
-        <p className="sm-note">Click a strategy to draw the trades it takes on the chart.</p>
+        <p className="sm-note">Click a strategy to draw the trades it takes on the chart. A signal is a turn to a new side; the trades column counts the ones that were taken.</p>
         <ResultActions
           candidate={acting}
           title={`${getStrategy(acting.strategyId).name} (${settingsText(acting)})`}

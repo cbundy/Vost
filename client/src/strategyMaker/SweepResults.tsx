@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getStrategy } from '../lib/backtest/strategies';
 import { encodeHandoff } from '../lib/backtestHandoff';
-import { gapWords, settingsText } from './Results';
+import { gapWords, settingsText, SignalsCell } from './Results';
 import { familyName } from './TargetsForm';
 import type { ClosestCandidate, PartFigures, SweepCandidate, SweepResult, SweepRisk } from './sweep/types';
 import { marketLabel, sweepHandoff } from './sweepHandoff';
@@ -22,7 +22,7 @@ export function settingsWords(c: Pick<SweepCandidate, 'strategyId' | 'params'>):
 /** The figures a row shows: the unseen part for a held row, the searched part otherwise. */
 const figuresOf = (c: SweepCandidate): PartFigures => (c.held ? c.heldOut : c.selection);
 
-type SortKey = 'market' | 'timeframe' | 'strategy' | 'stop' | 'trades' | 'hit' | 'rr' | 'equity' | 'drawdown' | 'held';
+type SortKey = 'market' | 'timeframe' | 'strategy' | 'stop' | 'trades' | 'signals' | 'hit' | 'rr' | 'equity' | 'drawdown' | 'held';
 
 const COLUMNS: Array<{ key: SortKey; label: string; value: (c: SweepCandidate) => number | string }> = [
   { key: 'market', label: 'Market', value: (c) => c.market.symbol },
@@ -30,12 +30,21 @@ const COLUMNS: Array<{ key: SortKey; label: string; value: (c: SweepCandidate) =
   { key: 'strategy', label: 'Strategy', value: (c) => getStrategy(c.strategyId).name },
   { key: 'stop', label: 'Stop / take profit', value: (c) => c.stopLossPct },
   { key: 'trades', label: 'Trades', value: (c) => figuresOf(c).trades },
+  { key: 'signals', label: 'Signals / 100 bars', value: (c) => figuresOf(c).signalsPer100Bars ?? -1 },
   { key: 'hit', label: 'Hit rate', value: (c) => figuresOf(c).winRatePct ?? -1 },
   { key: 'rr', label: 'R:R', value: (c) => figuresOf(c).rr ?? -1 },
   { key: 'equity', label: 'Final equity', value: (c) => figuresOf(c).finalEquity },
   { key: 'drawdown', label: 'Max drawdown', value: (c) => figuresOf(c).maxDrawdownPct },
   { key: 'held', label: 'Held on unseen data', value: (c) => Number(c.held) },
 ];
+
+const fix = (v: number | null, d: number): string => (v == null ? 'n/a' : v.toFixed(d));
+
+/** The figures of the part a row does not show, so both parts are readable. */
+function otherSignals(c: SweepCandidate): string {
+  const o = c.held ? c.selection : c.heldOut;
+  return `${c.held ? 'Searched part' : 'Unseen part'}: ${fix(o.signalsPer100Bars, 1)} per 100 bars, ${o.signalsFired ?? 'n/a'} fired, ${fix(o.signalsPerDay, 2)} per day`;
+}
 
 function Closest({ list }: { list: ClosestCandidate[] }) {
   return (
@@ -122,6 +131,7 @@ export function SweepResults({ result, risk }: Props) {
                         {pct(c.stopLossPct, 2)} / {pct(c.takeProfitPct, 2)}
                       </td>
                       <td>{f.trades}</td>
+                      <SignalsCell s={f} title={otherSignals(c)} />
                       <td>{pct(f.winRatePct, 0)}</td>
                       <td>{ratio(f.rr)}</td>
                       <td>{money(f.finalEquity)}</td>
@@ -140,7 +150,7 @@ export function SweepResults({ result, risk }: Props) {
           </div>
           <p className="sm-note">
             Rows held on unseen data show the figures from that unseen part; the others show the part that was searched. Account size {money(risk.initialCapital)},
-            risk {risk.riskPct}% per trade.
+            risk {risk.riskPct}% per trade. Signals are the times a setting turned to a new side; the trades column counts the ones that were taken.
           </p>
           {rows.length > shown && (
             <button type="button" className="ghost" onClick={() => setShown((n) => n + SHOWN_STEP)}>

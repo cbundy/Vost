@@ -6,7 +6,7 @@ import type { Metrics } from './types';
 function metrics(over: Partial<Metrics> = {}): Metrics {
   return {
     initialCapital: 10000, finalEquity: 10000, totalReturnPct: 0, cagrPct: 0, sharpe: 0, sortino: 0, calmar: 0,
-    maxDrawdownPct: 0, maxDrawdownBars: 0, maxDrawdownSeconds: 0, exposurePct: 0, buyHoldPct: 0, trades: 0, winRatePct: 0, profitFactor: 0,
+    maxDrawdownPct: 0, maxDrawdownBars: 0, maxDrawdownSeconds: 0, exposurePct: 0, buyHoldPct: 0, trades: 0, signalsFired: 0, signalsPer100Bars: 0, signalsPerDay: 0, winRatePct: 0, profitFactor: 0,
     expectancy: 0, avgTradePct: 0, bestTradePct: 0, worstTradePct: 0, avgBarsInTrade: 0, totalFees: 0, barsPerYear: 365,
     ...over,
   };

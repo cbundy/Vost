@@ -1,15 +1,18 @@
 /**
  * The "Composed" strategy's compose loop: an entry family gives the entries, and up to four filters
  * (trend, volume, volatility, trend strength) can veto a fresh entry. Every filter reads only bar i's
- * values, so there is no look-ahead. The exit is always the entry family's own.
+ * values (the trend and volatility filters may read a higher timeframe, but only its bars already closed
+ * at bar i's close), so there is no look-ahead. The exit is always the entry family's own.
  */
 import type { Candle } from '../../types';
 import { adx, atr, ema, sma, volumeSma } from '../indicators';
+import { barSeconds, higherTimeframe, multipleInterval, type HigherTimeframe } from './higherTimeframe';
 import type { BacktestFilters, Signal } from './types';
 
 export const COMPOSED_DEFAULTS = {
   trendFilter: 0,
   trendLen: 100,
+  trendTf: 1,
   volumeFilter: 0,
   volumeLen: 20,
   volumeMult: 1,
@@ -17,6 +20,7 @@ export const COMPOSED_DEFAULTS = {
   atrLen: 14,
   atrMinPct: 0.5,
   atrMaxPct: 5,
+  atrTf: 1,
   adxFilter: 0,
   adxLen: 14,
   adxMin: 20,
@@ -40,18 +44,31 @@ function len(p: Record<string, number>, key: keyof typeof COMPOSED_DEFAULTS): nu
   return n > 0 ? n : COMPOSED_DEFAULTS[key];
 }
 
+/** The higher timeframe a setting asks for, or null to run on the loaded bars (same as 1, an invalid multiple, a week or longer). */
+function higherOf(candles: Candle[], p: Record<string, number>, key: 'trendTf' | 'atrTf'): HigherTimeframe | null {
+  const k = Math.round(pick(p, key));
+  if (!(k > 1) || candles.length === 0) return null;
+  const base = barSeconds(candles);
+  if (base >= 604800) return null;
+  const iv = multipleInterval(base, k);
+  return iv ? higherTimeframe(candles, iv) : null;
+}
+
 function enabledFilters(candles: Candle[], p: Record<string, number>): Filter[] {
   const filters: Filter[] = [];
   const mode = Math.round(pick(p, 'trendFilter'));
   if (mode === 1 || mode === 2) {
-    const closes = candles.map((c) => c.close);
+    const htf = higherOf(candles, p, 'trendTf');
+    const closes = (htf ? htf.bars : candles).map((c) => c.close);
     const ma = mode === 1 ? sma(closes, len(p, 'trendLen')) : ema(closes, len(p, 'trendLen'));
     filters.push({
       key: 'trend',
       check: (i, side) => {
-        const v = ma[i];
+        const j = htf ? htf.lastClosed[i] : i;
+        if (j < 0) return null;
+        const v = ma[j];
         if (v == null) return null;
-        return side === 1 ? closes[i] > v : closes[i] < v;
+        return side === 1 ? closes[j] > v : closes[j] < v;
       },
     });
   }
@@ -68,15 +85,19 @@ function enabledFilters(candles: Candle[], p: Record<string, number>): Filter[] 
     });
   }
   if (Math.round(pick(p, 'atrFilter')) === 1) {
-    const a = atr(candles, len(p, 'atrLen'));
+    const htf = higherOf(candles, p, 'atrTf');
+    const src = htf ? htf.bars : candles;
+    const a = atr(src, len(p, 'atrLen'));
     const lo = pick(p, 'atrMinPct');
     const hi = pick(p, 'atrMaxPct');
     filters.push({
       key: 'volatility',
       check: (i) => {
-        const v = a[i];
+        const j = htf ? htf.lastClosed[i] : i;
+        if (j < 0) return null;
+        const v = a[j];
         if (v == null) return null;
-        const close = candles[i].close;
+        const close = src[j].close;
         if (!(close > 0)) return false;
         const pct = (v / close) * 100;
         return pct >= lo && pct <= hi;

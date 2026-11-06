@@ -150,7 +150,8 @@ export const btResults: Scenario = {
       await page.getByRole('cell', { name: 'trailing stop', exact: true }).first().evaluate((el) => el.scrollIntoView({ block: 'center' }));
     });
     await ctx.screenshot('exits-trades');
-    await ctx.step('pick Composed with an EMA entry, switch on the trend and volume filters and see only their settings', async () => {
+    await ctx.step('pick Composed with an EMA entry, switch on the trend and volume filters, set the trend timeframe to 4x and see only their settings', async () => {
+      await page.locator('.dock-tab', { hasText: 'Backtest' }).click();
       await page.getByLabel('Stop loss mode').selectOption('pct');
       await page.getByLabel('Take profit mode').selectOption('pct');
       await page.getByLabel('Trailing stop mode').selectOption('off');
@@ -159,6 +160,8 @@ export const btResults: Scenario = {
       await page.getByLabel('Trend filter').selectOption('1');
       await page.getByLabel('Volume filter').selectOption('1');
       await page.getByLabel('Trend average length').waitFor();
+      await page.getByLabel('Trend timeframe').selectOption({ label: '4x the chart' });
+      if ((await page.getByLabel('Volatility timeframe').count()) !== 0) throw new Error('Volatility timeframe shows while the volatility filter is off');
       await page.getByLabel('Volume multiple').waitFor();
       if ((await page.getByLabel('ADX minimum').count()) !== 0) throw new Error('ADX minimum shows while the trend-strength filter is off');
       if ((await page.getByLabel('Oversold').count()) !== 0) throw new Error('Oversold shows for an EMA entry');

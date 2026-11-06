@@ -59,6 +59,13 @@ export function ResultsTab() {
     { help: 'maxDdDuration', label: 'Max DD duration', value: fmtDurationBarCount(m.maxDrawdownBars), sub: ddUnits.join(' · ') },
     { help: 'exposure', label: 'Exposure', value: fmtPct(m.exposurePct, 1) },
     { help: 'trades', label: 'Trades', value: fmtNum(m.trades, 0) },
+    { help: 'signals', label: 'Entry signals', value: m.signalsFired != null ? fmtNum(m.signalsFired, 0) : 'n/a', sub: m.signalsFired != null ? `${m.trades} taken` : undefined },
+    {
+      help: 'signalRate',
+      label: 'Signal rate',
+      value: m.signalsPer100Bars != null ? `${fmtNum(m.signalsPer100Bars, 1)} / 100 bars` : 'n/a',
+      sub: m.signalsPerDay != null ? `${fmtNum(m.signalsPerDay, 2)} / day` : undefined,
+    },
     { help: 'winRate', label: 'Win rate', value: fmtPct(m.winRatePct, 1) },
     { help: 'profitFactor', label: 'Profit factor', value: m.profitFactor === Number.POSITIVE_INFINITY ? '∞' : fmtNum(m.profitFactor, 2) },
     { help: 'expectancy', label: 'Expectancy / trade', value: fmtMoney(m.expectancy), className: pnlClass(m.expectancy) },

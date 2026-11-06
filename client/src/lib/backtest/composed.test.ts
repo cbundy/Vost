@@ -288,6 +288,7 @@ describe('composed in the runner and the settings view', () => {
       'exit',
       'trendFilter',
       'trendLen',
+      'trendTf',
       'volumeFilter',
       'atrFilter',
       'adxFilter',
@@ -296,5 +297,70 @@ describe('composed in the runner and the settings view', () => {
     ]);
     const sma = getStrategy('sma_cross');
     expect(visibleParams(sma, {}).length).toBe(sma.params.length);
+  });
+});
+
+describe('composed on a higher timeframe', () => {
+  const hourly = (n: number, seed = 0): Candle[] =>
+    Array.from({ length: n }, (_, i) => {
+      const c = 100 + 10 * Math.sin((i + seed) / 7) + 4 * Math.sin((i + seed) / 2.3);
+      return { time: 1_600_041_600 + i * 3600, open: c, high: c + 1, low: c - 1, close: c, volume: 100 };
+    });
+  const hp = { ...DEFAULT_PARAMS.composed, entryRule: 2, trendFilter: 1, trendLen: 5, trendTf: 4, atrFilter: 1, atrLen: 3, atrTf: 6, atrMinPct: 0, atrMaxPct: 100 };
+
+  it('never lets later bars move an earlier result', () => {
+    const base = hourly(300);
+    // Many fresh entries (long for 3 bars, flat for 3, short for 3, flat for 3), so the filters decide often.
+    const entry: Signal[] = base.map((_, i) => ([1, 1, 1, 0, 0, 0, -1, -1, -1, 0, 0, 0] as const)[i % 12]);
+    const full = composeSignals(base, entry, hp);
+    let blocked = 0;
+    for (const cut of Array.from({ length: 200 }, (_, k) => 40 + k)) {
+      const other = base.map((c, i) => {
+        if (i <= cut) return c;
+        const p = 50 + ((i * 13) % 70);
+        return { ...c, open: p, high: p + 3, low: p - 3, close: p };
+      });
+      const alt = composeSignals(other, entry, hp);
+      expect(alt.signals.slice(0, cut + 1)).toEqual(full.signals.slice(0, cut + 1));
+      blocked += alt.filters.blocked.reduce((a, b) => a + b.blocked, 0);
+    }
+    expect(blocked).toBeGreaterThan(0);
+  });
+
+  it('never lets later bars move an earlier result when the volatility band filters', () => {
+    const base = hourly(300);
+    const entry: Signal[] = base.map((_, i) => ([1, 1, 1, 0, 0, 0, -1, -1, -1, 0, 0, 0] as const)[i % 12]);
+    const vp = { ...DEFAULT_PARAMS.composed, entryRule: 2, trendFilter: 0, atrFilter: 1, atrLen: 3, atrTf: 6, atrMinPct: 9, atrMaxPct: 100 };
+    const full = composeSignals(base, entry, vp);
+    expect(full.filters.blocked.reduce((a, b) => a + b.blocked, 0)).toBeGreaterThan(0);
+    for (const cut of Array.from({ length: 200 }, (_, k) => 40 + k)) {
+      const other = base.map((c, i) => {
+        if (i <= cut) return c;
+        const p = 50 + ((i * 13) % 70);
+        return { ...c, open: p, high: p + 3, low: p - 3, close: p };
+      });
+      const alt = composeSignals(other, entry, vp);
+      expect(alt.signals.slice(0, cut + 1)).toEqual(full.signals.slice(0, cut + 1));
+    }
+  });
+
+  it('is unchanged by 1 or an absent setting', () => {
+    const base = hourly(300);
+    const entry = buildSignals(base, 'ema_cross', { fast: 5, slow: 20 });
+    const on = { ...DEFAULT_PARAMS.composed, trendFilter: 1, trendLen: 5, atrFilter: 1, atrLen: 3, atrMinPct: 0, atrMaxPct: 100 };
+    const { trendTf: _a, atrTf: _b, ...absent } = on as Record<string, number>;
+    void _a;
+    void _b;
+    expect(composeSignals(base, entry, { ...on, trendTf: 1, atrTf: 1 })).toEqual(composeSignals(base, entry, absent));
+  });
+
+  it('falls back to the loaded bars when the bars are a week long', () => {
+    const weekly = Array.from({ length: 60 }, (_, i) => {
+      const c = 100 + 10 * Math.sin(i / 5);
+      return { time: 1_600_041_600 + i * 604800, open: c, high: c + 1, low: c - 1, close: c, volume: 1 };
+    });
+    const entry = buildSignals(weekly, 'ema_cross', { fast: 3, slow: 8 });
+    const p = { ...DEFAULT_PARAMS.composed, trendFilter: 1, trendLen: 5 };
+    expect(composeSignals(weekly, entry, { ...p, trendTf: 4 })).toEqual(composeSignals(weekly, entry, p));
   });
 });

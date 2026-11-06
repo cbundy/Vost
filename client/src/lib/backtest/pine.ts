@@ -144,6 +144,7 @@ export function buildPineResult(candles: Candle[], config: BacktestConfig, pine:
   }
 
   const usedConfig: BacktestConfig = { ...config, initialCapital: used.initialCapital, feeBps: used.feeBps };
+  // No fired count is passed: a Pine script has no signal series, so the signal figures stay null.
   const metrics = computeMetrics(candles, equity, trades, used.initialCapital, exposureBars);
   return { trades, equity, metrics, buyHold: buyHoldCurve(candles, used.initialCapital), config: usedConfig };
 }
