@@ -60,6 +60,47 @@ export function TargetsForm({ form, onChange, sets, chosen, onChosen, errors, tr
       )}
     </label>
   );
+  const anyAtr = form.stopMode === 'atr' || form.takeProfitMode === 'atr' || form.trailMode === 'atr';
+  /** A mode select and, beside it, the number of the mode in use (none while the mode is off). */
+  const exitRow = (label: string, modeKey: 'stopMode' | 'takeProfitMode' | 'trailMode', modes: [string, string][], numKey: keyof FormErrors | null, unit: string) => (
+    <div className="sm-field">
+      <span>{label}</span>
+      <span className="sm-field-row">
+        <select
+          aria-label={`${label} mode`}
+          value={form[modeKey]}
+          onChange={(e) => set(modeKey, e.target.value as never)}
+          disabled={run.running}
+        >
+          {modes.map(([v, t]) => (
+            <option key={v} value={v}>
+              {t}
+            </option>
+          ))}
+        </select>
+        {numKey && (
+          <>
+            <input
+              inputMode="decimal"
+              aria-label={`${label} (${unit === '%' ? '%' : unit === 'x ATR' ? 'ATR multiple' : 'times the stop'})`}
+              value={form[numKey]}
+              placeholder="none"
+              onChange={(e) => set(numKey, e.target.value)}
+              aria-invalid={errors[numKey] ? true : undefined}
+              aria-describedby={errors[numKey] ? `sm-err-${numKey}` : undefined}
+              disabled={run.running}
+            />
+            <span className="sm-unit">{unit}</span>
+          </>
+        )}
+      </span>
+      {numKey && errors[numKey] && (
+        <span className="sm-field-error" id={`sm-err-${numKey}`} role="alert">
+          {errors[numKey]}
+        </span>
+      )}
+    </div>
+  );
   return (
     <section className="sm-find" aria-label="Find a strategy">
       <h2>Find a strategy</h2>
@@ -86,8 +127,22 @@ export function TargetsForm({ form, onChange, sets, chosen, onChosen, errors, tr
           <legend>Risk (always on)</legend>
           {field('feeBps', 'Fee', 'bps')}
           {field('slippageBps', 'Slippage', 'bps')}
-          {field('stopLossPct', 'Stop loss', '%', 'none')}
-          {field('takeProfitPct', 'Take profit', '%', 'none')}
+          {exitRow('Stop loss', 'stopMode', [['pct', 'Percent'], ['atr', 'ATR multiple']], form.stopMode === 'atr' ? 'stopAtrMult' : 'stopLossPct', form.stopMode === 'atr' ? 'x ATR' : '%')}
+          {exitRow(
+            'Take profit',
+            'takeProfitMode',
+            [['pct', 'Percent'], ['atr', 'ATR multiple'], ['r', 'Times the stop']],
+            form.takeProfitMode === 'atr' ? 'takeProfitAtrMult' : form.takeProfitMode === 'r' ? 'takeProfitR' : 'takeProfitPct',
+            form.takeProfitMode === 'atr' ? 'x ATR' : form.takeProfitMode === 'r' ? 'x stop' : '%',
+          )}
+          {exitRow(
+            'Trailing stop',
+            'trailMode',
+            [['off', 'Off'], ['pct', 'Percent'], ['atr', 'ATR multiple']],
+            form.trailMode === 'atr' ? 'trailAtrMult' : form.trailMode === 'pct' ? 'trailPct' : null,
+            form.trailMode === 'atr' ? 'x ATR' : '%',
+          )}
+          {anyAtr && field('atrLength', 'ATR length', 'bars')}
         </fieldset>
         <fieldset>
           <legend>Targets (empty = not applied)</legend>

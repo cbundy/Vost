@@ -43,6 +43,17 @@ export interface FindForm {
   slippageBps: string;
   stopLossPct: string;
   takeProfitPct: string;
+  /** How the stop loss is sized: percent of the entry price or a multiple of the ATR. */
+  stopMode: 'pct' | 'atr';
+  stopAtrMult: string;
+  takeProfitMode: 'pct' | 'atr' | 'r';
+  takeProfitAtrMult: string;
+  /** Take profit as a multiple of the stop distance. */
+  takeProfitR: string;
+  trailMode: 'off' | 'pct' | 'atr';
+  trailPct: string;
+  trailAtrMult: string;
+  atrLength: string;
   minRR: string;
   minHitRatePct: string;
   maxDrawdownPct: string;

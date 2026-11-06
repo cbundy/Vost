@@ -5,6 +5,8 @@
 import { getStrategy, visibleParams, type ParamSpec } from '../lib/backtest/strategies';
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import type { Candidate } from './engine';
+import { readExitSettings } from '../lib/backtest/exits';
+import { pineExits } from './pineExits';
 import type { FindInputs } from './run';
 
 type Pick2 = Pick<Candidate, 'strategyId' | 'params'>;
@@ -23,17 +25,23 @@ const onOff = (v: number | null, unit: string): string => (v == null ? 'off' : `
 export function settingsPlain(c: Pick2, run: Run): string {
   const s = getStrategy(c.strategyId);
   const cfg = defaultBacktestConfig();
+  const ex = readExitSettings(run.risk);
   return [
     s.name,
     ...visibleParams(s, c.params).map((p) => `${p.label}: ${valueText(p, c.params[p.key] ?? p.default)}`),
     `Fee: ${run.risk.feeBps} bps per side`,
     `Slippage: ${run.risk.slippageBps} bps per fill`,
-    `Stop loss: ${onOff(run.risk.stopLossPct, '%')}`,
-    `Take profit: ${onOff(run.risk.takeProfitPct, '%')}`,
+    `Stop loss: ${ex.stop?.kind === 'atr' ? `${ex.stop.mult} x ATR` : onOff(run.risk.stopLossPct, '%')}`,
+    `Take profit: ${ex.target?.kind === 'atr' ? `${ex.target.mult} x ATR` : ex.target?.kind === 'r' ? `${ex.target.r} x the stop` : onOff(run.risk.takeProfitPct, '%')}`,
+    ...(ex.trail ? [`Trailing stop: ${ex.trail.kind === 'atr' ? `${ex.trail.mult} x ATR` : `${ex.trail.pct}%`}`] : []),
+    ...(ex.needsAtr ? [`ATR length: ${ex.atrLength}`] : []),
     `Initial capital: ${cfg.initialCapital}`,
     run.risk.riskPct != null ? `Position size: risk ${run.risk.riskPct}% of equity at the stop` : `Position size: ${cfg.positionSizePct}% of equity`,
   ].join('\n');
 }
+
+const riskInput = (run: Run, riskSized: boolean): string[] =>
+  riskSized ? [`riskPct = input.float(${run.risk.riskPct}, "Risk per trade %", minval=0.01, maxval=100)`] : [];
 
 const q = (s: string): string => JSON.stringify(s);
 
@@ -232,8 +240,17 @@ export function pineStrategyText(c: Pick2, run: Run): string {
   if (!body || !names) throw new Error(`No Pine export for ${c.strategyId}`);
   const cfg = defaultBacktestConfig();
   const { stopLossPct: stop, takeProfitPct: take, feeBps } = run.risk;
-  const riskSized = run.risk.riskPct != null && stop != null;
-  const qtyArg = riskSized ? ', qty=strategy.equity * riskPct / 100 / (close * stopPct / 100)' : '';
+  const px = pineExits(run.risk);
+  const sizeDistance = px ? px.riskDistance : stop != null ? '(close * stopPct / 100)' : null;
+  const riskSized = run.risk.riskPct != null && sizeDistance != null;
+  const qtyArg = riskSized ? `, qty=strategy.equity * riskPct / 100 / ${sizeDistance}` : '';
+  const exitInputs = px
+    ? [...px.inputs, ...riskInput(run, riskSized)]
+    : [
+        ...(stop != null ? [`stopPct = input.float(${stop}, "Stop loss %", minval=0.01)`] : []),
+        ...riskInput(run, riskSized),
+        ...(take != null ? [`takePct = input.float(${take}, "Take profit %", minval=0.01)`] : []),
+      ];
   const usesLevel = body.some((l) => l.includes('levelSignal'));
   const head = [
     '//@version=6',
@@ -242,13 +259,12 @@ export function pineStrategyText(c: Pick2, run: Run): string {
     `strategy(${q(`${s.name} (strategy maker)`)}, overlay=true, initial_capital=${cfg.initialCapital}, default_qty_type=strategy.percent_of_equity, default_qty_value=${cfg.positionSizePct}, commission_type=strategy.commission.percent, commission_value=${feeBps / 100}, margin_long=0, margin_short=0)`,
     '',
     ...s.params.map((p) => inputLine(names[p.key], p, c.params[p.key] ?? p.default)),
-    ...(stop != null ? [`stopPct = input.float(${stop}, "Stop loss %", minval=0.01)`] : []),
-    ...(riskSized ? [`riskPct = input.float(${run.risk.riskPct}, "Risk per trade %", minval=0.01, maxval=100)`] : []),
-    ...(take != null ? [`takePct = input.float(${take}, "Take profit %", minval=0.01)`] : []),
+    ...exitInputs,
     '',
     ...(usesLevel ? [...LEVEL_FN, ''] : []),
     ...body,
     '',
+    ...(px && px.atrLines.length ? [...px.atrLines] : []),
     '// Orders: decided on this close, filled on the next open. A stop or target counts from the bar after the entry.',
     'var float desired = 0',
     'var float resetSide = 0',
@@ -262,7 +278,8 @@ export function pineStrategyText(c: Pick2, run: Run): string {
     '            target := 0',
     '        else',
     '            resetSide := 0',
-    '    if target != desired',
+    `    if target != desired${px?.entryGate ? ` and (target == 0 or ${px.entryGate})` : ''}`,
+    ...(px ? px.captureLines.map((l) => `        ${l}`) : []),
     '        if target > 0',
     `            strategy.entry("Long", strategy.long${qtyArg})`,
     '        else if target < 0',
@@ -272,7 +289,9 @@ export function pineStrategyText(c: Pick2, run: Run): string {
     '        else if strategy.position_size < 0',
     '            strategy.close("Short")',
     '        desired := target',
-    ...(stop != null || take != null
+    ...(px
+      ? px.exitLines
+      : stop != null || take != null
       ? [
           '',
           'avg = strategy.position_avg_price',

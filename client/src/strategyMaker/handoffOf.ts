@@ -1,5 +1,5 @@
 import { defaultBacktestConfig } from '../lib/backtest/types';
-import type { Handoff } from '../lib/backtestHandoff';
+import { HANDOFF_EXIT_KEYS, type Handoff } from '../lib/backtestHandoff';
 import type { Candidate } from './engine';
 import type { FindInputs } from './run';
 
@@ -18,6 +18,22 @@ export function handoffOf(c: Pick<Candidate, 'strategyId' | 'params'>, run: Pick
     initialCapital: cfg.initialCapital,
     positionSizePct: cfg.positionSizePct,
     ...(run.risk.riskPct != null && { riskPct: run.risk.riskPct }),
+    ...exitFields(run.risk),
     source,
   };
+}
+
+/** The volatility exits that are set and that the link accepts; none when every option is off. */
+function exitFields(risk: Pick<FindInputs, 'risk'>['risk']): Partial<Handoff> {
+  const out: Record<string, unknown> = {};
+  const pos = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  const allowed: Record<string, readonly unknown[]> = { stopMode: ['atr'], takeProfitMode: ['atr', 'r'], trailMode: ['pct', 'atr'] };
+  for (const k of HANDOFF_EXIT_KEYS) {
+    const v = risk[k];
+    if (v == null) continue;
+    if (k in allowed ? allowed[k].includes(v) : k === 'atrLength' ? Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 500 : pos(v)) out[k] = v;
+  }
+  const atrOn = out.stopMode === 'atr' || out.takeProfitMode === 'atr' || out.trailMode === 'atr';
+  if (!atrOn) delete out.atrLength;
+  return out as Partial<Handoff>;
 }

@@ -41,3 +41,37 @@ describe('handoffOf with risk sizing', () => {
     expect(configFor(run).riskPct).toBeUndefined();
   });
 });
+
+describe('handoffOf with exits', () => {
+  const exits: Pick<FindInputs, 'direction' | 'risk'> = {
+    direction: 'both',
+    risk: { feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null, stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 2, trailMode: 'atr', trailAtrMult: 3, atrLength: 10 },
+  };
+  it('carries the exits through the address', () => {
+    const h = handoffOf(candidate, exits, 'sample');
+    expect(h).toMatchObject({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 2, trailMode: 'atr', trailAtrMult: 3, atrLength: 10 });
+    expect(parseHandoff(encodeHandoff(h))).toEqual(h);
+  });
+  it('writes no exit key with the options off, and no atrLength without an ATR mode', () => {
+    const off = handoffOf(candidate, run, 'sample');
+    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitAtrMult', 'takeProfitR', 'trailMode', 'trailPct', 'trailAtrMult', 'atrLength']) expect(k in off).toBe(false);
+    const pctTrail = handoffOf(candidate, { ...run, risk: { ...run.risk, trailMode: 'pct', trailPct: 2, atrLength: 20 } }, 'sample');
+    expect(pctTrail).toMatchObject({ trailMode: 'pct', trailPct: 2 });
+    expect('atrLength' in pctTrail).toBe(false);
+  });
+  it('a Backtest tab filled from the link takes the trades the strategy maker draws', () => {
+    const h = parseHandoff(encodeHandoff(handoffOf(candidate, exits, 'sample')))!;
+    const { v, source, providerId, symbol, timeframe, ...rest } = h as typeof h & Record<string, unknown>;
+    void v; void source; void providerId; void symbol; void timeframe;
+    const filled = { ...configFor({ direction: 'both', risk: { feeBps: 0, slippageBps: 0, stopLossPct: null, takeProfitPct: null } }), ...rest };
+    const mine = runBacktest(candles, buildSignals(candles, h.strategyId, h.params), filled).trades.map((t) => ({ side: t.side, entryTime: t.entryTime, exitTime: t.exitTime, entryPrice: t.entryPrice, exitPrice: t.exitPrice }));
+    const shown = tradesOf(candles, candidate.strategyId, candidate.params, exits);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(mine).toEqual(shown);
+    const plain = tradesOf(candles, candidate.strategyId, candidate.params, { ...exits, risk: { feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null } });
+    expect(shown).not.toEqual(plain);
+  });
+  it('configFor carries the exits to the engine config', () => {
+    expect(configFor(exits)).toMatchObject({ stopMode: 'atr', stopAtrMult: 2, trailMode: 'atr', trailAtrMult: 3, atrLength: 10 });
+  });
+});

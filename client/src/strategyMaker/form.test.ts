@@ -40,3 +40,51 @@ describe('find form', () => {
     expect(s.setIds).toEqual(['a']);
   });
 });
+
+describe('find form exits', () => {
+  const d = defaultForm();
+  it('starts with every exit option off', () => {
+    expect(d).toMatchObject({ stopMode: 'pct', takeProfitMode: 'pct', trailMode: 'off', atrLength: '14', stopAtrMult: '', trailPct: '' });
+    expect(Object.keys(readForm(d).inputs.risk).sort()).toEqual(['feeBps', 'slippageBps', 'stopLossPct', 'takeProfitPct']);
+  });
+  it('a form stored before the exits opens with them off, and an unknown mode reads as off', () => {
+    const old: Record<string, unknown> = { ...d };
+    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitAtrMult', 'takeProfitR', 'trailMode', 'trailPct', 'trailAtrMult', 'atrLength']) delete old[k];
+    expect(sanitizeForm(old)).toEqual(d);
+    const bad = sanitizeForm({ ...d, stopMode: 'x', takeProfitMode: 'y', trailMode: 'z' });
+    expect([bad.stopMode, bad.takeProfitMode, bad.trailMode]).toEqual(['pct', 'pct', 'off']);
+  });
+  it('puts the active mode in risk, with the percent null', () => {
+    const f = { ...d, stopLossPct: '3', stopMode: 'atr' as const, stopAtrMult: '2', takeProfitMode: 'atr' as const, takeProfitAtrMult: '3', trailMode: 'pct' as const, trailPct: '1.5', atrLength: '20' };
+    const { inputs, errors } = readForm(f);
+    expect(errors).toEqual({});
+    expect(inputs.risk).toEqual({
+      feeBps: 10, slippageBps: 5, stopLossPct: null, takeProfitPct: null,
+      stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'atr', takeProfitAtrMult: 3, trailMode: 'pct', trailPct: 1.5, atrLength: 20,
+    });
+  });
+  it('leaves atrLength out when no ATR mode is on, even with junk in it', () => {
+    const { inputs, errors } = readForm({ ...d, trailMode: 'pct', trailPct: '2', atrLength: '999' });
+    expect(errors).toEqual({});
+    expect(inputs.risk.atrLength).toBeUndefined();
+    expect(inputs.risk.trailMode).toBe('pct');
+  });
+  it('gives one error per bad active field and ignores inactive ones', () => {
+    expect(readForm({ ...d, stopMode: 'atr', stopAtrMult: '0' }).errors).toHaveProperty('stopAtrMult');
+    expect(readForm({ ...d, stopMode: 'atr', stopAtrMult: '2', atrLength: '2.5' }).errors).toHaveProperty('atrLength');
+    expect(readForm({ ...d, stopMode: 'atr', stopAtrMult: '2', atrLength: '501' }).errors).toHaveProperty('atrLength');
+    expect(Object.keys(readForm({ ...d, trailMode: 'pct', trailPct: 'abc' }).errors)).toEqual(['trailPct']);
+    expect(Object.keys(readForm({ ...d, trailMode: 'atr', trailAtrMult: '-1', atrLength: '14' }).errors)).toEqual(['trailAtrMult']);
+    expect(readForm({ ...d, takeProfitMode: 'atr', takeProfitAtrMult: '0' }).errors).toHaveProperty('takeProfitAtrMult');
+    expect(readForm({ ...d, stopAtrMult: 'junk', takeProfitAtrMult: '-3', takeProfitR: '-1', trailPct: 'abc', atrLength: 'x' }).errors).toEqual({});
+  });
+  it('refuses a times-the-stop target with no stop or trail, with the Backtest tab wording', () => {
+    const r = { ...d, takeProfitMode: 'r' as const, takeProfitR: '2' };
+    expect(readForm(r).errors.takeProfitR).toBe('A take profit in times the stop needs a stop loss or a trailing stop');
+    expect(readForm({ ...r, takeProfitR: '-1' }).errors.takeProfitR).toMatch(/above 0/);
+    expect(readForm({ ...r, stopLossPct: '2' }).errors).toEqual({});
+    expect(readForm({ ...r, stopMode: 'atr', stopAtrMult: '2' }).errors).toEqual({});
+    expect(readForm({ ...r, trailMode: 'pct', trailPct: '2' }).errors).toEqual({});
+    expect(readForm({ ...r, stopLossPct: '2' }).inputs.risk).toMatchObject({ takeProfitMode: 'r', takeProfitR: 2, stopLossPct: 2 });
+  });
+});
