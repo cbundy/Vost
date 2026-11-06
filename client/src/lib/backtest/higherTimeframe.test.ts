@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
-import { barSeconds, higherTimeframe, multipleInterval } from './higherTimeframe';
+import { ATR_TIMEFRAME_MULTIPLES, barSeconds, higherOfMultiple, higherTimeframe, multipleInterval } from './higherTimeframe';
 
 const H = 3600;
 const DAY0 = 1_600_041_600; // 00:00 UTC on a day boundary
@@ -56,5 +56,24 @@ describe('higherTimeframe closed rule', () => {
     expect(lastClosed[7]).toBe(-1); // first bar of day 1: day 0 was dropped
     expect(lastClosed[13]).toBe(-1); // the last bar of day 1 ends at 20:00, not at midnight
     expect(lastClosed[14]).toBe(0); // first bar of day 2 sees day 1
+  });
+});
+
+describe('higherOfMultiple', () => {
+  it('builds the higher bars for a valid multiple', () => {
+    const h = higherOfMultiple(hours(0, 12), 4);
+    expect(h?.bars.length).toBe(3);
+    expect(Array.from(h!.lastClosed)).toEqual(Array.from(higherTimeframe(hours(0, 12), '4h').lastClosed));
+  });
+  it('is null for 1, an invalid multiple, no candles and bars a week or longer', () => {
+    expect(higherOfMultiple(hours(0, 12), 1)).toBeNull();
+    expect(higherOfMultiple(hours(0, 12), 0)).toBeNull();
+    expect(higherOfMultiple(hours(0, 12), Number.NaN)).toBeNull();
+    expect(higherOfMultiple(hours(0, 12), 1000)).toBeNull();
+    expect(higherOfMultiple([], 4)).toBeNull();
+    expect(higherOfMultiple([bar(DAY0), bar(DAY0 + 604800)], 4)).toBeNull();
+  });
+  it('lists the multiples with 1 first', () => {
+    expect(ATR_TIMEFRAME_MULTIPLES).toEqual([1, 2, 3, 4, 6, 8, 12, 24]);
   });
 });

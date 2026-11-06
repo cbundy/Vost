@@ -22,7 +22,7 @@ export interface FindInputs {
   families: string[];
   risk: Required<Pick<RiskInput, 'feeBps' | 'slippageBps'>> & { stopLossPct: number | null; takeProfitPct: number | null; riskPct?: number } & Pick<
     RiskInput,
-    'stopMode' | 'stopAtrMult' | 'takeProfitMode' | 'takeProfitAtrMult' | 'takeProfitR' | 'trailMode' | 'trailPct' | 'trailAtrMult' | 'atrLength'
+    'stopMode' | 'stopAtrMult' | 'takeProfitMode' | 'takeProfitAtrMult' | 'takeProfitR' | 'trailMode' | 'trailPct' | 'trailAtrMult' | 'atrLength' | 'atrTimeframe'
   >;
   targets: Targets;
 }

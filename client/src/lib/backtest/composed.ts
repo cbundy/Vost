@@ -6,7 +6,7 @@
  */
 import type { Candle } from '../../types';
 import { adx, atr, ema, sma, volumeSma } from '../indicators';
-import { barSeconds, higherTimeframe, multipleInterval, type HigherTimeframe } from './higherTimeframe';
+import { higherOfMultiple, type HigherTimeframe } from './higherTimeframe';
 import type { BacktestFilters, Signal } from './types';
 
 export const COMPOSED_DEFAULTS = {
@@ -46,12 +46,7 @@ function len(p: Record<string, number>, key: keyof typeof COMPOSED_DEFAULTS): nu
 
 /** The higher timeframe a setting asks for, or null to run on the loaded bars (same as 1, an invalid multiple, a week or longer). */
 function higherOf(candles: Candle[], p: Record<string, number>, key: 'trendTf' | 'atrTf'): HigherTimeframe | null {
-  const k = Math.round(pick(p, key));
-  if (!(k > 1) || candles.length === 0) return null;
-  const base = barSeconds(candles);
-  if (base >= 604800) return null;
-  const iv = multipleInterval(base, k);
-  return iv ? higherTimeframe(candles, iv) : null;
+  return higherOfMultiple(candles, Math.round(pick(p, key)));
 }
 
 function enabledFilters(candles: Candle[], p: Record<string, number>): Filter[] {

@@ -1,5 +1,6 @@
 import { defaultBacktestConfig } from '../lib/backtest/types';
 import { HANDOFF_EXIT_KEYS, type Handoff } from '../lib/backtestHandoff';
+import { ATR_TIMEFRAME_MULTIPLES } from '../lib/backtest/higherTimeframe';
 import type { Candidate } from './engine';
 import type { FindInputs } from './run';
 
@@ -31,9 +32,12 @@ function exitFields(risk: Pick<FindInputs, 'risk'>['risk']): Partial<Handoff> {
   for (const k of HANDOFF_EXIT_KEYS) {
     const v = risk[k];
     if (v == null) continue;
-    if (k in allowed ? allowed[k].includes(v) : k === 'atrLength' ? Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 500 : pos(v)) out[k] = v;
+    if (k in allowed ? allowed[k].includes(v) : k === 'atrLength' ? Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 500 : k === 'atrTimeframe' ? (ATR_TIMEFRAME_MULTIPLES as readonly unknown[]).includes(v) && v !== 1 : pos(v)) out[k] = v;
   }
   const atrOn = out.stopMode === 'atr' || out.takeProfitMode === 'atr' || out.trailMode === 'atr';
-  if (!atrOn) delete out.atrLength;
+  if (!atrOn) {
+    delete out.atrLength;
+    delete out.atrTimeframe;
+  }
   return out as Partial<Handoff>;
 }

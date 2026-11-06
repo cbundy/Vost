@@ -14,6 +14,7 @@
  */
 import type { Candle } from '../../types';
 import { atr } from '../indicators';
+import { higherOfMultiple } from './higherTimeframe';
 import { hitTest, levelsAtEntry, readExitSettings, updateTrail, type TradeLevels } from './exits';
 import type { BacktestConfig, EquityPoint, ExitReason, Signal, Trade } from './types';
 
@@ -70,7 +71,15 @@ export function runBacktest(
   const slip = Math.max(0, config.slippageBps) / 10000;
   const sizePct = Math.min(100, Math.max(1, config.positionSizePct)) / 100;
   const exits = readExitSettings(config);
-  const atrSeries = exits.needsAtr ? atr(candles, exits.atrLength) : null;
+  const atrHtf = exits.needsAtr && exits.atrTimeframe > 1 ? higherOfMultiple(candles, exits.atrTimeframe) : null;
+  const atrSeries = exits.needsAtr ? atr(atrHtf ? atrHtf.bars : candles, exits.atrLength) : null;
+  /** The ATR of the signal bar: on the loaded bars, or of the newest longer bar closed at the signal bar's close. */
+  const atrAt = (signalBar: number): number | null => {
+    if (!atrSeries || signalBar < 0) return null;
+    if (!atrHtf) return atrSeries[signalBar];
+    const j = atrHtf.lastClosed[signalBar];
+    return j < 0 ? null : atrSeries[j];
+  };
   const riskFrac = config.riskPct != null && Number.isFinite(config.riskPct) && config.riskPct > 0 ? Math.min(100, config.riskPct) / 100 : null;
 
   let cash = config.initialCapital; // realised equity
@@ -116,7 +125,7 @@ export function runBacktest(
   const openPosition = (side: -1 | 1, rawPrice: number, barIndex: number): OpenPosition | null => {
     const fill = side === 1 ? fillBuy(rawPrice) : fillSell(rawPrice);
     // Levels come from the entry fill and the ATR of the signal bar; during ATR warm-up no trade opens.
-    const levels = levelsAtEntry(exits, side, fill, atrSeries ? atrSeries[barIndex - 1] : null);
+    const levels = levelsAtEntry(exits, side, fill, atrAt(barIndex - 1));
     if (!levels) return null;
     const stopFrac = levels.stopFrac;
     const equityNow = Math.max(0, cash);

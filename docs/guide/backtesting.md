@@ -40,12 +40,12 @@ Each exit has a mode select beside its value:
 - **Take profit**: **Percent**, **ATR multiple**, or **Times the stop** (for example 3 gives a 3R target: three times the distance to the stop).
 - **Trailing stop**: **Off**, **Percent** or **ATR multiple**.
 
-The **ATR length** field (default 14, 1 to 500) appears when any exit uses an ATR multiple. Pine strategies set their exits in the script, so these fields are disabled for them.
+The **ATR length** field (default 14, 1 to 500) and the **ATR timeframe** select appear when any exit uses an ATR multiple. The timeframe is "Same as the chart" by default; pick "2x the chart" up to "24x the chart" to measure the ATR on longer bars built from the loaded bars (for example a 4-hour ATR trail on 1-hour entries). Pine strategies set their exits in the script, so these fields are disabled for them.
 
 How each trade gets its levels:
 
 - **Fixed at entry.** Every trade works out its own levels from its entry fill price (slippage included): an ATR stop is entry minus (a long) or plus (a short) the multiple times the ATR, an ATR target the other way round, and a target in times the stop is that many times the initial stop distance.
-- **The ATR is the one on the signal bar**, the bar before the entry fills, so it never includes the entry bar or anything later. The ATR needs `ATR length` bars of history: until it is known, a trade that needs it does not open. It opens on the first later bar whose signal still asks for that side.
+- **The ATR is the one on the signal bar**, the bar before the entry fills, so it never includes the entry bar or anything later. With a longer ATR timeframe it is the ATR of the newest longer bar that had closed by the signal bar's close, so a longer bar still forming is never used; the rule is the one for [the Composed strategy's higher timeframe](../STRATEGIES.md#composed-strategy). A multiple that is not a valid timeframe, or bars a week or longer, use the loaded bars. The ATR needs `ATR length` bars of history: until it is known, a trade that needs it does not open. It opens on the first later bar whose signal still asks for that side.
 - **Trailing.** The distance is fixed at entry (a percent of the entry price, or a multiple of the signal-bar ATR). The trail starts that far behind the entry and, after each bar, moves to that distance behind the best price since entry (the highest high for a long, the lowest low for a short). It never moves back. A bar checks the stop set by earlier bars first, so its own high never tightens a stop that the same bar then hits.
 - **The stop in force** is the tighter of the fixed stop and the trail. If one bar reaches both the stop and the target, the stop wins. A gap through the level fills at the open. After a stop or a target, the signal has to leave that side before the next entry.
 - **Exit reasons.** An exit at the trail is a **trailing stop** in the trades list and the exit reasons table; an exit at the fixed stop is a stop loss.
@@ -55,7 +55,7 @@ How each trade gets its levels:
 
 ![An ATR stop, a take profit of 3 times the stop and a 1.5 ATR trailing stop set](../evidence/bt-results/bt-results-exits-setting-desktop.png)
 
-The Results tab names the modes in its badges (for example `SL 2 ATR`, `TP 3R`, `Trail 1.5 ATR`), and the optimizer's CSV names them in its settings lines.
+The Results tab names the modes in its badges (for example `SL 2 ATR`, `TP 3R`, `Trail 1.5 ATR`, and `ATR 14`, or `ATR 14 on 4x` with a longer ATR timeframe), and the optimizer's CSV names them in its settings lines.
 
 ![The Results badges for the exit modes](../evidence/bt-results/bt-results-exits-badges-desktop.png)
 

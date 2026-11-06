@@ -4,7 +4,8 @@ import { PINE_STRATEGY_EXAMPLES, DEFAULT_PINE_CODE } from '../lib/pine/examples'
 import type { PineInput, PineInputValue } from '../lib/pine/types';
 import { isTextInput } from '../lib/pine/inputs';
 import type { BacktestConfig } from '../lib/backtest/types';
-import { DEFAULT_ATR_LENGTH } from '../lib/backtest/exits';
+import { DEFAULT_ATR_LENGTH, readExitSettings } from '../lib/backtest/exits';
+import { ATR_TIMEFRAME_MULTIPLES } from '../lib/backtest/higherTimeframe';
 import { PineInputList } from './PineInputControl';
 import { getStrategy, strategies, visibleParams } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
@@ -280,6 +281,7 @@ export function BacktestTab() {
           </div>
         </div>
         {anyAtr && (
+          <>
           <label className="form-field">
             <span>ATR length{isPine && ' (set in script)'}</span>
             <input
@@ -292,6 +294,19 @@ export function BacktestTab() {
               onChange={(e) => setBtConfig({ atrLength: Math.min(500, Math.max(1, Math.round(Number(e.target.value)) || DEFAULT_ATR_LENGTH)) })}
             />
           </label>
+          <label className="form-field" title="Measure the ATR on a longer timeframe built from the loaded bars. A longer bar counts only once it has closed. A multiple that is not a valid timeframe, or bars a week or longer, use the loaded bars.">
+            <span>ATR timeframe{isPine && ' (set in script)'}</span>
+            <select
+              disabled={isPine}
+              value={readExitSettings(btConfig).atrTimeframe}
+              onChange={(e) => setBtConfig({ atrTimeframe: Number(e.target.value) })}
+            >
+              {ATR_TIMEFRAME_MULTIPLES.map((k) => (
+                <option key={k} value={k}>{k === 1 ? 'Same as the chart' : `${k}x the chart`}</option>
+              ))}
+            </select>
+          </label>
+          </>
         )}
         <label className="form-field">
           <span>Shorts{isPine && ' (set in script)'}</span>

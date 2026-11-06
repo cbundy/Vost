@@ -112,7 +112,7 @@ describe('applyBacktestHandoff risk sizing', () => {
     const useStore = await setup();
     useStore.getState().init();
     useStore.getState().applyBacktestHandoff(
-      handoff({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 3, trailMode: 'atr', trailAtrMult: 1.5, atrLength: 20 }),
+      handoff({ stopMode: 'atr', stopAtrMult: 2, takeProfitMode: 'r', takeProfitR: 3, trailMode: 'atr', trailAtrMult: 1.5, atrLength: 20, atrTimeframe: 4 }),
     );
     expect(chartOf(useStore).getState().btConfig).toMatchObject({
       stopMode: 'atr',
@@ -122,10 +122,11 @@ describe('applyBacktestHandoff risk sizing', () => {
       trailMode: 'atr',
       trailAtrMult: 1.5,
       atrLength: 20,
+      atrTimeframe: 4,
     });
     useStore.getState().applyBacktestHandoff(handoff());
     const c = chartOf(useStore).getState().btConfig;
-    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitR', 'trailMode', 'trailAtrMult', 'atrLength'] as const) expect(c[k]).toBeUndefined();
+    for (const k of ['stopMode', 'stopAtrMult', 'takeProfitMode', 'takeProfitR', 'trailMode', 'trailAtrMult', 'atrLength', 'atrTimeframe'] as const) expect(c[k]).toBeUndefined();
   });
 
   it('sets riskPct from the hand-off, and one without it clears a stale one', async () => {
