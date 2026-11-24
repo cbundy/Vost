@@ -1,30 +1,50 @@
-ok   live edge right: 2026-11-04T08:00:00.000Z -> 2026-11-04T08:00:00.000Z
+ok   live edge right: 2026-11-23T12:00:00.000Z -> 2026-11-23T12:00:00.000Z
 ok   live edge span: 81 bars -> 81 bars
-ok   scrolled back left: 2026-10-31T12:00:00.000Z -> 2026-10-31T11:00:00.000Z
-ok   scrolled back right: 2026-11-03T21:00:00.000Z -> 2026-11-03T21:00:00.000Z
+ok   scrolled back left: 2026-11-19T16:00:00.000Z -> 2026-11-19T16:00:00.000Z
+ok   scrolled back right: 2026-11-23T01:00:00.000Z -> 2026-11-23T01:00:00.000Z
 ok   no extra history request: 0 new paged requests
-ok   past loaded left: 2026-09-07T00:00:00.000Z -> 2026-09-06T23:00:00.000Z
+ok   past loaded left: 2026-09-26T15:00:00.000Z -> 2026-09-26T15:00:00.000Z
 ok   older pages loaded for the new symbol: 2 new paged requests
-ok   past loaded right: 2026-09-10T09:00:00.000Z -> 2026-09-10T09:00:00.000Z
+ok   past loaded right: 2026-09-30T00:00:00.000Z -> 2026-09-30T00:00:00.000Z
+ok   empty space left: 2026-11-23T09:03:00.000Z -> 2026-11-23T09:04:00.000Z
+ok   empty space right: 2026-11-24T00:43:00.000Z -> 2026-11-24T00:42:00.000Z
 history requests:
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000
-  http://127.0.0.1:46155/api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=ETHUSDT&timeframe=1h&bars=1000
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=260
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=260
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000&to=1790258399
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000&to=1788458399
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BNBUSDT&timeframe=1h&bars=1000
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=260
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BNBUSDT&timeframe=1h&bars=1000&to=1790258399
-  http://127.0.0.1:46155/api/history?provider=binance&symbol=BNBUSDT&timeframe=1h&bars=1000&to=1788458399
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=kraken&symbol=XBTUSD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=kraken&symbol=ETHUSD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=kraken&symbol=SOLUSD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=kraken&symbol=XRPUSD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=kraken&symbol=XDGUSD&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=bybit&symbol=BTCUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BTCUSDT&timeframe=1h&bars=1000
+  http://127.0.0.1:41009/api/history?provider=bybit&symbol=ETHUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=bybit&symbol=SOLUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=bybit&symbol=XRPUSDT&timeframe=1d&bars=5
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=ETHUSDT&timeframe=1h&bars=1000
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=260
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=260
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000&to=1791914399
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=SOLUSDT&timeframe=1h&bars=1000&to=1790114399
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1h&bars=1000
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=260
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1h&bars=1000&to=1791914399
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1h&bars=1000&to=1790114399
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1m&bars=1000
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1m&bars=1000&to=1795454279
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BNBUSDT&timeframe=1m&bars=1000&to=1795424279
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=ETHUSDT&timeframe=1m&bars=1000
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=ETHUSDT&timeframe=1m&bars=1000&to=1795454279
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=ETHUSDT&timeframe=1m&bars=1000&to=1795424279
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=1000
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=1000&to=1795454279
+  http://127.0.0.1:41009/api/history?provider=binance&symbol=BTCUSDT&timeframe=1m&bars=1000&to=1795424279
