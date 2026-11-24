@@ -14,6 +14,8 @@ COPY shared ./shared
 COPY server ./server
 # The manual served at /docs is built from the guide, its screenshots and the reference docs it links.
 COPY docs ./docs
+# ...by the docs build script and the heading-id helper it shares with the guide tests.
+COPY scripts ./scripts
 RUN npm run build
 
 # ---------- runtime stage: zero-dependency server + built assets ----------
