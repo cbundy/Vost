@@ -2,15 +2,19 @@
  * Strategy style search probe (research spike for issue #431). Runs with vite-node, no new dependency, no key.
  *
  *   npx vite-node docs/spikes/strategy-style-search/probe.ts --self-check                  offline, seeded synthetic data
- *   npx vite-node docs/spikes/strategy-style-search/probe.ts --list [--stage lower|widen]  slices per stage, timeframe, group
+ *   npx vite-node docs/spikes/strategy-style-search/probe.ts --list [--stage lower|widen|higher]  slices per stage, timeframe, group
  *   npx vite-node docs/spikes/strategy-style-search/probe.ts --stage lower --slice 0       one slice (network, cached)
  *   npx vite-node docs/spikes/strategy-style-search/probe.ts --report                      results.csv + output.txt
  *
  * (`npx vite-node <file> --flag` passes the flags through.)
- * Flags: --workers <W> with --worker <w> (instead of --slice: every W-th series, so W processes share the work), --stage lower|widen (default lower), --group crypto|stocks|indices, --timeframe <tf>, --slice <k>, --per-slice <n> (series per
+ * Flags: --workers <W> with --worker <w> (instead of --slice: every W-th series, so W processes share the work), --stage lower|widen|higher (default lower), --group crypto|stocks|indices, --timeframe <tf>, --slice <k>, --per-slice <n> (series per
  *        slice, default 6), --budget <seconds> (default 420; a slice that runs out of time stops cleanly between series
  *        and a rerun of the same slice carries on), --cache <dir> (candles and raw results; default
  *        <os temp>/vost-strategy-style-search), --max-bars <n> (default 4000).
+ *
+ * Stages: lower = 1m, 5m, 15m, 30m; widen = 1h, 4h (only when lower found nothing); higher = 8h, 12h, 1d, run on the
+ * owner's request of 2026-11-24 whatever stages lower and widen found. Yahoo has no 4h, 8h or 12h bars, so stocks and
+ * indices run 1d only in stage higher.
  *
  * What it does: for a series (one market on one timeframe) it tries every signal family except Composed on the strategy
  * maker's grids, plus Composed (entry rules 1 to 6, trend and ADX filters, trend multiples 4 and 12), long only and
@@ -61,11 +65,11 @@ const MAX_BARS_DEFAULT = 4000;
 /** Held strategies kept per series for results.csv (the counts always cover all of them). */
 const KEEP_PER_SERIES = 40;
 
-const STAGES = { lower: ['1m', '5m', '15m', '30m'], widen: ['1h', '4h'] } as const;
+const STAGES = { lower: ['1m', '5m', '15m', '30m'], widen: ['1h', '4h'], higher: ['8h', '12h', '1d'] } as const;
 type Stage = keyof typeof STAGES;
 const GROUPS = ['crypto', 'stocks', 'indices'] as const;
 type Group = (typeof GROUPS)[number];
-const YAHOO_INTERVAL: Record<string, string> = { '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m', '1h': '60m' };
+const YAHOO_INTERVAL: Record<string, string> = { '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m', '1h': '60m', '1d': '1d' };
 
 /** What a search tries: the plain families and Composed. Narrowed only by `--self-check`, to keep it fast. */
 interface Grid {
@@ -340,9 +344,18 @@ async function binanceCandles(symbol: string, tf: string, maxBars: number): Prom
 /** The window Yahoo is asked for: the app's depth for intraday intervals (server/providers/yahoo.ts). */
 const yahooRange = (interval: string): string => ({ '1m': '7d', '5m': '1mo', '15m': '1mo', '30m': '1mo', '60m': '2y' })[interval] ?? '2y';
 
-async function yahooCandles(symbol: string, tf: string, maxBars: number): Promise<Candle[]> {
+/**
+ * The Yahoo chart URL of a series. Daily bars use a dated window from 0 to now (`period1=0&period2=<now+1>`), never
+ * `range=max`, which Yahoo coarsens (server/providers/yahoo.ts does the same); the other intervals use `range`.
+ */
+function yahooUrl(symbol: string, tf: string, nowSec: number): string {
   const interval = YAHOO_INTERVAL[tf];
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${yahooRange(interval)}&includePrePost=false`;
+  const window = interval === '1d' ? `period1=0&period2=${Math.floor(nowSec) + 1}` : `range=${yahooRange(interval)}`;
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&${window}&includePrePost=false`;
+}
+
+async function yahooCandles(symbol: string, tf: string, maxBars: number): Promise<Candle[]> {
+  const url = yahooUrl(symbol, tf, Date.now() / 1000);
   const j = (await getJson(url)) as { chart: { result?: Array<{ timestamp?: number[]; indicators: { quote: Array<Record<string, Array<number | null>>> } }> } };
   const r = j.chart.result?.[0];
   if (!r?.timestamp) return [];
@@ -413,7 +426,7 @@ function marketsOf(u: Universe): Record<Group, Array<{ provider: 'binance' | 'ya
   };
 }
 
-/** Every series of a stage: timeframe outermost, then group, then market. Yahoo has no 4h bars. */
+/** Every series of a stage: timeframe outermost, then group, then market. Yahoo has only 1m to 1h and 1d bars (no 4h, 8h or 12h). */
 function unitsOf(u: Universe, stage: Stage): Unit[] {
   const markets = marketsOf(u);
   const out: Unit[] = [];
@@ -438,7 +451,7 @@ const has = (name: string): boolean => process.argv.includes(`--${name}`);
 const cacheDir = (): string => arg('cache') ?? join(tmpdir(), 'vost-strategy-style-search');
 const stageArg = (): Stage => {
   const s = arg('stage') ?? 'lower';
-  if (s !== 'lower' && s !== 'widen') throw new Error(`--stage must be lower or widen, not "${s}"`);
+  if (s !== 'lower' && s !== 'widen' && s !== 'higher') throw new Error(`--stage must be lower, widen or higher, not "${s}"`);
   return s;
 };
 const resultFile = (cache: string, u: Unit): string => join(cache, 'results', u.stage, u.timeframe, `${u.group}-${u.symbol.replace(/[^A-Za-z0-9.-]/g, '_')}.json`);
@@ -541,6 +554,11 @@ function cellsOf(results: SeriesResult[]): Cell[] {
   return cells;
 }
 
+/** The stages the report writes: stage 3 (higher) always, stage 2 (widen) only when the first run's rule allowed it. */
+function reportStagesOf(lower: { complete: boolean; cells: Cell[] }): Stage[] {
+  return mayWiden(lower) ? ['lower', 'widen', 'higher'] : ['lower', 'higher'];
+}
+
 const PER_SERIES_TRIES = (tf: Interval, grid: Grid = FULL_GRID): number =>
   DIRECTIONS.reduce((a, d) => a + settingsOf(grid, tf, d.value).length, 0) * exitsOf(1, grid.exits).length;
 
@@ -572,9 +590,27 @@ function report(): void {
   say(`Strategy style search (issue #431). Universe dated ${u.cryptoCap.date} (today's winners at that date: survivorship).`);
   say(`Rule: found = real series with a held strategy r > shuffled series s, and a one-sided Fisher exact test p < ${ALPHA}, in a timeframe and group.`);
   say(`Held = at least ${MIN_TRADES} trades and beats buy and hold on the searched part (first ${SELECTION_PCT}%) and on the unseen part (last ${100 - SELECTION_PCT}%).`);
-  say(`Tries per series (both directions, 12 exits): ${(['1m', '1h'] as Interval[]).map((tf) => `${PER_SERIES_TRIES(tf)} on ${tf}`).join(', ')}.`);
+  say(`Tries per series (both directions, 12 exits): ${(['1m', '1h', '1d'] as Interval[]).map((tf) => `${PER_SERIES_TRIES(tf)} on ${tf}`).join(', ')}.`);
   say();
+  const outDir = new URL('.', import.meta.url).pathname;
+  const outFile = join(outDir, 'output.txt');
+  const csvFile = join(outDir, 'results.csv');
+  // When the cache of the first run is gone (no stage 1 and 2 series at all), their text and csv rows are carried over
+  // from the files that run wrote, unchanged, so a rerun of stage 3 alone does not erase them.
+  const wideAll = readResults(cache, 'widen', unitsOf(u, 'widen'));
+  const carry = lower.results.length === 0 && wideAll.results.length === 0 && existsSync(outFile) && existsSync(csvFile);
   const stages: Array<{ stage: Stage; cells: Cell[]; results: SeriesResult[]; missing: Unit[] }> = [{ stage: 'lower', cells: lowerCells, results: lower.results, missing: lower.missing }];
+  let carriedRows: string[] = [];
+  if (carry) {
+    const old = readFileSync(outFile, 'utf8').split('\n');
+    const from = old.findIndex((l) => l.startsWith('== Stage 1'));
+    const to = old.findIndex((l) => l.startsWith('== Stage 3') || l.startsWith('results.csv:'));
+    if (from >= 0 && to > from) {
+      say('(Stages 1 and 2 below are carried over unchanged from the first run: its cache was not present for this run.)');
+      for (const l of old.slice(from, to)) say(l.replace(' The run stops here.', ''));
+      carriedRows = readFileSync(csvFile, 'utf8').split('\n').slice(1).filter((l) => /^(lower|widen),/.test(l));
+    }
+  } else {
   say('== Stage 1: 1m, 5m, 15m, 30m ==');
   say(`Series: ${lower.results.length} done, ${lower.missing.length} missing.`);
   for (const m of lower.missing.slice(0, 20)) say(`  missing: ${m.timeframe} ${m.group} ${m.symbol}`);
@@ -584,8 +620,8 @@ function report(): void {
   const foundLower = lowerCells.filter((c) => c.found);
   say(foundLower.length ? `Stage 1 FOUND ${foundLower.length} cell(s): ${foundLower.map((c) => `${c.timeframe} ${c.group}`).join(', ')}. Stage 2 (1h, 4h) was not run.` : lower.missing.length ? 'Stage 1 is incomplete, so no decision on stage 2 yet.' : 'Stage 1 found nothing, so stage 2 (1h and 4h) is run.');
   say();
-  if (mayWiden({ complete: lower.missing.length === 0, cells: lowerCells })) {
-    const wide = readResults(cache, 'widen', unitsOf(u, 'widen'));
+  if (reportStagesOf({ complete: lower.missing.length === 0, cells: lowerCells }).includes('widen')) {
+    const wide = wideAll;
     const cells = cellsOf(wide.results);
     stages.push({ stage: 'widen', cells, results: wide.results, missing: wide.missing });
     say('== Stage 2: 1h and 4h (Yahoo has no 4h bars, so 4h is crypto only) ==');
@@ -595,15 +631,31 @@ function report(): void {
     tableOf(cells).forEach(say);
     say();
     const foundWide = cells.filter((c) => c.found);
-    say(foundWide.length ? `Stage 2 FOUND ${foundWide.length} cell(s): ${foundWide.map((c) => `${c.timeframe} ${c.group}`).join(', ')}.` : wide.missing.length ? 'Stage 2 is incomplete.' : 'Stage 2 found nothing. The run stops here.');
+    say(foundWide.length ? `Stage 2 FOUND ${foundWide.length} cell(s): ${foundWide.map((c) => `${c.timeframe} ${c.group}`).join(', ')}.` : wide.missing.length ? 'Stage 2 is incomplete.' : 'Stage 2 found nothing.');
     say();
   }
+  }
+
+  // Stage 3 is run and reported whatever stages 1 and 2 found (the owner's direction of 2026-11-24).
+  const high = readResults(cache, 'higher', unitsOf(u, 'higher'));
+  const highCells = cellsOf(high.results);
+  stages.push({ stage: 'higher', cells: highCells, results: high.results, missing: high.missing });
+  say('== Stage 3: 8h, 12h and 1d (run on the owner request of 2026-11-24; Yahoo has no 8h or 12h bars, so those are crypto only and stocks and indices run 1d only) ==');
+  say(`Series: ${high.results.length} done, ${high.missing.length} missing.`);
+  for (const m of high.missing.slice(0, 20)) say(`  missing: ${m.timeframe} ${m.group} ${m.symbol}`);
+  say();
+  tableOf(highCells).forEach(say);
+  say();
+  const foundHigh = highCells.filter((c) => c.found);
+  say(foundHigh.length ? `Stage 3 FOUND ${foundHigh.length} cell(s): ${foundHigh.map((c) => `${c.timeframe} ${c.group}`).join(', ')}.` : high.missing.length ? 'Stage 3 is incomplete.' : 'Stage 3 found nothing. The run stops here.');
+  say();
 
   // results.csv: one row per held strategy of a real series.
   const header = ['stage', 'group', 'market', 'timeframe', 'direction', 'family', 'settings', 'exit'];
   const partCols = (p: string): string[] => ['trades', 'signals_per_day', 'hit_rate_pct', 'rr', 'max_drawdown_pct', 'return_pct', 'buy_hold_pct'].map((c) => `${p}_${c}`);
   const csv = [[...header, ...partCols('searched'), ...partCols('unseen'), 'cell_real_held', 'cell_shuffled_held', 'cell_real_series_held', 'cell_shuffled_series_held', 'cell_found'].join(',')];
-  let rows = 0;
+  csv.push(...carriedRows);
+  let rows = carriedRows.length;
   let cut = 0;
   const partRow = (p: Part): Array<string | number | null> => [p.trades, p.signalsPerDay == null ? null : +p.signalsPerDay.toFixed(3), p.hitPct == null ? null : +p.hitPct.toFixed(1), p.rr == null ? null : +p.rr.toFixed(2), +p.drawdownPct.toFixed(2), +p.returnPct.toFixed(2), +p.buyHoldPct.toFixed(2)];
   for (const s of stages) {
@@ -616,10 +668,9 @@ function report(): void {
       }
     }
   }
-  say(`results.csv: ${rows} held strategies of real series (the best ${KEEP_PER_SERIES} per series by unseen return over buy and hold; ${cut} more held strategies are counted in the tables but not listed).`);
-  const outDir = new URL('.', import.meta.url).pathname;
-  writeFileSync(join(outDir, 'results.csv'), `${csv.join('\n')}\n`);
-  writeFileSync(join(outDir, 'output.txt'), `${lines.join('\n')}\n`);
+  say(`results.csv: ${rows} held strategies of real series (the best ${KEEP_PER_SERIES} per series by unseen return over buy and hold; ${cut} more held strategies are counted in the tables but not listed${carry ? '; that count covers stage 3 only, the first run\'s rows for stages 1 and 2 are carried over' : ''}).`);
+  writeFileSync(csvFile, `${csv.join('\n')}\n`);
+  writeFileSync(outFile, `${lines.join('\n')}\n`);
   console.log(lines.join('\n'));
 }
 
@@ -747,6 +798,39 @@ async function selfCheck(): Promise<void> {
   ok(mayWiden({ complete: true, cells: [mk(0, 0), mk(2, 2)] }), 'stage 2 runs when stage 1 is complete and has no found cell');
   ok(!mayWiden({ complete: true, cells: [mk(0, 0), mk(6, 0)] }), 'stage 2 does not run when stage 1 has a found cell');
   ok(!mayWiden({ complete: false, cells: [mk(0, 0)] }), 'stage 2 does not run while stage 1 is incomplete');
+
+  // (7) Stage 3 units: crypto at 8h, 12h and 1d; stocks and indices at 1d only (Yahoo has no 8h or 12h).
+  const universe = loadUniverse();
+  const markets = marketsOf(universe);
+  const high = unitsOf(universe, 'higher');
+  const count = (tf: string, g: Group): number => high.filter((x) => x.timeframe === tf && x.group === g).length;
+  console.log(`stage higher: ${high.length} series (crypto ${markets.crypto.length} x 3, stocks ${markets.stocks.length}, indices ${markets.indices.length})`);
+  ok(JSON.stringify(STAGES.higher) === '["8h","12h","1d"]', 'stage higher has the timeframes 8h, 12h, 1d');
+  ok(['8h', '12h', '1d'].every((tf) => count(tf, 'crypto') === markets.crypto.length) && markets.crypto.length === 33, 'stage higher: crypto at 8h, 12h and 1d (33 each)');
+  ok(count('1d', 'stocks') === 55 && count('1d', 'indices') === 10, 'stage higher: 55 stocks and 10 indices at 1d');
+  ok(high.every((x) => x.group === 'crypto' || x.timeframe === '1d') && high.length === 99 + 55 + 10, 'stage higher: stocks and indices only at 1d, 164 series in all');
+  ok(unitsOf(universe, 'lower').length === 392 && unitsOf(universe, 'widen').length === 131, 'stages lower and widen keep 392 and 131 series');
+
+  // (8) The Yahoo URL: daily bars use a dated window from 0, never range=max; the 1h URL is unchanged.
+  const d1 = yahooUrl('AAPL', '1d', 1_800_000_000.7);
+  ok(d1.includes('interval=1d&period1=0&period2=1800000001&') && !d1.includes('range='), `Yahoo 1d URL has period1=0&period2=now+1 and no range (${d1.split('?')[1]})`);
+  ok(yahooUrl('AAPL', '1h', 1_800_000_000) === 'https://query1.finance.yahoo.com/v8/finance/chart/AAPL?interval=60m&range=2y&includePrePost=false', 'the Yahoo 1h URL is unchanged');
+  ok(yahooUrl('^GSPC', '1d', 5).includes('%5EGSPC'), 'the Yahoo symbol is encoded');
+
+  // (9) A planted long edge on daily bars is selected and held, and signals per day are finite.
+  const daily = synthetic(12, 3000, 0.05, 0.4, 86400);
+  const dailyEdge = searchSeries(daily, 'synthetic', 'DAILY', '1d', SMALL_GRID);
+  const dbest = dailyEdge.real.rows[0];
+  console.log(`planted daily edge: tried ${dailyEdge.real.tried}, selected ${dailyEdge.real.selected}, held ${dailyEdge.real.held}${dbest ? `; signals per day ${fmt(dbest.unseen.signalsPerDay, 3)}` : ''}`);
+  ok(dailyEdge.real.selected > 0 && dailyEdge.real.held > 0, 'planted daily edge: selected and held');
+  ok(!!dbest && dbest.searched.trades >= MIN_TRADES && dbest.unseen.trades >= MIN_TRADES && dbest.unseen.returnPct > dbest.unseen.buyHoldPct, 'planted daily edge: the best has 30 trades and beats buy and hold on the unseen part');
+  ok(!!dbest && dbest.unseen.signalsPerDay != null && Number.isFinite(dbest.unseen.signalsPerDay) && dbest.unseen.signalsPerDay <= 1.5, 'planted daily edge: signals per day are finite and at most about one a day');
+  ok(PER_SERIES_TRIES('1d') === PER_SERIES_TRIES('1m') && PER_SERIES_TRIES('8h') === 65784 && PER_SERIES_TRIES('12h') === 65784, 'the grid is 65,784 tries per series on 8h, 12h and 1d');
+
+  // (10) The report runs stage 3 whatever stages 1 and 2 found.
+  ok(reportStagesOf({ complete: true, cells: [mk(0, 0)] }).join() === 'lower,widen,higher', 'stage 3 is reported after stages 1 and 2 when stage 1 found nothing');
+  ok(reportStagesOf({ complete: true, cells: [mk(6, 0)] }).join() === 'lower,higher', 'stage 3 is reported when stage 1 found something (stage 2 is not)');
+  ok(reportStagesOf({ complete: false, cells: [mk(0, 0)] }).includes('higher'), 'stage 3 is reported while stage 1 is incomplete');
 
   if (failed) {
     console.log(`${failed} check(s) failed`);
