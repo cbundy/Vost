@@ -1,0 +1,1 @@
+^GSPC 1d: Composed (entry + filters) (TradingView "Supertrend" close crosses Supertrend, atr length 2, factor 0.3, long and short), trailing stop at Supertrend Supertrend, take profit 1R. The hit rate is 0.0%, you asked for at least 30%.

@@ -16,9 +16,9 @@ const money = (v: number): string => v.toLocaleString('en-US', { maximumFraction
 const count = (n: number): string => n.toLocaleString('en-US');
 
 /** For example `fast 8, slow 34, long and short`; a long-only setting says nothing of direction. */
-export function settingsWords(c: Pick<SweepCandidate, 'strategyId' | 'params'>): string {
+export function settingsWords(c: Pick<SweepCandidate, 'strategyId' | 'params' | 'pineRoles'>): string {
   const dir = c.params.direction === 2 ? 'short only' : c.params.direction === 3 ? 'long and short' : '';
-  return [c.strategyId === 'composed' ? composedWords(c.params) : settingsText(c), dir].filter(Boolean).join(', ');
+  return [c.strategyId === 'composed' ? composedWords(c.params, c.pineRoles) : settingsText(c), dir].filter(Boolean).join(', ');
 }
 
 /** The figures a row shows: the unseen part for a held row, the searched part otherwise. */
@@ -134,7 +134,7 @@ export function SweepResults({ result, risk }: Props) {
                 {rows.slice(0, shown).map((c) => {
                   const f = figuresOf(c);
                   return (
-                    <tr key={`${marketLabel(c)}|${c.strategyId}|${JSON.stringify(c.params)}|${exitKey(exitOfCandidate(c))}`}>
+                    <tr key={`${marketLabel(c)}|${c.strategyId}|${JSON.stringify(c.params)}|${JSON.stringify(c.pineRoles ?? null)}|${exitKey(exitOfCandidate(c))}`}>
                       <td>{c.market.symbol}</td>
                       <td>{c.timeframe}</td>
                       <td>
@@ -183,8 +183,8 @@ export function SweepResults({ result, risk }: Props) {
         <div className="sm-res-block">
           <h3>Skipped</h3>
           <ul>
-            {result.skipped.map((s) => (
-              <li key={marketLabel(s)}>
+            {result.skipped.map((s, i) => (
+              <li key={`${marketLabel(s)}|${i}`}>
                 {marketLabel(s)}: {s.reason}
               </li>
             ))}

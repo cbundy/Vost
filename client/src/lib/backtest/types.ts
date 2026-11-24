@@ -10,6 +10,7 @@
  */
 
 import type { PineMarket } from '../pine/types';
+import type { PineRole } from './pineRole';
 
 /** The step a running backtest is in, reported with its progress. */
 export type BacktestStage = 'signals' | 'simulating' | 'pine' | 'metrics';
@@ -29,6 +30,8 @@ export interface BacktestConfig {
   customCode?: string;
   /** Only for the `pine` strategy: Pine Script v6 strategy source. */
   pineCode?: string;
+  /** Only for `composed`: stored TradingView indicators used as the entry rule (at most one) or as filters (at most 4). Sources are attached only when a run is requested. */
+  pineRoles?: PineRole[];
   initialCapital: number;
   /** Percent of equity committed per trade (1–100). */
   positionSizePct: number;
@@ -147,7 +150,7 @@ export interface BacktestFilters {
   taken: number;
   /** Per enabled filter, signals it vetoed (a double veto counts for both). */
   blocked: Array<{
-    key: 'trend' | 'volume' | 'volatility' | 'strength';
+    key: 'trend' | 'volume' | 'volatility' | 'strength' | 'pine';
     label: string;
     blocked: number;
   }>;

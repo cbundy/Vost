@@ -7,6 +7,7 @@
 import type { Candle } from '../../types';
 import { adx, atr, ema, sma, volumeSma } from '../indicators';
 import { higherOfMultiple, type HigherTimeframe } from './higherTimeframe';
+import type { PineRoleContext } from './pineRole';
 import type { BacktestFilters, Signal } from './types';
 
 export const COMPOSED_DEFAULTS = {
@@ -30,6 +31,8 @@ type FilterKey = BacktestFilters['blocked'][number]['key'];
 
 interface Filter {
   key: FilterKey;
+  /** What the Results line prints; defaults to the key. */
+  label?: string;
   /** Whether the bar passes for a side; null while the filter has no value yet. */
   check(i: number, side: 1 | -1): boolean | null;
 }
@@ -49,7 +52,7 @@ function higherOf(candles: Candle[], p: Record<string, number>, key: 'trendTf' |
   return higherOfMultiple(candles, Math.round(pick(p, key)));
 }
 
-function enabledFilters(candles: Candle[], p: Record<string, number>): Filter[] {
+function enabledFilters(candles: Candle[], p: Record<string, number>, ctx?: PineRoleContext): Filter[] {
   const filters: Filter[] = [];
   const mode = Math.round(pick(p, 'trendFilter'));
   if (mode === 1 || mode === 2) {
@@ -110,6 +113,7 @@ function enabledFilters(candles: Candle[], p: Record<string, number>): Filter[] 
       },
     });
   }
+  for (const f of ctx?.filters ?? []) filters.push({ key: 'pine', label: f.label, check: f.check });
   return filters;
 }
 
@@ -118,11 +122,12 @@ export function composeSignals(
   candles: Candle[],
   entry: Signal[],
   params: Record<string, number>,
+  ctx?: PineRoleContext,
 ): { signals: Signal[]; filters: BacktestFilters } {
-  const active = enabledFilters(candles, params);
+  const active = enabledFilters(candles, params, ctx);
   const blocked = active.map((f) => ({
     key: f.key,
-    label: f.key as string,
+    label: f.label ?? (f.key as string),
     blocked: 0,
   }));
   const out: Signal[] = new Array(candles.length).fill(null);

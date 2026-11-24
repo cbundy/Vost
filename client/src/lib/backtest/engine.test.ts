@@ -345,3 +345,162 @@ describe('risk per trade sizing', () => {
     for (const [k, v] of Object.entries(metrics)) if (typeof v === 'number') expect(Number.isNaN(v), k).toBe(false);
   });
 });
+
+describe('TradingView indicator stop and target levels', () => {
+  type Bar = [open: number, high: number, low: number, close: number];
+  const ohlc = (rows: Bar[]): Candle[] => rows.map(([open, high, low, close], i) => ({ time: 1700000000 + i * 86400, open, high, low, close, volume: 1000 }));
+  const flatBar: Bar = [100, 101, 99.5, 100];
+  const longs = (n: number): Signal[] => new Array(n).fill(1);
+  const tradeSummary = (r: { trades: Array<{ entryBar: number; exitBar: number; entryPrice: number; exitPrice: number; exitReason: string; qty: number }> }) =>
+    r.trades.map((t) => ({ entryBar: t.entryBar, exitBar: t.exitBar, entryPrice: t.entryPrice, exitPrice: t.exitPrice, exitReason: t.exitReason, qty: t.qty }));
+
+  it('an at-entry plot stop equals a fixed percent stop at the same level (same trades and equity)', () => {
+    const candles = ohlc([flatBar, flatBar, [100, 101, 99.5, 100], [100, 100.5, 97, 97.5], flatBar, flatBar]);
+    const level = 100 * (1 - 2 / 100);
+    // The plot later moves far away: an at-entry stop ignores it.
+    const values = [level, 50, 50, 50, 50, 50];
+    const fixed = runBacktest(candles, longs(6), cfg({ stopLossPct: 2 }));
+    const viaPlot = runBacktest(candles, longs(6), cfg(), undefined, { stop: { mode: 'at-entry', values } });
+    expect(fixed.trades[0].exitReason).toBe('stop_loss');
+    expect(viaPlot.trades).toEqual(fixed.trades);
+    expect(viaPlot.equity).toEqual(fixed.equity);
+  });
+
+  it('a trailing plot stop exits on the first bar whose low reaches the previous bar plot value', () => {
+    const candles = ohlc(Array.from({ length: 10 }, () => flatBar));
+    const values = [90, 92, 94, 96, 98, 99, 99.6, 99.7, 99.8, 99.9];
+    const out = runBacktest(candles, longs(10), cfg(), undefined, { stop: { mode: 'trailing', values } });
+    // bar j is stopped when low 99.5 <= values[j - 1]: first at j - 1 = 6
+    expect(out.trades[0]).toMatchObject({ entryBar: 1, exitBar: 7, exitPrice: 99.6, exitReason: 'stop_loss' });
+  });
+
+  it('a trailing plot stop may loosen: it is not ratcheted', () => {
+    const candles = ohlc(Array.from({ length: 8 }, () => flatBar));
+    // tight (99.6) on bar 3, loose (90) afterwards: the stop moves back down and the trade stays open
+    const values = [90, 90, 99.6, 90, 90, 90, 90, 90];
+    const out = runBacktest(candles, longs(8), cfg(), undefined, { stop: { mode: 'trailing', values } });
+    expect(out.trades[0]).toMatchObject({ exitBar: 3, exitPrice: 99.6 });
+    const loose = runBacktest(candles, longs(8), cfg(), undefined, { stop: { mode: 'trailing', values: [90, 90, 90, 90, 90, 90, 90, 90] } });
+    expect(loose.trades[0].exitReason).toBe('end_of_data');
+  });
+
+  it('a plot target exits like a fixed target at the same price', () => {
+    const candles = ohlc([flatBar, flatBar, flatBar, [101, 106, 100, 105], flatBar, flatBar]);
+    const level = 100 * (1 + 5 / 100);
+    const fixed = runBacktest(candles, longs(6), cfg({ takeProfitPct: 5 }));
+    const viaPlot = runBacktest(candles, longs(6), cfg(), undefined, { target: { values: new Array(6).fill(level) } });
+    expect(fixed.trades[0].exitReason).toBe('take_profit');
+    expect(viaPlot.trades).toEqual(fixed.trades);
+    expect(viaPlot.equity).toEqual(fixed.equity);
+  });
+
+  it('the nearer of a fixed target and a plot target wins, the tighter of a fixed and a plot stop wins', () => {
+    const candles = ohlc([flatBar, flatBar, flatBar, [101, 104, 100, 103], flatBar]);
+    const nearer = runBacktest(candles, longs(5), cfg({ takeProfitPct: 10 }), undefined, { target: { values: new Array(5).fill(103.5) } });
+    expect(nearer.trades[0]).toMatchObject({ exitBar: 3, exitPrice: 103.5, exitReason: 'take_profit' });
+    const dip = ohlc([flatBar, flatBar, flatBar, [100, 100, 96, 97], flatBar]);
+    const tighter = runBacktest(dip, longs(5), cfg({ stopLossPct: 10 }), undefined, { stop: { mode: 'at-entry', values: new Array(5).fill(97) } });
+    expect(tighter.trades[0]).toMatchObject({ exitPrice: 97, exitReason: 'stop_loss' });
+    const looser = runBacktest(dip, longs(5), cfg({ stopLossPct: 2 }), undefined, { stop: { mode: 'at-entry', values: new Array(5).fill(90) } });
+    expect(looser.trades[0]).toMatchObject({ exitPrice: 98, exitReason: 'stop_loss' });
+  });
+
+  it('a short uses the mirrored sides', () => {
+    const candles = ohlc([flatBar, flatBar, [100, 103.5, 99.5, 103], flatBar]);
+    const out = runBacktest(candles, new Array(4).fill(-1), cfg({ allowShort: true }), undefined, { stop: { mode: 'trailing', values: [102, 102, 102, 102] } });
+    expect(out.trades[0]).toMatchObject({ side: 'short', exitBar: 2, exitPrice: 102, exitReason: 'stop_loss' });
+    const tp = ohlc([flatBar, flatBar, [100, 100.5, 96, 97], flatBar]);
+    const hit = runBacktest(tp, new Array(4).fill(-1), cfg({ allowShort: true }), undefined, { target: { values: [97, 97, 97, 97] } });
+    expect(hit.trades[0]).toMatchObject({ side: 'short', exitPrice: 97, exitReason: 'take_profit' });
+  });
+
+  it('a gap through the plot stop fills at the open', () => {
+    const candles = ohlc([flatBar, flatBar, flatBar, [94, 95, 93, 94], flatBar]);
+    const out = runBacktest(candles, longs(5), cfg(), undefined, { stop: { mode: 'at-entry', values: new Array(5).fill(97) } });
+    expect(out.trades[0]).toMatchObject({ exitBar: 3, exitPrice: 94, exitReason: 'stop_loss' });
+  });
+
+  it('stop before target on the same bar', () => {
+    const candles = ohlc([flatBar, flatBar, flatBar, [100, 110, 90, 100], flatBar]);
+    const out = runBacktest(candles, longs(5), cfg(), undefined, {
+      stop: { mode: 'at-entry', values: new Array(5).fill(95) },
+      target: { values: new Array(5).fill(105) },
+    });
+    expect(out.trades[0]).toMatchObject({ exitPrice: 95, exitReason: 'stop_loss' });
+  });
+
+  it('after a plot stop the signal must leave that side before a new entry', () => {
+    const candles = ohlc([flatBar, flatBar, [100, 100, 94, 95], flatBar, flatBar, flatBar]);
+    const out = runBacktest(candles, longs(6), cfg(), undefined, { stop: { mode: 'at-entry', values: new Array(6).fill(97) } });
+    expect(out.trades).toHaveLength(1);
+  });
+
+  it('na or wrong-side levels place nothing', () => {
+    const candles = ohlc(Array.from({ length: 6 }, () => flatBar));
+    // A stop with no level opens no trade.
+    expect(runBacktest(candles, longs(6), cfg(), undefined, { stop: { mode: 'at-entry', values: new Array(6).fill(null) } }).trades).toEqual([]);
+    // A long stop above the price is no stop, and a long target below the price is no target.
+    expect(runBacktest(candles, longs(6), cfg(), undefined, { stop: { mode: 'trailing', values: new Array(6).fill(105) } }).trades).toEqual([]);
+    const noTarget = runBacktest(candles, longs(6), cfg(), undefined, { target: { values: new Array(6).fill(95) } });
+    expect(noTarget.trades[0].exitReason).toBe('end_of_data');
+    const naTarget = runBacktest(candles, longs(6), cfg(), undefined, { target: { values: new Array(6).fill(null) } });
+    expect(naTarget.trades[0].exitReason).toBe('end_of_data');
+  });
+
+  it('an unusable at-entry stop opens no trade; the next bar that still asks for the side may open', () => {
+    const candles = ohlc(Array.from({ length: 6 }, () => flatBar));
+    const out = runBacktest(candles, longs(6), cfg(), undefined, { stop: { mode: 'at-entry', values: [null, 90, 90, 90, 90, 90] } });
+    expect(out.trades).toHaveLength(1);
+    expect(out.trades[0]).toMatchObject({ entryBar: 2 });
+  });
+
+  it('a trailing stop with no usable level on a later bar leaves the other exits in force', () => {
+    const candles = ohlc([flatBar, flatBar, flatBar, [100, 100, 96, 97], flatBar]);
+    const out = runBacktest(candles, longs(5), cfg({ stopLossPct: 3 }), undefined, { stop: { mode: 'trailing', values: [90, 90, null, 90, 90] } });
+    expect(out.trades[0]).toMatchObject({ exitBar: 3, exitPrice: 97, exitReason: 'stop_loss' });
+  });
+
+  it('does not look ahead: changing a plot value on bar k leaves everything up to bar k unchanged', () => {
+    const candles = generateDemoCandles({ bars: 400, timeframe: '1h', seed: 11 });
+    const base = cfg({ strategyId: 'sma_cross', params: { fast: 8, slow: 21 } });
+    const signals = buildSignals(candles, 'sma_cross', base.params);
+    const values = candles.map((c) => c.close * 0.985);
+    const a = runBacktest(candles, signals, base, undefined, { stop: { mode: 'trailing', values } });
+    expect(a.trades.length).toBeGreaterThan(3);
+    // Find a bar k inside an open trade where the next bar can reach a level that is still below the close.
+    const k = a.trades
+      .map((t) => t.entryBar + 1)
+      .find((b, idx) => b + 1 < a.trades[idx].exitBar && candles[b + 1].low + 1e-6 < candles[b].close);
+    expect(k).toBeDefined();
+    const changed = values.slice();
+    changed[k!] = candles[k! + 1].low + 1e-6;
+    const b = runBacktest(candles, signals, base, undefined, { stop: { mode: 'trailing', values: changed } });
+    expect(b.equity.slice(0, k! + 1)).toEqual(a.equity.slice(0, k! + 1));
+    expect(b.trades.filter((t) => t.exitBar <= k!)).toEqual(a.trades.filter((t) => t.exitBar <= k!));
+    // ... and the change does act on bar k + 1.
+    expect(b.trades.find((t) => t.exitBar === k! + 1)).toMatchObject({ exitReason: 'stop_loss' });
+    expect(a.trades.find((t) => t.exitBar === k! + 1 && t.exitReason === 'stop_loss')).toBeUndefined();
+  });
+
+  it('risk sizing and a 2R target use the plot stop distance', () => {
+    const candles = ohlc([flatBar, flatBar, flatBar, [101, 111, 100, 110], flatBar]);
+    const out = runBacktest(
+      candles,
+      longs(5),
+      cfg({ riskPct: 1, takeProfitMode: 'r', takeProfitR: 2, takeProfitPct: null }),
+      undefined,
+      { stop: { mode: 'at-entry', values: new Array(5).fill(95) } },
+    );
+    // 1% of 10000 at a 5% stop = 2000 notional = 20 units; target at 2 x 5 above the entry
+    expect(out.trades[0]).toMatchObject({ qty: 20, exitPrice: 110, exitReason: 'take_profit' });
+  });
+
+  it('with no plot levels the output equals the output without the argument', () => {
+    const candles = generateDemoCandles({ bars: 600, timeframe: '1h', seed: 3 });
+    const base = cfg({ strategyId: 'sma_cross', params: { fast: 8, slow: 21 }, stopLossPct: 2, takeProfitPct: 3 });
+    const signals = buildSignals(candles, 'sma_cross', base.params);
+    const plain = runBacktest(candles, signals, base);
+    expect(runBacktest(candles, signals, base, undefined, {})).toEqual(plain);
+    expect(tradeSummary(plain).length).toBeGreaterThan(3);
+  });
+});

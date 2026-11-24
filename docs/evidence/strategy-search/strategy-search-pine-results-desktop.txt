@@ -1,0 +1,5 @@
+^NDX	1d	Composed (entry + filters)
+TradingView "Supertrend" close crosses Supertrend, atr length 2, factor 0.3, long and short
+	0.51% / 2.55%	22	4.9
+22 fired · 0.05 / day
+	77%	6.49	2,758	1.7%	2.8%	yes	Open in Backtest

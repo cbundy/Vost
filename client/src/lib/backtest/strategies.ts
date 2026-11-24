@@ -14,6 +14,7 @@ import type { Candle } from '../../types';
 import { bollinger, crossover, crossunder, ema, highest, lowest, macd, rsi, sma } from '../indicators';
 import { COMPOSED_DEFAULTS, composeSignals } from './composed';
 import { compileCustomStrategy, DEFAULT_CUSTOM_CODE } from './custom';
+import { ENTRY_RULE_PINE, type PineRoleContext } from './pineRole';
 import type { BacktestFilters, Signal } from './types';
 
 export interface ParamSpec {
@@ -52,9 +53,10 @@ export interface StrategyDef {
   custom?: boolean;
   /** Pine Script strategy: runs through the Pine runtime, params are the script's inputs. */
   pine?: boolean;
-  build(candles: Candle[], params: Record<string, number>): Signal[];
+  /** `ctx` holds the computed TradingView indicator values (Composed only). */
+  build(candles: Candle[], params: Record<string, number>, ctx?: PineRoleContext): Signal[];
   /** Extra result data from the same pass that builds the signals (Composed: blocked entry counts). */
-  report?(candles: Candle[], params: Record<string, number>): BacktestFilters;
+  report?(candles: Candle[], params: Record<string, number>, ctx?: PineRoleContext): BacktestFilters;
 }
 
 /* ------------------------------------------------------------------ */
@@ -305,6 +307,8 @@ const ENTRY_RULES: Array<{
     id: 'donchian',
     keys: ['entry', 'exit'],
   },
+  // Its signals come from the entry role's indicator, not from a strategy.
+  { value: ENTRY_RULE_PINE, label: 'TradingView indicator', id: '', keys: [] },
 ];
 
 /** The entry rule's own setting keys in Composed (without direction). */
@@ -319,8 +323,13 @@ const OFF_ON = [
   { value: 1, label: 'On' },
 ];
 
-function composedRun(candles: Candle[], p: Record<string, number>) {
+function composedRun(candles: Candle[], p: Record<string, number>, ctx?: PineRoleContext) {
   const rule = ENTRY_RULES.find((r) => r.value === Math.round(Number(p.entryRule))) ?? ENTRY_RULES[1];
+  if (rule.value === ENTRY_RULE_PINE) {
+    if (!ctx?.entry) throw new Error('Pick a TradingView indicator for the entry rule');
+    const entry = normalizeSignals(ctx.entry.signals(direction(p.direction)), candles.length);
+    return composeSignals(candles, entry, { ...COMPOSED_DEFAULTS, ...p }, ctx);
+  }
   const family = getStrategy(rule.id);
   const own: Record<string, number> = { direction: p.direction };
   for (const k of rule.keys) own[k] = p[k];
@@ -329,7 +338,7 @@ function composedRun(candles: Candle[], p: Record<string, number>) {
   for (const k of Object.keys(own)) if (!Number.isFinite(Number(own[k]))) own[k] = defaults[k];
   const entry = normalizeSignals(family.build(candles, own), candles.length);
   const full = { ...COMPOSED_DEFAULTS, ...p };
-  return composeSignals(candles, entry, full);
+  return composeSignals(candles, entry, full, ctx);
 }
 
 const composedDef: StrategyDef = {
@@ -596,11 +605,11 @@ const composedDef: StrategyDef = {
       visibleWhen: onWhen('adxFilter'),
     },
   ],
-  build(candles, p) {
-    return composedRun(candles, p).signals;
+  build(candles, p, ctx) {
+    return composedRun(candles, p, ctx).signals;
   },
-  report(candles, p) {
-    return composedRun(candles, p).filters;
+  report(candles, p, ctx) {
+    return composedRun(candles, p, ctx).filters;
   },
 };
 
@@ -810,14 +819,14 @@ export function getStrategy(id: string): StrategyDef {
 }
 
 /** Build the signal array for a strategy + config (throws on custom-code errors). */
-export function buildSignals(candles: Candle[], strategyId: string, params: Record<string, number>, customCode?: string): Signal[] {
+export function buildSignals(candles: Candle[], strategyId: string, params: Record<string, number>, customCode?: string, ctx?: PineRoleContext): Signal[] {
   const strategy = getStrategy(strategyId);
   if (strategy.custom) {
     const merged = { ...params, __code: customCode ?? DEFAULT_CUSTOM_CODE } as unknown as Record<string, number>;
     const raw = compileCustomStrategy(customCode ?? DEFAULT_CUSTOM_CODE)(candles, merged);
     return normalizeSignals(raw, candles.length);
   }
-  const raw = strategy.build(candles, params);
+  const raw = strategy.build(candles, params, ctx);
   return normalizeSignals(raw, candles.length);
 }
 

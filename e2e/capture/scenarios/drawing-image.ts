@@ -1,4 +1,4 @@
-import { deflateSync } from 'node:zlib';
+import { crc32, deflateSync } from 'node:zlib';
 import type { Scenario } from '../scenario.ts';
 import { storedDrawings } from '../saved.ts';
 
@@ -11,20 +11,6 @@ type Stored = { id: string; tool: string; anchors: { time: number; price: number
 
 const GROUP = 'Annotations';
 
-const CRC = (() => {
-  const t: number[] = [];
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t.push(c >>> 0);
-  }
-  return t;
-})();
-const crc32 = (b: Buffer) => {
-  let c = 0xffffffff;
-  for (const x of b) c = CRC[(c ^ x) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-};
 function chunk(type: string, data: Buffer): Buffer {
   const len = Buffer.alloc(4);
   len.writeUInt32BE(data.length);
@@ -34,7 +20,7 @@ function chunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([len, body, crc]);
 }
 /** A small PNG built here: a colour gradient with a white frame, so no binary is committed. */
-function makePng(w: number, h: number): Buffer {
+export function makePng(w: number, h: number): Buffer {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(w, 0);
   ihdr.writeUInt32BE(h, 4);

@@ -15,7 +15,7 @@
 import type { Candle } from '../../types';
 import { atr } from '../indicators';
 import { higherOfMultiple } from './higherTimeframe';
-import { hitTest, levelsAtEntry, readExitSettings, updateTrail, type TradeLevels } from './exits';
+import { hitTest, levelsAtEntry, plotEntryAt, readExitSettings, refreshPlotLevels, updateTrail, type PlotLevels, type TradeLevels } from './exits';
 import type { BacktestConfig, EquityPoint, ExitReason, Signal, Trade } from './types';
 
 export interface EngineOutput {
@@ -59,6 +59,8 @@ export function runBacktest(
   config: BacktestConfig,
   /** Fraction of bars simulated (0..1), about 100 calls per run, the last one at 1. */
   onProgress?: (pct: number) => void,
+  /** TradingView indicator stop and target levels (Composed roles), aligned to the candles. Absent = today's exits only. */
+  plotLevels?: PlotLevels,
 ): EngineOutput {
   const n = candles.length;
   const trades: Trade[] = [];
@@ -125,7 +127,9 @@ export function runBacktest(
   const openPosition = (side: -1 | 1, rawPrice: number, barIndex: number): OpenPosition | null => {
     const fill = side === 1 ? fillBuy(rawPrice) : fillSell(rawPrice);
     // Levels come from the entry fill and the ATR of the signal bar; during ATR warm-up no trade opens.
-    const levels = levelsAtEntry(exits, side, fill, atrAt(barIndex - 1));
+    // An indicator stop with no usable level on the signal bar opens no trade either.
+    const plotEntry = plotLevels && (plotLevels.stop || plotLevels.target) ? plotEntryAt(plotLevels, side, fill, barIndex) : undefined;
+    const levels = levelsAtEntry(exits, side, fill, atrAt(barIndex - 1), plotEntry);
     if (!levels) return null;
     const stopFrac = levels.stopFrac;
     const equityNow = Math.max(0, cash);
@@ -191,6 +195,7 @@ export function runBacktest(
     // ---- 2. Intra-bar stop loss / take profit ----------------------------
     if (position) {
       const pos = position;
+      if (plotLevels && pos.entryBar !== i) refreshPlotLevels(pos.side, pos.levels, plotLevels, i, candles[i - 1].close);
       const hit = hitTest(pos.side, pos.levels, bar);
 
       if (hit) {

@@ -17,7 +17,7 @@ async function barTimeAt(page: Page, fraction: number): Promise<number> {
 
 export const symbolView: Scenario = {
   name: 'symbol-view',
-  description: 'Switching symbol on the same timeframe keeps the dates and zoom: at the live edge the new last bar ends the same bar count, scrolled back the same time window shows (older pages load when the window starts before the new first bar)',
+  description: 'Switching symbol on the same timeframe keeps the dates and zoom: at the live edge the new last bar ends the same bar count, scrolled back the same time window shows (older pages load when the window starts before the new first bar), also when the old view had empty space before its first bar (1m)',
   viewports: ['desktop'],
   async run(ctx) {
     const { page } = ctx;
@@ -105,6 +105,24 @@ export const symbolView: Scenario = {
       check('past loaded left', Math.abs(after.left - before.left) <= BAR_SECONDS, `${iso(before.left)} -> ${iso(after.left)}`);
       check('older pages loaded for the new symbol', pagedCount() > paged, `${pagedCount() - paged} new paged requests`);
       check('past loaded right', Math.abs(after.right - before.right) <= BAR_SECONDS, `${iso(before.right)} -> ${iso(after.right)}`);
+    });
+
+    // 4. Empty space before the first loaded bar: the carried view keeps the zoom and the bar positions.
+    await ctx.step('1m with empty space before the first bar: zoom and dates kept', async () => {
+      await page.locator('select[title="Timeframe"]').selectOption('1m');
+      await page.locator('.chart-legend .legend-title', { hasText: '· 1m' }).waitFor();
+      await page.waitForTimeout(1500);
+      await switchTo('ETHUSDT');
+      await page.locator('button[title="Reset view"]').click();
+      await page.waitForTimeout(1500);
+      await drag(0.5, 0.7); // back 20% of the width: the first loaded bar sits inside the view
+      const before = await win();
+      await ctx.screenshot('empty-before');
+      await switchTo('BTCUSDT');
+      const after = await win();
+      await ctx.screenshot('empty-after');
+      check('empty space left', Math.abs(after.left - before.left) <= 60, `${iso(before.left)} -> ${iso(after.left)}`);
+      check('empty space right', Math.abs(after.right - before.right) <= 60, `${iso(before.right)} -> ${iso(after.right)}`);
     });
 
     await ctx.writeText('checks', [...lines, 'history requests:', ...history().map((u) => `  ${u}`), ''].join('\n'));

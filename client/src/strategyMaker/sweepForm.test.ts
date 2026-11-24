@@ -3,7 +3,8 @@ import type { MarketList, MarketListEntry } from '../../../shared/marketLists.ts
 import { DEFAULT_SWEEP_INPUT, MAX_SWEEP_COMBOS } from './sweep/sweep';
 import { composedCount } from './sweep/composedSpace';
 import { sweepCombos } from './sweep/sweep';
-import { defaultSweepForm, marketsOf, planSweep, readSweepForm, SWEEP_FAMILIES, SWEEP_FAMILY_NOTES, SWEEP_TIMEFRAME_NOTES, SWEEP_TIMEFRAMES } from './sweepForm';
+import type { SweepPineRole } from './sweep/types';
+import { defaultSweepForm, EXIT_KIND_OPTIONS, marketsOf, planSweep, readSweepForm, SWEEP_FAMILIES, SWEEP_FAMILY_NOTES, SWEEP_TIMEFRAME_NOTES, SWEEP_TIMEFRAMES } from './sweepForm';
 
 const entry = (symbol: string, provider: 'binance' | 'yahoo' = 'binance'): MarketListEntry => ({ provider, symbol, name: symbol, rank: 1 });
 const list = (id: string, symbols: string[], over: Partial<MarketList> = {}): MarketList => ({
@@ -144,5 +145,81 @@ describe('search form: Composed, buy and hold, baseline and study notes', () => 
     expect(Object.keys(SWEEP_FAMILY_NOTES).sort()).toEqual(['bollinger', 'rsi_reversion']);
     expect(SWEEP_FAMILY_NOTES.bollinger).toBe('expect little: nothing held in the study');
     expect(SWEEP_FAMILIES.map((f) => f.id)).toEqual(expect.arrayContaining(['rsi_reversion', 'bollinger']));
+  });
+});
+
+describe('search form with TradingView indicators', () => {
+  const role = (over: Partial<SweepPineRole['role']> = {}, ranges: SweepPineRole['ranges'] = []): SweepPineRole => ({
+    role: { indicatorId: 'ema', name: 'My EMA', inputs: {}, role: 'entry', rule: { type: 'cross', a: { kind: 'close' }, b: { kind: 'plot', plot: 'EMA' } }, ...over },
+    ranges,
+  });
+  const withPine = (pine: SweepPineRole[], over: Partial<ReturnType<typeof defaultSweepForm>> = {}) =>
+    picked({ composedOn: true, composedRules: [], composedFilters: [], families: [], composedPine: pine, ...over });
+
+  it('puts the picked indicators in the Composed input, and none when none is picked', () => {
+    const pine = [role({}, [{ input: 'Length', from: 10, to: 30, step: 10 }])];
+    expect(readSweepForm(withPine(pine)).input.composed?.pine).toEqual(pine);
+    expect(readSweepForm(picked({ composedOn: true })).input.composed).not.toHaveProperty('pine');
+    expect(readSweepForm(withPine(pine, { composedOn: false })).input).not.toHaveProperty('composed');
+  });
+
+  it('a form with only Pine entries can run, and with nothing to enter on it cannot', () => {
+    expect(planSweep(withPine([role()]), lists).blocker).toBeNull();
+    expect(planSweep(withPine([role({ role: 'filter', rule: { type: 'above', a: { kind: 'close' }, b: { kind: 'plot', plot: 'EMA' } } })]), lists).blocker).toMatch(/entry rule/);
+  });
+
+  it('plan reports the script-run count and the combination count with the Pine settings', () => {
+    const plan = planSweep(withPine([role({}, [{ input: 'Length', from: 10, to: 30, step: 10 }])]), lists);
+    // 2 markets x 2 timeframes (1d, 1w) x 3 input settings x 2 parts.
+    expect(plan.pineRuns).toBe(2 * 2 * 3 * 2);
+    expect(plan.combos).toBe(sweepCombos(plan.input));
+    expect(plan.combos).toBeGreaterThan(0);
+    expect(planSweep(picked(), lists).pineRuns).toBe(0);
+  });
+
+  it('is blocked above the script-run limit with its own text, and the count shows', () => {
+    const plan = planSweep(withPine([role({}, [{ input: 'Length', from: 2, to: 600, step: 1 }])]), lists);
+    expect(plan.pineRuns).toBe(2 * 2 * 599 * 2);
+    expect(plan.blocker).toMatch(/4,792 TradingView script runs; the limit is 2,000/);
+    expect(plan.combos).toBeLessThan(MAX_SWEEP_COMBOS);
+  });
+
+  it('is blocked, with the reason, when a range is not valid; the counts stay finite', () => {
+    const plan = planSweep(withPine([role({}, [{ input: 'Length', from: 10, to: 30, step: 0 }])]), lists);
+    expect(plan.blocker).toMatch(/step above 0/);
+    expect(Number.isFinite(plan.combos)).toBe(true);
+    expect(plan.pineRuns).toBe(0);
+  });
+});
+
+describe('search form: the TradingView indicator stop', () => {
+  const stop = { indicatorId: 'st', name: 'Supertrend', inputs: {}, role: 'stop' as const, mode: 'trailing' as const, rule: { type: 'level' as const, plot: 'Supertrend' } };
+  const composedPicked = (over: Partial<ReturnType<typeof defaultSweepForm>> = {}) => picked({ composedOn: true, composedRules: [2], composedFilters: [], composedTrendTfs: [], ...over });
+
+  it('is offered as an exit kind and starts with no stop picked', () => {
+    expect(defaultSweepForm().pineStop).toBeNull();
+    expect(EXIT_KIND_OPTIONS.map((o) => o.id)).toEqual(['range', 'atr', 'atr_trail', 'pine']);
+  });
+
+  it('blocks Run without a plot picked, and without Composed', () => {
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'] }), lists).blocker).toMatch(/stop with a plot/);
+    expect(planSweep(picked({ exitKinds: ['range', 'pine'], pineStop: stop }), lists).blocker).toMatch(/Composed only/);
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: stop }), lists).blocker).toBeNull();
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: { ...stop, rule: { type: 'level', plot: '' } } }), lists).blocker).toMatch(/stop with a plot/);
+  });
+
+  it('adds the exits and the script runs to the plan, and ignores a stop without the kind', () => {
+    const without = planSweep(composedPicked(), lists);
+    expect(planSweep(composedPicked({ pineStop: stop }), lists)).toMatchObject({ combos: without.combos, pineRuns: 0 });
+    const plan = planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: stop }), lists);
+    expect(plan.combos).toBe(sweepCombos(plan.input));
+    expect(plan.combos).toBeGreaterThan(without.combos);
+    expect(plan.pineRuns).toBe(2 * plan.input.timeframes.length * 2);
+    expect(plan.input.exits.pineStop).toEqual(stop);
+  });
+
+  it('with only this kind, the stop multiples are not needed', () => {
+    expect(planSweep(composedPicked({ exitKinds: ['pine'], pineStop: stop, stopMults: [] }), lists).blocker).toBeNull();
+    expect(planSweep(composedPicked({ exitKinds: ['range', 'pine'], pineStop: stop, stopMults: [] }), lists).blocker).toMatch(/stop and one take-profit/);
   });
 });

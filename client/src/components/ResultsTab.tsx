@@ -128,7 +128,7 @@ export function ResultsTab() {
         <span className="badge">
           fees {btResult.config.feeBps} bps · slippage {btResult.config.slippageBps} bps
         </span>
-        {[exitBadges.stop, exitBadges.target, exitBadges.trail].map((label) => label && <span key={label} className="badge">{label}</span>)}
+        {[exitBadges.stop, exitBadges.target, exitBadges.trail, exitBadges.indicatorStop, exitBadges.indicatorTarget].map((label) => label && <span key={label} className="badge">{label}</span>)}
         {exitBadges.atrLength != null && <span className="badge">ATR {exitBadges.atrLength}{exitBadges.atrTimeframe != null && ` on ${exitBadges.atrTimeframe}x`}</span>}
         <div className="dock-spacer" />
         <label className="row" style={{ fontSize: 12.5, gap: 6, cursor: 'pointer' }} title="Draw entry/exit markers on the chart">

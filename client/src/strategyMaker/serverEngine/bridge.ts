@@ -61,7 +61,7 @@ export function attachBridge(port: BridgePort): void {
     ask((rid) => ({ proto: 'ask', rid, kind: 'library', path })) as Promise<string | null>;
 
   const backtest = createBacktestHandler((msg) => send({ proto: 'backtest', msg }), { resolver, feed });
-  const maker = createHost((msg) => send({ proto: 'maker', msg }), load);
+  const maker = createHost((msg) => send({ proto: 'maker', msg }), load, { resolver, feed });
 
   port.on('message', (raw) => {
     const m = raw as ToEngine;

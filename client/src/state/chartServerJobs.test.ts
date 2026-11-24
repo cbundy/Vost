@@ -11,6 +11,7 @@ const server = vi.hoisted(() => ({
   unavailable: false,
   cancelled: [] as string[],
   started: [] as string[],
+  requests: [] as Array<Record<string, any>>,
 }));
 vi.mock('../lib/serverJobs', async (orig) => {
   const actual = await orig<typeof import('../lib/serverJobs')>();
@@ -26,6 +27,7 @@ vi.mock('../lib/serverJobs', async (orig) => {
         if (server.unavailable) throw new actual.ServerUnavailableError('engine bundle missing');
         const id = `job${++server.n}`;
         server.started.push(kind);
+        server.requests.push(request);
         const job = { id, kind, scope, state: 'running', progress: 0, created: 1 };
         server.jobs.set(id, job);
         const handle = createBacktestHandler((m: any) => {
@@ -34,7 +36,9 @@ vi.mock('../lib/serverJobs', async (orig) => {
             return;
           }
           if (server.jobs.get(id)!.state !== 'running') return;
-          Object.assign(job, { state: 'done', progress: 1, result: JSON.parse(JSON.stringify(m)) });
+          // Like the real jobs server: an error reply fails the job and carries the message.
+          if (m.type === 'error') Object.assign(job, { state: 'failed', error: m.message });
+          else Object.assign(job, { state: 'done', progress: 1, result: JSON.parse(JSON.stringify(m)) });
           notify(id);
         });
         if (!server.hold) setTimeout(() => handle({ ...request, id, type: kind } as never), 0);
@@ -108,7 +112,7 @@ const same = (a: unknown, b: unknown) => expect(JSON.parse(JSON.stringify(a))).t
 afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => {
   seedStorageForTest();
-  Object.assign(server, { jobs: new Map(), followers: new Map(), n: 0, hold: false, unavailable: false, cancelled: [], started: [] });
+  Object.assign(server, { jobs: new Map(), followers: new Map(), n: 0, hold: false, unavailable: false, cancelled: [], started: [], requests: [] });
 });
 
 describe('server jobs from the chart', () => {
@@ -123,6 +127,45 @@ describe('server jobs from the chart', () => {
     expect(onServer.store.getState().btRunning).toBe(false);
     expect(onServer.toasts[0]).toMatch(/^Backtest finished on the server in \d+ ms/);
     expect(browser.toasts[0]).toMatch(/^Backtest finished in the browser in \d+ ms/);
+  });
+
+  describe('TradingView indicator roles', () => {
+    const source = '//@version=6\nindicator("L")\nplot(ta.sma(close, 5), "line")\n';
+    const role = {
+      indicatorId: 'script 1',
+      name: 'L',
+      inputs: {},
+      role: 'filter' as const,
+      label: 'trend' as const,
+      rule: { type: 'above' as const, a: { kind: 'close' as const }, b: { kind: 'plot' as const, plot: 'line' } },
+    };
+    const withRole = (t: ReturnType<typeof make>) => t.store.getState().setBtConfig({ strategyId: 'composed', params: { entryRule: 1, fast: 4, slow: 9, direction: 1 }, pineRoles: [role] });
+
+    it('the run request carries the source; the saved settings and the result do not', async () => {
+      const urls: string[] = [];
+      vi.stubGlobal('fetch', async (url: string) => {
+        urls.push(url);
+        return new Response(JSON.stringify({ source }), { status: 200 });
+      });
+      const t = make('server');
+      withRole(t);
+      await t.store.getState().runBacktest();
+      expect(urls).toEqual(['/api/pine/indicators/script%201']);
+      expect(server.requests[0].config.pineRoles[0].source).toBe(source);
+      expect(t.store.getState().btConfig.pineRoles![0]).not.toHaveProperty('source');
+      const result = t.store.getState().btResult!;
+      expect(result.filters!.blocked[0]).toMatchObject({ key: 'pine', label: 'L (trend)' });
+      expect(result.config.pineRoles![0]).not.toHaveProperty('source');
+    });
+
+    it('a removed indicator fails the run naming it', async () => {
+      vi.stubGlobal('fetch', async () => new Response('{}', { status: 404 }));
+      const t = make('server');
+      withRole(t);
+      await t.store.getState().runBacktest();
+      expect(t.store.getState().btResult).toBeNull();
+      expect(t.toasts.at(-1)).toMatch(/Backtest failed: .*"L" is no longer stored/);
+    });
   });
 
   it('Auto: the finish message names the place and carries (Auto), or says the benchmark is missing', async () => {

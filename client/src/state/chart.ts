@@ -20,6 +20,7 @@ import type { MonteCarloOptions, MonteCarloResult } from '../lib/backtest/monteC
 import { DEFAULT_MONTE_CARLO } from '../lib/backtest/monteCarlo';
 import { exitContext, hasAnyStop, R_NEEDS_STOP, rTargetNeedsStop } from '../lib/backtest/exits';
 import { getStrategy } from '../lib/backtest/strategies';
+import { rolesInUse } from '../lib/backtest/pineRole';
 import type { OptimizeRunContext } from '../lib/backtest/optimizerCsv';
 import { spanOf, splitBars, validationProblem, type ValidationOutput } from '../lib/backtest/validation';
 import { walkForwardWindows, type WalkForwardOutput } from '../lib/backtest/walkForward';
@@ -342,6 +343,38 @@ function exitsProblem(c: BacktestConfig): string | null {
   if (riskNeedsStop(c)) return RISK_NEEDS_STOP;
   if (c.strategyId !== 'pine' && rTargetNeedsStop(c)) return R_NEEDS_STOP;
   return null;
+}
+
+/**
+ * The run request's config: the saved settings plus, for each stored TradingView indicator the run reads, its source
+ * (fetched now, never saved). An indicator that is gone is left without a source and the run fails naming it.
+ */
+export async function withRoleSources(config: BacktestConfig): Promise<BacktestConfig> {
+  if (!config.pineRoles?.length) return config;
+  let used: string[];
+  try {
+    used = rolesInUse(config).map((r) => r.indicatorId);
+  } catch {
+    return config; // malformed roles fail in the run itself, with a plain message
+  }
+  const sources = new Map<string, string | null>();
+  await Promise.all(
+    [...new Set(used)].map(async (id) => {
+      const res = await fetch(`/api/pine/indicators/${encodeURIComponent(id)}`);
+      if (res.status === 404) return void sources.set(id, null);
+      if (!res.ok) throw new Error(`Could not load the stored TradingView indicator (${res.status})`);
+      const body = (await res.json()) as { source?: unknown };
+      sources.set(id, typeof body.source === 'string' ? body.source : null);
+    }),
+  );
+  return {
+    ...config,
+    pineRoles: config.pineRoles.map((r) => {
+      const { source: _drop, ...rest } = r;
+      const source = sources.get(r.indicatorId);
+      return source ? { ...rest, source } : rest;
+    }),
+  };
 }
 
 function withoutEmptyHideOn(spec: IndicatorSpec): IndicatorSpec {
@@ -1324,10 +1357,11 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
       try {
         const t0 = performance.now();
         let jobId: string | null = null;
+        const config = { ...(btConfig.pineRoles?.length ? await withRoleSources(btConfig) : btConfig), market: pineMarket() };
         const job = runJob(
           env.jobPlace(),
           id0,
-          { type: 'run', candles, config: { ...btConfig, market: pineMarket() } },
+          { type: 'run', candles, config },
           (pct, stage) => set({ btProgress: pct, btStage: stage ?? null }),
           {
             record: { symbol: get().symbol, timeframe: get().timeframe, strategyId: btConfig.strategyId },
@@ -1517,13 +1551,25 @@ export function createChartStore(id: string, initial: ChartInitial, env: ChartEn
         }));
         context.walkForward = { method: 'walk-forward', windows: v.windows, inSamplePct: v.inSamplePct, anchored: v.anchored, spans };
       }
+      let sent = btConfig;
+      if (btConfig.pineRoles?.length) {
+        // Only a run with indicator roles waits here, so every other run starts in the same tick as before.
+        try {
+          sent = await withRoleSources(btConfig);
+        } catch (err) {
+          abandon();
+          env.pushToast('error', `Optimizer failed: ${err instanceof Error ? err.message : String(err)}`);
+          return;
+        }
+      }
+      const config = { ...sent, market: pineMarket() };
       optRun?.cancel();
       set({ optRunning: true, optProgress: 0, optResult: null });
       const t0 = performance.now();
       const call = runOptimizerJob(
         env.jobPlace(),
         id0,
-        { type: 'optimize', candles, config: { ...btConfig, market: pineMarket() }, optimize: optConfig },
+        { type: 'optimize', candles, config, optimize: optConfig },
         (pct) => {
           if (optRun === run) set({ optProgress: pct });
         },

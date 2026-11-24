@@ -54,7 +54,8 @@ import { FavoritesBar } from './FavoritesBar';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { historyNeededFrom, resetLogicalRange, resetRangeKey } from '../lib/quickRange';
 import { HISTORY_PREFETCH_BARS } from '../lib/historyPaging';
-import { carriedView, isAssetSwitch, windowBars, type SeriesIdentity } from '../lib/carryView';
+import { barSeconds } from '../lib/backtest/higherTimeframe';
+import { carriedView, isAssetSwitch, logicalAtTime, windowBars, type SeriesIdentity } from '../lib/carryView';
 import { MIN_RANGE_BARS } from '../lib/timeRange';
 import { useChart, useChartStore } from '../state/chartContext';
 import { barTimeAt, drivesTime, publishCrosshair, publishTimeRange, sameTimeRange, setHovered, subscribe, type TimeRangeSync } from '../lib/layoutSync';
@@ -438,11 +439,14 @@ export function ChartPanel({
     if (stale()) return;
     const cs = chartStore.getState().candles;
     if (cs.length === 0) return;
-    const start = Math.max(from, cs[0].time);
     lastLeftEdgeRef.current = null; // moving to the carried window is not a scroll back: do not page for it
     try {
-      if (needFrom != null && windowBars(cs, start, to) < MIN_RANGE_BARS) chart.timeScale().fitContent();
-      else chart.timeScale().setVisibleRange({ from: start as UTCTimestamp, to: to as UTCTimestamp });
+      if (needFrom != null && windowBars(cs, from, to) < MIN_RANGE_BARS) chart.timeScale().fitContent();
+      else {
+        // By bar positions on the bars as they are now (paging shifted the indexes): empty space at either end is kept.
+        const bar = barSeconds(cs);
+        chart.timeScale().setVisibleLogicalRange({ from: logicalAtTime(cs, from, bar), to: logicalAtTime(cs, to, bar) });
+      }
     } catch {
       chart.timeScale().fitContent();
     }
@@ -497,8 +501,6 @@ export function ChartPanel({
     // The view of the series being replaced, read before setData: an asset switch on the same timeframe carries it over.
     const ts = chart.timeScale();
     const oldLogical = dataChanged ? ts.getVisibleLogicalRange() : null;
-    const oldTimes = dataChanged ? ts.getVisibleRange() : null;
-    const oldLength = prev?.length ?? 0;
     const st0 = chartStore.getState();
     const series: SeriesIdentity = {
       providerId: st0.providerId,
@@ -525,8 +527,8 @@ export function ChartPanel({
       lastLeftEdgeRef.current = null; // the fit below is not a scroll back: do not page for it
       carryingRef.current = false;
       const carried =
-        oldLogical && isAssetSwitch(lastSeriesRef.current, series)
-          ? carriedView({ logical: oldLogical, from: oldTimes ? Number(oldTimes.from) : null, to: oldTimes ? Number(oldTimes.to) : null, length: oldLength }, candles)
+        oldLogical && prev && isAssetSwitch(lastSeriesRef.current, series)
+          ? carriedView({ logical: oldLogical, candles: prev }, candles)
           : null;
       lastSeriesRef.current = series;
       if (carried?.kind === 'logical') {

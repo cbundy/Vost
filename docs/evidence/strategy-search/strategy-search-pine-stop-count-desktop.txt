@@ -1,0 +1,1 @@
+10 markets x 1 timeframe = 180 combinations; 80 TradingView script runs (limit 2,000)

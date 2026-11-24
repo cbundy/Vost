@@ -21,9 +21,17 @@ From left to right (on narrow screens the less used controls move into a **More*
 - **Live** is a dot that streams new candles and is on by default for markets that support it: green when live, amber while connecting or reconnecting, red on an error (click it to open the inbox) and grey when off. Hover it for the state in words. See [Charts](charts.md).
 - **Replay** starts bar replay. See [Bar replay](replay.md).
 - **Import CSV**. See [Data](data.md).
-- The **connection light**, the **Inbox** (messages and errors), the **Pine Editor** button, the **Alerts** bell and the **Settings** gear at the right end of the bar (see [The Settings popup](#the-settings-popup)). See [Charts](charts.md), [Pine Script](pine.md) and [Alerts](alerts.md).
+- The **connection light**, the **Inbox** (messages and errors), the **Pine Editor** button, the **Alerts** bell, the **Help** button (a question mark) and the **Settings** gear at the right end of the bar (see [The Settings popup](#the-settings-popup)). See [Charts](charts.md), [Pine Script](pine.md) and [Alerts](alerts.md). **Help** opens this guide (see [The manual](#the-manual)); on a phone-width screen it is in the **More** menu.
 
 ![The Chart data pop-up under the top bar](../evidence/topbar/topbar-data-open-desktop.png)
+
+## The manual
+
+The **Help** button (the question mark left of the Settings gear) opens the manual in a new tab at `/docs` on your own Vost server. It is this guide and the reference docs it links, with all the screenshots, built into the app, so it works with no internet connection, in Docker and with `npm start`, and it always matches the running version (the version shows in its header). A side list names every page and marks the current one, and **Back to Vost** returns to the chart. Links to files that are not part of the manual (the README, the licence) open on GitHub at the tag of your version.
+
+![The Help button in the top bar](../evidence/docs/docs-bar-desktop.png)
+
+![The manual's index page](../evidence/docs/docs-index-desktop.png)
 
 ## The Settings popup
 

@@ -3,6 +3,7 @@ import type { Reply, Request } from './protocol';
 import type { FindStage } from './run';
 import { fetchHistoryApi } from '../lib/providers/api';
 import { MAX_BARS } from '../../../shared/market.ts';
+import type { PineEnv } from '../lib/pine/runtime';
 import { runSweep } from './sweep/sweep';
 import { withDemo } from './sweep/demoLoad';
 import type { SweepLoad } from './sweep/types';
@@ -20,7 +21,8 @@ export const apiLoad: SweepLoad = withDemo((market, timeframe, signal) =>
   fetchHistoryApi(market.provider, { symbol: market.symbol, timeframe, bars: MAX_BARS }, signal),
 );
 
-export function createHost(post: (reply: Reply) => void, load: SweepLoad = apiLoad): Host {
+/** `env` is where the host runs TradingView indicators' libraries and other markets from; absent, the browser's defaults. */
+export function createHost(post: (reply: Reply) => void, load: SweepLoad = apiLoad, env?: PineEnv): Host {
   const runs = new Map<string, AbortController>();
   return {
     receive(msg) {
@@ -48,7 +50,7 @@ export function createHost(post: (reply: Reply) => void, load: SweepLoad = apiLo
         const id = msg.id;
         runSweep(msg.input, load, (progress) => {
           if (!ctl.signal.aborted) post({ v: 1, id, type: 'sweep-progress', progress });
-        }, ctl.signal)
+        }, ctl.signal, env)
           .then((result) => {
             if (ctl.signal.aborted) return;
             runs.delete(id);

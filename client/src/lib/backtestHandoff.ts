@@ -7,6 +7,7 @@ import { canonicalInterval, type Interval } from '../../../shared/market.ts';
 import type { BacktestConfig } from './backtest/types';
 import { ATR_TIMEFRAME_MULTIPLES } from './backtest/higherTimeframe';
 import { getStrategy, strategies, visibleParams } from './backtest/strategies';
+import { pineRoleWords, validatePineRoles, withoutSources, type PineRole } from './backtest/pineRole';
 import { providers } from './providers';
 
 export interface Handoff {
@@ -38,6 +39,8 @@ export interface Handoff {
   providerId?: string;
   symbol?: string;
   timeframe?: Interval;
+  /** Composed with TradingView indicators: their roles and input values, never their sources (the main app fetches those at run time). */
+  pineRoles?: PineRole[];
   /** The strategy maker's label for the data it was found on. */
   source: string;
 }
@@ -111,15 +114,16 @@ function handoffStrategy(id: unknown) {
 }
 
 /** For example `fast 8, slow 34, long only`, for a toast. */
-export function handoffSettingsText(h: Pick<Handoff, 'strategyId' | 'params'>): string {
+export function handoffSettingsText(h: Pick<Handoff, 'strategyId' | 'params'> & { pineRoles?: PineRole[] }): string {
   const specs = visibleParams(getStrategy(h.strategyId), h.params);
-  return specs
+  const roles = (h.pineRoles ?? []).map((r) => `TradingView ${r.role === 'filter' ? 'filter ' : ''}${pineRoleWords(r)}`);
+  return [...specs
     .filter((p) => p.key in h.params)
     .map((p) => {
       const v = h.params[p.key];
       const opt = p.type === 'select' ? p.options?.find((o) => o.value === v)?.label : undefined;
       return `${p.label.toLowerCase()} ${opt ? opt.toLowerCase() : v}`;
-    })
+    }), ...roles]
     .join(', ');
 }
 
@@ -155,6 +159,15 @@ export function parseHandoff(hash: string): Handoff | null {
   if (r.riskPct !== undefined && (!isNum(r.riskPct) || r.riskPct <= 0 || r.riskPct > 100)) return null;
   const exits = parseExits(r);
   if (!exits) return null;
+  // Roles that are malformed or over the limits are dropped whole: half a set of filters would run another strategy.
+  let pineRoles: PineRole[] | undefined;
+  if (r.pineRoles !== undefined) {
+    try {
+      pineRoles = withoutSources(validatePineRoles(r.pineRoles));
+    } catch {
+      pineRoles = undefined;
+    }
+  }
   const hasMarket = r.providerId !== undefined || r.symbol !== undefined || r.timeframe !== undefined;
   if (hasMarket) {
     if (typeof r.providerId !== 'string' || !providers.some((p) => p.id === r.providerId)) return null;
@@ -174,6 +187,7 @@ export function parseHandoff(hash: string): Handoff | null {
     positionSizePct,
     ...(r.riskPct !== undefined && { riskPct: r.riskPct as number }),
     ...exits,
+    ...(pineRoles?.length && { pineRoles }),
     ...(hasMarket && { providerId: r.providerId as string, symbol: r.symbol as string, timeframe: r.timeframe as Interval }),
     source: typeof r.source === 'string' ? r.source.slice(0, MAX_SOURCE) : '',
   };

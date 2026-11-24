@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Candle } from '../../types';
 import { generateDemoCandles } from '../providers/demo';
 import { runBacktest } from './engine';
-import { activeStop, exitContext, exitModeLabels, hasAnyStop, hitTest, levelsAtEntry, rTargetNeedsStop, readExitSettings, updateTrail } from './exits';
+import { activeStop, activeTarget, exitContext, exitModeLabels, hasAnyStop, hitTest, levelsAtEntry, rTargetNeedsStop, readExitSettings, updateTrail } from './exits';
 import { buildSignals } from './strategies';
 import { defaultBacktestConfig, type BacktestConfig, type Signal } from './types';
 
@@ -334,5 +334,70 @@ describe('ATR timeframe', () => {
     expect(exitContext(cfg({ ...atrExits, atrTimeframe: 4 })).exits?.atrTimeframe).toBe(4);
     expect(exitContext(cfg({ ...atrExits, atrTimeframe: 1 })).exits).not.toHaveProperty('atrTimeframe');
     expect(exitContext(cfg({ stopLossPct: 2, atrTimeframe: 4 }))).toEqual({});
+  });
+});
+
+describe('TradingView indicator stop and target in the exit helpers', () => {
+  const settings = readExitSettings(cfg({ stopLossPct: 5, takeProfitPct: 10 }));
+  const withPlot = (stop: number | null, target: number | null, s = settings) => levelsAtEntry(s, 1, 100, null, { hasStop: true, stop, target })!;
+
+  it('the plot stop competes with the fixed stop and the trail: the tightest wins, reason stop_loss', () => {
+    expect(activeStop(1, withPlot(97, null))).toEqual({ price: 97, reason: 'stop_loss' });
+    expect(activeStop(1, withPlot(90, null))).toEqual({ price: 95, reason: 'stop_loss' });
+    const trailing = readExitSettings(cfg({ trailMode: 'pct', trailPct: 2 }));
+    expect(activeStop(1, withPlot(99, null, trailing))).toEqual({ price: 99, reason: 'stop_loss' });
+    expect(activeStop(1, withPlot(97, null, trailing))).toEqual({ price: 98, reason: 'trailing_stop' });
+    const short = levelsAtEntry(settings, -1, 100, null, { hasStop: true, stop: 103, target: null })!;
+    expect(activeStop(-1, short)).toEqual({ price: 103, reason: 'stop_loss' });
+  });
+
+  it('the plot target wins when nearer than the fixed target', () => {
+    expect(activeTarget(1, withPlot(97, 104))).toBe(104);
+    expect(activeTarget(1, withPlot(97, 120))).toBeCloseTo(110, 9);
+    expect(hitTest(1, withPlot(97, 104), { open: 100, high: 105, low: 99 })).toEqual({ price: 104, reason: 'take_profit' });
+  });
+
+  it('stop before target on one bar; a gap through fills at the open', () => {
+    expect(hitTest(1, withPlot(97, 104), { open: 100, high: 105, low: 96 })).toEqual({ price: 97, reason: 'stop_loss' });
+    expect(hitTest(1, withPlot(97, 104), { open: 95, high: 96, low: 94 })).toEqual({ price: 95, reason: 'stop_loss' });
+    expect(hitTest(1, withPlot(97, 104), { open: 106, high: 107, low: 105 })).toEqual({ price: 106, reason: 'take_profit' });
+  });
+
+  it('an indicator stop with no usable level opens no trade; a target without one does not matter', () => {
+    expect(levelsAtEntry(settings, 1, 100, null, { hasStop: true, stop: null, target: null })).toBeNull();
+    expect(levelsAtEntry(settings, 1, 100, null, { hasStop: false, stop: null, target: null })).not.toBeNull();
+  });
+
+  it('the plot stop distance sizes the risk and the R target', () => {
+    const r = readExitSettings(cfg({ takeProfitMode: 'r', takeProfitR: 2, takeProfitPct: null }));
+    const lv = levelsAtEntry(r, 1, 100, null, { hasStop: true, stop: 96, target: null })!;
+    expect(lv.stopFrac).toBeCloseTo(0.04, 12);
+    expect(lv.target).toBe(108);
+  });
+
+  it('hasAnyStop and rTargetNeedsStop count a stop role in use', () => {
+    const role = { indicatorId: 'x', name: 'Supertrend', inputs: {}, role: 'stop', mode: 'trailing', rule: { type: 'level', plot: 'Line' } } as const;
+    const c = cfg({ strategyId: 'composed', takeProfitMode: 'r', takeProfitR: 2, takeProfitPct: null });
+    expect(hasAnyStop(c)).toBe(false);
+    expect(rTargetNeedsStop(c)).toBe(true);
+    expect(hasAnyStop({ ...c, pineRoles: [role] })).toBe(true);
+    expect(rTargetNeedsStop({ ...c, pineRoles: [role] })).toBe(false);
+    expect(hasAnyStop({ ...c, strategyId: 'sma_cross', pineRoles: [role] })).toBe(false);
+  });
+
+  it('labels and the optimizer context name the indicator stop and target', () => {
+    const c = cfg({
+      strategyId: 'composed',
+      pineRoles: [
+        { indicatorId: 'x', name: 'Supertrend', inputs: {}, role: 'stop', mode: 'trailing', rule: { type: 'level', plot: 'Line' } },
+        { indicatorId: 'y', name: 'Pivots', inputs: {}, role: 'target', rule: { type: 'level', plot: 'R1' } },
+      ],
+    });
+    expect(exitModeLabels(c)).toMatchObject({ indicatorStop: 'Trail Supertrend Line', indicatorTarget: 'TP Pivots R1' });
+    const fixed = { ...c, pineRoles: [{ ...c.pineRoles![0], mode: 'at-entry' as const }] };
+    expect(exitModeLabels(fixed).indicatorStop).toBe('SL Supertrend Line');
+    expect(exitContext(c)).toEqual({ exits: { indicatorStop: 'Supertrend Line, trailing', indicatorTarget: 'Pivots R1' } });
+    expect(exitContext(fixed)).toEqual({ exits: { indicatorStop: 'Supertrend Line, fixed at entry' } });
+    expect(exitModeLabels(cfg({ stopLossPct: 2 }))).not.toHaveProperty('indicatorStop');
   });
 });

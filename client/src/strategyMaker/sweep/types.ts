@@ -2,6 +2,7 @@
 import type { Interval } from '../../../../shared/market.ts';
 import type { BacktestConfig } from '../../lib/backtest/types';
 import type { SweepParam } from '../../lib/backtest/optimizer';
+import type { PineRole } from '../../lib/backtest/pineRole';
 import type { Candle } from '../../types';
 import type { CandidateStats, Gap, SearchDirection, Targets } from '../engine/types';
 
@@ -13,8 +14,8 @@ export interface SweepMarket {
   symbol: string;
 }
 
-/** How an exit is placed: a stop sized by the typical bar range, by the ATR, or an ATR trailing stop. */
-export type ExitKind = 'range' | 'atr' | 'atr_trail';
+/** How an exit is placed: a stop sized by the typical bar range, by the ATR, an ATR trailing stop, or a TradingView indicator's plot (Composed only). */
+export type ExitKind = 'range' | 'atr' | 'atr_trail' | 'pine';
 
 /** Stops are `stopMults` times the typical bar range (percent of close) or the ATR; take profits are `tpMults` times the stop. */
 export interface ExitGrid {
@@ -22,6 +23,8 @@ export interface ExitGrid {
   tpMults: number[];
   /** The kinds to try; absent or empty reads as `['range']`. */
   kinds?: ExitKind[];
+  /** The stop of the `'pine'` kind: one stop role (fixed inputs, a level plot, at entry or trailing). Ignored without that kind. */
+  pineStop?: Omit<PineRole, 'source'>;
 }
 
 /** One exit the search tries, with the backtest settings it sets. */
@@ -29,6 +32,8 @@ export interface SweepExit {
   kind: ExitKind;
   stopMult: number;
   tpMult: number;
+  /** The `'pine'` kind: the stop role, with no source. */
+  pineStop?: Omit<PineRole, 'source'>;
   config: Partial<BacktestConfig>;
 }
 
@@ -46,6 +51,28 @@ export interface SweepComposed {
   filters: Array<'trend' | 'volume' | 'atr' | 'adx'>;
   /** Multiples of the loaded bars for the trend filter; 1 is always tried. */
   trendTfs: number[];
+  /** Stored TradingView indicators tried as an entry rule (7) or as a filter. Absent reads as none. */
+  pine?: SweepPineRole[];
+  /** The indicators' sources by `indicatorId`, attached to a request when Run is pressed. Never in a result, a record or a link. */
+  pineSources?: Record<string, string>;
+}
+
+/** A number input of an indicator stepped over a range. `min` and `max` are the input's own bounds, when it has them. */
+export interface SweepPineRange {
+  input: string;
+  from: number;
+  to: number;
+  step: number;
+  min?: number;
+  max?: number;
+  /** The input is an integer: the range must be whole numbers. */
+  int?: boolean;
+}
+
+/** One stored indicator as an entry rule or a filter, with the number inputs to search. */
+export interface SweepPineRole {
+  role: Omit<PineRole, 'source'>;
+  ranges: SweepPineRange[];
 }
 
 /** What the unseen part must also beat: nothing, buy and hold's return, or its return over drawdown. */
@@ -101,6 +128,8 @@ export interface SweepCandidate {
   /** Index into `targetSets` of the set it met. */
   setIndex: number;
   held: boolean;
+  /** The TradingView indicator roles of a Composed setting, with their input values and no source. Absent in an older result. */
+  pineRoles?: PineRole[];
   selection: PartFigures;
   heldOut: PartFigures;
 }
@@ -116,6 +145,7 @@ export interface ClosestCandidate {
   /** The nearest set and the gaps of the selection figures against it. */
   setIndex: number;
   gaps: Gap[];
+  pineRoles?: PineRole[];
   selection: PartFigures;
 }
 

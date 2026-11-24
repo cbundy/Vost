@@ -7,6 +7,8 @@ import type { BacktestConfig } from '../lib/backtest/types';
 import { DEFAULT_ATR_LENGTH, readExitSettings } from '../lib/backtest/exits';
 import { ATR_TIMEFRAME_MULTIPLES } from '../lib/backtest/higherTimeframe';
 import { PineInputList } from './PineInputControl';
+import { PineRolePicker } from './PineRolePicker';
+import { ENTRY_RULE_PINE } from '../lib/backtest/pineRole';
 import { getStrategy, strategies, visibleParams } from '../lib/backtest/strategies';
 import { BacktestProgress } from './BacktestProgress';
 import { PineConvert } from './PineConvert';
@@ -142,6 +144,15 @@ export function BacktestTab() {
               />
             </label>
           ),
+        )}
+
+        {strategy.id === 'composed' && (
+          <PineRolePicker
+            roles={btConfig.pineRoles ?? []}
+            entryIsPine={Math.round(Number(btConfig.params.entryRule)) === ENTRY_RULE_PINE}
+            candles={candles}
+            onChange={(pineRoles) => setBtConfig({ pineRoles })}
+          />
         )}
 
         <label className="form-field">

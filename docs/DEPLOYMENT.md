@@ -166,7 +166,7 @@ With **Server** (or **Auto**, when it picks the server) under Settings, Heavy jo
 
 ## Behind a sub-path
 
-The client calls `/api/...` with absolute paths, so it assumes it's served from the domain root. The simplest reliable setup for `https://example.com/charts/` is to keep Vost at the root, or mount it on a dedicated subdomain (`charts.example.com`) and use the nginx block above. Sub-path mounting is possible with a prefix-stripping proxy but is not a tested configuration yet.
+The client calls `/api/...` with absolute paths, so it assumes it's served from the domain root. The built-in manual (the user guide, opened by the Help button) is served the same way, at `/docs` from the domain root. The simplest reliable setup for `https://example.com/charts/` is to keep Vost at the root, or mount it on a dedicated subdomain (`charts.example.com`) and use the nginx block above. Sub-path mounting is possible with a prefix-stripping proxy but is not a tested configuration yet.
 
 ## Static-only hosting (not supported)
 

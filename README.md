@@ -14,7 +14,7 @@ Pull free public market data, import your own CSV files, chart them with [lightw
 
 </div>
 
-**New to Vost? Read the [user guide](docs/guide/README.md)** - one page per feature, with screenshots.
+**New to Vost? Read the [user guide](docs/guide/README.md)** - one page per feature, with screenshots. It is also built into the app: the **Help** button in the top bar opens it at `/docs`, with no internet connection needed.
 
 ---
 
