@@ -8,6 +8,9 @@ server/dist
 *.log
 coverage
 docs
+!docs/guide
+!docs/evidence
+!docs/*.md
 examples
 README.md
 CONTRIBUTING.md

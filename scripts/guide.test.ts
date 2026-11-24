@@ -6,6 +6,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { anchorsOf, slugify, stripFences } from './guide-anchors.ts';
 
 const ROOT = path.resolve(__dirname, '..');
 const GUIDE_DIR = 'docs/guide';
@@ -30,51 +31,6 @@ function diskTree(): Tree {
     exists: (p) => existsSync(path.join(ROOT, p)),
     read: (p) => (existsSync(path.join(ROOT, p)) ? readFileSync(path.join(ROOT, p), 'utf8') : undefined),
   };
-}
-
-/** The markdown with fenced code blocks blanked out, so links and headings inside them are ignored. */
-function stripFences(md: string): string {
-  let fence: string | null = null;
-  return md
-    .split('\n')
-    .map((line) => {
-      const m = /^\s*(`{3,}|~{3,})/.exec(line);
-      if (m) {
-        if (fence === null) fence = m[1][0];
-        else if (m[1][0] === fence) fence = null;
-        return '';
-      }
-      return fence === null ? line : '';
-    })
-    .join('\n');
-}
-
-/** GitHub's heading slug: inline markup dropped, lower-case, punctuation dropped, spaces to hyphens. */
-export function slugify(heading: string): string {
-  return heading
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[`*~]/g, '')
-    .replace(/(^|[^\p{L}\p{N}_])_+([^_]+?)_+(?![\p{L}\p{N}_])/gu, '$1$2')
-    .replace(/<[^>]+>/g, '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]/gu, '')
-    .replace(/ /g, '-');
-}
-
-/** The anchors a page offers: one per heading, a repeated heading gets -1, -2, ... like GitHub. */
-export function anchorsOf(md: string): Set<string> {
-  const seen = new Map<string, number>();
-  const out = new Set<string>();
-  for (const line of stripFences(md).split('\n')) {
-    const m = /^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
-    if (!m) continue;
-    const base = slugify(m[1]);
-    const n = seen.get(base) ?? 0;
-    seen.set(base, n + 1);
-    out.add(n === 0 ? base : `${base}-${n}`);
-  }
-  return out;
 }
 
 export interface MdLink {

@@ -29,3 +29,14 @@ describe('core dump ignore rules', () => {
     expect(lines).toContain('core.[0-9]*');
   });
 });
+
+describe('manual build context', () => {
+  const lines = readFileSync(new URL('.dockerignore', root), 'utf8').split('\n');
+  it('.dockerignore keeps the guide, its screenshots and the reference docs the manual is built from', () => {
+    const at = (l: string) => lines.indexOf(l);
+    expect(at('docs')).toBeGreaterThanOrEqual(0);
+    for (const keep of ['!docs/guide', '!docs/evidence', '!docs/*.md']) {
+      expect(at(keep), keep).toBeGreaterThan(at('docs'));
+    }
+  });
+});

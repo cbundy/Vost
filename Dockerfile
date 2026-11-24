@@ -12,6 +12,8 @@ RUN npm ci
 COPY client ./client
 COPY shared ./shared
 COPY server ./server
+# The manual served at /docs is built from the guide, its screenshots and the reference docs it links.
+COPY docs ./docs
 RUN npm run build
 
 # ---------- runtime stage: zero-dependency server + built assets ----------

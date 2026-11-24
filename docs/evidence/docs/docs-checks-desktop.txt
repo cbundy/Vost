@@ -1,0 +1,125 @@
+ok   href is /docs/
+ok   opens in a new page
+ok   title names the offline manual
+ok   immediately left of the Settings gear (1366,1402)
+ok   the page does not scroll sideways
+ok   the url is /docs/
+ok   the header shows the version
+ok   the side navigation lists the guide and the reference (23)
+ok   the current page is marked
+ok   every img has naturalWidth > 0
+ok   the page has pictures (7)
+ok   the manual section on Help is there
+ok   the top bar list links to #the-settings-popup
+ok   the heading is at the top of the page (64.078125)
+ok   every img has naturalWidth > 0
+ok   the page has pictures (48)
+ok   <metric> is shown as text
+ok   the reference page has a heading
+ok   the chart is back
+ok   no request to another origin
+ok   the manual made requests (61)
+
+requests (102):
+http://127.0.0.1:41853/
+http://127.0.0.1:41853/assets/index-Ci6uAY_L.js
+http://127.0.0.1:41853/assets/index-BIPevSHc.css
+http://127.0.0.1:41853/api/settings
+http://127.0.0.1:41853/api/status
+http://127.0.0.1:41853/api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
+http://127.0.0.1:41853/api/settings/savedLayouts.v1
+http://127.0.0.1:41853/api/alerts/events
+http://127.0.0.1:41853/api/images
+http://127.0.0.1:41853/api/images
+http://127.0.0.1:41853/api/alerts
+http://127.0.0.1:41853/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=coinbase&symbol=BTC-USD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=coinbase&symbol=ETH-USD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=coinbase&symbol=SOL-USD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=coinbase&symbol=XRP-USD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=coinbase&symbol=DOGE-USD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=kraken&symbol=XBTUSD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=kraken&symbol=ETHUSD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=kraken&symbol=SOLUSD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=kraken&symbol=XRPUSD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=kraken&symbol=XDGUSD&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=bybit&symbol=BTCUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=bybit&symbol=ETHUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/docs/
+http://127.0.0.1:41853/docs/getting-started.html
+http://127.0.0.1:41853/docs/img/chart/chart-desktop.png
+http://127.0.0.1:41853/docs/img/topbar/topbar-data-open-desktop.png
+http://127.0.0.1:41853/docs/img/settings/settings-open-desktop.png
+http://127.0.0.1:41853/docs/img/settings/settings-pine-finished-desktop.png
+http://127.0.0.1:41853/docs/img/settings/settings-heavy-jobs-server-desktop.png
+http://127.0.0.1:41853/docs/img/benchmark/benchmark-auto-desktop.png
+http://127.0.0.1:41853/docs/img/responsive/responsive-360x740-desktop.png
+http://127.0.0.1:41853/docs/backtesting.html
+http://127.0.0.1:41853/docs/img/bt-range/bt-range-range-desktop.png
+http://127.0.0.1:41853/docs/img/pine-pane/pine-pane-inputs-desktop.png
+http://127.0.0.1:41853/docs/img/bt-progress/bt-progress-backtest-tab-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-exits-setting-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-exits-badges-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-exits-trades-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-composed-settings-desktop.png
+http://127.0.0.1:41853/docs/img/bt-pine-role/bt-pine-role-picker-desktop.png
+http://127.0.0.1:41853/docs/img/bt-pine-role/bt-pine-role-results-desktop.png
+http://127.0.0.1:41853/docs/img/bt-pine-role/bt-pine-role-stop-picker-desktop.png
+http://127.0.0.1:41853/docs/img/bt-pine-role/bt-pine-role-stop-results-desktop.png
+http://127.0.0.1:41853/docs/img/bt-pine-role/bt-pine-role-stop-trades-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-risk-setting-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-risk-results-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-risk-refused-desktop.png
+http://127.0.0.1:41853/docs/img/server-jobs/server-jobs-backtest-desktop.png
+http://127.0.0.1:41853/docs/img/benchmark/benchmark-running-desktop.png
+http://127.0.0.1:41853/docs/img/benchmark/benchmark-results-desktop.png
+http://127.0.0.1:41853/docs/img/benchmark/benchmark-finished-server-desktop.png
+http://127.0.0.1:41853/docs/img/server-jobs/server-jobs-running-desktop.png
+http://127.0.0.1:41853/docs/img/server-jobs/server-jobs-reloaded-desktop.png
+http://127.0.0.1:41853/docs/img/server-jobs/server-jobs-result-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-metric-grid-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-equity-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-composed-filters-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-tip-card-desktop.png
+http://127.0.0.1:41853/docs/img/bt-results/bt-results-breakdown-desktop.png
+http://127.0.0.1:41853/docs/img/monte-carlo/monte-carlo-shuffle-desktop.png
+http://127.0.0.1:41853/docs/img/monte-carlo/monte-carlo-histogram-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-slow-sweep-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-results-sorted-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-over-limit-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-three-parameters-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-cancel-visible-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-split-settings-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-held-out-check-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-split-invalid-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-walk-forward-settings-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-walk-forward-results-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-walk-forward-anchored-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-walk-forward-refused-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-robustness-settings-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-robustness-results-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-robustness-heatmap-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-monte-carlo-settings-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-monte-carlo-results-desktop.png
+http://127.0.0.1:41853/docs/img/optimizer/optimizer-monte-carlo-sorted-desktop.png
+http://127.0.0.1:41853/docs/data.html
+http://127.0.0.1:41853/docs/img/chart-history/chart-history-zoomed-out-desktop.png
+http://127.0.0.1:41853/docs/img/chart/chart-desktop.png
+http://127.0.0.1:41853/docs/ref/DATA-SOURCES.html
+http://127.0.0.1:41853/
+http://127.0.0.1:41853/assets/index-Ci6uAY_L.js
+http://127.0.0.1:41853/assets/index-BIPevSHc.css
+http://127.0.0.1:41853/api/settings
+http://127.0.0.1:41853/api/status
+http://127.0.0.1:41853/api/history?provider=binance&symbol=BTCUSDT&timeframe=1d&bars=260
+http://127.0.0.1:41853/api/alerts/events
+http://127.0.0.1:41853/api/images
+http://127.0.0.1:41853/api/images
+http://127.0.0.1:41853/api/alerts
+http://127.0.0.1:41853/api/history?provider=binance&symbol=ETHUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=binance&symbol=SOLUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=binance&symbol=BNBUSDT&timeframe=1d&bars=5
+http://127.0.0.1:41853/api/history?provider=binance&symbol=XRPUSDT&timeframe=1d&bars=5

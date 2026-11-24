@@ -26,6 +26,11 @@ export default defineConfig({
         target: process.env.VOST_SERVER_URL ?? 'http://localhost:8787',
         changeOrigin: true,
       },
+      // The built-in manual (npm run build writes it to client/dist/docs, which the API server serves).
+      '/docs': {
+        target: process.env.VOST_SERVER_URL ?? 'http://localhost:8787',
+        changeOrigin: true,
+      },
     },
   },
   test: {

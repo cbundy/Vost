@@ -12,7 +12,7 @@ import type { BeatBuyHold, ExitKind, SweepInput, SweepMarket, SweepPineRole, Tar
 /** Timeframes both the Binance and the Yahoo provider serve. */
 export const SWEEP_TIMEFRAMES: Interval[] = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 /** Where the study behind these notes is explained. */
-export const SEARCH_GUIDE_URL = 'https://github.com/cbundy/Vost/blob/main/docs/guide/strategy-maker.md#searching-many-markets';
+export const SEARCH_GUIDE_URL = '/docs/strategy-maker.html#searching-many-markets';
 /** A note on a timeframe the study found empty. It stays pickable. */
 export const SWEEP_TIMEFRAME_NOTES: Partial<Record<Interval, string>> = Object.fromEntries(
   (['1m', '5m', '15m', '30m'] as Interval[]).map((tf) => [tf, 'nothing met a target on these bars in the study']),

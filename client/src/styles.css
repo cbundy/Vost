@@ -2826,10 +2826,38 @@ a:hover {
   justify-content: center;
 }
 
+/* The Help link looks like the ghost icon buttons around it (Settings gear, Alerts bell). */
+.topbar a.help-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  color: var(--muted);
+  line-height: 1;
+}
+.topbar a.help-link:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+.topbar a.help-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+
 /* On a 360px phone the Settings gear needs the icon buttons 4px narrower to keep the row inside the screen. */
 @media (max-width: 420px) {
   .topbar button.icon,
   .topbar-more > button {
+    width: 24px;
+  }
+  .topbar a.help-link {
     width: 24px;
   }
 }

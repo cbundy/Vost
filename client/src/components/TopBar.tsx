@@ -10,7 +10,7 @@ import { unreadCount } from '../lib/messages';
 import { useAlerts } from '../state/alerts';
 import { useStore } from '../state/store';
 import { ChartRangeControl } from './ChartRangeControl';
-import { BellIcon, GearIcon, InboxIcon, RedoIcon, ReplayIcon, StarIcon, UndoIcon, UploadIcon } from './Icons';
+import { BellIcon, GearIcon, HelpIcon, InboxIcon, RedoIcon, ReplayIcon, StarIcon, UndoIcon, UploadIcon } from './Icons';
 import { ConnectionStatus } from './ConnectionStatus';
 import { LayoutDialogs } from './LayoutDialogs';
 import { LayoutMenu } from './LayoutMenu';
@@ -143,6 +143,13 @@ export function TopBar({
     </a>
   );
 
+  const helpTitle = 'Help: the Vost manual, built in and working offline';
+  const helpLink = (
+    <a className="help-link" href="/docs/" target="_blank" rel="noopener" title={helpTitle} aria-label="Help">
+      <HelpIcon />
+    </a>
+  );
+
   return (
     <header className="topbar">
       <LayoutPicker />
@@ -265,10 +272,19 @@ export function TopBar({
                 )}
                 <div className="more-row">{importButton(close)}</div>
                 <div className="more-row">{githubLink}</div>
+                {tier === 'tiny' && (
+                  <div className="more-row">
+                    <a className="help-more" href="/docs/" target="_blank" rel="noopener" title={helpTitle} aria-label="Help">
+                      <HelpIcon />
+                      Help
+                    </a>
+                  </div>
+                )}
               </>
             )}
           </TopBarMore>
         )}
+        {tier !== 'tiny' && helpLink}
         <button className="ghost icon inbox-btn" onClick={() => setSettingsOpen(true)} title="Vost settings" aria-label="Settings">
           <GearIcon />
         </button>
