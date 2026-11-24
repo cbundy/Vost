@@ -128,6 +128,12 @@ Then append it to the `strategies` array. Rules:
 - Prettier-ish formatting: 2-space indent, single quotes, ~120 col width. Match the surrounding code.
 - Comments explain *why*, not *what*.
 
+## Cryptography
+
+- Security-relevant crypto (hashes for integrity or identity, random ids, signing, encryption) always uses `node:crypto`, WebCrypto or a well-known maintained package. Never write our own.
+- Checksums and the like also come from built-ins (for example `node:zlib` `crc32`).
+- The seeded generator (`client/src/lib/random.ts`) and the FNV-1a hashes are deliberately small, make output repeatable, and must never be used for security.
+
 ## Commit & PR flow
 
 1. Fork, branch (`feat/drawing-tools`, `fix/csv-day-first`).
