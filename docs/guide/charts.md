@@ -103,7 +103,7 @@ In the chart toolbar, **Screenshot (PNG)** saves the chart as an image and **Exp
 
 ## Switching symbol
 
-Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at (a chart following the latest bar keeps following the new symbol's latest bar), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, opens the chart on the timeframe's window (a chart limited by the Range picker shows its whole range).
+Switching to another symbol on the same timeframe keeps the dates and zoom you were looking at, including any empty space you had scrolled past the last bar (a chart following the latest bar keeps following the new symbol's latest bar, with the same gap on the right), and older bars load if the window needs them. Changing the timeframe, or opening a dataset, opens the chart on the timeframe's window (a chart limited by the Range picker shows its whole range).
 
 ![The same dates after switching symbol](../evidence/symbol-view/symbol-view-back-after-desktop.png)
 
