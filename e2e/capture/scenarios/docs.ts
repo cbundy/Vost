@@ -3,7 +3,7 @@ import type { Scenario } from '../scenario.ts';
 
 export const docs: Scenario = {
   name: 'docs',
-  description: 'The Help button in the top bar (in More on a narrow screen) opens the built-in manual at /docs in a new page: the index, Getting started and Backtesting with their screenshots, an in-guide anchor link, Back to Vost, and no request leaves the server',
+  description: 'F1 or the Help button in the top bar (in More on a narrow screen) opens the built-in manual at /docs in a new page: the index, Getting started and Backtesting with their screenshots, an in-guide anchor link, Back to Vost, and no request leaves the server',
   viewports: ['desktop', 'narrow'],
   async run(ctx) {
     const { page, viewport } = ctx;
@@ -31,6 +31,7 @@ export const docs: Scenario = {
       check('href is /docs/', (await help.getAttribute('href')) === '/docs/');
       check('opens in a new page', (await help.getAttribute('target')) === '_blank' && /noopener/.test((await help.getAttribute('rel')) ?? ''));
       check('title names the offline manual', /offline/.test((await help.getAttribute('title')) ?? ''));
+      check('title names F1', /F1/.test((await help.getAttribute('title')) ?? ''));
       if (!narrow) {
         const gear = await page.getByRole('button', { name: 'Settings', exact: true }).boundingBox();
         const link = await help.boundingBox();
@@ -48,6 +49,20 @@ export const docs: Scenario = {
       return popup;
     });
     if (narrow) await page.keyboard.press('Escape');
+
+    await ctx.step('F1 opens the manual from the chart, also from a text field', async () => {
+      const [viaKey] = await Promise.all([page.context().waitForEvent('page'), page.keyboard.press('F1')]);
+      await viaKey.waitForLoadState();
+      check('F1 opens /docs/', new URL(viaKey.url()).pathname === '/docs/');
+      await viaKey.close();
+      const field = page.locator('input[type=text], input:not([type])').first();
+      await field.focus();
+      const [viaField] = await Promise.all([page.context().waitForEvent('page'), page.keyboard.press('F1')]);
+      await viaField.waitForLoadState();
+      check('F1 in a text field opens /docs/', new URL(viaField.url()).pathname === '/docs/');
+      await viaField.close();
+      await field.blur();
+    });
 
     await ctx.step('the index lists every page and screenshots load', async () => {
       const links = await manual.locator('nav.doc-nav a').count();

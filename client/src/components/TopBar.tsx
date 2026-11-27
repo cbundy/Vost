@@ -1,4 +1,5 @@
 import { useState, type Ref } from 'react';
+import { MANUAL_URL } from '../lib/helpKey';
 import { APP_VERSION, PROVIDER_GITHUB_URL } from '../lib/constants';
 import { liveIndicator } from '../lib/liveIndicator';
 import { topbarTier } from '../lib/paneSizes';
@@ -143,9 +144,9 @@ export function TopBar({
     </a>
   );
 
-  const helpTitle = 'Help: the Vost manual, built in and working offline';
+  const helpTitle = 'Help: the Vost manual, built in and working offline (F1)';
   const helpLink = (
-    <a className="help-link" href="/docs/" target="_blank" rel="noopener" title={helpTitle} aria-label="Help">
+    <a className="help-link" href={MANUAL_URL} target="_blank" rel="noopener" title={helpTitle} aria-label="Help">
       <HelpIcon />
     </a>
   );
@@ -274,7 +275,7 @@ export function TopBar({
                 <div className="more-row">{githubLink}</div>
                 {tier === 'tiny' && (
                   <div className="more-row">
-                    <a className="help-more" href="/docs/" target="_blank" rel="noopener" title={helpTitle} aria-label="Help">
+                    <a className="help-more" href={MANUAL_URL} target="_blank" rel="noopener" title={helpTitle} aria-label="Help">
                       <HelpIcon />
                       Help
                     </a>
