@@ -2,6 +2,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useSta
 import { PineEditor } from './PineEditor';
 import { PANE_LABELS, describeCompare, loadCompareState, saveCompareState, savedPineScripts, type CompareState } from '../lib/pine/compare';
 import { debounce, flushStorage } from '../lib/storage';
+import { useHelpKey } from '../lib/helpKey';
 
 type Texts = CompareState['texts'];
 
@@ -97,6 +98,7 @@ const Pane = memo(function Pane({
 });
 
 export default function ComparePage() {
+  useHelpKey();
   const [state, setState] = useState<CompareState>(loadCompareState);
   const save = useMemo(() => debounce((s: CompareState) => void saveCompareState(s), 250), []);
 

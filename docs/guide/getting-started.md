@@ -27,7 +27,7 @@ From left to right (on narrow screens the less used controls move into a **More*
 
 ## The manual
 
-The **Help** button (the question mark left of the Settings gear) opens the manual in a new tab at `/docs` on your own Vost server. It is this guide and the reference docs it links, with all the screenshots, built into the app, so it works with no internet connection, in Docker and with `npm start`, and it always matches the running version (the version shows in its header). A side list names every page and marks the current one, and **Back to Vost** returns to the chart. Links to files that are not part of the manual (the README, the licence) open on GitHub at the tag of your version.
+The **Help** button (the question mark left of the Settings gear) opens the manual in a new tab at `/docs` on your own Vost server. It is this guide and the reference docs it links, with all the screenshots, built into the app, so it works with no internet connection, in Docker and with `npm start`, and it always matches the running version (the version shows in its header). A side list names every page and marks the current one, and **Back to Vost** returns to the chart. Press **F1** on any Vost page (the chart, the compare page or the strategy maker) to open the same manual in a new tab, even while typing in a field or with a dialog open. Links to files that are not part of the manual (the README, the licence) open on GitHub at the tag of your version.
 
 ![The Help button in the top bar](../evidence/docs/docs-bar-desktop.png)
 

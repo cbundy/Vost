@@ -33,6 +33,7 @@ import { sourceLabel } from './run';
 import { useFind } from './useFind';
 import { SweepPanel } from './SweepPanel';
 import { loadFromCsv, loadFromDataset, loadFromProvider, readLibrary, PROVIDER_BARS, type Loaded } from './data';
+import { useHelpKey } from '../lib/helpKey';
 import './strategyMaker.css';
 
 const SAVE_DELAY_MS = 400;
@@ -52,6 +53,7 @@ const isTyping = (t: EventTarget | null): boolean => {
 };
 
 export default function StrategyMakerPage() {
+  useHelpKey();
   const [providerId, setProviderId] = useState(providers[0].id);
   const provider = getProvider(providerId);
   const [symbol, setSymbol] = useState(provider.defaultSymbol);

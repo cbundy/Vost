@@ -15,11 +15,13 @@ import { DRAWER_QUERY, PINE_DEFAULT, SIDEBAR_DEFAULT, clamp, pineLimits, sidebar
 import { useMediaQuery } from './lib/useMediaQuery';
 import { takeBacktestHandoff } from './lib/backtestHandoff';
 import { useViewportSize } from './lib/useViewportSize';
+import { useHelpKey } from './lib/helpKey';
 import { useAlerts } from './state/alerts';
 import { useStore } from './state/store';
 import { ChartStoreProvider } from './state/chartContext';
 
 export default function App() {
+  useHelpKey();
   const chart = useStore((s) => s.charts[s.activeChartId]);
   const init = useStore((s) => s.init);
   const [csvOpen, setCsvOpen] = useState(false);
